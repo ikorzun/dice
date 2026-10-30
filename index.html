@@ -18,6 +18,11 @@
     <div class="stat target"><span class="label">TARGET</span><span class="value" id="target">12</span></div>
   </header>
   <div class="preview" id="preview" aria-live="polite"></div>
+  <div class="coach" id="coach" hidden>
+    <span class="coach-step" id="coachStep">1 / 4</span>
+    <span class="coach-text" id="coachText"></span>
+    <button class="btn-ghost coach-skip" id="coachSkip" type="button">SKIP</button>
+  </div>
   <section class="board-wrap" id="boardWrap">
     <div class="board" id="board" aria-label="3 by 3 dice board"></div>
   </section>
@@ -59,10 +64,17 @@
 <section class="overlay" id="onboarding" hidden>
   <div class="panel">
     <h2 class="end-title">DICE SNAKE</h2>
+    <p class="lead">Two hands of four dice, swiped edge to edge like a snake. Both hands together use all eight dice.</p>
     <p class="lead"><strong>Match values, not big numbers.</strong> A pair of 1s is worth the same as a pair of 6s.</p>
-    <p class="lead"><strong>Save a connected set of four for your second hand.</strong> Two hands of four, edge to edge, no diagonals.</p>
-    <p class="muted">Tap a die to hold it. Swipe four dice to bank a hand. Two rerolls per level. The gold ×2 doubles one hand.</p>
-    <button class="btn-primary" id="onboardOk" type="button">GOT IT</button>
+    <div class="demo" aria-hidden="true">
+      <div class="demo-grid"><i data-value="5"></i><i data-value="5"></i><i data-value="2"></i><i data-value="3"></i><i data-value="5"></i><i data-value="5"></i></div>
+      <svg class="demo-line" viewBox="0 0 300 200"><polyline points="50,50 150,50 150,150 250,150"></polyline></svg>
+      <span class="demo-finger"></span>
+      <span class="demo-label">SWIPE 5 → 5 → 5 → 5 = FOUR OF A KIND</span>
+    </div>
+    <p class="muted">The tutorial shows every move on your first board: hold, reroll, swipe a hand, use the gold ×2.</p>
+    <button class="btn-primary" id="onboardStart" type="button">START TUTORIAL</button>
+    <button class="btn-secondary" id="onboardSkip" type="button">SKIP, I KNOW IT</button>
   </div>
 </section>
 
@@ -73,7 +85,7 @@
     <p class="lead"><strong>Save a connected set of four for your second hand.</strong> The first hand must leave four dice you can still snake through.</p>
     <ol class="rules">
       <li>Eight dice and one gold ×2 cell on a 3×3 board.</li>
-      <li>Swipe four dice that touch edge to edge (no diagonals, no repeats) to bank a hand. Both hands together use all eight dice.</li>
+      <li>To play a hand, press a die and drag through four dice that touch edge to edge (no diagonals, no repeats) in one move, then lift. Example: 5 → 5 → 5 → 5 is FOUR OF A KIND. Tapping does not select dice. Both hands together use all eight dice.</li>
       <li>Tap a die to hold it. REROLL changes every unheld, unbanked die. Two rerolls per level, shared by both hands.</li>
       <li>Tap the gold cell to arm ×2 for the hand you bank next. If it is still unused on the last hand, it is applied there automatically.</li>
       <li>Reach the target with the two hands to clear the level.</li>
@@ -90,6 +102,7 @@
     </label>
     <label class="opt"><input type="checkbox" id="optAutoBonus" checked> Auto-apply an unused ×2 to the final hand</label>
     <p class="muted small">Changes apply from the next level.</p>
+    <button class="btn-secondary" id="tutorialBtn" type="button">SHOW TUTORIAL AGAIN</button>
     <h3>DATA</h3>
     <p class="muted small" id="runInfo"></p>
     <p class="muted small" id="difficultyRule"></p>

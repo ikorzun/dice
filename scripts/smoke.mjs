@@ -54,7 +54,13 @@ for (const vp of viewports) {
   await page.waitForSelector('#board .cell');
   await page.waitForTimeout(150);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-0-onboarding.png` });
-  await page.click('#onboardOk');
+  await page.click('#onboardStart');
+  await page.waitForTimeout(150);
+  const coachVisible = await page.$eval('#coach', (el) => !el.hidden);
+  if (!coachVisible) note(vp, 'tutorial bar not shown after START TUTORIAL');
+  const step1 = await page.$eval('#coachText', (el) => el.textContent);
+  if (!/HOLD/.test(step1)) note(vp, `unexpected first tutorial step: ${step1}`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-0b-tutorial-hold.png` });
 
   const layout = await page.evaluate(() => {
     const d = document.documentElement;
@@ -70,14 +76,24 @@ for (const vp of viewports) {
   console.log(`${vp.w}x${vp.h}: board ${layout.board.toFixed(0)}px, cell ${layout.cell.toFixed(0)}px, reroll bottom ${layout.rerollBottom.toFixed(0)}, toolbar bottom ${layout.toolbarBottom.toFixed(0)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-1-start.png` });
 
-  // hold / release
+  // hold / release (advances the tutorial to the reroll step)
   await tap(page, 0);
   let s = await state(page);
   if (!s.held[0]) note(vp, 'tap did not hold die 0');
+  const step2 = await page.$eval('#coachText', (el) => el.textContent);
+  if (!/REROLL/.test(step2)) note(vp, `tutorial did not advance to reroll: ${step2}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-2-hold.png` });
   await tap(page, 0);
   s = await state(page);
   if (s.held[0]) note(vp, 'second tap did not release die 0');
+  // holding every die must trigger the "hold only protects" hint once
+  for (let i = 0; i < 8; i++) await tap(page, i);
+  const allHeldToast = await page.$eval('#toast', (t) => (t.hidden ? '' : t.textContent));
+  if (!/press a die and drag/i.test(allHeldToast)) note(vp, `missing all-held hint, toast="${allHeldToast}"`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-2b-allheld.png` });
+  for (let i = 0; i < 8; i++) await tap(page, i);
+  s = await state(page);
+  if (s.held.some(Boolean)) note(vp, 'dice still held after releasing all');
 
   // diagonal swipe must not create a path through the diagonal
   await swipe(page, [0, 4, 8]);
@@ -103,6 +119,11 @@ for (const vp of viewports) {
   await page.waitForTimeout(1100);
   s = await state(page);
   if (s.rerollsLeft !== 1) note(vp, `rerollsLeft ${s.rerollsLeft} after one reroll`);
+  const step3 = await page.$eval('#coachText', (el) => el.textContent);
+  if (!/DRAG/.test(step3)) note(vp, `tutorial did not reach the swipe step: ${step3}`);
+  const ghostOn = await page.$eval('#ghost', (el) => el.getAnimations().length > 0);
+  if (!ghostOn) note(vp, 'ghost finger demo not animating on the swipe step');
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-4b-tutorial-swipe.png` });
   if (s.faces[3] !== before[3]) note(vp, 'held die changed on reroll');
   if (s.faces[8] !== null) note(vp, 'bonus cell got a face');
 
@@ -137,6 +158,8 @@ for (const vp of viewports) {
   await page.waitForTimeout(900);
   const endVisible = await page.$eval('#levelEnd', (el) => !el.hidden);
   if (!endVisible) note(vp, 'level-end overlay not shown');
+  const coachGone = await page.$eval('#coach', (el) => el.hidden);
+  if (!coachGone) note(vp, 'tutorial bar still visible after the level ended');
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-8-end.png` });
   console.log(`${vp.w}x${vp.h}: finished level with ${s.score}/${s.target} (${s.phase}), rejected paths ${s.rejected}`);
 

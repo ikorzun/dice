@@ -6,7 +6,7 @@ import { CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_OUTCOMES, SCORE_TABLES } from
 import { areAdjacent, rowOf, colOf, orderedPathsOf } from '../engine/geometry.js';
 import {
   createGame, toggleHold, reroll, toggleBonus, previewPath, bankPath, hintFor, markHintUsed,
-  remainingCells, canReroll, snapshotGame, restoreGame, isOrdinary, isBanked,
+  remainingCells, canReroll, snapshotGame, restoreGame, isOrdinary, isBanked, heldCount,
 } from '../engine/game.js';
 import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from '../engine/levels.js';
 
@@ -32,6 +32,9 @@ const app = {
   tier: 1,
   settings: { maxHolds: null, scoreTable: 'spec_v03', autoBonusOnFinalHand: true, pathMode: false },
   onboarded: false,
+  coached: false,
+  coachTargets: null,
+  allHeldToastShown: false,
   game: null,
   rerollRng: null,
   levelStartedAt: 0,
@@ -68,6 +71,8 @@ function persist() {
     tier: app.tier,
     settings: app.settings,
     onboarded: app.onboarded,
+    coached: app.coached,
+    coach: { active: coach.active, done: coach.done },
     game: app.game ? snapshotGame(app.game) : null,
     log: app.log.slice(-LOG_LIMIT),
     levels: app.levels.slice(-200),
@@ -82,6 +87,139 @@ function persist() {
 function logEvent(type, data = {}) {
   app.log.push({ t: Date.now(), dt: app.levelStartedAt ? Date.now() - app.levelStartedAt : 0, level: app.levelIndex, type, ...data });
   if (app.log.length > LOG_LIMIT) app.log.splice(0, app.log.length - LOG_LIMIT);
+  coachOnEvent(type, data);
+}
+
+// ---------- coach: interactive tutorial on the real board ----------
+const coach = { active: false, done: { hold: false, reroll: false }, ghostKey: '', anim: null };
+
+function coachStart(source) {
+  coach.active = true;
+  coach.done = { hold: false, reroll: false };
+  logEvent('tutorial_start', { source });
+  render();
+  persist();
+}
+
+function coachStop(reason) {
+  if (!coach.active) return;
+  coach.active = false;
+  app.coached = true;
+  app.coachTargets = null;
+  stopGhost();
+  logEvent('tutorial_end', { reason });
+  render();
+  persist();
+}
+
+function coachOnEvent(type, data) {
+  if (!coach.active) return;
+  if (type === 'hold' && data.held) coach.done.hold = true;
+  if (type === 'reroll' || type === 'bank') { coach.done.hold = true; coach.done.reroll = true; }
+  if (type === 'level_end') coachStop('complete');
+}
+
+function coachCurrentStep() {
+  const g = app.game;
+  if (!coach.active || !g || g.phase !== 'playing') return null;
+  if (g.hands.length === 0) {
+    if (!coach.done.hold) return 'hold';
+    if (!coach.done.reroll && g.rerollsLeft > 0) return 'reroll';
+    return 'swipe';
+  }
+  return 'last';
+}
+
+function cellPercent(i) {
+  return { left: `${((colOf(i) + 0.5) * 100) / 3}%`, top: `${((rowOf(i) + 0.5) * 100) / 3}%` };
+}
+
+function stopGhost() {
+  if (coach.anim) coach.anim.cancel();
+  coach.anim = null;
+  coach.ghostKey = '';
+  const ghost = $('ghost');
+  if (ghost) ghost.style.opacity = '0';
+}
+
+// Animated "ghost finger": a tap demo on one cell, or a press-drag-lift demo along a path.
+function startGhost(path) {
+  const key = path ? path.join('-') : '';
+  if (coach.ghostKey === key) return;
+  stopGhost();
+  coach.ghostKey = key;
+  const ghost = $('ghost');
+  if (!path || !ghost || reduceMotion || typeof ghost.animate !== 'function') return;
+  const pts = path.map(cellPercent);
+  const at = (p, extra) => ({ left: p.left, top: p.top, ...extra });
+  let frames;
+  if (pts.length === 1) {
+    frames = [
+      at(pts[0], { opacity: 0, transform: 'translate(-50%, -50%) scale(1.3)', offset: 0 }),
+      at(pts[0], { opacity: 1, transform: 'translate(-50%, -50%) scale(1)', offset: 0.25 }),
+      at(pts[0], { opacity: 1, transform: 'translate(-50%, -50%) scale(0.72)', offset: 0.42 }),
+      at(pts[0], { opacity: 1, transform: 'translate(-50%, -50%) scale(1)', offset: 0.6 }),
+      at(pts[0], { opacity: 0, transform: 'translate(-50%, -50%) scale(1.2)', offset: 0.85 }),
+      at(pts[0], { opacity: 0, transform: 'translate(-50%, -50%) scale(1.2)', offset: 1 }),
+    ];
+  } else {
+    const n = pts.length;
+    frames = [at(pts[0], { opacity: 0, transform: 'translate(-50%, -50%) scale(1.3)', offset: 0 }), at(pts[0], { opacity: 1, transform: 'translate(-50%, -50%) scale(0.78)', offset: 0.12 })];
+    for (let k = 1; k < n; k++) frames.push(at(pts[k], { opacity: 1, transform: 'translate(-50%, -50%) scale(0.78)', offset: 0.12 + (k / (n - 1)) * 0.58 }));
+    frames.push(at(pts[n - 1], { opacity: 0, transform: 'translate(-50%, -50%) scale(1.2)', offset: 0.82 }));
+    frames.push(at(pts[n - 1], { opacity: 0, transform: 'translate(-50%, -50%) scale(1.2)', offset: 1 }));
+  }
+  coach.anim = ghost.animate(frames, { duration: pts.length === 1 ? 1700 : 2800, iterations: Infinity, easing: 'ease-in-out' });
+}
+
+function coachRender() {
+  const step = coachCurrentStep();
+  const bar = $('coach');
+  if (!step) {
+    bar.hidden = true;
+    els.preview.hidden = false;
+    els.rerollBtn.classList.remove('pulse');
+    app.coachTargets = null;
+    stopGhost();
+    return;
+  }
+  const g = app.game;
+  const hint = hintFor(g);
+  const show = (cells) => cells.map((i) => g.faces[i]).join(' → ');
+  let text = '';
+  let index = 1;
+  let targets = [];
+  let ghostPath = null;
+  if (step === 'hold') {
+    const c = hint.cells[0];
+    text = `TAP THE ${g.faces[c]} TO HOLD IT. HELD DICE DO NOT CHANGE WHEN YOU REROLL.`;
+    targets = [c];
+    ghostPath = [c];
+  } else if (step === 'reroll') {
+    index = 2;
+    text = canReroll(g)
+      ? 'NOW PRESS REROLL. ONLY THE DICE WITHOUT HOLD CHANGE.'
+      : 'EVERY DIE IS HELD. TAP ONE TO RELEASE IT, THEN PRESS REROLL.';
+  } else if (step === 'swipe') {
+    index = 3;
+    text = `DRAG ${show(hint.cells)} IN ONE MOVE, THEN LIFT · ${hint.hand.label} ${hint.hand.points}`;
+    targets = hint.cells;
+    ghostPath = hint.cells;
+  } else {
+    index = 4;
+    text = g.bonus.available
+      ? `TAP GOLD ×2 TO DOUBLE THIS HAND, THEN DRAG THE LAST FOUR (${show(hint.cells)}) OR PRESS BANK LAST 4`
+      : `DRAG THE LAST FOUR (${show(hint.cells)}) OR PRESS BANK LAST 4`;
+    targets = hint.cells;
+    ghostPath = g.bonus.available ? null : hint.cells;
+  }
+  bar.hidden = false;
+  els.preview.hidden = true;
+  $('coachStep').textContent = `${index} / 4`;
+  $('coachText').textContent = text;
+  els.rerollBtn.classList.toggle('pulse', step === 'reroll');
+  app.coachTargets = targets;
+  startGhost(ghostPath);
 }
 
 // ---------- level lifecycle ----------
@@ -97,7 +235,10 @@ function startGame(level, attempt) {
   app.path = [];
   app.tapPath = [];
   app.hintCells = null;
+  app.coachTargets = null;
+  app.allHeldToastShown = false;
   app.pendingTier = null;
+  stopGhost();
   logEvent('level_start', {
     seed: level.seed, levelIndex: level.levelIndex, tier: level.tier, target: level.target, faces: level.faces, attempt,
     bestNoReroll: level.bestNoReroll, bestNoRerollWithBonus: level.bestNoRerollWithBonus, config: gameConfig(),
@@ -198,6 +339,11 @@ function buildBoard() {
   reveal.id = 'reveal';
   reveal.innerHTML = '<div class="cat"></div><div class="pts"></div><div class="mult"></div>';
   board.appendChild(reveal);
+  const ghost = document.createElement('div');
+  ghost.className = 'ghost';
+  ghost.id = 'ghost';
+  ghost.setAttribute('aria-hidden', 'true');
+  board.appendChild(ghost);
 }
 
 function fitBoard() {
@@ -239,6 +385,7 @@ function renderCell(i) {
     order.textContent = String(k + 1);
   }
   if (app.hintCells && app.hintCells.includes(i)) cell.classList.add('hint');
+  if (app.coachTargets && app.coachTargets.includes(i) && k < 0) cell.classList.add('hint');
   if (k < 0 && app.safeNext && app.safeNext.includes(i)) cell.classList.add('safe-next');
   cell.setAttribute('aria-label', `Die ${g.faces[i]}${g.held[i] ? ', held' : ''}`);
 }
@@ -292,7 +439,7 @@ function cellCenter(i) {
 function renderPath() {
   const path = currentPath();
   $('pathLine').setAttribute('points', path.length > 1 ? path.map((i) => cellCenter(i).join(',')).join(' ') : '');
-  const hint = app.hintCells;
+  const hint = app.hintCells || (app.coachTargets && app.coachTargets.length > 1 && path.length === 0 ? app.coachTargets : null);
   $('hintLine').setAttribute('points', hint && hint.length > 1 ? hint.map((i) => cellCenter(i).join(',')).join(' ') : '');
 }
 
@@ -308,8 +455,9 @@ function renderPreview() {
   if (g.phase !== 'playing') { setPreview(g.phase === 'won' ? 'LEVEL CLEARED' : 'TARGET MISSED', g.phase === 'won' ? 'good' : 'bad'); return; }
   const path = currentPath();
   if (path.length === 0) {
-    if (app.settings.pathMode) setPreview(g.hands.length === 0 ? 'Tap 4 connected dice in order' : 'Tap the last 4 dice in order');
-    else setPreview(g.hands.length === 0 ? 'Swipe 4 connected dice · tap to hold' : 'Swipe the last 4 dice');
+    if (heldCount(g) === remainingCells(g).length) setPreview('All held · drag through 4 dice to play a hand', 'hint');
+    else if (app.settings.pathMode) setPreview(g.hands.length === 0 ? 'Tap 4 connected dice in order' : 'Tap the last 4 dice in order');
+    else setPreview(g.hands.length === 0 ? 'Drag through 4 dice to play · tap to hold' : 'Drag through the last 4 dice');
     return;
   }
   const p = previewPath(g, path);
@@ -322,6 +470,7 @@ function renderPreview() {
 
 function render() {
   app.safeNext = computeSafeNext();
+  coachRender();
   for (let i = 0; i < 9; i++) renderCell(i);
   renderHud();
   renderControls();
@@ -416,6 +565,10 @@ function onTap(i) {
   logEvent('hold', { cell: i, held: r.held });
   render();
   persist();
+  if (r.held && heldCount(app.game) === remainingCells(app.game).length && !app.allHeldToastShown) {
+    app.allHeldToastShown = true;
+    toast('Hold only protects dice from REROLL. To play a hand, press a die and drag through four.', 'hint');
+  }
 }
 
 function tapPathAdd(i) {
@@ -717,7 +870,10 @@ function bind() {
   $('resetBtn').addEventListener('click', resetProgress);
   $('nextBtn').addEventListener('click', onNext);
   $('retryBtn').addEventListener('click', onRetry);
-  $('onboardOk').addEventListener('click', () => { app.onboarded = true; $('onboarding').hidden = true; logEvent('onboarded'); persist(); });
+  $('onboardStart').addEventListener('click', () => { app.onboarded = true; $('onboarding').hidden = true; logEvent('onboarded', { tutorial: true }); coachStart('onboarding'); });
+  $('onboardSkip').addEventListener('click', () => { app.onboarded = true; app.coached = true; $('onboarding').hidden = true; logEvent('onboarded', { tutorial: false }); persist(); });
+  $('coachSkip').addEventListener('click', () => coachStop('skipped'));
+  $('tutorialBtn').addEventListener('click', () => { $('help').hidden = true; coachStart('help'); });
   window.addEventListener('keydown', (e) => {
     if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
     if (e.key === 'r' || e.key === 'R') doReroll('key');
@@ -741,6 +897,8 @@ function init() {
     app.tier = saved.tier || 1;
     app.settings = { ...app.settings, ...(saved.settings || {}) };
     app.onboarded = !!saved.onboarded;
+    app.coached = !!saved.coached;
+    if (saved.coach && saved.coach.active) { coach.active = true; coach.done = { ...coach.done, ...(saved.coach.done || {}) }; }
     app.log = Array.isArray(saved.log) ? saved.log : [];
     app.levels = Array.isArray(saved.levels) ? saved.levels : [];
     if (saved.game && saved.game.phase === 'playing') {
