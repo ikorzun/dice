@@ -103,14 +103,17 @@ function combinations(items, k) {
 
 const geometryCache = new Map();
 
+// blockedIndex: 0-8 for a bonus cell that is not a die, or null when all nine cells are dice.
 export function buildGeometry(blockedIndex = 8, handSize = HAND_SIZE) {
-  const key = `${blockedIndex}:${handSize}`;
+  const blocked = blockedIndex == null || blockedIndex < 0 ? null : blockedIndex;
+  const key = `${blocked}:${handSize}`;
   if (geometryCache.has(key)) return geometryCache.get(key);
-  if (!Number.isInteger(blockedIndex) || blockedIndex < 0 || blockedIndex >= CELL_COUNT) {
+  if (blocked !== null && (!Number.isInteger(blocked) || blocked >= CELL_COUNT)) {
     throw new Error(`blocked index out of range: ${blockedIndex}`);
   }
+  if (!Number.isInteger(handSize) || handSize < 2 || handSize > CELL_COUNT) throw new Error(`hand size out of range: ${handSize}`);
   const free = [];
-  for (let i = 0; i < CELL_COUNT; i++) if (i !== blockedIndex) free.push(i);
+  for (let i = 0; i < CELL_COUNT; i++) if (i !== blocked) free.push(i);
   const freeMask = maskOf(free);
   const eligibleMasks = combinations(free, handSize)
     .filter((cells) => hasHamiltonianPath(cells))
@@ -131,7 +134,7 @@ export function buildGeometry(blockedIndex = 8, handSize = HAND_SIZE) {
   }
   const strandingMasks = eligibleMasks.filter((m) => !safeSet.has(m));
   const geometry = Object.freeze({
-    blockedIndex,
+    blockedIndex: blocked,
     handSize,
     free: Object.freeze(free),
     freeMask,
@@ -166,7 +169,7 @@ export function validatePath(path, geometry = DEFAULT_GEOMETRY, bankedMask = 0, 
   for (let k = 0; k < path.length; k++) {
     const cell = path[k];
     if (!Number.isInteger(cell) || cell < 0 || cell >= CELL_COUNT) return fail('OUT_OF_RANGE', 'Cell is outside the board');
-    if (cell === geometry.blockedIndex) return fail('BONUS_CELL', 'The ×2 cell is not a die');
+    if (geometry.blockedIndex !== null && cell === geometry.blockedIndex) return fail('BONUS_CELL', 'The ×2 cell is not a die');
     if ((bankedMask >> cell) & 1) return fail('BANKED', 'That die is already banked');
     if ((mask >> cell) & 1) return fail('REVISIT', 'Each die can be used once per hand');
     if (k > 0) {

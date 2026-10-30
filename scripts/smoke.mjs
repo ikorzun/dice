@@ -40,9 +40,10 @@ async function tap(page, cell) {
   await page.mouse.click(p.x, p.y);
 }
 const state = (page) => page.evaluate(() => {
-  const g = window.__diceSnake.app.game;
-  return { score: g.score, hands: g.hands.length, phase: g.phase, rerollsLeft: g.rerollsLeft, held: g.held, bankedMask: g.bankedMask, bonus: g.bonus, faces: g.faces, target: g.level.target, rejected: g.stats.rejectedPaths };
+  const g = window.__diceSnake.state().game;
+  return { mode: window.__diceSnake.mode().id, score: g.score, hands: g.hands.length, handsLeft: g.handsLeft ?? null, phase: g.phase, rerollsLeft: g.rerollsLeft, held: g.held, bankedMask: g.bankedMask, bonus: g.bonus, faces: g.faces, target: g.level.target, rejected: g.stats.rejectedPaths };
 });
+const hintCells = (page) => page.evaluate(() => window.__diceSnake.hint().cells);
 
 const browser = await chromium.launch();
 for (const vp of viewports) {
@@ -189,6 +190,83 @@ for (const vp of viewports) {
   await page.waitForSelector('#board .cell');
   const after = await state(page);
   if (after.hands !== beforeReload.hands || JSON.stringify(after.faces) !== JSON.stringify(beforeReload.faces)) note(vp, 'state not restored after reload');
+
+  // ---- Poker 5 tab ----
+  await page.click('#tabPoker5');
+  await page.waitForTimeout(200);
+  const obVisible = await page.$eval('#onboarding', (el) => !el.hidden);
+  if (!obVisible) note(vp, 'poker onboarding not shown on first visit');
+  const demoLabel = await page.$eval('#demoLabel', (el) => el.textContent);
+  if (!/FULL HOUSE/.test(demoLabel)) note(vp, `poker demo label: ${demoLabel}`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-11-poker-onboarding.png` });
+  await page.click('#onboardStart');
+  await page.waitForTimeout(150);
+  s = await state(page);
+  if (s.mode !== 'poker5') note(vp, `mode after tab click: ${s.mode}`);
+  const bonusCells = await page.$$eval('#board .cell.bonus', (els) => els.length);
+  if (bonusCells !== 0) note(vp, 'poker board has a bonus cell');
+  const dice = await page.$$eval('#board .cell.die', (els) => els.length);
+  if (dice !== 9) note(vp, `poker board has ${dice} dice`);
+  const handsText = await page.$eval('#handsText', (el) => el.textContent);
+  if (!/HAND 1 \/ 3/.test(handsText)) note(vp, `hands text: ${handsText}`);
+  const pips = await page.$$eval('#rerollPips i', (els) => els.length);
+  if (pips !== 3) note(vp, `poker shows ${pips} reroll pips`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-12-poker-start.png` });
+  await tap(page, 4);
+  s = await state(page);
+  if (!s.held[4]) note(vp, 'poker tap did not hold die 4');
+  await page.click('#rerollBtn');
+  await page.waitForTimeout(1200);
+  s = await state(page);
+  if (s.rerollsLeft !== 2) note(vp, `poker rerollsLeft ${s.rerollsLeft} after one reroll`);
+  await page.click('#bonusStatus');
+  s = await state(page);
+  if (!s.bonus.armed) note(vp, 'poker x2 badge did not arm');
+  const hint1 = await hintCells(page);
+  if (hint1.length !== 5) note(vp, `poker hint has ${hint1.length} cells`);
+  await swipe(page, hint1);
+  await page.waitForTimeout(150);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-13-poker-banking.png` });
+  await page.waitForTimeout(1500);
+  s = await state(page);
+  if (s.hands !== 1 || s.handsLeft !== 2) note(vp, `poker first hand: hands=${s.hands} left=${s.handsLeft}`);
+  if (s.bonus.available) note(vp, 'poker x2 not consumed');
+  const diceAfter = await page.$$eval('#board .cell.die', (els) => els.length);
+  if (diceAfter !== 9) note(vp, `after refill ${diceAfter} dice`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-14-poker-after-first.png` });
+  for (let h = 0; h < 2; h++) {
+    const hc = await hintCells(page);
+    await swipe(page, hc);
+    await page.waitForTimeout(1700);
+  }
+  s = await state(page);
+  if (s.hands !== 3 || s.handsLeft !== 0) note(vp, `poker level did not end after three hands (hands=${s.hands}, left=${s.handsLeft})`);
+  if (!['won', 'lost'].includes(s.phase)) note(vp, `poker phase ${s.phase}`);
+  await page.waitForTimeout(900);
+  const pokerEnd = await page.$eval('#levelEnd', (el) => !el.hidden);
+  if (!pokerEnd) note(vp, 'poker level-end overlay not shown');
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-15-poker-end.png` });
+  console.log(`${vp.w}x${vp.h}: poker level finished with ${s.score}/${s.target} (${s.phase})`);
+  await page.click('#nextBtn');
+  await page.waitForTimeout(200);
+  await page.click('#helpBtn');
+  await page.waitForTimeout(100);
+  const helpTitle = await page.$eval('#helpTitle', (el) => el.textContent);
+  if (!/POKER 5/.test(helpTitle)) note(vp, `help title in poker mode: ${helpTitle}`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-16-poker-help.png` });
+  await page.click('#closeHelpBtn');
+  await page.click('#tabSnake4');
+  await page.waitForTimeout(200);
+  const back = await state(page);
+  if (back.mode !== 'snake4' || back.hands !== 1) note(vp, `snake state lost after tab switch (mode=${back.mode}, hands=${back.hands})`);
+  await page.reload();
+  await page.waitForSelector('#board .cell');
+  const restored = await state(page);
+  if (restored.mode !== 'snake4') note(vp, `active mode not restored after reload: ${restored.mode}`);
+  await page.click('#tabPoker5');
+  await page.waitForTimeout(200);
+  const pokerRestored = await state(page);
+  if (pokerRestored.mode !== 'poker5' || pokerRestored.hands !== 0 || pokerRestored.handsLeft !== 3) note(vp, `poker state not restored (hands=${pokerRestored.hands}, left=${pokerRestored.handsLeft})`);
   await ctx.close();
 }
 await browser.close();

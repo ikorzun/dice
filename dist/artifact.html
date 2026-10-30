@@ -48,12 +48,18 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
   max-width: 560px;
   margin: 0 auto;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   gap: 6px;
-  padding-block: 8px 10px;
+  padding-block: 6px 10px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
+
+/* Mode tabs */
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tab { height: 34px; border: 1px solid var(--line-strong); border-radius: 9px; background: transparent; color: var(--muted); font: 700 14px/1 var(--font-display); letter-spacing: .16em; }
+.tab.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.hands-text { color: var(--gold); }
 
 /* HUD */
 .hud { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 8px; }
@@ -79,10 +85,11 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .demo { position: relative; width: 100%; max-width: 300px; margin: 0 auto; aspect-ratio: 300 / 230; }
 .demo-grid { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% * 200 / 230); display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6px; }
 .demo-grid i { display: block; border-radius: 14%; background: var(--die); box-shadow: inset 0 -4px 0 var(--die-edge); position: relative; }
+.demo-grid i.on::after { color: var(--pip); }
 .demo-grid i::after { content: attr(data-value); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 700 36px/1 var(--font-display); color: var(--pip); }
 .demo-line { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% * 200 / 230); pointer-events: none; }
 .demo-line polyline { fill: none; stroke: var(--path); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 400; stroke-dashoffset: 400; animation: demoLine 2.8s ease-in-out infinite; }
-.demo-finger { position: absolute; width: 16%; aspect-ratio: 1; border-radius: 50%; background: rgba(255, 255, 255, .3); border: 3px solid var(--fg); box-shadow: 0 0 0 6px rgba(255, 255, 255, .14); transform: translate(-50%, -50%); left: 16.7%; top: 21.7%; animation: demoFinger 2.8s ease-in-out infinite; }
+.demo-finger { position: absolute; width: 16%; aspect-ratio: 1; border-radius: 50%; background: rgba(255, 255, 255, .3); border: 3px solid var(--fg); box-shadow: 0 0 0 6px rgba(255, 255, 255, .14); transform: translate(-50%, -50%); left: 16.7%; top: 21.7%; opacity: 0; }
 .demo-label { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font: 700 14px/1 var(--font-display); letter-spacing: .1em; color: var(--path); }
 @keyframes demoLine { 0%, 15% { stroke-dashoffset: 400; opacity: 1; } 75% { stroke-dashoffset: 0; opacity: 1; } 90%, 100% { stroke-dashoffset: 0; opacity: 0; } }
 @keyframes demoFinger {
@@ -124,6 +131,10 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .cell.die.safe-next { box-shadow: inset 0 0 0 3px var(--good), inset 0 -4px 0 var(--die-edge); }
 .cell.die.safe-next::after { content: ''; position: absolute; top: 8%; right: 9%; width: 12px; height: 12px; border-radius: 50%; background: var(--good); }
 .cell.empty { border: 2px dashed var(--line); background: transparent; }
+.cell.die.sealed { box-shadow: inset 0 0 0 3px var(--gold), inset 0 -4px 0 var(--die-edge); }
+.cell.die.sealed .tag { display: block; background: var(--gold); color: #2a1f00; }
+.cell.refill { animation: refill 480ms cubic-bezier(.2, .9, .3, 1.2) var(--delay, 0ms) both; }
+@keyframes refill { 0% { transform: translateY(-45%) scale(.55); opacity: 0; } 60% { transform: translateY(4%) scale(1.04); opacity: 1; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
 .cell.bonus { background: #0e0c08; border: 2px solid var(--gold); color: var(--gold); display: flex; align-items: center; justify-content: center; transition: transform 110ms ease, box-shadow 110ms ease; }
 .cell.bonus.pressed { transform: scale(.95); }
 .cell.bonus.armed { box-shadow: inset 0 0 0 3px var(--gold), 0 0 22px rgba(243, 197, 79, .35); animation: armPulse 1.4s ease-in-out infinite; }
@@ -188,7 +199,9 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .pips { display: inline-flex; gap: 6px; margin-right: 8px; }
 .pips i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--fg); display: block; transition: background 150ms; }
 .pips i.on { background: var(--fg); }
-.bonus-status.ready, .bonus-status.armed { color: var(--gold); }
+.bonus-status { border: 1px solid transparent; background: transparent; color: var(--muted); font: inherit; letter-spacing: inherit; padding: 6px 8px; border-radius: 8px; }
+.bonus-status.ready, .bonus-status.armed { color: var(--gold); border-color: var(--gold); }
+.bonus-status.armed { background: rgba(243, 197, 79, .12); }
 .bonus-status.armed { animation: blink 1.2s ease-in-out infinite; }
 @keyframes blink { 50% { opacity: .55; } }
 .btn-primary { height: 54px; border: 0; border-radius: 12px; background: var(--fg); color: var(--bg); font: 700 24px/1 var(--font-display); letter-spacing: .16em; width: 100%; transition: transform 100ms ease, opacity 150ms; }
@@ -245,9 +258,13 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 }
 </style>
 <main class="app" id="app">
+  <nav class="tabs" id="tabs" aria-label="Game mode">
+    <button class="tab" type="button" data-mode="snake4" id="tabSnake4">SNAKE 4+4</button>
+    <button class="tab" type="button" data-mode="poker5" id="tabPoker5">POKER 5</button>
+  </nav>
   <header class="hud">
     <div class="stat score" id="scoreStat"><span class="label">SCORE</span><span class="value" id="score">0</span></div>
-    <div class="hud-mid" id="levelInfo"><span id="levelText">LEVEL 1</span><span id="tierText">TIER 1 / 5 · RULE-BASED</span></div>
+    <div class="hud-mid" id="levelInfo"><span id="levelText">LEVEL 1</span><span id="tierText">TIER 1 / 5 · RULE-BASED</span><span id="handsText" class="hands-text" hidden></span></div>
     <div class="stat target"><span class="label">TARGET</span><span class="value" id="target">12</span></div>
   </header>
   <div class="preview" id="preview" aria-live="polite"></div>
@@ -261,8 +278,8 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
   </section>
   <section class="controls">
     <div class="status">
-      <span class="rerolls"><span class="pips" id="rerollPips"><i></i><i></i></span><span id="rerollText">REROLLS</span></span>
-      <span class="bonus-status" id="bonusStatus">×2 READY</span>
+      <span class="rerolls"><span class="pips" id="rerollPips"></span><span id="rerollText">REROLLS</span></span>
+      <button class="bonus-status" id="bonusStatus" type="button">×2 READY</button>
     </div>
     <button class="btn-primary" id="rerollBtn" type="button">REROLL</button>
     <button class="btn-secondary" id="bankLastBtn" type="button" hidden>BANK LAST 4</button>
@@ -296,16 +313,16 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 
 <section class="overlay" id="onboarding" hidden>
   <div class="panel">
-    <h2 class="end-title">DICE SNAKE</h2>
-    <p class="lead">Two hands of four dice, swiped edge to edge like a snake. Both hands together use all eight dice.</p>
+    <h2 class="end-title" id="onboardTitle">DICE SNAKE</h2>
+    <p class="lead" id="onboardLead"></p>
     <p class="lead"><strong>Match values, not big numbers.</strong> A pair of 1s is worth the same as a pair of 6s.</p>
     <div class="demo" aria-hidden="true">
-      <div class="demo-grid"><i data-value="5"></i><i data-value="5"></i><i data-value="2"></i><i data-value="3"></i><i data-value="5"></i><i data-value="5"></i></div>
-      <svg class="demo-line" viewBox="0 0 300 200"><polyline points="50,50 150,50 150,150 250,150"></polyline></svg>
-      <span class="demo-finger"></span>
-      <span class="demo-label">SWIPE 5 → 5 → 5 → 5 = FOUR OF A KIND</span>
+      <div class="demo-grid" id="demoGrid"></div>
+      <svg class="demo-line" viewBox="0 0 300 200"><polyline id="demoLine" points=""></polyline></svg>
+      <span class="demo-finger" id="demoFinger"></span>
+      <span class="demo-label" id="demoLabel"></span>
     </div>
-    <p class="muted">The tutorial shows every move on your first board: hold, reroll, swipe a hand, use the gold ×2.</p>
+    <p class="muted" id="onboardNote"></p>
     <button class="btn-primary" id="onboardStart" type="button">START TUTORIAL</button>
     <button class="btn-secondary" id="onboardSkip" type="button">SKIP, I KNOW IT</button>
   </div>
@@ -313,26 +330,22 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 
 <section class="overlay sheet" id="help" hidden>
   <div class="panel sheet-panel">
-    <h2 class="end-title">HOW TO PLAY</h2>
+    <h2 class="end-title" id="helpTitle">HOW TO PLAY</h2>
     <p class="lead"><strong>Match values, not big numbers.</strong> A pair of 1s is worth the same as a pair of 6s.</p>
-    <p class="lead"><strong>Save a connected set of four for your second hand.</strong> The first hand must leave four dice you can still snake through.</p>
-    <ol class="rules">
-      <li>Eight dice and one gold ×2 cell on a 3×3 board.</li>
-      <li>To play a hand, press a die and drag through four dice that touch edge to edge (no diagonals, no repeats) in one move, then lift. Example: 5 → 5 → 5 → 5 is FOUR OF A KIND. Tapping does not select dice. Both hands together use all eight dice.</li>
-      <li>Tap a die to hold it. REROLL changes every unheld, unbanked die. Two rerolls per level, shared by both hands.</li>
-      <li>Tap the gold cell to arm ×2 for the hand you bank next. If it is still unused on the last hand, it is applied there automatically.</li>
-      <li>Reach the target with the two hands to clear the level.</li>
-    </ol>
-    <h3>SCORING · FOUR DICE</h3>
+    <p class="lead" id="helpLead"></p>
+    <ol class="rules" id="helpRules"></ol>
+    <h3 id="helpScoreTitle">SCORING</h3>
     <table class="score-table" id="scoreTable"></table>
     <h3>EXPERIMENTS</h3>
     <label class="opt"><input type="checkbox" id="optHoldCap"> Hold cap: at most 3 held dice per reroll</label>
-    <label class="opt">Score table
+    <label class="opt" id="optTableRow">Score table
       <select id="optTable">
         <option value="spec_v03">Spec v0.3 · 30 / 15 / 10 / 5 / 2 / 0</option>
         <option value="rarity">Rarity order · 30 / 15 / 12 (two pairs) / 10 (trips) / 2 / 0</option>
       </select>
     </label>
+    <label class="opt" id="optSmallRow"><input type="checkbox" id="optSmall"> Small straight (four in a row) counts</label>
+    <label class="opt" id="optEndRow"><input type="checkbox" id="optEndOnTarget"> End the level as soon as the target is reached</label>
     <label class="opt"><input type="checkbox" id="optAutoBonus" checked> Auto-apply an unused ×2 to the final hand</label>
     <p class="muted small">Changes apply from the next level.</p>
     <button class="btn-secondary" id="tutorialBtn" type="button">SHOW TUTORIAL AGAIN</button>
@@ -341,7 +354,7 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
     <p class="muted small" id="difficultyRule"></p>
     <div class="row">
       <button class="btn-secondary" id="exportBtn" type="button">COPY EVENT LOG</button>
-      <button class="btn-secondary" id="resetBtn" type="button">RESET PROGRESS</button>
+      <button class="btn-secondary" id="resetBtn" type="button">RESET THIS MODE</button>
     </div>
     <textarea id="logOut" class="log-out" readonly hidden aria-label="Event log JSON"></textarea>
     <button class="btn-primary" id="closeHelpBtn" type="button">CLOSE</button>
@@ -351,6 +364,7 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 (() => {
 'use strict';
 // ---- src/engine/rng.js ----
+const __mod_rng = (() => {
 // Deterministic, seedable PRNG (sfc32) with exactly uniform die rolls (rejection sampling).
 // Seeds are strings or numbers, hashed with cyrb53-style mixing. Used for level generation,
 // rerolls and simulations so that every board can be reproduced from its seed.
@@ -414,7 +428,10 @@ function createRng(seed) {
   };
 }
 
+return { hashSeed, createRng };
+})();
 // ---- src/engine/scoring.js ----
+const __mod_scoring = (() => {
 // Four-die hand classification and score tables (handoff v0.3 §3).
 // Categories are mutually exclusive; the highest matching one is returned.
 // Scoring never looks at the pip sum: a pair of ones equals a pair of sixes.
@@ -504,7 +521,128 @@ function scoreHand(faces, table = DEFAULT_SCORE_TABLE) {
   return { category, label: CATEGORY_LABELS[category], points: t[category] };
 }
 
+return { CATEGORY, CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_OUTCOMES, SCORE_TABLES, DEFAULT_SCORE_TABLE, resolveTable, classify, scoreHand };
+})();
+// ---- src/engine/scoring5.js ----
+const __mod_scoring5 = (() => {
+// Five-die poker hands (Poker 5 mode). Categories are mutually exclusive; the highest
+// matching one wins. Pip sums never count: a pair of 1s equals a pair of 6s.
+// Exact outcome counts among 6^5 = 7776 ordered rolls are verified exhaustively in tests.
+
+const CATEGORY5 = Object.freeze({
+  FIVE_KIND: 'five_kind',
+  FOUR_KIND: 'four_kind',
+  FULL_HOUSE: 'full_house',
+  STRAIGHT: 'straight',
+  SMALL_STRAIGHT: 'small_straight',
+  THREE_KIND: 'three_kind',
+  TWO_PAIRS: 'two_pairs',
+  PAIR: 'pair',
+  BUST: 'bust',
+});
+
+const CATEGORY5_LABELS = Object.freeze({
+  five_kind: 'FIVE OF A KIND',
+  four_kind: 'FOUR OF A KIND',
+  full_house: 'FULL HOUSE',
+  straight: 'STRAIGHT',
+  small_straight: 'SMALL STRAIGHT',
+  three_kind: 'THREE OF A KIND',
+  two_pairs: 'TWO PAIRS',
+  pair: 'ONE PAIR',
+  bust: 'NO MATCH',
+});
+
+// Without the small-straight category (classic poker dice partition of 7776).
+const CATEGORY5_OUTCOMES = Object.freeze({
+  five_kind: 6,
+  four_kind: 150,
+  full_house: 300,
+  straight: 240,
+  three_kind: 1200,
+  two_pairs: 1800,
+  pair: 3600,
+  bust: 480,
+});
+
+// With "small straight" (exactly four consecutive values, no five-run) as an exclusive
+// category ranked above one pair: it absorbs 720 pair rolls and 240 bust rolls.
+const CATEGORY5_OUTCOMES_SMALL = Object.freeze({
+  five_kind: 6,
+  four_kind: 150,
+  full_house: 300,
+  straight: 240,
+  small_straight: 960,
+  three_kind: 1200,
+  two_pairs: 1800,
+  pair: 2880,
+  bust: 240,
+});
+
+const SCORE_TABLES5 = Object.freeze({
+  // Provisional Poker 5 table: ordered by rarity (straight 3.1% is rarer than full house 3.9%),
+  // "no match" stays at 0 by poker convention even though it is rarer than a pair.
+  poker5_v1: Object.freeze({ five_kind: 60, four_kind: 40, straight: 25, full_house: 20, small_straight: 10, three_kind: 10, two_pairs: 6, pair: 2, bust: 0 }),
+});
+const DEFAULT_SCORE_TABLE5 = 'poker5_v1';
+
+function resolveTable5(table = DEFAULT_SCORE_TABLE5) {
+  if (typeof table === 'string') {
+    const t = SCORE_TABLES5[table];
+    if (!t) throw new Error(`unknown 5-die score table "${table}"`);
+    return t;
+  }
+  return table;
+}
+
+function hasRunOfFour(counts) {
+  for (let lo = 1; lo <= 3; lo++) {
+    if (counts[lo] && counts[lo + 1] && counts[lo + 2] && counts[lo + 3]) return true;
+  }
+  return false;
+}
+
+function classify5(faces, { smallStraight = false } = {}) {
+  if (!Array.isArray(faces) || faces.length !== 5) throw new Error('classify5 expects exactly five faces');
+  const counts = [0, 0, 0, 0, 0, 0, 0, 0];
+  for (const f of faces) {
+    if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`invalid face ${f}`);
+    counts[f]++;
+  }
+  let max = 0;
+  let pairs = 0;
+  let distinct = 0;
+  for (let v = 1; v <= 6; v++) {
+    const c = counts[v];
+    if (c === 0) continue;
+    distinct++;
+    if (c > max) max = c;
+    if (c === 2) pairs++;
+  }
+  if (max === 5) return CATEGORY5.FIVE_KIND;
+  if (max === 4) return CATEGORY5.FOUR_KIND;
+  if (max === 3 && pairs === 1) return CATEGORY5.FULL_HOUSE;
+  if (distinct === 5) {
+    const large = (counts[1] && counts[5] && !counts[6]) || (counts[2] && counts[6] && !counts[1]);
+    if (large) return CATEGORY5.STRAIGHT;
+    return smallStraight && hasRunOfFour(counts) ? CATEGORY5.SMALL_STRAIGHT : CATEGORY5.BUST;
+  }
+  if (max === 3) return CATEGORY5.THREE_KIND;
+  if (pairs === 2) return CATEGORY5.TWO_PAIRS;
+  // exactly one pair and three singles (four distinct values)
+  return smallStraight && hasRunOfFour(counts) ? CATEGORY5.SMALL_STRAIGHT : CATEGORY5.PAIR;
+}
+
+function scoreHand5(faces, table = DEFAULT_SCORE_TABLE5, opts = {}) {
+  const t = resolveTable5(table);
+  const category = classify5(faces, opts);
+  return { category, label: CATEGORY5_LABELS[category], points: t[category] };
+}
+
+return { CATEGORY5, CATEGORY5_LABELS, CATEGORY5_OUTCOMES, CATEGORY5_OUTCOMES_SMALL, SCORE_TABLES5, DEFAULT_SCORE_TABLE5, resolveTable5, classify5, scoreHand5 };
+})();
 // ---- src/engine/geometry.js ----
+const __mod_geometry = (() => {
 // Exact 3x3 board geometry (handoff v0.3 §4): orthogonal adjacency only, one blocked (bonus)
 // cell, four-cell hands that admit a self-avoiding orthogonal path, complete two-hand
 // partitions and the safe-first-hand lookup used by the bank guard on every gesture.
@@ -610,14 +748,17 @@ function combinations(items, k) {
 
 const geometryCache = new Map();
 
+// blockedIndex: 0-8 for a bonus cell that is not a die, or null when all nine cells are dice.
 function buildGeometry(blockedIndex = 8, handSize = HAND_SIZE) {
-  const key = `${blockedIndex}:${handSize}`;
+  const blocked = blockedIndex == null || blockedIndex < 0 ? null : blockedIndex;
+  const key = `${blocked}:${handSize}`;
   if (geometryCache.has(key)) return geometryCache.get(key);
-  if (!Number.isInteger(blockedIndex) || blockedIndex < 0 || blockedIndex >= CELL_COUNT) {
+  if (blocked !== null && (!Number.isInteger(blocked) || blocked >= CELL_COUNT)) {
     throw new Error(`blocked index out of range: ${blockedIndex}`);
   }
+  if (!Number.isInteger(handSize) || handSize < 2 || handSize > CELL_COUNT) throw new Error(`hand size out of range: ${handSize}`);
   const free = [];
-  for (let i = 0; i < CELL_COUNT; i++) if (i !== blockedIndex) free.push(i);
+  for (let i = 0; i < CELL_COUNT; i++) if (i !== blocked) free.push(i);
   const freeMask = maskOf(free);
   const eligibleMasks = combinations(free, handSize)
     .filter((cells) => hasHamiltonianPath(cells))
@@ -638,7 +779,7 @@ function buildGeometry(blockedIndex = 8, handSize = HAND_SIZE) {
   }
   const strandingMasks = eligibleMasks.filter((m) => !safeSet.has(m));
   const geometry = Object.freeze({
-    blockedIndex,
+    blockedIndex: blocked,
     handSize,
     free: Object.freeze(free),
     freeMask,
@@ -673,7 +814,7 @@ function validatePath(path, geometry = DEFAULT_GEOMETRY, bankedMask = 0, { allow
   for (let k = 0; k < path.length; k++) {
     const cell = path[k];
     if (!Number.isInteger(cell) || cell < 0 || cell >= CELL_COUNT) return fail('OUT_OF_RANGE', 'Cell is outside the board');
-    if (cell === geometry.blockedIndex) return fail('BONUS_CELL', 'The ×2 cell is not a die');
+    if (geometry.blockedIndex !== null && cell === geometry.blockedIndex) return fail('BONUS_CELL', 'The ×2 cell is not a die');
     if ((bankedMask >> cell) & 1) return fail('BANKED', 'That die is already banked');
     if ((mask >> cell) & 1) return fail('REVISIT', 'Each die can be used once per hand');
     if (k > 0) {
@@ -690,12 +831,15 @@ function validatePath(path, geometry = DEFAULT_GEOMETRY, bankedMask = 0, { allow
   return { ok: true, mask, complete: path.length === handSize };
 }
 
+return { SIZE, CELL_COUNT, HAND_SIZE, rowOf, colOf, indexOf, areAdjacent, isDiagonal, neighborsOf, maskOf, cellsOf, popcount, orderedPathsOf, hasHamiltonianPath, buildGeometry, DEFAULT_GEOMETRY, validatePath };
+})();
 // ---- src/engine/solver.js ----
+const __mod_solver = (() => {
 // Exact two-hand partition solver: evaluates every complete partition of the eight ordinary
 // dice and reports the theoretical best score with and without the one-use ×2 bonus.
 
-
-
+const { cellsOf } = __mod_geometry;
+const { scoreHand, resolveTable } = __mod_scoring;
 
 function facesOfMask(faces, mask) {
   return cellsOf(mask).map((i) => faces[i]);
@@ -783,14 +927,17 @@ function makeFastEvaluator(geometry, table, bonusMultiplier = 2) {
   };
 }
 
+return { facesOfMask, evaluateHand, solveBoard, makeFastEvaluator };
+})();
 // ---- src/engine/game.js ----
+const __mod_game = (() => {
 // Pure state-transition engine for one level (handoff v0.3 §2). Every action returns
 // { ok, state?, code?, message? } and never mutates its input, so the UI can animate
 // freely without the risk of effects causing false game-state transitions.
 
-
-
-
+const { buildGeometry, validatePath, cellsOf, orderedPathsOf, HAND_SIZE } = __mod_geometry;
+const { DEFAULT_SCORE_TABLE } = __mod_scoring;
+const { solveBoard, evaluateHand } = __mod_solver;
 
 const DEFAULT_CONFIG = Object.freeze({
   handSize: HAND_SIZE,
@@ -1033,16 +1180,274 @@ function restoreGame(snapshot) {
   };
 }
 
+return { DEFAULT_CONFIG, createGame, isOrdinary, isBanked, remainingMask, remainingCells, heldCount, rerollTargets, toggleHold, canReroll, reroll, toggleBonus, previewPath, bankPath, markHintUsed, hintFor, safeFirstMasks, snapshotGame, restoreGame };
+})();
+// ---- src/engine/poker.js ----
+const __mod_poker = (() => {
+// Poker 5 mode: nine dice on the 3x3 board, a hand is a snake of five dice scored as a
+// five-die poker hand, banked dice are refilled, a level is a small budget of hands and
+// rerolls against a target. The four dice left after a hand are the seed of the next one.
+// Pure state transitions, same action shape as game.js so the UI can drive either mode.
+
+const { buildGeometry, validatePath, cellsOf, orderedPathsOf, popcount } = __mod_geometry;
+const { scoreHand5, resolveTable5, DEFAULT_SCORE_TABLE5, CATEGORY5_LABELS } = __mod_scoring5;
+
+const POKER_DEFAULT_CONFIG = Object.freeze({
+  handSize: 5,
+  hands: 3,              // hands (banks) per level
+  rerolls: 3,            // shared rerolls per level
+  maxHolds: null,        // null = unlimited holds
+  scoreTable: DEFAULT_SCORE_TABLE5,
+  smallStraight: true,   // four consecutive values count as a (small) straight
+  bonusMultiplier: 2,    // one-use ×2 token
+  autoBonusOnFinalHand: true,
+  refill: true,          // banked cells receive fresh dice
+  endOnTarget: false,    // true: the level ends as soon as the target is reached
+  sealedPersist: false,  // sealed dice stay sealed after being banked and refilled
+});
+
+const reject = (code, message) => ({ ok: false, code, message });
+
+function createPokerGame(level, configOverrides = {}, attempt = 1) {
+  const config = Object.freeze({ ...POKER_DEFAULT_CONFIG, ...configOverrides });
+  const geometry = buildGeometry(null, config.handSize);
+  if (!Array.isArray(level.faces) || level.faces.length !== 9) throw new Error('level.faces must have 9 entries');
+  for (let i = 0; i < 9; i++) {
+    const f = level.faces[i];
+    if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`invalid face at ${i}`);
+  }
+  const sealedMask = level.sealedMask || 0;
+  return {
+    mode: 'poker5',
+    config,
+    level,
+    geometry,
+    faces: level.faces.slice(),
+    held: new Array(9).fill(false),
+    sealedMask,
+    bankedMask: 0, // cells emptied by the last bank when refill is off
+    rerollsLeft: level.rerolls ?? config.rerolls,
+    handsLeft: level.hands ?? config.hands,
+    bonus: { available: true, armed: false, usedOnHand: null, autoApplied: false },
+    hands: [],
+    score: 0,
+    phase: 'playing',
+    attempt,
+    lastRefill: [],
+    stats: { rerollsUsed: 0, holdToggles: 0, rejectedPaths: 0, hintsUsed: 0 },
+  };
+}
+
+const isSealed = (state, i) => ((state.sealedMask >> i) & 1) === 1;
+const isBanked = (state, i) => ((state.bankedMask >> i) & 1) === 1;
+const isOrdinary = () => true;
+const remainingMask = (state) => state.geometry.freeMask & ~state.bankedMask;
+const remainingCells = (state) => cellsOf(remainingMask(state));
+
+function heldCount(state) {
+  let n = 0;
+  for (let i = 0; i < 9; i++) if (state.held[i] && !isBanked(state, i)) n++;
+  return n;
+}
+
+function rerollTargets(state) {
+  return state.geometry.free.filter((i) => !isBanked(state, i) && !state.held[i] && !isSealed(state, i));
+}
+
+const bump = (state, key) => ({ ...state.stats, [key]: state.stats[key] + 1 });
+
+function toggleHold(state, i) {
+  if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
+  if (!Number.isInteger(i) || i < 0 || i >= 9) return reject('OUT_OF_RANGE', 'Cell is outside the board');
+  if (isBanked(state, i)) return reject('BANKED', 'That cell is empty');
+  if (isSealed(state, i)) return reject('SEALED', 'Sealed dice keep their value - no hold needed');
+  const held = state.held.slice();
+  if (!held[i] && state.config.maxHolds != null && heldCount(state) >= state.config.maxHolds) {
+    return reject('HOLD_CAP', `Hold limit: ${state.config.maxHolds} dice per reroll`);
+  }
+  held[i] = !held[i];
+  return { ok: true, held: held[i], state: { ...state, held, stats: bump(state, 'holdToggles') } };
+}
+
+function canReroll(state) {
+  return state.phase === 'playing' && state.rerollsLeft > 0 && rerollTargets(state).length > 0;
+}
+
+function reroll(state, rollDie) {
+  if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
+  if (state.rerollsLeft <= 0) return reject('NO_REROLLS', 'No rerolls left');
+  const targets = rerollTargets(state);
+  if (targets.length === 0) return reject('NOTHING_TO_REROLL', 'Every die is held - release one to reroll');
+  const faces = state.faces.slice();
+  for (const i of targets) {
+    const f = rollDie();
+    if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`rollDie returned ${f}`);
+    faces[i] = f;
+  }
+  return { ok: true, rolled: targets, state: { ...state, faces, rerollsLeft: state.rerollsLeft - 1, stats: bump(state, 'rerollsUsed') } };
+}
+
+function toggleBonus(state) {
+  if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
+  if (!state.bonus.available) return reject('BONUS_USED', 'The ×2 has already been used');
+  const armed = !state.bonus.armed;
+  return { ok: true, armed, state: { ...state, bonus: { ...state.bonus, armed } } };
+}
+
+function evaluateHand5(faces, mask, config) {
+  const cells = cellsOf(mask);
+  const handFaces = cells.map((i) => faces[i]);
+  const scored = scoreHand5(handFaces, config.scoreTable, { smallStraight: config.smallStraight });
+  return { mask, cells, faces: handFaces, ...scored };
+}
+
+function previewPath(state, path) {
+  if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
+  if (state.handsLeft <= 0) return reject('COMPLETE', 'No hands left');
+  const v = validatePath(path, state.geometry, state.bankedMask, { allowPartial: true });
+  if (!v.ok) return v;
+  if (!v.complete) return { ok: true, partial: true, count: path.length, mask: v.mask };
+  const hand = evaluateHand5(state.faces, v.mask, state.config);
+  const isFinalHand = state.handsLeft === 1;
+  const autoBonus = isFinalHand && state.bonus.available && !state.bonus.armed && state.config.autoBonusOnFinalHand;
+  const usesBonus = state.bonus.available && (state.bonus.armed || autoBonus);
+  const multiplier = usesBonus ? state.config.bonusMultiplier : 1;
+  return { ok: true, partial: false, mask: v.mask, hand, multiplier, total: hand.points * multiplier, usesBonus, autoBonus, safe: true, safetyCode: null, safetyMessage: null };
+}
+
+// drawDie supplies refill faces (seeded by the UI / simulation).
+function bankPath(state, path, drawDie) {
+  const p = previewPath(state, path);
+  const rejected = () => ({ ...state, stats: bump(state, 'rejectedPaths') });
+  if (!p.ok) return { ...p, state: rejected() };
+  if (p.partial) return { ...reject('LENGTH', `Trace ${state.geometry.handSize} dice (${p.count}/${state.geometry.handSize})`), state: rejected() };
+  const hand = {
+    index: state.hands.length,
+    cells: path.slice(),
+    mask: p.mask,
+    faces: p.hand.faces,
+    category: p.hand.category,
+    label: p.hand.label,
+    points: p.hand.points,
+    multiplier: p.multiplier,
+    total: p.total,
+    bonusAuto: p.autoBonus,
+  };
+  const hands = [...state.hands, hand];
+  const faces = state.faces.slice();
+  const held = state.held.slice();
+  let bankedMask = state.bankedMask;
+  let sealedMask = state.sealedMask;
+  const refilled = [];
+  for (const i of hand.cells) {
+    held[i] = false;
+    if (state.config.refill) {
+      if (typeof drawDie !== 'function') throw new Error('bankPath needs drawDie when refill is on');
+      const f = drawDie();
+      if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`drawDie returned ${f}`);
+      faces[i] = f;
+      refilled.push(i);
+      if (!state.config.sealedPersist) sealedMask &= ~(1 << i);
+    } else {
+      bankedMask |= 1 << i;
+    }
+  }
+  const bonus = p.usesBonus
+    ? { available: false, armed: false, usedOnHand: hand.index, autoApplied: p.autoBonus }
+    : { ...state.bonus, armed: false };
+  const score = state.score + hand.total;
+  const handsLeft = state.handsLeft - 1;
+  let phase = 'playing';
+  if (handsLeft === 0 || (state.config.endOnTarget && score >= state.level.target)) phase = score >= state.level.target ? 'won' : 'lost';
+  if (phase === 'playing' && !state.config.refill && popcount(remainingMask({ ...state, bankedMask })) < state.geometry.handSize) {
+    phase = score >= state.level.target ? 'won' : 'lost';
+  }
+  return { ok: true, hand, refilled, state: { ...state, hands, faces, held, bankedMask, sealedMask, bonus, score, handsLeft, phase, lastRefill: refilled } };
+}
+
+// Every eligible five-cell snake on the current board, best first.
+function rankSnakes(state) {
+  const rows = [];
+  for (const mask of state.geometry.eligibleMasks) {
+    if (mask & state.bankedMask) continue;
+    rows.push(evaluateHand5(state.faces, mask, state.config));
+  }
+  rows.sort((a, b) => b.points - a.points || a.mask - b.mask);
+  return rows;
+}
+
+function bestSnake(state) {
+  const rows = rankSnakes(state);
+  return rows.length ? rows[0] : null;
+}
+
+function hintFor(state) {
+  if (state.phase !== 'playing' || state.handsLeft <= 0) return null;
+  const best = bestSnake(state);
+  if (!best) return null;
+  const mult = state.bonus.available ? state.config.bonusMultiplier : 1;
+  return { cells: orderedPathsOf(best.cells)[0], hand: best, partition: null, useBonus: state.bonus.available && state.handsLeft === 1, projected: state.score + best.points * mult };
+}
+
+function markHintUsed(state) {
+  return { ...state, stats: bump(state, 'hintsUsed') };
+}
+
+const safeFirstMasks = (state) => state.geometry.eligibleMasks.filter((m) => !(m & state.bankedMask));
+
+function snapshotGame(state) {
+  return {
+    mode: 'poker5',
+    level: state.level,
+    config: state.config,
+    faces: state.faces,
+    held: state.held,
+    sealedMask: state.sealedMask,
+    bankedMask: state.bankedMask,
+    rerollsLeft: state.rerollsLeft,
+    handsLeft: state.handsLeft,
+    bonus: state.bonus,
+    hands: state.hands,
+    score: state.score,
+    phase: state.phase,
+    attempt: state.attempt,
+    stats: state.stats,
+  };
+}
+
+function restoreGame(snapshot) {
+  const base = createPokerGame(snapshot.level, snapshot.config, snapshot.attempt);
+  return {
+    ...base,
+    faces: snapshot.faces.slice(),
+    held: snapshot.held.slice(),
+    sealedMask: snapshot.sealedMask || 0,
+    bankedMask: snapshot.bankedMask || 0,
+    rerollsLeft: snapshot.rerollsLeft,
+    handsLeft: snapshot.handsLeft,
+    bonus: { ...snapshot.bonus },
+    hands: snapshot.hands.map((h) => ({ ...h })),
+    score: snapshot.score,
+    phase: snapshot.phase,
+    stats: { ...base.stats, ...snapshot.stats },
+  };
+}
+
+
+
+return { POKER_DEFAULT_CONFIG, createPokerGame, isSealed, isBanked, isOrdinary, remainingMask, remainingCells, heldCount, rerollTargets, toggleHold, canReroll, reroll, toggleBonus, evaluateHand5, previewPath, bankPath, rankSnakes, bestSnake, hintFor, markHintUsed, safeFirstMasks, snapshotGame, restoreGame, CATEGORY5_LABELS, resolveTable5 };
+})();
 // ---- src/engine/levels.js ----
+const __mod_levels = (() => {
 // Seeded level generation and the transparent, rule-based difficulty policy (handoff §7).
 // Targets are absolute points per tier; candidates are accepted only when the exact
 // no-reroll optimum (with ×2) sits inside a band below the target, so the opening roll
 // never wins by itself and the rerolls have to earn the gap.
 
-
-
-
-
+const { createRng } = __mod_rng;
+const { buildGeometry } = __mod_geometry;
+const { solveBoard } = __mod_solver;
+const { DEFAULT_SCORE_TABLE } = __mod_scoring;
 
 const GENERATOR_VERSION = '3x3-gen-1';
 const MIN_TIER = 1;
@@ -1127,18 +1532,87 @@ function generateLevel({
   return { ...fallback.level, fallback: true };
 }
 
+return { GENERATOR_VERSION, MIN_TIER, MAX_TIER, TIERS, DIFFICULTY_RULE_TEXT, clampTier, nextTier, rollFaces, generateLevel };
+})();
+// ---- src/engine/levels5.js ----
+const __mod_levels5 = (() => {
+// Seeded level generation for the Poker 5 mode. Targets are absolute per tier; a candidate
+// board is accepted when its best opening snake is below the "already won" line, so the
+// hands and rerolls have to earn the target.
+
+const { createRng } = __mod_rng;
+const { createPokerGame, bestSnake } = __mod_poker;
+const { clampTier } = __mod_levels;
+
+const GENERATOR5_VERSION = 'poker5-gen-1';
+
+// Calibrated with scripts/montecarlo5.mjs (see docs/DESIGN-POKER5.md).
+const TIERS5 = Object.freeze({
+  1: Object.freeze({ target: 40, openingMax: 0.5 }),
+  2: Object.freeze({ target: 55, openingMax: 0.5 }),
+  3: Object.freeze({ target: 70, openingMax: 0.5 }),
+  4: Object.freeze({ target: 90, openingMax: 0.5 }),
+  5: Object.freeze({ target: 110, openingMax: 0.5 }),
+});
+
+function rollFaces9(rng) {
+  const faces = new Array(9);
+  for (let i = 0; i < 9; i++) faces[i] = rng.die();
+  return faces;
+}
+
+function generatePokerLevel({ runSeed, levelIndex, tier, config = {}, candidates = 32 }) {
+  const t = clampTier(tier);
+  const spec = TIERS5[t];
+  let fallback = null;
+  for (let k = 0; k < candidates; k++) {
+    const seed = `${runSeed}/P${levelIndex}/T${t}/c${k}`;
+    const faces = rollFaces9(createRng(seed));
+    const level = {
+      mode: 'poker5',
+      seed,
+      runSeed,
+      levelIndex,
+      tier: t,
+      candidateIndex: k,
+      faces,
+      target: spec.target,
+      hands: config.hands,
+      rerolls: config.rerolls,
+      sealedMask: 0,
+      generatorVersion: GENERATOR5_VERSION,
+    };
+    const probe = createPokerGame(level, config);
+    const best = bestSnake(probe);
+    level.openingBest = best.points;
+    level.openingCategory = best.category;
+    if (best.points <= spec.target * spec.openingMax) return level;
+    if (!fallback || best.points < fallback.openingBest) fallback = level;
+  }
+  return { ...fallback, fallback: true };
+}
+
+return { GENERATOR5_VERSION, TIERS5, rollFaces9, generatePokerLevel };
+})();
 // ---- src/ui/app.js ----
-// Dice Snake 3×3 — portrait mobile UI. All rules live in ../engine; this file only renders
-// state, interprets pointer gestures, plays effects and keeps a local event log.
+const __mod_app = (() => {
+// Dice Snake — portrait mobile UI driving two rule sets, one tab each:
+//   "Snake 4+4" (engine/game.js) and "Poker 5" (engine/poker.js).
+// All rules live in the engines; this file renders state, interprets pointer gestures,
+// plays effects, runs the example-based tutorial and keeps a local event log per mode.
 
+const { createRng } = __mod_rng;
+const { CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_OUTCOMES, SCORE_TABLES } = __mod_scoring;
+const { CATEGORY5_LABELS, CATEGORY5_OUTCOMES, CATEGORY5_OUTCOMES_SMALL, SCORE_TABLES5 } = __mod_scoring5;
+const { areAdjacent, rowOf, colOf, orderedPathsOf } = __mod_geometry;
+const { createGame, toggleHold: snakeToggleHold, reroll: snakeReroll, toggleBonus: snakeToggleBonus, previewPath: snakePreviewPath, bankPath: snakeBankPath, hintFor: snakeHintFor, markHintUsed: snakeMarkHintUsed, remainingCells: snakeRemainingCells, canReroll: snakeCanReroll, snapshotGame: snakeSnapshot, restoreGame: snakeRestore, isOrdinary: snakeIsOrdinary, isBanked: snakeIsBanked, heldCount: snakeHeldCount } = __mod_game;
+const { createPokerGame, toggleHold: pokerToggleHold, reroll: pokerReroll, toggleBonus: pokerToggleBonus, previewPath: pokerPreviewPath, bankPath: pokerBankPath, hintFor: pokerHintFor, markHintUsed: pokerMarkHintUsed, remainingCells: pokerRemainingCells, canReroll: pokerCanReroll, snapshotGame: pokerSnapshot, restoreGame: pokerRestore, isBanked: pokerIsBanked, isSealed: pokerIsSealed, heldCount: pokerHeldCount } = __mod_poker;
+const { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } = __mod_levels;
+const { generatePokerLevel, GENERATOR5_VERSION } = __mod_levels5;
 
-
-
-
-
-
-const APP_VERSION = '0.1.0';
-const STORAGE_KEY = 'dice-snake-3x3.v1';
+const APP_VERSION = '0.2.0';
+const STORAGE_KEY = 'dice-snake.v2';
+const LEGACY_KEY = 'dice-snake-3x3.v1';
 const TAP_THRESHOLD = 10; // CSS px of movement before a press becomes a path
 const CORE_INSET = 0.18; // path hit region = central 64% of a cell (no corner cutting)
 const LOG_LIMIT = 4000;
@@ -1146,64 +1620,228 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const reduceMotion = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const T = reduceMotion
-  ? { roll: 0, rollSwap: 0, stagger: 0, bank: 60, reveal: 0, endDelay: 120, flash: 900 }
-  : { roll: 640, rollSwap: 300, stagger: 45, bank: 560, reveal: 950, endDelay: 700, flash: 1400 };
+  ? { roll: 0, rollSwap: 0, stagger: 0, bank: 60, refill: 0, reveal: 0, endDelay: 120, flash: 900 }
+  : { roll: 640, rollSwap: 300, stagger: 45, bank: 560, refill: 520, reveal: 950, endDelay: 700, flash: 1400 };
 
 const $ = (id) => document.getElementById(id);
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const els = { cells: [] };
 
+// ---------- mode registry ----------
+const snakeEngine = {
+  create: createGame,
+  toggleHold: snakeToggleHold,
+  reroll: snakeReroll,
+  toggleBonus: snakeToggleBonus,
+  previewPath: snakePreviewPath,
+  bankPath: (state, path) => snakeBankPath(state, path),
+  hintFor: snakeHintFor,
+  markHintUsed: snakeMarkHintUsed,
+  remainingCells: snakeRemainingCells,
+  canReroll: snakeCanReroll,
+  snapshot: snakeSnapshot,
+  restore: snakeRestore,
+  isOrdinary: snakeIsOrdinary,
+  isBanked: snakeIsBanked,
+  isSealed: () => false,
+  heldCount: snakeHeldCount,
+  handsPlayed: (g) => g.hands.length,
+  handsTotal: () => 2,
+  isLastHand: (g) => g.hands.length === 1,
+};
+
+const pokerEngine = {
+  create: createPokerGame,
+  toggleHold: pokerToggleHold,
+  reroll: pokerReroll,
+  toggleBonus: pokerToggleBonus,
+  previewPath: pokerPreviewPath,
+  bankPath: (state, path, drawDie) => pokerBankPath(state, path, drawDie),
+  hintFor: pokerHintFor,
+  markHintUsed: pokerMarkHintUsed,
+  remainingCells: pokerRemainingCells,
+  canReroll: pokerCanReroll,
+  snapshot: pokerSnapshot,
+  restore: pokerRestore,
+  isOrdinary: () => true,
+  isBanked: pokerIsBanked,
+  isSealed: pokerIsSealed,
+  heldCount: pokerHeldCount,
+  handsPlayed: (g) => g.hands.length,
+  handsTotal: (g) => g.hands.length + g.handsLeft,
+  isLastHand: (g) => g.handsLeft === 1,
+};
+
+const show = (g, cells) => cells.map((i) => g.faces[i]).join(' → ');
+
+const MODES = {
+  snake4: {
+    id: 'snake4',
+    name: 'Snake 4+4',
+    handSize: 4,
+    bonus: 'cell',
+    refill: false,
+    engine: snakeEngine,
+    generatorVersion: GENERATOR_VERSION,
+    defaultSettings: { maxHolds: null, scoreTable: 'spec_v03', autoBonusOnFinalHand: true, pathMode: false },
+    gameConfig: (st) => ({ maxHolds: st.maxHolds, scoreTable: st.scoreTable, autoBonusOnFinalHand: st.autoBonusOnFinalHand }),
+    generate: ({ runSeed, levelIndex, tier, settings }) => generateLevel({ runSeed, levelIndex, tier, scoreTable: settings.scoreTable }),
+    idleCopy: (g, pathMode) => {
+      if (pathMode) return g.hands.length === 0 ? 'Tap 4 connected dice in order' : 'Tap the last 4 dice in order';
+      return g.hands.length === 0 ? 'Drag through 4 dice to play · tap to hold' : 'Drag through the last 4 dice';
+    },
+    solverLine: (level) => `Best possible on the opening roll (no rerolls, with ×2): ${level.bestNoRerollWithBonus}`,
+    onboard: {
+      lead: 'Two hands of four dice, dragged edge to edge like a snake. Both hands together use all eight dice.',
+      note: 'The tutorial shows every move on your first board: hold, reroll, drag a hand, use the gold ×2.',
+      demo: { values: [5, 5, 2, 3, 5, 5], path: [0, 1, 4, 5], label: 'SWIPE 5 → 5 → 5 → 5 = FOUR OF A KIND' },
+    },
+    help: {
+      lead: 'Save a connected set of four for your second hand. The first hand must leave four dice you can still snake through.',
+      rules: [
+        'Eight dice and one gold ×2 cell on a 3×3 board.',
+        'To play a hand, press a die and drag through four dice that touch edge to edge (no diagonals, no repeats) in one move, then lift. Example: 5 → 5 → 5 → 5 is FOUR OF A KIND. Tapping does not select dice. Both hands together use all eight dice.',
+        'Tap a die to hold it. REROLL changes every unheld, unbanked die. Two rerolls per level, shared by both hands.',
+        'Tap the gold cell (or the ×2 badge) to arm ×2 for the hand you bank next. If it is still unused on the last hand, it is applied there automatically.',
+        'Reach the target with the two hands to clear the level.',
+      ],
+      scoreTitle: 'SCORING · FOUR DICE',
+      scoreRows: (settings) => {
+        const table = SCORE_TABLES[settings.scoreTable];
+        const examples = { four_kind: [2, 2, 2, 2], straight: [1, 2, 3, 4], three_kind: [4, 4, 4, 1], two_pairs: [1, 1, 6, 6], pair: [1, 1, 3, 6], high: [1, 2, 4, 6] };
+        return CATEGORY_ORDER.map((cat) => ({ label: CATEGORY_LABELS[cat], example: examples[cat], points: table[cat], odds: CATEGORY_OUTCOMES[cat] / 1296 }));
+      },
+      options: { table: true, small: false, endOnTarget: false },
+    },
+    coachText(step, g, hint) {
+      if (step === 'swipe') return `DRAG ${show(g, hint.cells)} IN ONE MOVE, THEN LIFT · ${hint.hand.label} ${hint.hand.points}`;
+      return g.bonus.available
+        ? `TAP GOLD ×2 TO DOUBLE THIS HAND, THEN DRAG THE LAST FOUR (${show(g, hint.cells)}) OR PRESS BANK LAST 4`
+        : `DRAG THE LAST FOUR (${show(g, hint.cells)}) OR PRESS BANK LAST 4`;
+    },
+  },
+  poker5: {
+    id: 'poker5',
+    name: 'Poker 5',
+    handSize: 5,
+    bonus: 'token',
+    refill: true,
+    engine: pokerEngine,
+    generatorVersion: GENERATOR5_VERSION,
+    defaultSettings: { maxHolds: null, smallStraight: true, endOnTarget: false, autoBonusOnFinalHand: true, pathMode: false, hands: 3, rerolls: 3 },
+    gameConfig: (st) => ({ maxHolds: st.maxHolds, smallStraight: st.smallStraight, endOnTarget: st.endOnTarget, autoBonusOnFinalHand: st.autoBonusOnFinalHand, hands: st.hands, rerolls: st.rerolls }),
+    generate: ({ runSeed, levelIndex, tier, settings }) => generatePokerLevel({ runSeed, levelIndex, tier, config: MODES.poker5.gameConfig(settings) }),
+    idleCopy: (g, pathMode) => {
+      const n = g.hands.length + 1;
+      const total = g.hands.length + g.handsLeft;
+      return pathMode ? `Hand ${n} of ${total} · tap 5 connected dice in order` : `Hand ${n} of ${total} · drag through 5 dice · tap to hold`;
+    },
+    solverLine: (level) => `Best opening snake before any reroll: ${CATEGORY5_LABELS[level.openingCategory] || ''} ${level.openingBest}`,
+    onboard: {
+      lead: 'Nine dice. Drag through five of them like a snake to play a poker hand. The five you used are replaced; the other four stay for your next hand.',
+      note: 'Three hands and three rerolls per level. The tutorial shows every move on your first board.',
+      demo: { values: [4, 4, 4, 3, 2, 2], path: [0, 1, 2, 5, 4], label: 'SWIPE 4 → 4 → 4 → 2 → 2 = FULL HOUSE' },
+    },
+    help: {
+      lead: 'The four dice you leave behind are the start of your next hand: plan the snake so the leftovers already match.',
+      rules: [
+        'Nine dice on a 3×3 board. A hand is a snake of exactly five dice that touch edge to edge (no diagonals, no repeats).',
+        'To play a hand, press a die and drag through five dice in one move, then lift. Example: 4 → 4 → 4 → 2 → 2 is a FULL HOUSE.',
+        'The five dice you played are replaced by fresh dice. The other four stay exactly as they are.',
+        'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
+        'Three hands per level. Tap the ×2 badge to double the hand you play next; an unused ×2 is applied to the last hand automatically.',
+        'Reach the target with the three hands to clear the level.',
+      ],
+      scoreTitle: 'SCORING · FIVE DICE (POKER)',
+      scoreRows: (settings) => {
+        const table = SCORE_TABLES5.poker5_v1;
+        const outcomes = settings.smallStraight ? CATEGORY5_OUTCOMES_SMALL : CATEGORY5_OUTCOMES;
+        const examples = { five_kind: [3, 3, 3, 3, 3], four_kind: [3, 3, 3, 3, 1], straight: [1, 2, 3, 4, 5], full_house: [2, 2, 5, 5, 5], small_straight: [1, 2, 3, 4, 4], three_kind: [4, 4, 4, 1, 2], two_pairs: [1, 1, 6, 6, 3], pair: [1, 1, 3, 5, 6], bust: [1, 2, 4, 5, 6] };
+        const order = ['five_kind', 'four_kind', 'straight', 'full_house', 'small_straight', 'three_kind', 'two_pairs', 'pair', 'bust'].filter((c) => settings.smallStraight || c !== 'small_straight');
+        return order.map((cat) => ({ label: CATEGORY5_LABELS[cat], example: examples[cat], points: table[cat], odds: outcomes[cat] / 7776 }));
+      },
+      options: { table: false, small: true, endOnTarget: true },
+    },
+    coachText(step, g, hint) {
+      if (step === 'swipe') return `DRAG ${show(g, hint.cells)} IN ONE MOVE, THEN LIFT · ${hint.hand.label} ${hint.hand.points}`;
+      const n = g.hands.length + 1;
+      const total = g.hands.length + g.handsLeft;
+      const last = g.handsLeft === 1 && g.bonus.available ? ' · ×2 AUTO' : '';
+      return `HAND ${n}/${total} · THE OTHER FOUR STAYED · DRAG ${show(g, hint.cells)} · ${hint.hand.label} ${hint.hand.points}${last}`;
+    },
+  },
+};
+
+function freshModeState(mode) {
+  return {
+    runSeed: null,
+    levelIndex: 1,
+    tier: 1,
+    settings: { ...mode.defaultSettings },
+    onboarded: false,
+    coached: false,
+    coach: { active: false, done: { hold: false, reroll: false } },
+    game: null,
+    log: [],
+    levels: [],
+    rerollRng: null,
+    refillRng: null,
+    levelStartedAt: 0,
+    firstHandAt: null,
+    pendingTier: null,
+    allHeldToastShown: false,
+  };
+}
+
 const app = {
-  runSeed: null,
-  levelIndex: 1,
-  tier: 1,
-  settings: { maxHolds: null, scoreTable: 'spec_v03', autoBonusOnFinalHand: true, pathMode: false },
-  onboarded: false,
-  coached: false,
-  coachTargets: null,
-  allHeldToastShown: false,
-  game: null,
-  rerollRng: null,
-  levelStartedAt: 0,
-  firstHandAt: null,
-  log: [],
-  levels: [],
+  modeId: 'snake4',
+  modes: { snake4: freshModeState(MODES.snake4), poker5: freshModeState(MODES.poker5) },
   busy: false,
   path: [],
   tapPath: [],
   hintCells: null,
   hintTimer: null,
-  cellRects: null,
+  coachTargets: null,
   safeNext: null,
+  cellRects: null,
   gesture: null,
   toastTimer: null,
-  pendingTier: null,
+  ghostKey: '',
+  ghostAnim: null,
 };
 
+const S = () => app.modes[app.modeId];
+const M = () => MODES[app.modeId];
+const E = () => MODES[app.modeId].engine;
+
 // ---------- persistence ----------
-function readStorage() {
+function readJson(key) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-function persist() {
-  const data = {
-    version: APP_VERSION,
-    runSeed: app.runSeed,
-    levelIndex: app.levelIndex,
-    tier: app.tier,
-    settings: app.settings,
-    onboarded: app.onboarded,
-    coached: app.coached,
-    coach: { active: coach.active, done: coach.done },
-    game: app.game ? snapshotGame(app.game) : null,
-    log: app.log.slice(-LOG_LIMIT),
-    levels: app.levels.slice(-200),
+function serializeMode(st, engine) {
+  return {
+    runSeed: st.runSeed,
+    levelIndex: st.levelIndex,
+    tier: st.tier,
+    settings: st.settings,
+    onboarded: st.onboarded,
+    coached: st.coached,
+    coach: st.coach,
+    game: st.game ? engine.snapshot(st.game) : null,
+    log: st.log.slice(-LOG_LIMIT),
+    levels: st.levels.slice(-200),
   };
+}
+
+function persist() {
+  const data = { version: APP_VERSION, activeMode: app.modeId, modes: {} };
+  for (const id of Object.keys(MODES)) data.modes[id] = serializeMode(app.modes[id], MODES[id].engine);
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
@@ -1211,27 +1849,173 @@ function persist() {
   }
 }
 
+function hydrateMode(id, saved) {
+  const mode = MODES[id];
+  const st = freshModeState(mode);
+  if (!saved) return st;
+  st.runSeed = saved.runSeed || null;
+  st.levelIndex = saved.levelIndex || 1;
+  st.tier = saved.tier || 1;
+  st.settings = { ...st.settings, ...(saved.settings || {}) };
+  st.onboarded = !!saved.onboarded;
+  st.coached = !!saved.coached;
+  if (saved.coach && saved.coach.active) st.coach = { active: true, done: { hold: false, reroll: false, ...(saved.coach.done || {}) } };
+  st.log = Array.isArray(saved.log) ? saved.log : [];
+  st.levels = Array.isArray(saved.levels) ? saved.levels : [];
+  if (saved.game && saved.game.phase === 'playing') {
+    try {
+      st.game = mode.engine.restore(saved.game);
+      const seed = saved.game.level.seed;
+      st.rerollRng = createRng(`${seed}/rerolls/attempt${saved.game.attempt}/resume${st.log.length}`);
+      st.refillRng = createRng(`${seed}/refill/attempt${saved.game.attempt}/resume${st.log.length}`);
+      st.levelStartedAt = Date.now();
+    } catch {
+      st.game = null;
+    }
+  }
+  return st;
+}
+
 function logEvent(type, data = {}) {
-  app.log.push({ t: Date.now(), dt: app.levelStartedAt ? Date.now() - app.levelStartedAt : 0, level: app.levelIndex, type, ...data });
-  if (app.log.length > LOG_LIMIT) app.log.splice(0, app.log.length - LOG_LIMIT);
+  const st = S();
+  st.log.push({ t: Date.now(), dt: st.levelStartedAt ? Date.now() - st.levelStartedAt : 0, mode: app.modeId, level: st.levelIndex, type, ...data });
+  if (st.log.length > LOG_LIMIT) st.log.splice(0, st.log.length - LOG_LIMIT);
   coachOnEvent(type, data);
 }
 
-// ---------- coach: interactive tutorial on the real board ----------
-const coach = { active: false, done: { hold: false, reroll: false }, ghostKey: '', anim: null };
+// ---------- level lifecycle ----------
+function startGame(level, attempt) {
+  const st = S();
+  const mode = M();
+  st.game = mode.engine.create(level, mode.gameConfig(st.settings), attempt);
+  st.rerollRng = createRng(`${level.seed}/rerolls/attempt${attempt}`);
+  st.refillRng = createRng(`${level.seed}/refill/attempt${attempt}`);
+  st.levelStartedAt = Date.now();
+  st.firstHandAt = null;
+  st.pendingTier = null;
+  st.allHeldToastShown = false;
+  app.path = [];
+  app.tapPath = [];
+  app.hintCells = null;
+  app.coachTargets = null;
+  stopGhost();
+  logEvent('level_start', {
+    seed: level.seed, levelIndex: level.levelIndex, tier: level.tier, target: level.target, faces: level.faces, attempt,
+    opening: level.bestNoRerollWithBonus ?? level.openingBest, config: mode.gameConfig(st.settings),
+  });
+  $('levelEnd').hidden = true;
+  render();
+  persist();
+}
 
+function newLevel() {
+  const st = S();
+  const level = M().generate({ runSeed: st.runSeed, levelIndex: st.levelIndex, tier: st.tier, settings: st.settings });
+  startGame(level, 1);
+}
+
+function finishLevel() {
+  const st = S();
+  const g = st.game;
+  const mode = M();
+  const won = g.phase === 'won';
+  const now = Date.now();
+  const summary = {
+    mode: mode.id, levelIndex: g.level.levelIndex, seed: g.level.seed, tier: g.level.tier, target: g.level.target, score: g.score, won, attempt: g.attempt,
+    durationMs: now - st.levelStartedAt, timeToFirstHandMs: st.firstHandAt ? st.firstHandAt - st.levelStartedAt : null,
+    hintsUsed: g.stats.hintsUsed, rejectedPaths: g.stats.rejectedPaths, rerollsUsed: g.stats.rerollsUsed, holdToggles: g.stats.holdToggles,
+    categories: g.hands.map((h) => h.category), bonusOnHand: g.bonus.usedOnHand, bonusAuto: g.bonus.autoApplied,
+    handsLeft: g.handsLeft ?? 0, opening: g.level.bestNoRerollWithBonus ?? g.level.openingBest,
+  };
+  st.levels.push(summary);
+  logEvent('level_end', summary);
+  st.pendingTier = nextTier(st.tier, won);
+  persist();
+  showLevelEnd();
+}
+
+function showLevelEnd() {
+  const st = S();
+  const g = st.game;
+  const mode = M();
+  const won = g.phase === 'won';
+  if (st.pendingTier == null) st.pendingTier = nextTier(st.tier, won);
+  $('endTitle').textContent = won ? 'LEVEL CLEARED' : 'TARGET MISSED';
+  $('endTitle').className = `end-title ${won ? 'won' : 'lost'}`;
+  $('endScore').textContent = g.score;
+  $('endTarget').textContent = g.level.target;
+  const list = $('endHands');
+  list.innerHTML = '';
+  g.hands.forEach((h, k) => {
+    const li = document.createElement('li');
+    const mini = h.faces.map((f) => `<b>${f}</b>`).join('');
+    const mult = h.multiplier > 1 ? `<em>×${h.multiplier}</em>` : '';
+    li.innerHTML = `<span class="mini">${mini}</span><span>HAND ${k + 1} · ${h.label}</span><span class="pts">${mult}${h.total}</span>`;
+    list.appendChild(li);
+  });
+  const used = g.hands.find((h) => h.multiplier > 1);
+  const spare = g.handsLeft > 0 ? ` · ${g.handsLeft} hand${g.handsLeft > 1 ? 's' : ''} to spare` : '';
+  $('endBonus').textContent = (used
+    ? `×2 ${used.bonusAuto ? 'auto-applied to' : 'used on'} hand ${used.index + 1} (${used.points} → ${used.total})`
+    : '×2 was not used') + spare;
+  $('endSolver').textContent = mode.solverLine(g.level);
+  $('endTier').textContent = st.pendingTier === st.tier
+    ? `Rule-based difficulty: stays at tier ${st.tier} / 5`
+    : `Rule-based difficulty: tier ${st.tier} → ${st.pendingTier} / 5`;
+  $('nextBtn').textContent = won ? 'NEXT LEVEL' : 'NEXT LEVEL (EASIER)';
+  setTimeout(() => { $('levelEnd').hidden = false; }, T.endDelay);
+}
+
+function onNext() {
+  const st = S();
+  if (st.pendingTier != null) st.tier = st.pendingTier;
+  st.levelIndex += 1;
+  newLevel();
+}
+
+function onRetry() {
+  const st = S();
+  logEvent('retry', { attempt: st.game.attempt + 1 });
+  startGame(st.game.level, st.game.attempt + 1);
+}
+
+// ---------- mode switching ----------
+function switchMode(id, { silent = false } = {}) {
+  if (!MODES[id] || app.busy) return;
+  if (app.gesture) return;
+  const from = app.modeId;
+  app.modeId = id;
+  app.path = [];
+  app.tapPath = [];
+  app.hintCells = null;
+  app.coachTargets = null;
+  stopGhost();
+  $('levelEnd').hidden = true;
+  $('help').hidden = true;
+  const st = S();
+  if (!st.runSeed) st.runSeed = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  if (!st.game) newLevel();
+  else if (st.game.phase !== 'playing') { render(); showLevelEnd(); }
+  else render();
+  if (!st.onboarded) showOnboarding();
+  if (!silent && from !== id) logEvent('mode_switch', { from, to: id });
+  persist();
+}
+
+// ---------- coach: interactive tutorial on the real board ----------
 function coachStart(source) {
-  coach.active = true;
-  coach.done = { hold: false, reroll: false };
+  const st = S();
+  st.coach = { active: true, done: { hold: false, reroll: false } };
   logEvent('tutorial_start', { source });
   render();
   persist();
 }
 
 function coachStop(reason) {
-  if (!coach.active) return;
-  coach.active = false;
-  app.coached = true;
+  const st = S();
+  if (!st.coach.active) return;
+  st.coach.active = false;
+  st.coached = true;
   app.coachTargets = null;
   stopGhost();
   logEvent('tutorial_end', { reason });
@@ -1240,18 +2024,20 @@ function coachStop(reason) {
 }
 
 function coachOnEvent(type, data) {
-  if (!coach.active) return;
-  if (type === 'hold' && data.held) coach.done.hold = true;
-  if (type === 'reroll' || type === 'bank') { coach.done.hold = true; coach.done.reroll = true; }
+  const st = S();
+  if (!st.coach.active) return;
+  if (type === 'hold' && data.held) st.coach.done.hold = true;
+  if (type === 'reroll' || type === 'bank') { st.coach.done.hold = true; st.coach.done.reroll = true; }
   if (type === 'level_end') coachStop('complete');
 }
 
 function coachCurrentStep() {
-  const g = app.game;
-  if (!coach.active || !g || g.phase !== 'playing') return null;
-  if (g.hands.length === 0) {
-    if (!coach.done.hold) return 'hold';
-    if (!coach.done.reroll && g.rerollsLeft > 0) return 'reroll';
+  const st = S();
+  const g = st.game;
+  if (!st.coach.active || !g || g.phase !== 'playing') return null;
+  if (E().handsPlayed(g) === 0) {
+    if (!st.coach.done.hold) return 'hold';
+    if (!st.coach.done.reroll && g.rerollsLeft > 0) return 'reroll';
     return 'swipe';
   }
   return 'last';
@@ -1262,9 +2048,9 @@ function cellPercent(i) {
 }
 
 function stopGhost() {
-  if (coach.anim) coach.anim.cancel();
-  coach.anim = null;
-  coach.ghostKey = '';
+  if (app.ghostAnim) app.ghostAnim.cancel();
+  app.ghostAnim = null;
+  app.ghostKey = '';
   const ghost = $('ghost');
   if (ghost) ghost.style.opacity = '0';
 }
@@ -1272,9 +2058,9 @@ function stopGhost() {
 // Animated "ghost finger": a tap demo on one cell, or a press-drag-lift demo along a path.
 function startGhost(path) {
   const key = path ? path.join('-') : '';
-  if (coach.ghostKey === key) return;
+  if (app.ghostKey === key) return;
   stopGhost();
-  coach.ghostKey = key;
+  app.ghostKey = key;
   const ghost = $('ghost');
   if (!path || !ghost || reduceMotion || typeof ghost.animate !== 'function') return;
   const pts = path.map(cellPercent);
@@ -1296,7 +2082,7 @@ function startGhost(path) {
     frames.push(at(pts[n - 1], { opacity: 0, transform: 'translate(-50%, -50%) scale(1.2)', offset: 0.82 }));
     frames.push(at(pts[n - 1], { opacity: 0, transform: 'translate(-50%, -50%) scale(1.2)', offset: 1 }));
   }
-  coach.anim = ghost.animate(frames, { duration: pts.length === 1 ? 1700 : 2800, iterations: Infinity, easing: 'ease-in-out' });
+  app.ghostAnim = ghost.animate(frames, { duration: pts.length === 1 ? 1700 : 2600 + 400 * (pts.length - 4), iterations: Infinity, easing: 'ease-in-out' });
 }
 
 function coachRender() {
@@ -1310,9 +2096,10 @@ function coachRender() {
     stopGhost();
     return;
   }
-  const g = app.game;
-  const hint = hintFor(g);
-  const show = (cells) => cells.map((i) => g.faces[i]).join(' → ');
+  const st = S();
+  const g = st.game;
+  const mode = M();
+  const hint = E().hintFor(g);
   let text = '';
   let index = 1;
   let targets = [];
@@ -1324,21 +2111,19 @@ function coachRender() {
     ghostPath = [c];
   } else if (step === 'reroll') {
     index = 2;
-    text = canReroll(g)
+    text = E().canReroll(g)
       ? 'NOW PRESS REROLL. ONLY THE DICE WITHOUT HOLD CHANGE.'
       : 'EVERY DIE IS HELD. TAP ONE TO RELEASE IT, THEN PRESS REROLL.';
   } else if (step === 'swipe') {
     index = 3;
-    text = `DRAG ${show(hint.cells)} IN ONE MOVE, THEN LIFT · ${hint.hand.label} ${hint.hand.points}`;
+    text = mode.coachText('swipe', g, hint);
     targets = hint.cells;
     ghostPath = hint.cells;
   } else {
     index = 4;
-    text = g.bonus.available
-      ? `TAP GOLD ×2 TO DOUBLE THIS HAND, THEN DRAG THE LAST FOUR (${show(hint.cells)}) OR PRESS BANK LAST 4`
-      : `DRAG THE LAST FOUR (${show(hint.cells)}) OR PRESS BANK LAST 4`;
+    text = mode.coachText('last', g, hint);
     targets = hint.cells;
-    ghostPath = g.bonus.available ? null : hint.cells;
+    ghostPath = mode.bonus === 'cell' && g.bonus.available ? null : hint.cells;
   }
   bar.hidden = false;
   els.preview.hidden = true;
@@ -1349,92 +2134,9 @@ function coachRender() {
   startGhost(ghostPath);
 }
 
-// ---------- level lifecycle ----------
-function gameConfig() {
-  return { maxHolds: app.settings.maxHolds, scoreTable: app.settings.scoreTable, autoBonusOnFinalHand: app.settings.autoBonusOnFinalHand };
-}
-
-function startGame(level, attempt) {
-  app.game = createGame(level, gameConfig(), attempt);
-  app.rerollRng = createRng(`${level.seed}/rerolls/attempt${attempt}`);
-  app.levelStartedAt = Date.now();
-  app.firstHandAt = null;
-  app.path = [];
-  app.tapPath = [];
-  app.hintCells = null;
-  app.coachTargets = null;
-  app.allHeldToastShown = false;
-  app.pendingTier = null;
-  stopGhost();
-  logEvent('level_start', {
-    seed: level.seed, levelIndex: level.levelIndex, tier: level.tier, target: level.target, faces: level.faces, attempt,
-    bestNoReroll: level.bestNoReroll, bestNoRerollWithBonus: level.bestNoRerollWithBonus, config: gameConfig(),
-  });
-  $('levelEnd').hidden = true;
-  render();
-  persist();
-}
-
-function newLevel() {
-  const level = generateLevel({ runSeed: app.runSeed, levelIndex: app.levelIndex, tier: app.tier, scoreTable: app.settings.scoreTable });
-  startGame(level, 1);
-}
-
-function finishLevel() {
-  const g = app.game;
-  const won = g.phase === 'won';
-  const now = Date.now();
-  const summary = {
-    levelIndex: g.level.levelIndex, seed: g.level.seed, tier: g.level.tier, target: g.level.target, score: g.score, won, attempt: g.attempt,
-    durationMs: now - app.levelStartedAt, timeToFirstHandMs: app.firstHandAt ? app.firstHandAt - app.levelStartedAt : null,
-    hintsUsed: g.stats.hintsUsed, rejectedPaths: g.stats.rejectedPaths, rerollsUsed: g.stats.rerollsUsed, holdToggles: g.stats.holdToggles,
-    categories: g.hands.map((h) => h.category), bonusOnHand: g.bonus.usedOnHand, bonusAuto: g.bonus.autoApplied,
-    solverNoReroll: g.level.bestNoRerollWithBonus, gapToSolver: g.level.bestNoRerollWithBonus - g.score,
-  };
-  app.levels.push(summary);
-  logEvent('level_end', summary);
-  app.pendingTier = nextTier(app.tier, won);
-  persist();
-
-  $('endTitle').textContent = won ? 'LEVEL CLEARED' : 'TARGET MISSED';
-  $('endTitle').className = `end-title ${won ? 'won' : 'lost'}`;
-  $('endScore').textContent = g.score;
-  $('endTarget').textContent = g.level.target;
-  const list = $('endHands');
-  list.innerHTML = '';
-  g.hands.forEach((h, k) => {
-    const li = document.createElement('li');
-    const mini = h.faces.map((f) => `<b>${f}</b>`).join('');
-    const mult = h.multiplier > 1 ? `<em>×${h.multiplier}</em>` : '';
-    li.innerHTML = `<span class="mini">${mini}</span><span>HAND ${k + 1} · ${h.label}</span><span class="pts">${mult}${h.total}</span>`;
-    list.appendChild(li);
-  });
-  const used = g.hands.find((h) => h.multiplier > 1);
-  $('endBonus').textContent = used
-    ? `×2 ${used.bonusAuto ? 'auto-applied to' : 'used on'} hand ${used.index + 1} (${used.points} → ${used.total})`
-    : '×2 was not used';
-  $('endSolver').textContent = `Best possible on the opening roll (no rerolls, with ×2): ${g.level.bestNoRerollWithBonus}`;
-  $('endTier').textContent = app.pendingTier === app.tier
-    ? `Rule-based difficulty: stays at tier ${app.tier} / 5`
-    : `Rule-based difficulty: tier ${app.tier} → ${app.pendingTier} / 5`;
-  $('nextBtn').textContent = won ? 'NEXT LEVEL' : 'NEXT LEVEL (EASIER)';
-  setTimeout(() => { $('levelEnd').hidden = false; }, T.endDelay);
-}
-
-function onNext() {
-  if (app.pendingTier != null) app.tier = app.pendingTier;
-  app.levelIndex += 1;
-  newLevel();
-}
-
-function onRetry() {
-  logEvent('retry', { attempt: app.game.attempt + 1 });
-  startGame(app.game.level, app.game.attempt + 1);
-}
-
 // ---------- rendering ----------
 function currentPath() {
-  return app.settings.pathMode ? app.tapPath : app.path;
+  return S().settings.pathMode ? app.tapPath : app.path;
 }
 
 function buildBoard() {
@@ -1480,15 +2182,27 @@ function fitBoard() {
   app.cellRects = null;
 }
 
+// While the first hand is three dice long in Snake 4+4, mark which fourth dice keep a legal second hand.
+function computeSafeNext() {
+  const g = S().game;
+  const path = currentPath();
+  if (M().id !== 'snake4' || g.phase !== 'playing' || g.hands.length !== 0 || path.length !== 3) return null;
+  const last = path[path.length - 1];
+  let mask = 0;
+  for (const c of path) mask |= 1 << c;
+  return g.geometry.free.filter((i) => !path.includes(i) && !E().isBanked(g, i) && areAdjacent(last, i) && g.geometry.safeSet.has(mask | (1 << i)));
+}
+
 function renderCell(i) {
-  const g = app.game;
+  const g = S().game;
+  const engine = E();
   const cell = els.cells[i];
   const path = currentPath();
   const face = cell.querySelector('.face');
   const tag = cell.querySelector('.tag');
   const order = cell.querySelector('.order');
   cell.className = 'cell';
-  if (!isOrdinary(g, i)) {
+  if (!engine.isOrdinary(g, i)) {
     cell.classList.add('bonus');
     if (!g.bonus.available) cell.classList.add('used');
     else if (g.bonus.armed) cell.classList.add('armed');
@@ -1496,7 +2210,7 @@ function renderCell(i) {
     cell.setAttribute('aria-label', `×2 bonus, ${tag.textContent.toLowerCase()}`);
     return;
   }
-  if (isBanked(g, i)) {
+  if (engine.isBanked(g, i)) {
     cell.classList.add('empty');
     cell.setAttribute('aria-label', 'Banked');
     tag.textContent = '';
@@ -1504,7 +2218,9 @@ function renderCell(i) {
   }
   cell.classList.add('die');
   face.dataset.value = String(g.faces[i]);
-  tag.textContent = 'HOLD';
+  const sealed = engine.isSealed(g, i);
+  tag.textContent = sealed ? 'FIXED' : 'HOLD';
+  if (sealed) cell.classList.add('sealed');
   if (g.held[i]) cell.classList.add('held');
   const k = path.indexOf(i);
   if (k >= 0) {
@@ -1514,49 +2230,56 @@ function renderCell(i) {
   if (app.hintCells && app.hintCells.includes(i)) cell.classList.add('hint');
   if (app.coachTargets && app.coachTargets.includes(i) && k < 0) cell.classList.add('hint');
   if (k < 0 && app.safeNext && app.safeNext.includes(i)) cell.classList.add('safe-next');
-  cell.setAttribute('aria-label', `Die ${g.faces[i]}${g.held[i] ? ', held' : ''}`);
-}
-
-// While the first hand is three dice long, mark which fourth dice keep a legal second hand.
-function computeSafeNext() {
-  const g = app.game;
-  const path = currentPath();
-  if (g.phase !== 'playing' || g.hands.length !== 0 || path.length !== 3) return null;
-  const last = path[path.length - 1];
-  let mask = 0;
-  for (const c of path) mask |= 1 << c;
-  return g.geometry.free.filter((i) => !path.includes(i) && !isBanked(g, i) && areAdjacent(last, i) && g.geometry.safeSet.has(mask | (1 << i)));
+  cell.setAttribute('aria-label', `Die ${g.faces[i]}${g.held[i] ? ', held' : ''}${sealed ? ', fixed' : ''}`);
 }
 
 function renderHud() {
-  const g = app.game;
+  const st = S();
+  const g = st.game;
+  const engine = E();
   $('score').textContent = String(g.score);
   $('target').textContent = String(g.level.target);
   $('levelText').textContent = `LEVEL ${g.level.levelIndex}${g.attempt > 1 ? ` · TRY ${g.attempt}` : ''}`;
   $('tierText').textContent = `TIER ${g.level.tier} / 5 · RULE-BASED`;
+  const handsEl = $('handsText');
+  if (M().id === 'poker5') {
+    handsEl.hidden = false;
+    handsEl.textContent = g.phase === 'playing' ? `HAND ${engine.handsPlayed(g) + 1} / ${engine.handsTotal(g)}` : `${g.hands.length} HANDS PLAYED`;
+  } else {
+    handsEl.hidden = true;
+  }
+  for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
 }
 
 function renderControls() {
-  const g = app.game;
-  const pips = els.rerollPips.querySelectorAll('i');
-  pips.forEach((p, k) => p.classList.toggle('on', k < g.rerollsLeft));
+  const st = S();
+  const g = st.game;
+  const engine = E();
+  const mode = M();
+  const total = g.level.rerolls ?? g.config.rerolls;
+  const pips = els.rerollPips;
+  while (pips.children.length < total) pips.appendChild(document.createElement('i'));
+  while (pips.children.length > total) pips.removeChild(pips.lastChild);
+  Array.from(pips.children).forEach((p, k) => p.classList.toggle('on', k < g.rerollsLeft));
   $('rerollText').textContent = g.rerollsLeft === 1 ? 'REROLL LEFT' : 'REROLLS LEFT';
   const bs = $('bonusStatus');
   bs.className = 'bonus-status';
   if (!g.bonus.available) bs.textContent = `×2 USED ON HAND ${g.bonus.usedOnHand + 1}`;
   else if (g.bonus.armed) { bs.textContent = '×2 ARMED FOR NEXT HAND'; bs.classList.add('armed'); }
-  else { bs.textContent = '×2 READY · TAP GOLD'; bs.classList.add('ready'); }
+  else { bs.textContent = mode.bonus === 'cell' ? '×2 READY · TAP GOLD' : '×2 READY · TAP TO ARM'; bs.classList.add('ready'); }
+  bs.disabled = app.busy || g.phase !== 'playing' || !g.bonus.available;
   const playing = g.phase === 'playing';
-  els.rerollBtn.disabled = app.busy || !canReroll(g);
+  els.rerollBtn.disabled = app.busy || !engine.canReroll(g);
   els.rerollBtn.textContent = g.rerollsLeft > 0 ? 'REROLL' : 'NO REROLLS LEFT';
-  els.bankLastBtn.hidden = !(playing && g.hands.length === 1);
+  els.bankLastBtn.hidden = !(playing && mode.id === 'snake4' && g.hands.length === 1);
   els.bankLastBtn.disabled = app.busy;
-  els.tapbar.hidden = !app.settings.pathMode || !playing;
+  els.tapbar.hidden = !st.settings.pathMode || !playing;
   els.undoBtn.disabled = app.tapPath.length === 0;
-  els.bankTapBtn.disabled = app.busy || app.tapPath.length !== 4;
-  els.pathModeBtn.classList.toggle('on', app.settings.pathMode);
-  els.pathModeBtn.setAttribute('aria-pressed', String(app.settings.pathMode));
+  els.bankTapBtn.disabled = app.busy || app.tapPath.length !== mode.handSize;
+  els.pathModeBtn.classList.toggle('on', st.settings.pathMode);
+  els.pathModeBtn.setAttribute('aria-pressed', String(st.settings.pathMode));
   els.hintBtn.disabled = app.busy || !playing;
+  for (const btn of els.tabs) btn.disabled = app.busy;
 }
 
 function cellCenter(i) {
@@ -1577,19 +2300,21 @@ function setPreview(text, mood = '') {
 }
 
 function renderPreview() {
-  const g = app.game;
+  const st = S();
+  const g = st.game;
+  const engine = E();
+  const mode = M();
   if (app.hintCells) return;
   if (g.phase !== 'playing') { setPreview(g.phase === 'won' ? 'LEVEL CLEARED' : 'TARGET MISSED', g.phase === 'won' ? 'good' : 'bad'); return; }
   const path = currentPath();
   if (path.length === 0) {
-    if (heldCount(g) === remainingCells(g).length) setPreview('All held · drag through 4 dice to play a hand', 'hint');
-    else if (app.settings.pathMode) setPreview(g.hands.length === 0 ? 'Tap 4 connected dice in order' : 'Tap the last 4 dice in order');
-    else setPreview(g.hands.length === 0 ? 'Drag through 4 dice to play · tap to hold' : 'Drag through the last 4 dice');
+    if (engine.heldCount(g) === engine.remainingCells(g).length) setPreview(`All held · drag through ${mode.handSize} dice to play a hand`, 'hint');
+    else setPreview(mode.idleCopy(g, st.settings.pathMode));
     return;
   }
-  const p = previewPath(g, path);
+  const p = engine.previewPath(g, path);
   if (!p.ok) { setPreview(p.message, 'bad'); return; }
-  if (p.partial) { setPreview(`${p.count} / 4`); return; }
+  if (p.partial) { setPreview(`${p.count} / ${mode.handSize}`); return; }
   const mult = p.multiplier > 1 ? ` (${p.hand.points} ×${p.multiplier})` : '';
   if (!p.safe) setPreview(`${p.hand.label} ${p.total} · ${p.safetyMessage.replace(/\.$/, '')}`, 'bad');
   else setPreview(`${p.hand.label} +${p.total}${mult}${p.autoBonus ? ' · ×2 AUTO' : ''}`, 'good');
@@ -1668,42 +2393,48 @@ function showReveal(hand) {
 }
 
 // ---------- actions ----------
-function onTap(i) {
-  const g = app.game;
+function armBonus(source) {
+  const st = S();
+  const g = st.game;
   if (app.busy || g.phase !== 'playing') return;
-  if (!isOrdinary(g, i)) {
-    const r = toggleBonus(g);
-    if (!r.ok) { toast(r.message, 'bad'); return; }
-    app.game = r.state;
-    pressFeedback(i);
-    haptic(10);
-    logEvent('bonus', { armed: r.armed });
-    render();
-    persist();
-    return;
-  }
-  if (isBanked(g, i)) return;
-  if (app.settings.pathMode) { tapPathAdd(i); return; }
-  const r = toggleHold(g, i);
+  const r = E().toggleBonus(g);
+  if (!r.ok) { toast(r.message, 'bad'); return; }
+  st.game = r.state;
+  haptic(10);
+  logEvent('bonus', { armed: r.armed, source });
+  render();
+  persist();
+}
+
+function onTap(i) {
+  const st = S();
+  const g = st.game;
+  const engine = E();
+  if (app.busy || g.phase !== 'playing') return;
+  if (!engine.isOrdinary(g, i)) { pressFeedback(i); armBonus('cell'); return; }
+  if (engine.isBanked(g, i)) return;
+  if (st.settings.pathMode) { tapPathAdd(i); return; }
+  const r = engine.toggleHold(g, i);
   if (!r.ok) { toast(r.message, 'bad'); shakeCells([i]); return; }
-  app.game = r.state;
+  st.game = r.state;
   pressFeedback(i);
   haptic(r.held ? 12 : 6);
   logEvent('hold', { cell: i, held: r.held });
   render();
   persist();
-  if (r.held && heldCount(app.game) === remainingCells(app.game).length && !app.allHeldToastShown) {
-    app.allHeldToastShown = true;
-    toast('Hold only protects dice from REROLL. To play a hand, press a die and drag through four.', 'hint');
+  if (r.held && engine.heldCount(st.game) === engine.remainingCells(st.game).length && !st.allHeldToastShown) {
+    st.allHeldToastShown = true;
+    toast(`Hold only protects dice from REROLL. To play a hand, press a die and drag through ${M().handSize}.`, 'hint');
   }
 }
 
 function tapPathAdd(i) {
   const p = app.tapPath;
   const last = p[p.length - 1];
+  const size = M().handSize;
   if (i === last) { p.pop(); render(); return; }
   if (p.includes(i)) { toast('Each die once per hand', 'bad'); return; }
-  if (p.length >= 4) { toast('A hand has four dice', 'bad'); return; }
+  if (p.length >= size) { toast(`A hand has ${size} dice`, 'bad'); return; }
   if (p.length > 0 && !areAdjacent(last, i)) { toast('Dice must touch edge to edge', 'bad'); shakeCells([i]); return; }
   p.push(i);
   pressFeedback(i);
@@ -1712,12 +2443,13 @@ function tapPathAdd(i) {
 }
 
 async function doReroll(source) {
-  const g = app.game;
+  const st = S();
+  const g = st.game;
   if (app.busy) return;
-  const r = reroll(g, () => app.rerollRng.die());
+  const r = E().reroll(g, () => st.rerollRng.die());
   if (!r.ok) { toast(r.message, 'bad'); return; }
-  app.game = r.state;
-  logEvent('reroll', { source, rolled: r.rolled, held: g.geometry.free.filter((i) => g.held[i]), left: app.game.rerollsLeft });
+  st.game = r.state;
+  logEvent('reroll', { source, rolled: r.rolled, held: [0, 1, 2, 3, 4, 5, 6, 7, 8].filter((i) => g.held[i]), left: st.game.rerollsLeft });
   app.busy = true;
   clearPath();
   renderControls();
@@ -1726,7 +2458,7 @@ async function doReroll(source) {
     const c = els.cells[i];
     c.style.setProperty('--delay', `${k * T.stagger}ms`);
     c.classList.add('rolling');
-    setTimeout(() => { c.querySelector('.face').dataset.value = String(app.game.faces[i]); }, T.rollSwap + k * T.stagger);
+    setTimeout(() => { c.querySelector('.face').dataset.value = String(st.game.faces[i]); }, T.rollSwap + k * T.stagger);
   });
   await wait(T.roll + T.stagger * Math.max(0, r.rolled.length - 1));
   r.rolled.forEach((i) => els.cells[i].classList.remove('rolling'));
@@ -1737,15 +2469,17 @@ async function doReroll(source) {
 
 async function attemptBank(path, source) {
   if (app.busy) return;
-  const g = app.game;
-  const r = bankPath(g, path);
-  app.game = r.state;
+  const st = S();
+  const g = st.game;
+  const mode = M();
+  const r = E().bankPath(g, path, () => st.refillRng.die());
+  st.game = r.state;
   if (!r.ok) {
     logEvent('path_rejected', { source, code: r.code, path });
     toast(r.message, 'bad');
     shakeCells(path);
     if (r.code === 'STRANDS') {
-      const h = hintFor(app.game);
+      const h = E().hintFor(st.game);
       if (h) flashCells(h.cells, 'safe-hint', T.flash);
     }
     clearPath();
@@ -1754,10 +2488,12 @@ async function attemptBank(path, source) {
     return;
   }
   const hand = r.hand;
-  if (hand.index === 0) app.firstHandAt = Date.now();
-  logEvent('bank', { source, hand: hand.index, cells: hand.cells, faces: hand.faces, category: hand.category, points: hand.points, multiplier: hand.multiplier, total: hand.total, auto: hand.bonusAuto });
+  if (hand.index === 0) st.firstHandAt = Date.now();
+  logEvent('bank', { source, hand: hand.index, cells: hand.cells, faces: hand.faces, category: hand.category, points: hand.points, multiplier: hand.multiplier, total: hand.total, auto: hand.bonusAuto, refilled: r.refilled || [] });
   app.busy = true;
   app.hintCells = null;
+  app.coachTargets = null;
+  stopGhost();
   clearPath();
   haptic(hand.points >= 10 ? [14, 40, 18] : 12);
   showReveal(hand);
@@ -1767,10 +2503,20 @@ async function attemptBank(path, source) {
   renderPath();
   setPreview(`${hand.label} +${hand.total}`, 'good');
   await wait(T.bank);
+  if (mode.refill && r.refilled && r.refilled.length) {
+    render();
+    r.refilled.forEach((i, k) => {
+      const c = els.cells[i];
+      c.style.setProperty('--delay', `${k * 60}ms`);
+      c.classList.add('refill');
+    });
+    await wait(T.refill + 60 * r.refilled.length);
+    r.refilled.forEach((i) => els.cells[i].classList.remove('refill'));
+  }
   app.busy = false;
   render();
   persist();
-  if (app.game.phase !== 'playing') finishLevel();
+  if (st.game.phase !== 'playing') finishLevel();
 }
 
 function clearPath() {
@@ -1779,34 +2525,37 @@ function clearPath() {
 }
 
 function onHint() {
-  const g = app.game;
+  const st = S();
+  const g = st.game;
   if (app.busy || g.phase !== 'playing') return;
-  const h = hintFor(g);
+  const h = E().hintFor(g);
   if (!h) return;
-  app.game = markHintUsed(g);
+  st.game = E().markHintUsed(g);
   logEvent('hint', { cells: h.cells, category: h.hand.category, useBonus: h.useBonus, projected: h.projected });
   app.hintCells = h.cells;
   clearTimeout(app.hintTimer);
   app.hintTimer = setTimeout(() => { app.hintCells = null; render(); }, 2600);
   render();
-  const arm = h.useBonus && !g.bonus.armed ? ' · ARM ×2' : '';
+  const arm = h.useBonus && !g.bonus.armed && M().bonus === 'cell' ? ' · ARM ×2' : '';
   setPreview(`HINT · ${h.hand.label} ${h.hand.points}${arm} → ${h.projected}`, 'hint');
   persist();
 }
 
 function onBankLast() {
-  const g = app.game;
-  if (app.busy || g.phase !== 'playing' || g.hands.length !== 1) return;
-  const cells = remainingCells(g);
+  const st = S();
+  const g = st.game;
+  if (app.busy || g.phase !== 'playing' || M().id !== 'snake4' || g.hands.length !== 1) return;
+  const cells = E().remainingCells(g);
   const paths = orderedPathsOf(cells);
   if (!paths.length) { toast('No path through the remaining dice', 'bad'); return; }
   attemptBank(paths[0], 'button');
 }
 
 function togglePathMode() {
-  app.settings.pathMode = !app.settings.pathMode;
+  const st = S();
+  st.settings.pathMode = !st.settings.pathMode;
   clearPath();
-  logEvent('path_mode', { on: app.settings.pathMode });
+  logEvent('path_mode', { on: st.settings.pathMode });
   render();
   persist();
 }
@@ -1828,24 +2577,26 @@ function hitTest(x, y, core = false) {
 }
 
 function canUseInPath(i) {
-  return i >= 0 && isOrdinary(app.game, i) && !isBanked(app.game, i);
+  const g = S().game;
+  return i >= 0 && E().isOrdinary(g, i) && !E().isBanked(g, i);
 }
 
 // Extends the swipe path with a sampled cell: adjacent step, retrace (undo), or an
 // unambiguous straight jump over one skipped cell. Diagonal jumps are ignored.
 function extendPath(path, cell) {
   if (!canUseInPath(cell)) return false;
+  const size = M().handSize;
   const last = path[path.length - 1];
   if (cell === last) return false;
   if (path.length >= 2 && cell === path[path.length - 2]) { path.pop(); return true; }
   if (path.includes(cell)) return false;
-  if (path.length >= 4) return false;
+  if (path.length >= size) return false;
   if (areAdjacent(last, cell)) { path.push(cell); return true; }
   const dr = rowOf(cell) - rowOf(last);
   const dc = colOf(cell) - colOf(last);
   if ((Math.abs(dr) === 2 && dc === 0) || (Math.abs(dc) === 2 && dr === 0)) {
     const mid = last + (dr / 2) * 3 + dc / 2;
-    if (canUseInPath(mid) && !path.includes(mid) && path.length <= 2) { path.push(mid, cell); return true; }
+    if (canUseInPath(mid) && !path.includes(mid) && path.length <= size - 2) { path.push(mid, cell); return true; }
   }
   return false;
 }
@@ -1858,7 +2609,7 @@ function onPointerDown(e) {
   if (cell < 0) return;
   app.gesture = { id: e.pointerId, x: e.clientX, y: e.clientY, startCell: cell, mode: 'pending' };
   try { els.board.setPointerCapture(e.pointerId); } catch { /* not needed on all platforms */ }
-  if (isOrdinary(app.game, cell) && !isBanked(app.game, cell)) els.cells[cell].classList.add('pressed');
+  if (canUseInPath(cell)) els.cells[cell].classList.add('pressed');
   e.preventDefault();
 }
 
@@ -1869,8 +2620,8 @@ function onPointerMove(e) {
     const dist = Math.hypot(e.clientX - gs.x, e.clientY - gs.y);
     if (dist < TAP_THRESHOLD) return;
     els.cells[gs.startCell].classList.remove('pressed');
-    const g = app.game;
-    if (app.settings.pathMode || g.phase !== 'playing' || !canUseInPath(gs.startCell)) { gs.mode = 'dead'; return; }
+    const g = S().game;
+    if (S().settings.pathMode || g.phase !== 'playing' || !canUseInPath(gs.startCell)) { gs.mode = 'dead'; return; }
     gs.mode = 'path';
     app.path = [gs.startCell];
     app.hintCells = null;
@@ -1894,8 +2645,9 @@ function onPointerUp(e) {
   if (gs.mode === 'pending') { onTap(gs.startCell); return; }
   if (gs.mode !== 'path') return;
   const path = app.path.slice();
-  if (path.length === 4) { attemptBank(path, 'swipe'); return; }
-  if (path.length >= 2) { logEvent('path_abandoned', { path }); toast('Trace four connected dice'); }
+  const size = M().handSize;
+  if (path.length === size) { attemptBank(path, 'swipe'); return; }
+  if (path.length >= 2) { logEvent('path_abandoned', { path }); toast(`Trace ${size} connected dice`); }
   clearPath();
   render();
 }
@@ -1910,38 +2662,77 @@ function onPointerCancel(e) {
   render();
 }
 
-// ---------- help / settings / data ----------
+// ---------- onboarding / help / settings / data ----------
+function showOnboarding() {
+  const mode = M();
+  const ob = mode.onboard;
+  $('onboardTitle').textContent = mode.name.toUpperCase();
+  $('onboardLead').textContent = ob.lead;
+  $('onboardNote').textContent = ob.note;
+  const grid = $('demoGrid');
+  grid.innerHTML = ob.demo.values.map((v, k) => `<i data-value="${v}"${ob.demo.path.includes(k) ? ' class="on"' : ''}></i>`).join('');
+  const pt = (k) => [50 + (k % 3) * 100, 50 + Math.floor(k / 3) * 100];
+  $('demoLine').setAttribute('points', ob.demo.path.map((k) => pt(k).join(',')).join(' '));
+  $('demoLabel').textContent = ob.demo.label;
+  const finger = $('demoFinger');
+  if (app.demoAnim) app.demoAnim.cancel();
+  if (!reduceMotion && typeof finger.animate === 'function') {
+    const pts = ob.demo.path.map((k) => ({ left: `${((k % 3) + 0.5) * 100 / 3}%`, top: `${(Math.floor(k / 3) + 0.5) * 100 / 3 * (200 / 230)}%` }));
+    const n = pts.length;
+    const frames = [{ ...pts[0], opacity: 0, offset: 0 }, { ...pts[0], opacity: 1, offset: 0.12 }];
+    for (let k = 1; k < n; k++) frames.push({ ...pts[k], opacity: 1, offset: 0.12 + (k / (n - 1)) * 0.6 });
+    frames.push({ ...pts[n - 1], opacity: 0, offset: 0.88 }, { ...pts[n - 1], opacity: 0, offset: 1 });
+    app.demoAnim = finger.animate(frames, { duration: 2800, iterations: Infinity, easing: 'ease-in-out' });
+  }
+  $('onboarding').hidden = false;
+}
+
 function renderScoreTable() {
-  const table = SCORE_TABLES[app.settings.scoreTable];
-  const examples = { four_kind: [2, 2, 2, 2], straight: [1, 2, 3, 4], three_kind: [4, 4, 4, 1], two_pairs: [1, 1, 6, 6], pair: [1, 1, 3, 6], high: [1, 2, 4, 6] };
-  const rows = CATEGORY_ORDER.map((cat) => {
-    const ex = examples[cat].map((f) => `<b>${f}</b>`).join('');
-    return `<tr><td>${CATEGORY_LABELS[cat]}</td><td class="ex">${ex}</td><td class="num">${table[cat]}</td><td class="num">${(100 * CATEGORY_OUTCOMES[cat] / 1296).toFixed(1)}%</td></tr>`;
+  const rows = M().help.scoreRows(S().settings).map((r) => {
+    const ex = r.example.map((f) => `<b>${f}</b>`).join('');
+    return `<tr><td>${r.label}</td><td class="ex">${ex}</td><td class="num">${r.points}</td><td class="num">${(100 * r.odds).toFixed(1)}%</td></tr>`;
   });
   $('scoreTable').innerHTML = `<tr><th>HAND</th><th>EXAMPLE</th><th class="num">POINTS</th><th class="num">ODDS</th></tr>${rows.join('')}`;
 }
 
 function openHelp() {
+  const st = S();
+  const mode = M();
+  $('helpTitle').textContent = `HOW TO PLAY · ${mode.name.toUpperCase()}`;
+  $('helpLead').textContent = mode.help.lead;
+  $('helpRules').innerHTML = mode.help.rules.map((r) => `<li>${r}</li>`).join('');
+  $('helpScoreTitle').textContent = mode.help.scoreTitle;
   renderScoreTable();
-  $('optHoldCap').checked = app.settings.maxHolds != null;
-  $('optTable').value = app.settings.scoreTable;
-  $('optAutoBonus').checked = app.settings.autoBonusOnFinalHand;
-  $('runInfo').textContent = `Run ${app.runSeed} · level ${app.levelIndex} · tier ${app.tier} · generator ${GENERATOR_VERSION} · ${app.log.length} events logged locally`;
+  $('optHoldCap').checked = st.settings.maxHolds != null;
+  $('optTableRow').hidden = !mode.help.options.table;
+  $('optSmallRow').hidden = !mode.help.options.small;
+  $('optEndRow').hidden = !mode.help.options.endOnTarget;
+  if (mode.help.options.table) $('optTable').value = st.settings.scoreTable;
+  if (mode.help.options.small) $('optSmall').checked = !!st.settings.smallStraight;
+  if (mode.help.options.endOnTarget) $('optEndOnTarget').checked = !!st.settings.endOnTarget;
+  $('optAutoBonus').checked = st.settings.autoBonusOnFinalHand;
+  $('runInfo').textContent = `${mode.name} · run ${st.runSeed} · level ${st.levelIndex} · tier ${st.tier} · generator ${mode.generatorVersion} · ${st.log.length} events logged locally`;
   $('difficultyRule').textContent = DIFFICULTY_RULE_TEXT;
   $('logOut').hidden = true;
   $('help').hidden = false;
 }
 
 function applySettings() {
-  app.settings.maxHolds = $('optHoldCap').checked ? 3 : null;
-  app.settings.scoreTable = $('optTable').value;
-  app.settings.autoBonusOnFinalHand = $('optAutoBonus').checked;
-  logEvent('settings', { ...app.settings });
+  const st = S();
+  const mode = M();
+  st.settings.maxHolds = $('optHoldCap').checked ? 3 : null;
+  if (mode.help.options.table) st.settings.scoreTable = $('optTable').value;
+  if (mode.help.options.small) st.settings.smallStraight = $('optSmall').checked;
+  if (mode.help.options.endOnTarget) st.settings.endOnTarget = $('optEndOnTarget').checked;
+  st.settings.autoBonusOnFinalHand = $('optAutoBonus').checked;
+  logEvent('settings', { ...st.settings });
+  if (mode.help.options.small) renderScoreTable();
   persist();
 }
 
 async function exportLog() {
-  const payload = { app: APP_VERSION, generator: GENERATOR_VERSION, exportedAt: new Date().toISOString(), runSeed: app.runSeed, settings: app.settings, levels: app.levels, events: app.log };
+  const st = S();
+  const payload = { app: APP_VERSION, mode: app.modeId, generator: M().generatorVersion, exportedAt: new Date().toISOString(), runSeed: st.runSeed, settings: st.settings, levels: st.levels, events: st.log };
   const text = JSON.stringify(payload);
   const out = $('logOut');
   out.value = text;
@@ -1958,14 +2749,14 @@ async function exportLog() {
 
 function resetProgress() {
   logEvent('reset');
-  app.runSeed = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  app.levelIndex = 1;
-  app.tier = 1;
-  app.log = [];
-  app.levels = [];
+  const fresh = freshModeState(M());
+  fresh.onboarded = true;
+  fresh.coached = true;
+  fresh.runSeed = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  app.modes[app.modeId] = fresh;
   $('help').hidden = true;
   newLevel();
-  toast('Progress reset', 'good');
+  toast(`${M().name} progress reset`, 'good');
 }
 
 // ---------- init ----------
@@ -1982,6 +2773,7 @@ function bind() {
     if (!cell) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(Number(cell.dataset.index)); }
   });
+  for (const btn of els.tabs) btn.addEventListener('click', () => switchMode(btn.dataset.mode));
   els.rerollBtn.addEventListener('click', () => doReroll('button'));
   els.bankLastBtn.addEventListener('click', onBankLast);
   els.hintBtn.addEventListener('click', onHint);
@@ -1989,16 +2781,15 @@ function bind() {
   els.undoBtn.addEventListener('click', () => { app.tapPath.pop(); render(); });
   els.bankTapBtn.addEventListener('click', () => attemptBank(app.tapPath.slice(), 'tap'));
   els.helpBtn.addEventListener('click', openHelp);
+  $('bonusStatus').addEventListener('click', () => armBonus('badge'));
   $('closeHelpBtn').addEventListener('click', () => { $('help').hidden = true; });
-  $('optHoldCap').addEventListener('change', applySettings);
-  $('optTable').addEventListener('change', applySettings);
-  $('optAutoBonus').addEventListener('change', applySettings);
+  for (const id of ['optHoldCap', 'optTable', 'optSmall', 'optEndOnTarget', 'optAutoBonus']) $(id).addEventListener('change', applySettings);
   $('exportBtn').addEventListener('click', exportLog);
   $('resetBtn').addEventListener('click', resetProgress);
   $('nextBtn').addEventListener('click', onNext);
   $('retryBtn').addEventListener('click', onRetry);
-  $('onboardStart').addEventListener('click', () => { app.onboarded = true; $('onboarding').hidden = true; logEvent('onboarded', { tutorial: true }); coachStart('onboarding'); });
-  $('onboardSkip').addEventListener('click', () => { app.onboarded = true; app.coached = true; $('onboarding').hidden = true; logEvent('onboarded', { tutorial: false }); persist(); });
+  $('onboardStart').addEventListener('click', () => { S().onboarded = true; $('onboarding').hidden = true; logEvent('onboarded', { tutorial: true }); coachStart('onboarding'); });
+  $('onboardSkip').addEventListener('click', () => { S().onboarded = true; S().coached = true; $('onboarding').hidden = true; logEvent('onboarded', { tutorial: false }); persist(); });
   $('coachSkip').addEventListener('click', () => coachStop('skipped'));
   $('tutorialBtn').addEventListener('click', () => { $('help').hidden = true; coachStart('help'); });
   window.addEventListener('keydown', (e) => {
@@ -2015,41 +2806,27 @@ function bind() {
 
 function init() {
   for (const id of ['board', 'boardWrap', 'preview', 'rerollBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast']) els[id] = $(id);
+  els.tabs = Array.from(document.querySelectorAll('.tab'));
   buildBoard();
   bind();
-  const saved = readStorage();
-  if (saved && saved.version === APP_VERSION) {
-    app.runSeed = saved.runSeed || null;
-    app.levelIndex = saved.levelIndex || 1;
-    app.tier = saved.tier || 1;
-    app.settings = { ...app.settings, ...(saved.settings || {}) };
-    app.onboarded = !!saved.onboarded;
-    app.coached = !!saved.coached;
-    if (saved.coach && saved.coach.active) { coach.active = true; coach.done = { ...coach.done, ...(saved.coach.done || {}) }; }
-    app.log = Array.isArray(saved.log) ? saved.log : [];
-    app.levels = Array.isArray(saved.levels) ? saved.levels : [];
-    if (saved.game && saved.game.phase === 'playing') {
-      try {
-        app.game = restoreGame(saved.game);
-        app.rerollRng = createRng(`${saved.game.level.seed}/rerolls/attempt${saved.game.attempt}/resume${app.log.length}`);
-        app.levelStartedAt = Date.now();
-        logEvent('level_resume', { seed: saved.game.level.seed });
-      } catch {
-        app.game = null;
-      }
-    }
+  const saved = readJson(STORAGE_KEY);
+  if (saved && saved.modes) {
+    for (const id of Object.keys(MODES)) app.modes[id] = hydrateMode(id, saved.modes[id]);
+    if (MODES[saved.activeMode]) app.modeId = saved.activeMode;
+  } else {
+    const legacy = readJson(LEGACY_KEY);
+    if (legacy && legacy.runSeed) app.modes.snake4 = hydrateMode('snake4', legacy);
   }
-  if (!app.runSeed) app.runSeed = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   fitBoard();
-  if (!app.game) newLevel();
-  else render();
-  if (!app.onboarded) $('onboarding').hidden = false;
+  switchMode(app.modeId, { silent: true });
   requestAnimationFrame(fitBoard);
-  window.__diceSnake = { app, version: APP_VERSION };
+  window.__diceSnake = { app, version: APP_VERSION, state: () => S(), mode: () => M(), hint: () => E().hintFor(S().game), switchMode };
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();
 
+return {  };
+})();
 })();
 </script>
