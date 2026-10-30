@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>Dice Snake</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&display=swap">
+<link rel="stylesheet" href="src/ui/styles.css">
+</head>
+<body>
+<main class="app" id="app">
+  <header class="hud">
+    <div class="stat score" id="scoreStat"><span class="label">SCORE</span><span class="value" id="score">0</span></div>
+    <div class="hud-mid" id="levelInfo"><span id="levelText">LEVEL 1</span><span id="tierText">TIER 1 / 5 · RULE-BASED</span></div>
+    <div class="stat target"><span class="label">TARGET</span><span class="value" id="target">12</span></div>
+  </header>
+  <div class="preview" id="preview" aria-live="polite"></div>
+  <section class="board-wrap" id="boardWrap">
+    <div class="board" id="board" aria-label="3 by 3 dice board"></div>
+  </section>
+  <section class="controls">
+    <div class="status">
+      <span class="rerolls"><span class="pips" id="rerollPips"><i></i><i></i></span><span id="rerollText">REROLLS</span></span>
+      <span class="bonus-status" id="bonusStatus">×2 READY</span>
+    </div>
+    <button class="btn-primary" id="rerollBtn" type="button">REROLL</button>
+    <button class="btn-secondary" id="bankLastBtn" type="button" hidden>BANK LAST 4</button>
+    <div class="tapbar" id="tapbar" hidden>
+      <button class="btn-secondary" id="undoBtn" type="button">UNDO</button>
+      <button class="btn-secondary" id="bankTapBtn" type="button">BANK PATH</button>
+    </div>
+    <nav class="toolbar">
+      <button class="btn-ghost" id="hintBtn" type="button">HINT</button>
+      <button class="btn-ghost" id="pathModeBtn" type="button" aria-pressed="false">PATH MODE</button>
+      <button class="btn-ghost" id="helpBtn" type="button">HELP</button>
+    </nav>
+  </section>
+  <div class="toast" id="toast" hidden></div>
+</main>
+
+<section class="overlay" id="levelEnd" hidden>
+  <div class="panel">
+    <h2 class="end-title" id="endTitle">LEVEL CLEARED</h2>
+    <div class="end-score"><span id="endScore">0</span><span class="end-sep">/</span><span id="endTarget">0</span></div>
+    <ul class="hands" id="endHands"></ul>
+    <p class="end-note" id="endBonus"></p>
+    <p class="end-note muted" id="endSolver"></p>
+    <p class="end-note muted" id="endTier"></p>
+    <div class="end-actions">
+      <button class="btn-primary" id="nextBtn" type="button">NEXT LEVEL</button>
+      <button class="btn-secondary" id="retryBtn" type="button">RETRY</button>
+    </div>
+  </div>
+</section>
+
+<section class="overlay" id="onboarding" hidden>
+  <div class="panel">
+    <h2 class="end-title">DICE SNAKE</h2>
+    <p class="lead"><strong>Match values, not big numbers.</strong> A pair of 1s is worth the same as a pair of 6s.</p>
+    <p class="lead"><strong>Save a connected set of four for your second hand.</strong> Two hands of four, edge to edge, no diagonals.</p>
+    <p class="muted">Tap a die to hold it. Swipe four dice to bank a hand. Two rerolls per level. The gold ×2 doubles one hand.</p>
+    <button class="btn-primary" id="onboardOk" type="button">GOT IT</button>
+  </div>
+</section>
+
+<section class="overlay sheet" id="help" hidden>
+  <div class="panel sheet-panel">
+    <h2 class="end-title">HOW TO PLAY</h2>
+    <p class="lead"><strong>Match values, not big numbers.</strong> A pair of 1s is worth the same as a pair of 6s.</p>
+    <p class="lead"><strong>Save a connected set of four for your second hand.</strong> The first hand must leave four dice you can still snake through.</p>
+    <ol class="rules">
+      <li>Eight dice and one gold ×2 cell on a 3×3 board.</li>
+      <li>Swipe four dice that touch edge to edge (no diagonals, no repeats) to bank a hand. Both hands together use all eight dice.</li>
+      <li>Tap a die to hold it. REROLL changes every unheld, unbanked die. Two rerolls per level, shared by both hands.</li>
+      <li>Tap the gold cell to arm ×2 for the hand you bank next. If it is still unused on the last hand, it is applied there automatically.</li>
+      <li>Reach the target with the two hands to clear the level.</li>
+    </ol>
+    <h3>SCORING · FOUR DICE</h3>
+    <table class="score-table" id="scoreTable"></table>
+    <h3>EXPERIMENTS</h3>
+    <label class="opt"><input type="checkbox" id="optHoldCap"> Hold cap: at most 3 held dice per reroll</label>
+    <label class="opt">Score table
+      <select id="optTable">
+        <option value="spec_v03">Spec v0.3 · 30 / 15 / 10 / 5 / 2 / 0</option>
+        <option value="rarity">Rarity order · 30 / 15 / 12 (two pairs) / 10 (trips) / 2 / 0</option>
+      </select>
+    </label>
+    <label class="opt"><input type="checkbox" id="optAutoBonus" checked> Auto-apply an unused ×2 to the final hand</label>
+    <p class="muted small">Changes apply from the next level.</p>
+    <h3>DATA</h3>
+    <p class="muted small" id="runInfo"></p>
+    <p class="muted small" id="difficultyRule"></p>
+    <div class="row">
+      <button class="btn-secondary" id="exportBtn" type="button">COPY EVENT LOG</button>
+      <button class="btn-secondary" id="resetBtn" type="button">RESET PROGRESS</button>
+    </div>
+    <textarea id="logOut" class="log-out" readonly hidden aria-label="Event log JSON"></textarea>
+    <button class="btn-primary" id="closeHelpBtn" type="button">CLOSE</button>
+  </div>
+</section>
+<script type="module" src="src/ui/app.js"></script>
+</body>
+</html>

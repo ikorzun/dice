@@ -1,0 +1,17 @@
+{
+  "name": "dice-snake-3x3",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dice Snake 3x3 - portrait mobile dice puzzle prototype (handoff v0.3)",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "sim": "node scripts/montecarlo.mjs --tierBoards=400 --out=docs/simulation-latest.md",
+    "build": "node scripts/build.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "serve": "python3 -m http.server 8080"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
