@@ -26,11 +26,11 @@ const FLAT_TIERS = Object.freeze({
 // Pip-based scoring (sum of matching dice × count) scores roughly three times higher;
 // calibrated separately with scripts/montecarlo.mjs --table=pips.
 const PIPS_TIERS = Object.freeze({
-  1: Object.freeze({ target: 40, lo: 0.35, hi: 0.9 }),
-  2: Object.freeze({ target: 60, lo: 0.35, hi: 0.9 }),
-  3: Object.freeze({ target: 75, lo: 0.3, hi: 0.72 }),
-  4: Object.freeze({ target: 90, lo: 0.3, hi: 0.72 }),
-  5: Object.freeze({ target: 105, lo: 0.3, hi: 0.72 }),
+  1: Object.freeze({ target: 60, lo: 0.35, hi: 0.9 }),
+  2: Object.freeze({ target: 90, lo: 0.35, hi: 0.9 }),
+  3: Object.freeze({ target: 120, lo: 0.3, hi: 0.72 }),
+  4: Object.freeze({ target: 150, lo: 0.3, hi: 0.72 }),
+  5: Object.freeze({ target: 180, lo: 0.3, hi: 0.72 }),
 });
 export const TIERS = FLAT_TIERS;
 export const TIERS_BY_TABLE = Object.freeze({ spec_v03: FLAT_TIERS, rarity: FLAT_TIERS, pips: PIPS_TIERS });

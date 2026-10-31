@@ -2,7 +2,7 @@
 // dice and reports the theoretical best score with and without the one-use ×2 bonus.
 
 import { cellsOf } from './geometry.js';
-import { scoreHand, resolveTable, PIPS_TABLE } from './scoring.js';
+import { scoreHand, resolveTable, PIPS_TABLE, PIPS_MULT } from './scoring.js';
 
 export function facesOfMask(faces, mask) {
   return cellsOf(mask).map((i) => faces[i]);
@@ -64,14 +64,14 @@ export function makeFastEvaluator(geometry, table, bonusMultiplier = 2) {
       if (c > max) { max = c; bigSum = v * c; }
       if (c === 2) { pairs++; pairSum += v * 2; }
     }
-    if (max === 4) return pips ? bigSum * 4 : t.four_kind;
-    if (max === 3) return pips ? bigSum * 3 : t.three_kind;
-    if (pairs === 2) return pips ? pairSum * 2 : t.two_pairs;
+    if (max === 4) return pips ? bigSum * PIPS_MULT.four_kind : t.four_kind;
+    if (max === 3) return pips ? bigSum * PIPS_MULT.three_kind : t.three_kind;
+    if (pairs === 2) return pips ? pairSum * PIPS_MULT.two_pairs : t.two_pairs;
     if (distinct === 4) {
       const straight = counts[lowest + 1] && counts[lowest + 2] && counts[lowest + 3];
-      return pips ? (straight ? sum * 3 : 0) : (straight ? t.straight : t.high);
+      return pips ? (straight ? sum * PIPS_MULT.straight : 0) : (straight ? t.straight : t.high);
     }
-    return pips ? pairSum * 2 : t.pair;
+    return pips ? pairSum * PIPS_MULT.pair : t.pair;
   }
 
   return {

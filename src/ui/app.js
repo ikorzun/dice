@@ -108,7 +108,7 @@ const MODES = {
     generatorVersion: GENERATOR_VERSION,
     defaultSettings: { settingsVersion: 3, maxHolds: null, scoreTable: 'pips', autoBonusOnFinalHand: true, pathMode: false },
     tableOptions: [
-      { value: 'pips', label: 'Pips × match · sum of matching dice × how many (3-3-3 = 27)' },
+      { value: 'pips', label: 'Pips × rarity · sum of matching dice × 2/3/4/5/6 (3-3-3 = 36)' },
       { value: 'spec_v03', label: 'Flat v0.3 · 30 / 15 / 10 / 5 / 2 / 0' },
       { value: 'rarity', label: 'Flat by rarity · 30 / 15 / 12 / 10 / 2 / 0' },
     ],
@@ -122,7 +122,7 @@ const MODES = {
     onboard: {
       lead: 'Two hands of four dice, dragged edge to edge like a snake. Both hands together use all eight dice.',
       note: 'The tutorial shows every move on your first board: hold, reroll, drag a hand, use the gold ×2.',
-      demo: { values: [5, 5, 2, 3, 5, 5], path: [0, 1, 4, 5], label: 'SWIPE 5 → 5 → 5 → 5 = FOUR OF A KIND · 20 × 4 = 80' },
+      demo: { values: [5, 5, 2, 3, 5, 5], path: [0, 1, 4, 5], label: 'SWIPE 5 → 5 → 5 → 5 = FOUR OF A KIND · 20 × 6 = 120' },
     },
     help: {
       lead: 'Save a connected set of four for your second hand. The first hand must leave four dice you can still snake through.',
@@ -163,7 +163,7 @@ const MODES = {
     generatorVersion: GENERATOR5_VERSION,
     defaultSettings: { settingsVersion: 3, maxHolds: null, scoreTable: 'pips', smallStraight: false, endOnTarget: true, autoBonusOnFinalHand: true, pathMode: false, hands: 3, rerolls: 2, goldCell: true },
     tableOptions: [
-      { value: 'pips', label: 'Pips × match · sum of matching dice × how many (3-3-3 = 27)' },
+      { value: 'pips', label: 'Pips × rarity · sum of matching dice × 2/3/4/5/6/8 (3-3-3 = 36)' },
       { value: 'poker5_v2', label: 'Flat · 50 / 30 / 25 / 20 / 10 / 5 / 2 / 0' },
       { value: 'poker5_v1', label: 'Flat steep · 60 / 40 / 25 / 20 / 10 / 6 / 2 / 0' },
     ],
@@ -178,7 +178,7 @@ const MODES = {
     onboard: {
       lead: 'Eight dice and the gold ×2. Drag through five dice like a snake to play a poker hand. The five you used are replaced; the other three stay for your next hand.',
       note: 'Three hands and two rerolls per level; reach the target and the level is yours. The tutorial shows every move on your first board.',
-      demo: { values: [4, 4, 4, 3, 2, 2], path: [0, 1, 2, 5, 4], label: 'SWIPE 4 → 4 → 4 → 2 → 2 = FULL HOUSE · 12 × 3 + 4 × 2 = 44' },
+      demo: { values: [4, 4, 4, 3, 2, 2], path: [0, 1, 2, 5, 4], label: 'SWIPE 4 → 4 → 4 → 2 → 2 = FULL HOUSE · 16 × 5 = 80' },
     },
     help: {
       lead: 'The dice you leave behind are the start of your next hand: plan the snake so the leftovers already match.',

@@ -18,11 +18,11 @@ const FLAT_TIERS5 = Object.freeze({
 });
 // Pip-based scoring; calibrated with scripts/montecarlo5.mjs --table=pips.
 const PIPS_TIERS5 = Object.freeze({
-  1: Object.freeze({ target: 100, openingMax: 0.5 }),
-  2: Object.freeze({ target: 130, openingMax: 0.5 }),
-  3: Object.freeze({ target: 160, openingMax: 0.5 }),
-  4: Object.freeze({ target: 190, openingMax: 0.5 }),
-  5: Object.freeze({ target: 220, openingMax: 0.5 }),
+  1: Object.freeze({ target: 140, openingMax: 0.5 }),
+  2: Object.freeze({ target: 180, openingMax: 0.5 }),
+  3: Object.freeze({ target: 220, openingMax: 0.5 }),
+  4: Object.freeze({ target: 260, openingMax: 0.5 }),
+  5: Object.freeze({ target: 300, openingMax: 0.5 }),
 });
 export const TIERS5 = FLAT_TIERS5;
 export const TIERS5_BY_TABLE = Object.freeze({ poker5_v1: FLAT_TIERS5, poker5_v2: FLAT_TIERS5, pips: PIPS_TIERS5 });

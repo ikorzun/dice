@@ -61,7 +61,10 @@ export const SCORE_TABLES5 = Object.freeze({
 });
 export const DEFAULT_SCORE_TABLE5 = 'poker5_v2';
 export const PIPS_TABLE5 = 'pips';
-export const PIPS_RULES5 = Object.freeze({ five_kind: 'sum × 5', four_kind: 'sum × 4', straight: 'sum × 3', full_house: 'triple × 3 + pair × 2', small_straight: 'run × 2', three_kind: 'sum × 3', two_pairs: 'sum × 2', pair: 'sum × 2', bust: '0' });
+// Multiplier grows with the rarity of the combination; the base is the pip sum of the dice
+// that form it (all five for a straight or a full house).
+export const PIPS_MULT5 = Object.freeze({ pair: 2, two_pairs: 3, small_straight: 3, three_kind: 4, straight: 5, full_house: 5, four_kind: 6, five_kind: 8, bust: 0 });
+export const PIPS_RULES5 = Object.freeze({ five_kind: 'sum × 8', four_kind: 'sum × 6', straight: 'sum × 5', full_house: 'sum × 5', small_straight: 'run × 3', three_kind: 'sum × 4', two_pairs: 'sum × 3', pair: 'sum × 2', bust: '0' });
 
 export function resolveTable5(table = DEFAULT_SCORE_TABLE5) {
   if (typeof table === 'string') {
@@ -77,22 +80,20 @@ export function pipsScore5(faces, category) {
   const counts = [0, 0, 0, 0, 0, 0, 0, 0];
   for (const f of faces) counts[f]++;
   const sumWhere = (pred) => { let s = 0; for (let v = 1; v <= 6; v++) if (pred(counts[v])) s += v * counts[v]; return s; };
-  let points = 0;
-  let formula = '0';
-  if (category === CATEGORY5.FIVE_KIND) { const b = sumWhere((c) => c === 5); points = b * 5; formula = `${b} × 5`; }
-  else if (category === CATEGORY5.FOUR_KIND) { const b = sumWhere((c) => c === 4); points = b * 4; formula = `${b} × 4`; }
-  else if (category === CATEGORY5.FULL_HOUSE) { const t = sumWhere((c) => c === 3); const p = sumWhere((c) => c === 2); points = t * 3 + p * 2; formula = `${t} × 3 + ${p} × 2`; }
-  else if (category === CATEGORY5.STRAIGHT) { const b = faces.reduce((s, f) => s + f, 0); points = b * 3; formula = `${b} × 3`; }
+  const mult = PIPS_MULT5[category] || 0;
+  let base = 0;
+  if (category === CATEGORY5.FIVE_KIND) base = sumWhere((c) => c === 5);
+  else if (category === CATEGORY5.FOUR_KIND) base = sumWhere((c) => c === 4);
+  else if (category === CATEGORY5.FULL_HOUSE || category === CATEGORY5.STRAIGHT) base = faces.reduce((s, f) => s + f, 0);
   else if (category === CATEGORY5.SMALL_STRAIGHT) {
     let lo = 1;
     while (lo <= 3 && !(counts[lo] && counts[lo + 1] && counts[lo + 2] && counts[lo + 3])) lo++;
-    const b = lo * 4 + 6;
-    points = b * 2;
-    formula = `${b} × 2`;
+    base = lo * 4 + 6;
   }
-  else if (category === CATEGORY5.THREE_KIND) { const b = sumWhere((c) => c === 3); points = b * 3; formula = `${b} × 3`; }
-  else if (category === CATEGORY5.TWO_PAIRS || category === CATEGORY5.PAIR) { const b = sumWhere((c) => c === 2); points = b * 2; formula = `${b} × 2`; }
-  return { points, formula };
+  else if (category === CATEGORY5.THREE_KIND) base = sumWhere((c) => c === 3);
+  else if (category === CATEGORY5.TWO_PAIRS || category === CATEGORY5.PAIR) base = sumWhere((c) => c === 2);
+  const points = base * mult;
+  return { points, formula: mult ? `${base} × ${mult}` : '0' };
 }
 
 function hasRunOfFour(counts) {

@@ -42,10 +42,12 @@ export const SCORE_TABLES = Object.freeze({
 });
 
 export const DEFAULT_SCORE_TABLE = 'spec_v03';
-// 'pips' is not a flat table: matching dice score their pip sum times how many matched
-// (three 3s = 9 × 3 = 27); a straight scores the sum of all its dice × 3.
+// 'pips' is not a flat table: the matching dice score their pip sum times a multiplier that
+// grows with the rarity of the combination (three 3s = 9 × 4 = 36); a straight scores the
+// sum of all its dice × 5.
 export const PIPS_TABLE = 'pips';
-export const PIPS_RULES = Object.freeze({ four_kind: 'sum × 4', straight: 'sum × 3', three_kind: 'sum × 3', two_pairs: 'sum × 2', pair: 'sum × 2', high: '0' });
+export const PIPS_MULT = Object.freeze({ pair: 2, two_pairs: 3, three_kind: 4, straight: 5, four_kind: 6, high: 0 });
+export const PIPS_RULES = Object.freeze({ four_kind: 'sum × 6', straight: 'sum × 5', three_kind: 'sum × 4', two_pairs: 'sum × 3', pair: 'sum × 2', high: '0' });
 
 export function resolveTable(table = DEFAULT_SCORE_TABLE) {
   if (typeof table === 'string') {
@@ -62,11 +64,11 @@ export function pipsScore(faces, category) {
   for (const f of faces) counts[f]++;
   const sumWhere = (pred) => { let s = 0; for (let v = 1; v <= 6; v++) if (pred(counts[v])) s += v * counts[v]; return s; };
   let base = 0;
-  let mult = 0;
-  if (category === CATEGORY.FOUR_KIND) { base = sumWhere((c) => c === 4); mult = 4; }
-  else if (category === CATEGORY.THREE_KIND) { base = sumWhere((c) => c === 3); mult = 3; }
-  else if (category === CATEGORY.TWO_PAIRS || category === CATEGORY.PAIR) { base = sumWhere((c) => c === 2); mult = 2; }
-  else if (category === CATEGORY.STRAIGHT) { base = faces.reduce((s, f) => s + f, 0); mult = 3; }
+  const mult = PIPS_MULT[category] || 0;
+  if (category === CATEGORY.FOUR_KIND) base = sumWhere((c) => c === 4);
+  else if (category === CATEGORY.THREE_KIND) base = sumWhere((c) => c === 3);
+  else if (category === CATEGORY.TWO_PAIRS || category === CATEGORY.PAIR) base = sumWhere((c) => c === 2);
+  else if (category === CATEGORY.STRAIGHT) base = faces.reduce((s, f) => s + f, 0);
   const points = base * mult;
   return { points, base, mult, formula: mult ? `${base} × ${mult}` : '0' };
 }
