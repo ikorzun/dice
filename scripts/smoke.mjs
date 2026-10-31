@@ -255,6 +255,8 @@ for (const vp of viewports) {
   if (s.bonus.available) note(vp, 'poker x2 not consumed');
   const diceAfter = await page.$$eval('#board .cell.die', (els) => els.length);
   if (diceAfter !== 8) note(vp, `after refill ${diceAfter} dice`);
+  const hiddenAfter = await page.$$eval('#board .cell.die', (els) => els.filter((e) => Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
+  if (hiddenAfter.length) note(vp, `dice invisible after refill: [${hiddenAfter}]`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-14-poker-after-first.png` });
   for (let h = 0; h < 2; h++) {
     s = await state(page);
@@ -273,6 +275,8 @@ for (const vp of viewports) {
   console.log(`${vp.w}x${vp.h}: poker level finished with ${s.score}/${s.target} (${s.phase})`);
   await page.click('#nextBtn');
   await page.waitForTimeout(200);
+  const invisible = await page.$$eval('#board .cell.die', (els) => els.filter((e) => e.classList.contains('bank-pop') || Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
+  if (invisible.length) note(vp, `dice invisible after a new level: [${invisible}]`);
   await page.click('#helpBtn');
   await page.waitForTimeout(100);
   const helpTitle = await page.$eval('#helpTitle', (el) => el.textContent);

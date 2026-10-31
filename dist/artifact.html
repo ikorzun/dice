@@ -2175,6 +2175,7 @@ function startGame(level, attempt) {
   st.firstHandAt = null;
   st.pendingTier = null;
   st.allHeldToastShown = false;
+  for (const c of els.cells) c.classList.remove('bank-pop', 'rolling', 'refill', 'pressed', 'shake', 'safe-hint', 'stays');
   app.path = [];
   app.tapPath = [];
   clearTimeout(app.hintTimer);
@@ -2503,7 +2504,9 @@ function renderCell(i) {
   const face = cell.querySelector('.face');
   const tag = cell.querySelector('.tag');
   const order = cell.querySelector('.order');
-  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'bank-pop', 'refill', 'stays'].filter((c) => cell.classList.contains(c));
+  // Effect classes that are still mid-animation survive a re-render; 'bank-pop' is not among
+  // them because it fills forwards (opacity 0) and must be dropped by the render after the bank.
+  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays'].filter((c) => cell.classList.contains(c));
   cell.className = ['cell', ...transient].join(' ');
   if (!engine.isOrdinary(g, i)) {
     cell.classList.add('bonus');
@@ -2833,6 +2836,7 @@ async function attemptBank(path, source) {
   renderPath();
   setPreview(`${hand.label} +${hand.total}`, 'good');
   await wait(T.bank);
+  hand.cells.forEach((i) => els.cells[i].classList.remove('bank-pop'));
   if (!stillCurrent(st, modeId)) { app.busy = false; return; }
   if (mode.refill && r.refilled && r.refilled.length) {
     render();
