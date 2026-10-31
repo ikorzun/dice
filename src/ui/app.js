@@ -85,6 +85,8 @@ const pokerEngine = {
 };
 
 const show = (g, cells) => cells.map((i) => g.faces[i]).join(' → ');
+const CELL_NAMES = ['top left', 'top', 'top right', 'left', 'centre', 'right', 'bottom left', 'bottom', 'bottom right'];
+const describeCells = (g, cells) => cells.map((i) => `the ${g.faces[i]} (${CELL_NAMES[i]})`).join(' and ');
 
 const MODES = {
   snake4: {
@@ -215,6 +217,7 @@ const app = {
   hintTimer: null,
   coachTargets: null,
   safeNext: null,
+  stranded: null,
   cellRects: null,
   gesture: null,
   toastTimer: null,
@@ -631,8 +634,10 @@ function renderCell(i) {
   cell.classList.add('die');
   face.dataset.value = String(g.faces[i]);
   const sealed = engine.isSealed(g, i);
-  tag.textContent = sealed ? 'FIXED' : 'HOLD';
+  const stranded = app.stranded && app.stranded.includes(i);
+  tag.textContent = stranded ? 'CUT OFF' : sealed ? 'FIXED' : 'HOLD';
   if (sealed) cell.classList.add('sealed');
+  if (stranded) cell.classList.add('stranded');
   if (g.held[i]) cell.classList.add('held');
   const k = path.indexOf(i);
   if (k >= 0) {
@@ -728,12 +733,22 @@ function renderPreview() {
   if (!p.ok) { setPreview(p.message, 'bad'); return; }
   if (p.partial) { setPreview(`${p.count} / ${mode.handSize}`); return; }
   const mult = p.multiplier > 1 ? ` (${p.hand.points} ×${p.multiplier})` : '';
-  if (!p.safe) setPreview(`${p.hand.label} ${p.total} · ${p.safetyMessage.replace(/\.$/, '')}`, 'bad');
+  if (!p.safe && p.stranded && p.stranded.length) setPreview(`${p.hand.label} ${p.total} · CUTS OFF ${p.stranded.map((i) => `${g.faces[i]} ${CELL_NAMES[i]}`).join(' + ')}`, 'bad');
+  else if (!p.safe) setPreview(`${p.hand.label} ${p.total} · ${p.safetyMessage.replace(/\.$/, '')}`, 'bad');
   else setPreview(`${p.hand.label} +${p.total}${mult}${p.autoBonus ? ' · ×2 AUTO' : ''}`, 'good');
+}
+
+function computeStranded() {
+  const g = S().game;
+  const path = currentPath();
+  if (M().id !== 'snake4' || g.phase !== 'playing' || path.length !== M().handSize) return null;
+  const p = E().previewPath(g, path);
+  return p.ok && !p.partial && !p.safe && p.stranded && p.stranded.length ? p.stranded : null;
 }
 
 function render() {
   app.safeNext = computeSafeNext();
+  app.stranded = computeStranded();
   coachRender();
   for (let i = 0; i < 9; i++) renderCell(i);
   renderHud();
@@ -887,10 +902,12 @@ async function attemptBank(path, source) {
   const r = E().bankPath(g, path, () => st.refillRng.die());
   st.game = r.state;
   if (!r.ok) {
-    logEvent('path_rejected', { source, code: r.code, path });
-    toast(r.message, 'bad');
+    logEvent('path_rejected', { source, code: r.code, path, stranded: r.stranded || [] });
+    const cutOff = r.code === 'STRANDS' && r.stranded && r.stranded.length ? ` ${describeCells(g, r.stranded)} would be cut off.` : '';
+    toast(`${r.message}${cutOff}`, 'bad');
     shakeCells(path);
     if (r.code === 'STRANDS') {
+      if (r.stranded && r.stranded.length) flashCells(r.stranded, 'stranded', T.flash);
       const h = E().hintFor(st.game);
       if (h) flashCells(h.cells, 'safe-hint', T.flash);
     }

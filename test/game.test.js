@@ -198,3 +198,17 @@ test('every board has a safe first hand regardless of faces (guard can never dea
   assert.ok(g.geometry.safeSet.size >= 1);
   for (const m of g.geometry.safeSet) assert.equal(previewPath(g, orderedPathsOf(cellsOf(m))[0]).safe, true);
 });
+
+test('strandedCells names the dice a stranding first hand would cut off', async () => {
+  const { strandedCells } = await import('../src/engine/game.js');
+  const g = createGame(level(F, 10));
+  assert.deepEqual(strandedCells(g, maskOf([0, 1, 4, 5])), [2]); // S shape isolates the top-right die
+  assert.deepEqual(strandedCells(g, maskOf([0, 1, 4, 7])), [2, 3, 5, 6]); // leaves two equal pairs {2,5} and {3,6}: all cut off
+  assert.deepEqual(strandedCells(g, maskOf([1, 2, 4, 7])), [5]); // leaves {0,3,6} connected and the right 5 isolated
+  const p = previewPath(g, [5, 4, 1, 0]);
+  assert.equal(p.safe, false);
+  assert.deepEqual(p.stranded, [2]);
+  const r = bankPath(g, [5, 4, 1, 0]);
+  assert.deepEqual(r.stranded, [2]);
+  assert.deepEqual(previewPath(g, [0, 1, 2, 5]).stranded, []);
+});

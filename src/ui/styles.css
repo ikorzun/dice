@@ -127,6 +127,9 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .cell.die.safe-next { box-shadow: inset 0 0 0 3px var(--good), inset 0 -4px 0 var(--die-edge); }
 .cell.die.safe-next::after { content: ''; position: absolute; top: 8%; right: 9%; width: 12px; height: 12px; border-radius: 50%; background: var(--good); }
 .cell.empty { border: 2px dashed var(--line); background: transparent; }
+.cell.die.stranded { box-shadow: inset 0 0 0 4px var(--bad), inset 0 -4px 0 var(--die-edge); animation: strandPulse 500ms ease-in-out infinite alternate; }
+.cell.die.stranded .tag { display: block; background: var(--bad); color: #fff; }
+@keyframes strandPulse { from { box-shadow: inset 0 0 0 3px var(--bad), inset 0 -4px 0 var(--die-edge); } to { box-shadow: inset 0 0 0 6px var(--bad), inset 0 -4px 0 var(--die-edge); } }
 .cell.die.sealed { box-shadow: inset 0 0 0 3px var(--gold), inset 0 -4px 0 var(--die-edge); }
 .cell.die.sealed .tag { display: block; background: var(--gold); color: #2a1f00; }
 .cell.refill { animation: refill 480ms cubic-bezier(.2, .9, .3, 1.2) var(--delay, 0ms) both; }

@@ -131,6 +131,9 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .cell.die.safe-next { box-shadow: inset 0 0 0 3px var(--good), inset 0 -4px 0 var(--die-edge); }
 .cell.die.safe-next::after { content: ''; position: absolute; top: 8%; right: 9%; width: 12px; height: 12px; border-radius: 50%; background: var(--good); }
 .cell.empty { border: 2px dashed var(--line); background: transparent; }
+.cell.die.stranded { box-shadow: inset 0 0 0 4px var(--bad), inset 0 -4px 0 var(--die-edge); animation: strandPulse 500ms ease-in-out infinite alternate; }
+.cell.die.stranded .tag { display: block; background: var(--bad); color: #fff; }
+@keyframes strandPulse { from { box-shadow: inset 0 0 0 3px var(--bad), inset 0 -4px 0 var(--die-edge); } to { box-shadow: inset 0 0 0 6px var(--bad), inset 0 -4px 0 var(--die-edge); } }
 .cell.die.sealed { box-shadow: inset 0 0 0 3px var(--gold), inset 0 -4px 0 var(--die-edge); }
 .cell.die.sealed .tag { display: block; background: var(--gold); color: #2a1f00; }
 .cell.refill { animation: refill 480ms cubic-bezier(.2, .9, .3, 1.2) var(--delay, 0ms) both; }
@@ -935,7 +938,7 @@ const __mod_game = (() => {
 // { ok, state?, code?, message? } and never mutates its input, so the UI can animate
 // freely without the risk of effects causing false game-state transitions.
 
-const { buildGeometry, validatePath, cellsOf, orderedPathsOf, HAND_SIZE } = __mod_geometry;
+const { buildGeometry, validatePath, cellsOf, orderedPathsOf, neighborsOf, HAND_SIZE } = __mod_geometry;
 const { DEFAULT_SCORE_TABLE } = __mod_scoring;
 const { solveBoard, evaluateHand } = __mod_solver;
 
@@ -1045,6 +1048,40 @@ function toggleBonus(state) {
   return { ok: true, armed, state: { ...state, bonus: { ...state.bonus, armed } } };
 }
 
+function components(cells) {
+  const set = new Set(cells);
+  const seen = new Set();
+  const out = [];
+  for (const c of cells) {
+    if (seen.has(c)) continue;
+    const comp = [];
+    const stack = [c];
+    seen.add(c);
+    while (stack.length) {
+      const x = stack.pop();
+      comp.push(x);
+      for (const nb of neighborsOf(x)) {
+        if (set.has(nb) && !seen.has(nb)) {
+          seen.add(nb);
+          stack.push(nb);
+        }
+      }
+    }
+    out.push(comp);
+  }
+  return out;
+}
+
+// For a first hand that strands the board: the leftover dice that get cut off (every cell
+// outside the largest connected leftover group, or all four when they connect but form no path).
+function strandedCells(state, mask) {
+  const rest = cellsOf(remainingMask(state) & ~mask);
+  const comps = components(rest).sort((a, b) => b.length - a.length);
+  if (comps.length > 1 && comps[1].length === comps[0].length) return rest; // no dominant group: all are cut off
+  if (comps.length > 1) return comps.slice(1).flat().sort((a, b) => a - b);
+  return rest;
+}
+
 function handSafety(state, mask) {
   if (state.hands.length === 0) {
     if (!state.geometry.safeSet.has(mask)) return reject('STRANDS', 'This path leaves no valid second hand.');
@@ -1080,6 +1117,7 @@ function previewPath(state, path) {
     safe: safety.ok,
     safetyCode: safety.ok ? null : safety.code,
     safetyMessage: safety.ok ? null : safety.message,
+    stranded: !safety.ok && safety.code === 'STRANDS' ? strandedCells(state, v.mask) : [],
   };
 }
 
@@ -1088,7 +1126,7 @@ function bankPath(state, path) {
   const rejected = () => ({ ...state, stats: bumpStat(state, 'rejectedPaths') });
   if (!p.ok) return { ...p, state: rejected() };
   if (p.partial) return { ...reject('LENGTH', `Trace ${state.geometry.handSize} dice (${p.count}/${state.geometry.handSize})`), state: rejected() };
-  if (!p.safe) return { ...reject(p.safetyCode, p.safetyMessage), state: rejected() };
+  if (!p.safe) return { ...reject(p.safetyCode, p.safetyMessage), stranded: p.stranded, state: rejected() };
 
   const hand = {
     index: state.hands.length,
@@ -1180,7 +1218,7 @@ function restoreGame(snapshot) {
   };
 }
 
-return { DEFAULT_CONFIG, createGame, isOrdinary, isBanked, remainingMask, remainingCells, heldCount, rerollTargets, toggleHold, canReroll, reroll, toggleBonus, previewPath, bankPath, markHintUsed, hintFor, safeFirstMasks, snapshotGame, restoreGame };
+return { DEFAULT_CONFIG, createGame, isOrdinary, isBanked, remainingMask, remainingCells, heldCount, rerollTargets, toggleHold, canReroll, reroll, toggleBonus, strandedCells, previewPath, bankPath, markHintUsed, hintFor, safeFirstMasks, snapshotGame, restoreGame };
 })();
 // ---- src/engine/poker.js ----
 const __mod_poker = (() => {
@@ -1673,6 +1711,8 @@ const pokerEngine = {
 };
 
 const show = (g, cells) => cells.map((i) => g.faces[i]).join(' → ');
+const CELL_NAMES = ['top left', 'top', 'top right', 'left', 'centre', 'right', 'bottom left', 'bottom', 'bottom right'];
+const describeCells = (g, cells) => cells.map((i) => `the ${g.faces[i]} (${CELL_NAMES[i]})`).join(' and ');
 
 const MODES = {
   snake4: {
@@ -1803,6 +1843,7 @@ const app = {
   hintTimer: null,
   coachTargets: null,
   safeNext: null,
+  stranded: null,
   cellRects: null,
   gesture: null,
   toastTimer: null,
@@ -2219,8 +2260,10 @@ function renderCell(i) {
   cell.classList.add('die');
   face.dataset.value = String(g.faces[i]);
   const sealed = engine.isSealed(g, i);
-  tag.textContent = sealed ? 'FIXED' : 'HOLD';
+  const stranded = app.stranded && app.stranded.includes(i);
+  tag.textContent = stranded ? 'CUT OFF' : sealed ? 'FIXED' : 'HOLD';
   if (sealed) cell.classList.add('sealed');
+  if (stranded) cell.classList.add('stranded');
   if (g.held[i]) cell.classList.add('held');
   const k = path.indexOf(i);
   if (k >= 0) {
@@ -2316,12 +2359,22 @@ function renderPreview() {
   if (!p.ok) { setPreview(p.message, 'bad'); return; }
   if (p.partial) { setPreview(`${p.count} / ${mode.handSize}`); return; }
   const mult = p.multiplier > 1 ? ` (${p.hand.points} ×${p.multiplier})` : '';
-  if (!p.safe) setPreview(`${p.hand.label} ${p.total} · ${p.safetyMessage.replace(/\.$/, '')}`, 'bad');
+  if (!p.safe && p.stranded && p.stranded.length) setPreview(`${p.hand.label} ${p.total} · CUTS OFF ${p.stranded.map((i) => `${g.faces[i]} ${CELL_NAMES[i]}`).join(' + ')}`, 'bad');
+  else if (!p.safe) setPreview(`${p.hand.label} ${p.total} · ${p.safetyMessage.replace(/\.$/, '')}`, 'bad');
   else setPreview(`${p.hand.label} +${p.total}${mult}${p.autoBonus ? ' · ×2 AUTO' : ''}`, 'good');
+}
+
+function computeStranded() {
+  const g = S().game;
+  const path = currentPath();
+  if (M().id !== 'snake4' || g.phase !== 'playing' || path.length !== M().handSize) return null;
+  const p = E().previewPath(g, path);
+  return p.ok && !p.partial && !p.safe && p.stranded && p.stranded.length ? p.stranded : null;
 }
 
 function render() {
   app.safeNext = computeSafeNext();
+  app.stranded = computeStranded();
   coachRender();
   for (let i = 0; i < 9; i++) renderCell(i);
   renderHud();
@@ -2475,10 +2528,12 @@ async function attemptBank(path, source) {
   const r = E().bankPath(g, path, () => st.refillRng.die());
   st.game = r.state;
   if (!r.ok) {
-    logEvent('path_rejected', { source, code: r.code, path });
-    toast(r.message, 'bad');
+    logEvent('path_rejected', { source, code: r.code, path, stranded: r.stranded || [] });
+    const cutOff = r.code === 'STRANDS' && r.stranded && r.stranded.length ? ` ${describeCells(g, r.stranded)} would be cut off.` : '';
+    toast(`${r.message}${cutOff}`, 'bad');
     shakeCells(path);
     if (r.code === 'STRANDS') {
+      if (r.stranded && r.stranded.length) flashCells(r.stranded, 'stranded', T.flash);
       const h = E().hintFor(st.game);
       if (h) flashCells(h.cells, 'safe-hint', T.flash);
     }

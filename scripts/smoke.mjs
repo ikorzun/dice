@@ -102,10 +102,24 @@ for (const vp of viewports) {
   s = await state(page);
   if (s.hands !== 0) note(vp, 'diagonal swipe banked a hand');
 
-  // unsafe first hand (S shape 0-1-4-5) must be rejected with the explanation
-  await swipe(page, [0, 1, 4, 5]);
+  // unsafe first hand (S shape 0-1-4-5): while the finger is still down the cut-off dice are marked,
+  // and on release the rejection names them
+  {
+    const pts = [];
+    for (const c of [0, 1, 4, 5]) pts.push(await center(page, c));
+    await page.mouse.move(pts[0].x, pts[0].y);
+    await page.mouse.down();
+    for (let i = 1; i < pts.length; i++) await page.mouse.move(pts[i].x, pts[i].y, { steps: 6 });
+    const strandedNow = await page.$$eval('#board .cell.stranded', (els) => els.map((e) => e.dataset.index));
+    if (strandedNow.join(',') !== '2') note(vp, `expected the top-right die to be marked cut off, got [${strandedNow}]`);
+    const previewText = await page.$eval('#preview', (el) => el.textContent);
+    if (!/CUTS OFF/.test(previewText)) note(vp, `preview does not name the cut-off die: ${previewText}`);
+    await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-3a-stranded-preview.png` });
+    await page.mouse.up();
+  }
   await page.waitForTimeout(100);
   const toastText = await page.$eval('#toast', (t) => (t.hidden ? '' : t.textContent));
+  if (!/would be cut off/.test(toastText)) note(vp, `rejection toast does not name the cut-off die: ${toastText}`);
   s = await state(page);
   if (s.hands !== 0) note(vp, 'unsafe path was banked');
   if (!/no valid second hand/i.test(toastText)) note(vp, `missing strand explanation, toast="${toastText}"`);

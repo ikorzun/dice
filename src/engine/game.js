@@ -2,7 +2,7 @@
 // { ok, state?, code?, message? } and never mutates its input, so the UI can animate
 // freely without the risk of effects causing false game-state transitions.
 
-import { buildGeometry, validatePath, cellsOf, orderedPathsOf, HAND_SIZE } from './geometry.js';
+import { buildGeometry, validatePath, cellsOf, orderedPathsOf, neighborsOf, HAND_SIZE } from './geometry.js';
 import { DEFAULT_SCORE_TABLE } from './scoring.js';
 import { solveBoard, evaluateHand } from './solver.js';
 
@@ -112,6 +112,40 @@ export function toggleBonus(state) {
   return { ok: true, armed, state: { ...state, bonus: { ...state.bonus, armed } } };
 }
 
+function components(cells) {
+  const set = new Set(cells);
+  const seen = new Set();
+  const out = [];
+  for (const c of cells) {
+    if (seen.has(c)) continue;
+    const comp = [];
+    const stack = [c];
+    seen.add(c);
+    while (stack.length) {
+      const x = stack.pop();
+      comp.push(x);
+      for (const nb of neighborsOf(x)) {
+        if (set.has(nb) && !seen.has(nb)) {
+          seen.add(nb);
+          stack.push(nb);
+        }
+      }
+    }
+    out.push(comp);
+  }
+  return out;
+}
+
+// For a first hand that strands the board: the leftover dice that get cut off (every cell
+// outside the largest connected leftover group, or all four when they connect but form no path).
+export function strandedCells(state, mask) {
+  const rest = cellsOf(remainingMask(state) & ~mask);
+  const comps = components(rest).sort((a, b) => b.length - a.length);
+  if (comps.length > 1 && comps[1].length === comps[0].length) return rest; // no dominant group: all are cut off
+  if (comps.length > 1) return comps.slice(1).flat().sort((a, b) => a - b);
+  return rest;
+}
+
 function handSafety(state, mask) {
   if (state.hands.length === 0) {
     if (!state.geometry.safeSet.has(mask)) return reject('STRANDS', 'This path leaves no valid second hand.');
@@ -147,6 +181,7 @@ export function previewPath(state, path) {
     safe: safety.ok,
     safetyCode: safety.ok ? null : safety.code,
     safetyMessage: safety.ok ? null : safety.message,
+    stranded: !safety.ok && safety.code === 'STRANDS' ? strandedCells(state, v.mask) : [],
   };
 }
 
@@ -155,7 +190,7 @@ export function bankPath(state, path) {
   const rejected = () => ({ ...state, stats: bumpStat(state, 'rejectedPaths') });
   if (!p.ok) return { ...p, state: rejected() };
   if (p.partial) return { ...reject('LENGTH', `Trace ${state.geometry.handSize} dice (${p.count}/${state.geometry.handSize})`), state: rejected() };
-  if (!p.safe) return { ...reject(p.safetyCode, p.safetyMessage), state: rejected() };
+  if (!p.safe) return { ...reject(p.safetyCode, p.safetyMessage), stranded: p.stranded, state: rejected() };
 
   const hand = {
     index: state.hands.length,
