@@ -12,7 +12,7 @@ test('poker bot sessions: legal banks only, three hands, nine dice kept, x2 once
   const boards = new Set();
   let wins = 0;
   for (let i = 1; i <= 30; i++) {
-    const level = generatePokerLevel({ runSeed: 'poker-run', levelIndex: i, tier, config: { hands: 3, rerolls: 3 } });
+    const level = generatePokerLevel({ runSeed: 'poker-run', levelIndex: i, tier, config: { hands: 3, rerolls: 3, bonusIndex: i % 3 === 0 ? null : 8 } });
     const key = level.faces.join('');
     assert.ok(!boards.has(key), `level ${i} repeats a board`);
     boards.add(key);
@@ -22,7 +22,7 @@ test('poker bot sessions: legal banks only, three hands, nine dice kept, x2 once
     const st = res.state;
     assert.equal(st.hands.length, 3);
     assert.equal(st.handsLeft, 0);
-    assert.ok(st.faces.every((f) => Number.isInteger(f) && f >= 1 && f <= 6), 'nine dice remain after refills');
+    assert.ok(st.faces.every((f, k) => (k === st.bonusIndex ? f === null : Number.isInteger(f) && f >= 1 && f <= 6)), 'all ordinary dice remain after refills');
     assert.equal(st.score, st.hands.reduce((s, h) => s + h.total, 0));
     assert.equal(st.hands.filter((h) => h.multiplier > 1).length, 1, 'x2 used exactly once');
     assert.ok(st.rerollsLeft >= 0 && st.rerollsLeft <= 3);

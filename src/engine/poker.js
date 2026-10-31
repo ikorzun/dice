@@ -1,6 +1,7 @@
-// Poker 5 mode: nine dice on the 3x3 board, a hand is a snake of five dice scored as a
-// five-die poker hand, banked dice are refilled, a level is a small budget of hands and
-// rerolls against a target. The four dice left after a hand are the seed of the next one.
+// Poker 5 mode: eight dice plus the gold ×2 cell (or nine dice when bonusIndex is null),
+// a hand is a snake of five dice scored as a five-die poker hand, banked dice are refilled,
+// a level is a small budget of hands and rerolls against a target. The dice left after a
+// hand are the seed of the next one.
 // Pure state transitions, same action shape as game.js so the UI can drive either mode.
 
 import { buildGeometry, validatePath, cellsOf, orderedPathsOf, popcount } from './geometry.js';
@@ -13,7 +14,8 @@ export const POKER_DEFAULT_CONFIG = Object.freeze({
   maxHolds: null,        // null = unlimited holds
   scoreTable: DEFAULT_SCORE_TABLE5,
   smallStraight: true,   // four consecutive values count as a (small) straight
-  bonusMultiplier: 2,    // one-use ×2 token
+  bonusMultiplier: 2,    // one-use ×2
+  bonusIndex: 8,         // gold ×2 cell like Snake 4+4 (null = nine dice and a ×2 badge only)
   autoBonusOnFinalHand: true,
   refill: true,          // banked cells receive fresh dice
   endOnTarget: false,    // true: the level ends as soon as the target is reached
@@ -24,11 +26,15 @@ const reject = (code, message) => ({ ok: false, code, message });
 
 export function createPokerGame(level, configOverrides = {}, attempt = 1) {
   const config = Object.freeze({ ...POKER_DEFAULT_CONFIG, ...configOverrides });
-  const geometry = buildGeometry(null, config.handSize);
+  const bonusIndex = level.bonusIndex === undefined ? config.bonusIndex : level.bonusIndex;
+  const geometry = buildGeometry(bonusIndex, config.handSize);
+  if (geometry.eligibleMasks.length === 0) throw new Error('no five-die snake fits this board');
   if (!Array.isArray(level.faces) || level.faces.length !== 9) throw new Error('level.faces must have 9 entries');
   for (let i = 0; i < 9; i++) {
     const f = level.faces[i];
-    if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`invalid face at ${i}`);
+    if (i === bonusIndex) {
+      if (f !== null) throw new Error('bonus cell must have a null face');
+    } else if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`invalid face at ${i}`);
   }
   const sealedMask = level.sealedMask || 0;
   return {
@@ -36,6 +42,7 @@ export function createPokerGame(level, configOverrides = {}, attempt = 1) {
     config,
     level,
     geometry,
+    bonusIndex,
     faces: level.faces.slice(),
     held: new Array(9).fill(false),
     sealedMask,
@@ -54,13 +61,13 @@ export function createPokerGame(level, configOverrides = {}, attempt = 1) {
 
 export const isSealed = (state, i) => ((state.sealedMask >> i) & 1) === 1;
 export const isBanked = (state, i) => ((state.bankedMask >> i) & 1) === 1;
-export const isOrdinary = () => true;
+export const isOrdinary = (state, i) => i !== state.bonusIndex;
 export const remainingMask = (state) => state.geometry.freeMask & ~state.bankedMask;
 export const remainingCells = (state) => cellsOf(remainingMask(state));
 
 export function heldCount(state) {
   let n = 0;
-  for (let i = 0; i < 9; i++) if (state.held[i] && !isBanked(state, i)) n++;
+  for (const i of state.geometry.free) if (state.held[i] && !isBanked(state, i)) n++;
   return n;
 }
 
@@ -73,6 +80,7 @@ const bump = (state, key) => ({ ...state.stats, [key]: state.stats[key] + 1 });
 export function toggleHold(state, i) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   if (!Number.isInteger(i) || i < 0 || i >= 9) return reject('OUT_OF_RANGE', 'Cell is outside the board');
+  if (!isOrdinary(state, i)) return reject('BONUS_CELL', 'The ×2 cell has no face to hold');
   if (isBanked(state, i)) return reject('BANKED', 'That cell is empty');
   if (isSealed(state, i)) return reject('SEALED', 'Sealed dice keep their value - no hold needed');
   const held = state.held.slice();
@@ -218,6 +226,7 @@ export function snapshotGame(state) {
     held: state.held,
     sealedMask: state.sealedMask,
     bankedMask: state.bankedMask,
+    bonusIndex: state.bonusIndex,
     rerollsLeft: state.rerollsLeft,
     handsLeft: state.handsLeft,
     bonus: state.bonus,

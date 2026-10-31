@@ -17,7 +17,7 @@ import {
   createPokerGame, toggleHold as pokerToggleHold, reroll as pokerReroll, toggleBonus as pokerToggleBonus,
   previewPath as pokerPreviewPath, bankPath as pokerBankPath, hintFor as pokerHintFor, markHintUsed as pokerMarkHintUsed,
   remainingCells as pokerRemainingCells, canReroll as pokerCanReroll, snapshotGame as pokerSnapshot, restoreGame as pokerRestore,
-  isBanked as pokerIsBanked, isSealed as pokerIsSealed, heldCount as pokerHeldCount,
+  isBanked as pokerIsBanked, isSealed as pokerIsSealed, heldCount as pokerHeldCount, isOrdinary as pokerIsOrdinary,
 } from '../engine/poker.js';
 import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from '../engine/levels.js';
 import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
@@ -75,7 +75,7 @@ const pokerEngine = {
   canReroll: pokerCanReroll,
   snapshot: pokerSnapshot,
   restore: pokerRestore,
-  isOrdinary: () => true,
+  isOrdinary: pokerIsOrdinary,
   isBanked: pokerIsBanked,
   isSealed: pokerIsSealed,
   heldCount: pokerHeldCount,
@@ -125,7 +125,7 @@ const MODES = {
         const examples = { four_kind: [2, 2, 2, 2], straight: [1, 2, 3, 4], three_kind: [4, 4, 4, 1], two_pairs: [1, 1, 6, 6], pair: [1, 1, 3, 6], high: [1, 2, 4, 6] };
         return CATEGORY_ORDER.map((cat) => ({ label: CATEGORY_LABELS[cat], example: examples[cat], points: table[cat], odds: CATEGORY_OUTCOMES[cat] / 1296 }));
       },
-      options: { table: true, small: false, endOnTarget: false },
+      options: { table: true, small: false, endOnTarget: false, goldCell: false },
     },
     coachText(step, g, hint) {
       if (step === 'swipe') return `DRAG ${show(g, hint.cells)} IN ONE MOVE, THEN LIFT · ${hint.hand.label} ${hint.hand.points}`;
@@ -138,12 +138,12 @@ const MODES = {
     id: 'poker5',
     name: 'Poker 5',
     handSize: 5,
-    bonus: 'token',
+    bonus: 'cell',
     refill: true,
     engine: pokerEngine,
     generatorVersion: GENERATOR5_VERSION,
-    defaultSettings: { maxHolds: null, smallStraight: true, endOnTarget: false, autoBonusOnFinalHand: true, pathMode: false, hands: 3, rerolls: 3 },
-    gameConfig: (st) => ({ maxHolds: st.maxHolds, smallStraight: st.smallStraight, endOnTarget: st.endOnTarget, autoBonusOnFinalHand: st.autoBonusOnFinalHand, hands: st.hands, rerolls: st.rerolls }),
+    defaultSettings: { maxHolds: null, smallStraight: true, endOnTarget: false, autoBonusOnFinalHand: true, pathMode: false, hands: 3, rerolls: 3, goldCell: true },
+    gameConfig: (st) => ({ maxHolds: st.maxHolds, smallStraight: st.smallStraight, endOnTarget: st.endOnTarget, autoBonusOnFinalHand: st.autoBonusOnFinalHand, hands: st.hands, rerolls: st.rerolls, bonusIndex: st.goldCell === false ? null : 8 }),
     generate: ({ runSeed, levelIndex, tier, settings }) => generatePokerLevel({ runSeed, levelIndex, tier, config: MODES.poker5.gameConfig(settings) }),
     idleCopy: (g, pathMode) => {
       const n = g.hands.length + 1;
@@ -152,18 +152,18 @@ const MODES = {
     },
     solverLine: (level) => `Best opening snake before any reroll: ${CATEGORY5_LABELS[level.openingCategory] || ''} ${level.openingBest}`,
     onboard: {
-      lead: 'Nine dice. Drag through five of them like a snake to play a poker hand. The five you used are replaced; the other four stay for your next hand.',
+      lead: 'Eight dice and the gold ×2. Drag through five dice like a snake to play a poker hand. The five you used are replaced; the other three stay for your next hand.',
       note: 'Three hands and three rerolls per level. The tutorial shows every move on your first board.',
       demo: { values: [4, 4, 4, 3, 2, 2], path: [0, 1, 2, 5, 4], label: 'SWIPE 4 → 4 → 4 → 2 → 2 = FULL HOUSE' },
     },
     help: {
-      lead: 'The four dice you leave behind are the start of your next hand: plan the snake so the leftovers already match.',
+      lead: 'The dice you leave behind are the start of your next hand: plan the snake so the leftovers already match.',
       rules: [
-        'Nine dice on a 3×3 board. A hand is a snake of exactly five dice that touch edge to edge (no diagonals, no repeats).',
+        'Eight dice and one gold ×2 cell on a 3×3 board. A hand is a snake of exactly five dice that touch edge to edge (no diagonals, no repeats).',
         'To play a hand, press a die and drag through five dice in one move, then lift. Example: 4 → 4 → 4 → 2 → 2 is a FULL HOUSE.',
-        'The five dice you played are replaced by fresh dice. The other four stay exactly as they are.',
+        'The five dice you played are replaced by fresh dice. The other three stay exactly as they are.',
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
-        'Three hands per level. Tap the ×2 badge to double the hand you play next; an unused ×2 is applied to the last hand automatically.',
+        'Three hands per level. Tap the gold cell (or the ×2 badge) to double the hand you play next; an unused ×2 is applied to the last hand automatically.',
         'Reach the target with the three hands to clear the level.',
       ],
       scoreTitle: 'SCORING · FIVE DICE (POKER)',
@@ -174,14 +174,15 @@ const MODES = {
         const order = ['five_kind', 'four_kind', 'straight', 'full_house', 'small_straight', 'three_kind', 'two_pairs', 'pair', 'bust'].filter((c) => settings.smallStraight || c !== 'small_straight');
         return order.map((cat) => ({ label: CATEGORY5_LABELS[cat], example: examples[cat], points: table[cat], odds: outcomes[cat] / 7776 }));
       },
-      options: { table: false, small: true, endOnTarget: true },
+      options: { table: false, small: true, endOnTarget: true, goldCell: true },
     },
     coachText(step, g, hint) {
       if (step === 'swipe') return `DRAG ${show(g, hint.cells)} IN ONE MOVE, THEN LIFT · ${hint.hand.label} ${hint.hand.points}`;
       const n = g.hands.length + 1;
       const total = g.hands.length + g.handsLeft;
       const last = g.handsLeft === 1 && g.bonus.available ? ' · ×2 AUTO' : '';
-      return `HAND ${n}/${total} · THE OTHER FOUR STAYED · DRAG ${show(g, hint.cells)} · ${hint.hand.label} ${hint.hand.points}${last}`;
+      const left = g.geometry.free.length - M().handSize;
+      return `HAND ${n}/${total} · THE OTHER ${left === 3 ? 'THREE' : 'FOUR'} STAYED · DRAG ${show(g, hint.cells)} · ${hint.hand.label} ${hint.hand.points}${last}`;
     },
   },
 };
@@ -1136,6 +1137,8 @@ function openHelp() {
   $('optTableRow').hidden = !mode.help.options.table;
   $('optSmallRow').hidden = !mode.help.options.small;
   $('optEndRow').hidden = !mode.help.options.endOnTarget;
+  $('optGoldRow').hidden = !mode.help.options.goldCell;
+  if (mode.help.options.goldCell) $('optGold').checked = st.settings.goldCell !== false;
   if (mode.help.options.table) $('optTable').value = st.settings.scoreTable;
   if (mode.help.options.small) $('optSmall').checked = !!st.settings.smallStraight;
   if (mode.help.options.endOnTarget) $('optEndOnTarget').checked = !!st.settings.endOnTarget;
@@ -1153,6 +1156,7 @@ function applySettings() {
   if (mode.help.options.table) st.settings.scoreTable = $('optTable').value;
   if (mode.help.options.small) st.settings.smallStraight = $('optSmall').checked;
   if (mode.help.options.endOnTarget) st.settings.endOnTarget = $('optEndOnTarget').checked;
+  if (mode.help.options.goldCell) st.settings.goldCell = $('optGold').checked;
   st.settings.autoBonusOnFinalHand = $('optAutoBonus').checked;
   logEvent('settings', { ...st.settings });
   if (mode.help.options.small) renderScoreTable();
@@ -1212,7 +1216,7 @@ function bind() {
   els.helpBtn.addEventListener('click', openHelp);
   $('bonusStatus').addEventListener('click', () => armBonus('badge'));
   $('closeHelpBtn').addEventListener('click', () => { $('help').hidden = true; });
-  for (const id of ['optHoldCap', 'optTable', 'optSmall', 'optEndOnTarget', 'optAutoBonus']) $(id).addEventListener('change', applySettings);
+  for (const id of ['optHoldCap', 'optTable', 'optSmall', 'optEndOnTarget', 'optGold', 'optAutoBonus']) $(id).addEventListener('change', applySettings);
   $('exportBtn').addEventListener('click', exportLog);
   $('resetBtn').addEventListener('click', resetProgress);
   $('nextBtn').addEventListener('click', onNext);

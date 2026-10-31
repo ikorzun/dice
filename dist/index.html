@@ -358,6 +358,7 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
     </label>
     <label class="opt" id="optSmallRow"><input type="checkbox" id="optSmall"> Small straight (four in a row) counts</label>
     <label class="opt" id="optEndRow"><input type="checkbox" id="optEndOnTarget"> End the level as soon as the target is reached</label>
+    <label class="opt" id="optGoldRow"><input type="checkbox" id="optGold" checked> Gold ×2 cell replaces one die (off: nine dice, ×2 badge only)</label>
     <label class="opt"><input type="checkbox" id="optAutoBonus" checked> Auto-apply an unused ×2 to the final hand</label>
     <p class="muted small">Changes apply from the next level.</p>
     <button class="btn-secondary" id="tutorialBtn" type="button">SHOW TUTORIAL AGAIN</button>
@@ -1231,9 +1232,10 @@ return { DEFAULT_CONFIG, createGame, isOrdinary, isBanked, remainingMask, remain
 })();
 // ---- src/engine/poker.js ----
 const __mod_poker = (() => {
-// Poker 5 mode: nine dice on the 3x3 board, a hand is a snake of five dice scored as a
-// five-die poker hand, banked dice are refilled, a level is a small budget of hands and
-// rerolls against a target. The four dice left after a hand are the seed of the next one.
+// Poker 5 mode: eight dice plus the gold ×2 cell (or nine dice when bonusIndex is null),
+// a hand is a snake of five dice scored as a five-die poker hand, banked dice are refilled,
+// a level is a small budget of hands and rerolls against a target. The dice left after a
+// hand are the seed of the next one.
 // Pure state transitions, same action shape as game.js so the UI can drive either mode.
 
 const { buildGeometry, validatePath, cellsOf, orderedPathsOf, popcount } = __mod_geometry;
@@ -1246,7 +1248,8 @@ const POKER_DEFAULT_CONFIG = Object.freeze({
   maxHolds: null,        // null = unlimited holds
   scoreTable: DEFAULT_SCORE_TABLE5,
   smallStraight: true,   // four consecutive values count as a (small) straight
-  bonusMultiplier: 2,    // one-use ×2 token
+  bonusMultiplier: 2,    // one-use ×2
+  bonusIndex: 8,         // gold ×2 cell like Snake 4+4 (null = nine dice and a ×2 badge only)
   autoBonusOnFinalHand: true,
   refill: true,          // banked cells receive fresh dice
   endOnTarget: false,    // true: the level ends as soon as the target is reached
@@ -1257,11 +1260,15 @@ const reject = (code, message) => ({ ok: false, code, message });
 
 function createPokerGame(level, configOverrides = {}, attempt = 1) {
   const config = Object.freeze({ ...POKER_DEFAULT_CONFIG, ...configOverrides });
-  const geometry = buildGeometry(null, config.handSize);
+  const bonusIndex = level.bonusIndex === undefined ? config.bonusIndex : level.bonusIndex;
+  const geometry = buildGeometry(bonusIndex, config.handSize);
+  if (geometry.eligibleMasks.length === 0) throw new Error('no five-die snake fits this board');
   if (!Array.isArray(level.faces) || level.faces.length !== 9) throw new Error('level.faces must have 9 entries');
   for (let i = 0; i < 9; i++) {
     const f = level.faces[i];
-    if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`invalid face at ${i}`);
+    if (i === bonusIndex) {
+      if (f !== null) throw new Error('bonus cell must have a null face');
+    } else if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`invalid face at ${i}`);
   }
   const sealedMask = level.sealedMask || 0;
   return {
@@ -1269,6 +1276,7 @@ function createPokerGame(level, configOverrides = {}, attempt = 1) {
     config,
     level,
     geometry,
+    bonusIndex,
     faces: level.faces.slice(),
     held: new Array(9).fill(false),
     sealedMask,
@@ -1287,13 +1295,13 @@ function createPokerGame(level, configOverrides = {}, attempt = 1) {
 
 const isSealed = (state, i) => ((state.sealedMask >> i) & 1) === 1;
 const isBanked = (state, i) => ((state.bankedMask >> i) & 1) === 1;
-const isOrdinary = () => true;
+const isOrdinary = (state, i) => i !== state.bonusIndex;
 const remainingMask = (state) => state.geometry.freeMask & ~state.bankedMask;
 const remainingCells = (state) => cellsOf(remainingMask(state));
 
 function heldCount(state) {
   let n = 0;
-  for (let i = 0; i < 9; i++) if (state.held[i] && !isBanked(state, i)) n++;
+  for (const i of state.geometry.free) if (state.held[i] && !isBanked(state, i)) n++;
   return n;
 }
 
@@ -1306,6 +1314,7 @@ const bump = (state, key) => ({ ...state.stats, [key]: state.stats[key] + 1 });
 function toggleHold(state, i) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   if (!Number.isInteger(i) || i < 0 || i >= 9) return reject('OUT_OF_RANGE', 'Cell is outside the board');
+  if (!isOrdinary(state, i)) return reject('BONUS_CELL', 'The ×2 cell has no face to hold');
   if (isBanked(state, i)) return reject('BANKED', 'That cell is empty');
   if (isSealed(state, i)) return reject('SEALED', 'Sealed dice keep their value - no hold needed');
   const held = state.held.slice();
@@ -1451,6 +1460,7 @@ function snapshotGame(state) {
     held: state.held,
     sealedMask: state.sealedMask,
     bankedMask: state.bankedMask,
+    bonusIndex: state.bonusIndex,
     rerollsLeft: state.rerollsLeft,
     handsLeft: state.handsLeft,
     bonus: state.bonus,
@@ -1602,19 +1612,20 @@ const TIERS5 = Object.freeze({
   5: Object.freeze({ target: 110, openingMax: 0.5 }),
 });
 
-function rollFaces9(rng) {
+function rollFaces9(rng, bonusIndex = null) {
   const faces = new Array(9);
-  for (let i = 0; i < 9; i++) faces[i] = rng.die();
+  for (let i = 0; i < 9; i++) faces[i] = i === bonusIndex ? null : rng.die();
   return faces;
 }
 
 function generatePokerLevel({ runSeed, levelIndex, tier, config = {}, candidates = 32 }) {
   const t = clampTier(tier);
   const spec = TIERS5[t];
+  const bonusIndex = config.bonusIndex === undefined ? 8 : config.bonusIndex;
   let fallback = null;
   for (let k = 0; k < candidates; k++) {
     const seed = `${runSeed}/P${levelIndex}/T${t}/c${k}`;
-    const faces = rollFaces9(createRng(seed));
+    const faces = rollFaces9(createRng(seed), bonusIndex);
     const level = {
       mode: 'poker5',
       seed,
@@ -1623,6 +1634,7 @@ function generatePokerLevel({ runSeed, levelIndex, tier, config = {}, candidates
       tier: t,
       candidateIndex: k,
       faces,
+      bonusIndex,
       target: spec.target,
       hands: config.hands,
       rerolls: config.rerolls,
@@ -1653,7 +1665,7 @@ const { CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_OUTCOMES, SCORE_TABLES } = __m
 const { CATEGORY5_LABELS, CATEGORY5_OUTCOMES, CATEGORY5_OUTCOMES_SMALL, SCORE_TABLES5 } = __mod_scoring5;
 const { areAdjacent, rowOf, colOf, orderedPathsOf } = __mod_geometry;
 const { createGame, toggleHold: snakeToggleHold, reroll: snakeReroll, toggleBonus: snakeToggleBonus, previewPath: snakePreviewPath, bankPath: snakeBankPath, hintFor: snakeHintFor, markHintUsed: snakeMarkHintUsed, remainingCells: snakeRemainingCells, canReroll: snakeCanReroll, snapshotGame: snakeSnapshot, restoreGame: snakeRestore, isOrdinary: snakeIsOrdinary, isBanked: snakeIsBanked, heldCount: snakeHeldCount } = __mod_game;
-const { createPokerGame, toggleHold: pokerToggleHold, reroll: pokerReroll, toggleBonus: pokerToggleBonus, previewPath: pokerPreviewPath, bankPath: pokerBankPath, hintFor: pokerHintFor, markHintUsed: pokerMarkHintUsed, remainingCells: pokerRemainingCells, canReroll: pokerCanReroll, snapshotGame: pokerSnapshot, restoreGame: pokerRestore, isBanked: pokerIsBanked, isSealed: pokerIsSealed, heldCount: pokerHeldCount } = __mod_poker;
+const { createPokerGame, toggleHold: pokerToggleHold, reroll: pokerReroll, toggleBonus: pokerToggleBonus, previewPath: pokerPreviewPath, bankPath: pokerBankPath, hintFor: pokerHintFor, markHintUsed: pokerMarkHintUsed, remainingCells: pokerRemainingCells, canReroll: pokerCanReroll, snapshotGame: pokerSnapshot, restoreGame: pokerRestore, isBanked: pokerIsBanked, isSealed: pokerIsSealed, heldCount: pokerHeldCount, isOrdinary: pokerIsOrdinary } = __mod_poker;
 const { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } = __mod_levels;
 const { generatePokerLevel, GENERATOR5_VERSION } = __mod_levels5;
 
@@ -1710,7 +1722,7 @@ const pokerEngine = {
   canReroll: pokerCanReroll,
   snapshot: pokerSnapshot,
   restore: pokerRestore,
-  isOrdinary: () => true,
+  isOrdinary: pokerIsOrdinary,
   isBanked: pokerIsBanked,
   isSealed: pokerIsSealed,
   heldCount: pokerHeldCount,
@@ -1760,7 +1772,7 @@ const MODES = {
         const examples = { four_kind: [2, 2, 2, 2], straight: [1, 2, 3, 4], three_kind: [4, 4, 4, 1], two_pairs: [1, 1, 6, 6], pair: [1, 1, 3, 6], high: [1, 2, 4, 6] };
         return CATEGORY_ORDER.map((cat) => ({ label: CATEGORY_LABELS[cat], example: examples[cat], points: table[cat], odds: CATEGORY_OUTCOMES[cat] / 1296 }));
       },
-      options: { table: true, small: false, endOnTarget: false },
+      options: { table: true, small: false, endOnTarget: false, goldCell: false },
     },
     coachText(step, g, hint) {
       if (step === 'swipe') return `DRAG ${show(g, hint.cells)} IN ONE MOVE, THEN LIFT · ${hint.hand.label} ${hint.hand.points}`;
@@ -1773,12 +1785,12 @@ const MODES = {
     id: 'poker5',
     name: 'Poker 5',
     handSize: 5,
-    bonus: 'token',
+    bonus: 'cell',
     refill: true,
     engine: pokerEngine,
     generatorVersion: GENERATOR5_VERSION,
-    defaultSettings: { maxHolds: null, smallStraight: true, endOnTarget: false, autoBonusOnFinalHand: true, pathMode: false, hands: 3, rerolls: 3 },
-    gameConfig: (st) => ({ maxHolds: st.maxHolds, smallStraight: st.smallStraight, endOnTarget: st.endOnTarget, autoBonusOnFinalHand: st.autoBonusOnFinalHand, hands: st.hands, rerolls: st.rerolls }),
+    defaultSettings: { maxHolds: null, smallStraight: true, endOnTarget: false, autoBonusOnFinalHand: true, pathMode: false, hands: 3, rerolls: 3, goldCell: true },
+    gameConfig: (st) => ({ maxHolds: st.maxHolds, smallStraight: st.smallStraight, endOnTarget: st.endOnTarget, autoBonusOnFinalHand: st.autoBonusOnFinalHand, hands: st.hands, rerolls: st.rerolls, bonusIndex: st.goldCell === false ? null : 8 }),
     generate: ({ runSeed, levelIndex, tier, settings }) => generatePokerLevel({ runSeed, levelIndex, tier, config: MODES.poker5.gameConfig(settings) }),
     idleCopy: (g, pathMode) => {
       const n = g.hands.length + 1;
@@ -1787,18 +1799,18 @@ const MODES = {
     },
     solverLine: (level) => `Best opening snake before any reroll: ${CATEGORY5_LABELS[level.openingCategory] || ''} ${level.openingBest}`,
     onboard: {
-      lead: 'Nine dice. Drag through five of them like a snake to play a poker hand. The five you used are replaced; the other four stay for your next hand.',
+      lead: 'Eight dice and the gold ×2. Drag through five dice like a snake to play a poker hand. The five you used are replaced; the other three stay for your next hand.',
       note: 'Three hands and three rerolls per level. The tutorial shows every move on your first board.',
       demo: { values: [4, 4, 4, 3, 2, 2], path: [0, 1, 2, 5, 4], label: 'SWIPE 4 → 4 → 4 → 2 → 2 = FULL HOUSE' },
     },
     help: {
-      lead: 'The four dice you leave behind are the start of your next hand: plan the snake so the leftovers already match.',
+      lead: 'The dice you leave behind are the start of your next hand: plan the snake so the leftovers already match.',
       rules: [
-        'Nine dice on a 3×3 board. A hand is a snake of exactly five dice that touch edge to edge (no diagonals, no repeats).',
+        'Eight dice and one gold ×2 cell on a 3×3 board. A hand is a snake of exactly five dice that touch edge to edge (no diagonals, no repeats).',
         'To play a hand, press a die and drag through five dice in one move, then lift. Example: 4 → 4 → 4 → 2 → 2 is a FULL HOUSE.',
-        'The five dice you played are replaced by fresh dice. The other four stay exactly as they are.',
+        'The five dice you played are replaced by fresh dice. The other three stay exactly as they are.',
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
-        'Three hands per level. Tap the ×2 badge to double the hand you play next; an unused ×2 is applied to the last hand automatically.',
+        'Three hands per level. Tap the gold cell (or the ×2 badge) to double the hand you play next; an unused ×2 is applied to the last hand automatically.',
         'Reach the target with the three hands to clear the level.',
       ],
       scoreTitle: 'SCORING · FIVE DICE (POKER)',
@@ -1809,14 +1821,15 @@ const MODES = {
         const order = ['five_kind', 'four_kind', 'straight', 'full_house', 'small_straight', 'three_kind', 'two_pairs', 'pair', 'bust'].filter((c) => settings.smallStraight || c !== 'small_straight');
         return order.map((cat) => ({ label: CATEGORY5_LABELS[cat], example: examples[cat], points: table[cat], odds: outcomes[cat] / 7776 }));
       },
-      options: { table: false, small: true, endOnTarget: true },
+      options: { table: false, small: true, endOnTarget: true, goldCell: true },
     },
     coachText(step, g, hint) {
       if (step === 'swipe') return `DRAG ${show(g, hint.cells)} IN ONE MOVE, THEN LIFT · ${hint.hand.label} ${hint.hand.points}`;
       const n = g.hands.length + 1;
       const total = g.hands.length + g.handsLeft;
       const last = g.handsLeft === 1 && g.bonus.available ? ' · ×2 AUTO' : '';
-      return `HAND ${n}/${total} · THE OTHER FOUR STAYED · DRAG ${show(g, hint.cells)} · ${hint.hand.label} ${hint.hand.points}${last}`;
+      const left = g.geometry.free.length - M().handSize;
+      return `HAND ${n}/${total} · THE OTHER ${left === 3 ? 'THREE' : 'FOUR'} STAYED · DRAG ${show(g, hint.cells)} · ${hint.hand.label} ${hint.hand.points}${last}`;
     },
   },
 };
@@ -2771,6 +2784,8 @@ function openHelp() {
   $('optTableRow').hidden = !mode.help.options.table;
   $('optSmallRow').hidden = !mode.help.options.small;
   $('optEndRow').hidden = !mode.help.options.endOnTarget;
+  $('optGoldRow').hidden = !mode.help.options.goldCell;
+  if (mode.help.options.goldCell) $('optGold').checked = st.settings.goldCell !== false;
   if (mode.help.options.table) $('optTable').value = st.settings.scoreTable;
   if (mode.help.options.small) $('optSmall').checked = !!st.settings.smallStraight;
   if (mode.help.options.endOnTarget) $('optEndOnTarget').checked = !!st.settings.endOnTarget;
@@ -2788,6 +2803,7 @@ function applySettings() {
   if (mode.help.options.table) st.settings.scoreTable = $('optTable').value;
   if (mode.help.options.small) st.settings.smallStraight = $('optSmall').checked;
   if (mode.help.options.endOnTarget) st.settings.endOnTarget = $('optEndOnTarget').checked;
+  if (mode.help.options.goldCell) st.settings.goldCell = $('optGold').checked;
   st.settings.autoBonusOnFinalHand = $('optAutoBonus').checked;
   logEvent('settings', { ...st.settings });
   if (mode.help.options.small) renderScoreTable();
@@ -2847,7 +2863,7 @@ function bind() {
   els.helpBtn.addEventListener('click', openHelp);
   $('bonusStatus').addEventListener('click', () => armBonus('badge'));
   $('closeHelpBtn').addEventListener('click', () => { $('help').hidden = true; });
-  for (const id of ['optHoldCap', 'optTable', 'optSmall', 'optEndOnTarget', 'optAutoBonus']) $(id).addEventListener('change', applySettings);
+  for (const id of ['optHoldCap', 'optTable', 'optSmall', 'optEndOnTarget', 'optGold', 'optAutoBonus']) $(id).addEventListener('change', applySettings);
   $('exportBtn').addEventListener('click', exportLog);
   $('resetBtn').addEventListener('click', resetProgress);
   $('nextBtn').addEventListener('click', onNext);

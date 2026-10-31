@@ -6,7 +6,8 @@ import {
 } from '../src/engine/poker.js';
 import { maskOf, orderedPathsOf } from '../src/engine/geometry.js';
 
-const level = (faces, target = 30, extra = {}) => ({ seed: 'p', levelIndex: 1, tier: 1, faces, target, hands: 3, rerolls: 3, ...extra });
+// Tests use the nine-dice variant (bonusIndex null) unless stated; the gold-cell variant is tested below.
+const level = (faces, target = 30, extra = {}) => ({ seed: 'p', levelIndex: 1, tier: 1, faces, bonusIndex: null, target, hands: 3, rerolls: 3, ...extra });
 // row0: 5 5 5 | row1: 2 5 3 | row2: 6 6 1
 const F = [5, 5, 5, 2, 5, 3, 6, 6, 1];
 const seq = (values) => { let k = 0; return () => values[k++ % values.length]; };
@@ -120,4 +121,24 @@ test('snapshot/restore round-trips', () => {
   assert.equal(back.handsLeft, 2);
   assert.equal(back.score, 40);
   assert.deepEqual(back.held, g.held);
+});
+
+test('gold ×2 cell variant: eight dice, 19 snakes, bonus cell is never held, rerolled, refilled or traced', () => {
+  const faces = [5, 5, 5, 2, 5, 3, 6, 6, null];
+  let g = createPokerGame({ seed: 'g', levelIndex: 1, tier: 1, faces, bonusIndex: 8, target: 30, hands: 3, rerolls: 3 });
+  assert.equal(g.geometry.eligibleMasks.length, 19);
+  assert.equal(g.bonusIndex, 8);
+  assert.equal(toggleHold(g, 8).code, 'BONUS_CELL');
+  assert.equal(previewPath(g, [7, 8, 5, 2, 1]).code, 'BONUS_CELL');
+  assert.deepEqual(rerollTargets(g), [0, 1, 2, 3, 4, 5, 6, 7]);
+  g = reroll(g, seq([4])).state;
+  assert.equal(g.faces[8], null);
+  const r = bankPath(g, [0, 1, 2, 5, 4], seq([1]));
+  assert.equal(r.ok, true);
+  assert.equal(r.state.faces[8], null);
+  assert.deepEqual(r.refilled, [0, 1, 2, 5, 4]);
+  assert.throws(() => createPokerGame({ seed: 'g', levelIndex: 1, tier: 1, faces: [1, 1, 1, 1, 1, 1, 1, 1, 1], bonusIndex: 8, target: 30 }), /bonus cell/);
+  const back = restoreGame(JSON.parse(JSON.stringify(snapshotGame(r.state))));
+  assert.equal(back.bonusIndex, 8);
+  assert.equal(back.geometry.eligibleMasks.length, 19);
 });

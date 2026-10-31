@@ -17,19 +17,20 @@ export const TIERS5 = Object.freeze({
   5: Object.freeze({ target: 110, openingMax: 0.5 }),
 });
 
-export function rollFaces9(rng) {
+export function rollFaces9(rng, bonusIndex = null) {
   const faces = new Array(9);
-  for (let i = 0; i < 9; i++) faces[i] = rng.die();
+  for (let i = 0; i < 9; i++) faces[i] = i === bonusIndex ? null : rng.die();
   return faces;
 }
 
 export function generatePokerLevel({ runSeed, levelIndex, tier, config = {}, candidates = 32 }) {
   const t = clampTier(tier);
   const spec = TIERS5[t];
+  const bonusIndex = config.bonusIndex === undefined ? 8 : config.bonusIndex;
   let fallback = null;
   for (let k = 0; k < candidates; k++) {
     const seed = `${runSeed}/P${levelIndex}/T${t}/c${k}`;
-    const faces = rollFaces9(createRng(seed));
+    const faces = rollFaces9(createRng(seed), bonusIndex);
     const level = {
       mode: 'poker5',
       seed,
@@ -38,6 +39,7 @@ export function generatePokerLevel({ runSeed, levelIndex, tier, config = {}, can
       tier: t,
       candidateIndex: k,
       faces,
+      bonusIndex,
       target: spec.target,
       hands: config.hands,
       rerolls: config.rerolls,

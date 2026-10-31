@@ -14,7 +14,7 @@ function coreCells(hand) {
 }
 
 function setHolds(game, keep) {
-  for (let i = 0; i < 9; i++) {
+  for (const i of game.geometry.free) {
     const want = keep.has(i);
     if (game.held[i] !== want) {
       const r = toggleHold(game, i);
@@ -76,10 +76,11 @@ export function playGreedyBot5(level, { rng, config = {}, samples = 12, margin =
       let bestMask = -1;
       let bestEst = standing + margin;
       for (let m = 0; m < 511; m++) {
+        if (game.bonusIndex != null && (m >> game.bonusIndex) & 1) continue;
         if (game.config.maxHolds != null && popcount(m) > game.config.maxHolds) continue;
         let sum = 0;
         for (let s = 0; s < samples; s++) {
-          for (let i = 0; i < 9; i++) scratch[i] = (m >> i) & 1 || ((game.sealedMask >> i) & 1) ? game.faces[i] : rng.die();
+          for (let i = 0; i < 9; i++) scratch[i] = i === game.bonusIndex || (m >> i) & 1 || ((game.sealedMask >> i) & 1) ? game.faces[i] : rng.die();
           sum += bestPoints(scratch);
         }
         const est = sum / samples;

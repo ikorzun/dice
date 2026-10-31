@@ -218,9 +218,9 @@ for (const vp of viewports) {
   s = await state(page);
   if (s.mode !== 'poker5') note(vp, `mode after tab click: ${s.mode}`);
   const bonusCells = await page.$$eval('#board .cell.bonus', (els) => els.length);
-  if (bonusCells !== 0) note(vp, 'poker board has a bonus cell');
+  if (bonusCells !== 1) note(vp, `poker board has ${bonusCells} bonus cells, expected the gold ×2`);
   const dice = await page.$$eval('#board .cell.die', (els) => els.length);
-  if (dice !== 9) note(vp, `poker board has ${dice} dice`);
+  if (dice !== 8) note(vp, `poker board has ${dice} dice, expected 8`);
   const handsText = await page.$eval('#handsText', (el) => el.textContent);
   if (!/HAND 1 \/ 3/.test(handsText)) note(vp, `hands text: ${handsText}`);
   const pips = await page.$$eval('#rerollPips i', (els) => els.length);
@@ -233,6 +233,12 @@ for (const vp of viewports) {
   await page.waitForTimeout(1200);
   s = await state(page);
   if (s.rerollsLeft !== 2) note(vp, `poker rerollsLeft ${s.rerollsLeft} after one reroll`);
+  await tap(page, 8);
+  s = await state(page);
+  if (!s.bonus.armed) note(vp, 'tapping the gold cell did not arm x2 in poker');
+  await page.click('#bonusStatus');
+  s = await state(page);
+  if (s.bonus.armed) note(vp, 'x2 badge did not disarm');
   await page.click('#bonusStatus');
   s = await state(page);
   if (!s.bonus.armed) note(vp, 'poker x2 badge did not arm');
@@ -246,7 +252,7 @@ for (const vp of viewports) {
   if (s.hands !== 1 || s.handsLeft !== 2) note(vp, `poker first hand: hands=${s.hands} left=${s.handsLeft}`);
   if (s.bonus.available) note(vp, 'poker x2 not consumed');
   const diceAfter = await page.$$eval('#board .cell.die', (els) => els.length);
-  if (diceAfter !== 9) note(vp, `after refill ${diceAfter} dice`);
+  if (diceAfter !== 8) note(vp, `after refill ${diceAfter} dice`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-14-poker-after-first.png` });
   for (let h = 0; h < 2; h++) {
     const hc = await hintCells(page);

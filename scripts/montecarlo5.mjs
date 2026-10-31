@@ -12,7 +12,7 @@ const args = Object.fromEntries(process.argv.slice(2).map((a) => { const [k, v] 
 const N = Number(args.boards ?? 2000);
 const NT = Number(args.tierBoards ?? 300);
 const SEED = String(args.seed ?? '20261030');
-const config = { hands: Number(args.hands ?? 3), rerolls: Number(args.rerolls ?? 3), smallStraight: args.smallStraight !== 'false' };
+const config = { hands: Number(args.hands ?? 3), rerolls: Number(args.rerolls ?? 3), smallStraight: args.smallStraight !== 'false', bonusIndex: args.bonusIndex === 'none' ? null : 8 };
 const lines = [];
 const out = (s = '') => { lines.push(s); console.log(s); };
 const pct = (x) => `${(100 * x).toFixed(1)}%`;
@@ -26,7 +26,7 @@ function summarize(values) {
 }
 const t0 = Date.now();
 out(`# Poker 5 — simulation report`);
-out(`seed ${SEED} · hands ${config.hands} · rerolls ${config.rerolls} · small straight ${config.smallStraight} · ${new Date().toISOString()}`);
+out(`seed ${SEED} · hands ${config.hands} · rerolls ${config.rerolls} · small straight ${config.smallStraight} · gold cell ${config.bonusIndex === null ? 'no (9 dice)' : 'yes (8 dice)'} · ${new Date().toISOString()}`);
 out();
 {
   const rng = createRng(`${SEED}/poker/B`);
@@ -34,8 +34,8 @@ out();
   const greedy = [];
   const opening = [];
   for (let i = 0; i < N; i++) {
-    const faces = rollFaces9(rng);
-    const level = { seed: `B${i}`, levelIndex: i, tier: 1, faces, target: 100000, hands: config.hands, rerolls: config.rerolls, sealedMask: 0 };
+    const faces = rollFaces9(rng, config.bonusIndex);
+    const level = { seed: `B${i}`, levelIndex: i, tier: 1, faces, bonusIndex: config.bonusIndex, target: 100000, hands: config.hands, rerolls: config.rerolls, sealedMask: 0 };
     opening.push(bestSnake(createPokerGame(level, config)).points);
     naive.push(playNaiveBot5(level, { rng, config }).score);
     greedy.push(playGreedyBot5(level, { rng, config, samples: 10 }).score);
