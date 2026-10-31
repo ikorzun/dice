@@ -12,9 +12,9 @@ export const GENERATOR5_VERSION = 'poker5-gen-1';
 export const TIERS5 = Object.freeze({
   1: Object.freeze({ target: 40, openingMax: 0.5 }),
   2: Object.freeze({ target: 55, openingMax: 0.5 }),
-  3: Object.freeze({ target: 70, openingMax: 0.5 }),
-  4: Object.freeze({ target: 90, openingMax: 0.5 }),
-  5: Object.freeze({ target: 110, openingMax: 0.5 }),
+  3: Object.freeze({ target: 75, openingMax: 0.5 }),
+  4: Object.freeze({ target: 95, openingMax: 0.5 }),
+  5: Object.freeze({ target: 115, openingMax: 0.5 }),
 });
 
 export function rollFaces9(rng, bonusIndex = null) {

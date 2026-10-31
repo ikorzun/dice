@@ -24,6 +24,13 @@ import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
 
 const APP_VERSION = '0.2.0';
 const STORAGE_KEY = 'dice-snake.v2';
+const LOOK_KEY = 'dice-snake.look';
+const LOOKS = [
+  { id: 'modern', name: 'Modern · black' },
+  { id: 'manuscript', name: 'Manuscript · parchment and ink' },
+  { id: 'tavern', name: 'Tavern · oak, bone and brass' },
+  { id: 'keep', name: 'Keep · stone and heraldry' },
+];
 const LEGACY_KEY = 'dice-snake-3x3.v1';
 const TAP_THRESHOLD = 10; // CSS px of movement before a press becomes a path
 const CORE_INSET = 0.18; // path hit region = central 64% of a cell (no corner cutting)
@@ -148,7 +155,7 @@ const MODES = {
     idleCopy: (g, pathMode) => {
       const n = g.hands.length + 1;
       const total = g.hands.length + g.handsLeft;
-      return pathMode ? `Hand ${n} of ${total} · tap 5 connected dice in order` : `Hand ${n} of ${total} · drag through 5 dice · tap to hold`;
+      return pathMode ? `Hand ${n}/${total} · tap 5 dice in order` : `Hand ${n}/${total} · drag 5 dice · tap to hold`;
     },
     solverLine: (level) => `Best opening snake before any reroll: ${CATEGORY5_LABELS[level.openingCategory] || ''} ${level.openingBest}`,
     onboard: {
@@ -224,7 +231,25 @@ const app = {
   toastTimer: null,
   ghostKey: '',
   ghostAnim: null,
+  look: 'modern',
 };
+
+// ---------- looks (visual concepts) ----------
+function setLook(id, { announce = false } = {}) {
+  const look = LOOKS.find((l) => l.id === id) || LOOKS[0];
+  app.look = look.id;
+  document.body.dataset.look = look.id;
+  try { localStorage.setItem(LOOK_KEY, look.id); } catch { /* ignore */ }
+  const sel = $('optLook');
+  if (sel) sel.value = look.id;
+  if (announce) toast(`LOOK: ${look.name}`, 'hint');
+  if (app.modes[app.modeId] && app.modes[app.modeId].game) logEvent('look', { look: look.id });
+}
+
+function cycleLook() {
+  const k = LOOKS.findIndex((l) => l.id === app.look);
+  setLook(LOOKS[(k + 1) % LOOKS.length].id, { announce: true });
+}
 
 const S = () => app.modes[app.modeId];
 const M = () => MODES[app.modeId];
@@ -1214,6 +1239,8 @@ function bind() {
   els.undoBtn.addEventListener('click', () => { app.tapPath.pop(); render(); });
   els.bankTapBtn.addEventListener('click', () => attemptBank(app.tapPath.slice(), 'tap'));
   els.helpBtn.addEventListener('click', openHelp);
+  $('lookBtn').addEventListener('click', cycleLook);
+  $('optLook').addEventListener('change', () => setLook($('optLook').value));
   $('bonusStatus').addEventListener('click', () => armBonus('badge'));
   $('closeHelpBtn').addEventListener('click', () => { $('help').hidden = true; });
   for (const id of ['optHoldCap', 'optTable', 'optSmall', 'optEndOnTarget', 'optGold', 'optAutoBonus']) $(id).addEventListener('change', applySettings);
@@ -1242,6 +1269,9 @@ function init() {
   els.tabs = Array.from(document.querySelectorAll('.tab'));
   buildBoard();
   bind();
+  let look = 'modern';
+  try { look = localStorage.getItem(LOOK_KEY) || 'modern'; } catch { /* ignore */ }
+  setLook(look);
   const saved = readJson(STORAGE_KEY);
   if (saved && saved.modes) {
     for (const id of Object.keys(MODES)) app.modes[id] = hydrateMode(id, saved.modes[id]);
@@ -1253,7 +1283,7 @@ function init() {
   fitBoard();
   switchMode(app.modeId, { silent: true });
   requestAnimationFrame(fitBoard);
-  window.__diceSnake = { app, version: APP_VERSION, state: () => S(), mode: () => M(), hint: () => E().hintFor(S().game), switchMode };
+  window.__diceSnake = { app, version: APP_VERSION, state: () => S(), mode: () => M(), hint: () => E().hintFor(S().game), switchMode, setLook, LOOKS };
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

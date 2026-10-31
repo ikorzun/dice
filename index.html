@@ -7,7 +7,7 @@
 <title>Dice Snake</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Cinzel:wght@600;800&family=Uncial+Antiqua&family=Pirata+One&family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap">
 <link rel="stylesheet" href="src/ui/styles.css">
 </head>
 <body>
@@ -44,6 +44,7 @@
     <nav class="toolbar">
       <button class="btn-ghost" id="hintBtn" type="button">HINT</button>
       <button class="btn-ghost" id="pathModeBtn" type="button" aria-pressed="false">PATH MODE</button>
+      <button class="btn-ghost" id="lookBtn" type="button">LOOK</button>
       <button class="btn-ghost" id="helpBtn" type="button">HELP</button>
     </nav>
   </section>
@@ -90,6 +91,15 @@
     <ol class="rules" id="helpRules"></ol>
     <h3 id="helpScoreTitle">SCORING</h3>
     <table class="score-table" id="scoreTable"></table>
+    <h3>LOOK</h3>
+    <label class="opt">Visual concept
+      <select id="optLook">
+        <option value="modern">Modern · black</option>
+        <option value="manuscript">Manuscript · parchment and ink</option>
+        <option value="tavern">Tavern · oak, bone and brass</option>
+        <option value="keep">Keep · stone and heraldry</option>
+      </select>
+    </label>
     <h3>EXPERIMENTS</h3>
     <label class="opt"><input type="checkbox" id="optHoldCap"> Hold cap: at most 3 held dice per reroll</label>
     <label class="opt" id="optTableRow">Score table

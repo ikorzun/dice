@@ -287,6 +287,21 @@ for (const vp of viewports) {
   await page.waitForTimeout(200);
   const pokerRestored = await state(page);
   if (pokerRestored.mode !== 'poker5' || pokerRestored.hands !== 0 || pokerRestored.handsLeft !== 3) note(vp, `poker state not restored (hands=${pokerRestored.hands}, left=${pokerRestored.handsLeft})`);
+  // visual concepts: screenshot both tabs in every look (phone only)
+  if (vp.w === 390) {
+    for (const look of ['manuscript', 'tavern', 'keep', 'modern']) {
+      await page.evaluate((id) => window.__diceSnake.setLook(id), look);
+      await page.waitForTimeout(250);
+      await page.screenshot({ path: `${shots}/look-${look}-poker.png` });
+      await page.click('#tabSnake4');
+      await page.waitForTimeout(250);
+      await page.screenshot({ path: `${shots}/look-${look}-snake.png` });
+      await page.click('#tabPoker5');
+      await page.waitForTimeout(150);
+    }
+    const bodyLook = await page.evaluate(() => document.body.dataset.look);
+    if (bodyLook !== 'modern') note(vp, `look did not reset to modern: ${bodyLook}`);
+  }
   await ctx.close();
 }
 await browser.close();
