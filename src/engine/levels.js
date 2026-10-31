@@ -16,13 +16,25 @@ export const MAX_TIER = 5;
 // 25 = trips ×2 + two pairs, 30 = straight ×2, 35 = straight ×2 + two pairs) and were
 // calibrated with scripts/montecarlo.mjs (see docs/ANALYSIS.md). lo/hi are fractions of the
 // target that bound the exact no-reroll optimum (with ×2) of an accepted board.
-export const TIERS = Object.freeze({
+const FLAT_TIERS = Object.freeze({
   1: Object.freeze({ target: 12, lo: 0.35, hi: 0.9 }),
   2: Object.freeze({ target: 20, lo: 0.35, hi: 0.9 }),
   3: Object.freeze({ target: 25, lo: 0.3, hi: 0.72 }),
   4: Object.freeze({ target: 30, lo: 0.3, hi: 0.72 }),
   5: Object.freeze({ target: 35, lo: 0.3, hi: 0.72 }),
 });
+// Pip-based scoring (sum of matching dice × count) scores roughly three times higher;
+// calibrated separately with scripts/montecarlo.mjs --table=pips.
+const PIPS_TIERS = Object.freeze({
+  1: Object.freeze({ target: 40, lo: 0.35, hi: 0.9 }),
+  2: Object.freeze({ target: 60, lo: 0.35, hi: 0.9 }),
+  3: Object.freeze({ target: 75, lo: 0.3, hi: 0.72 }),
+  4: Object.freeze({ target: 90, lo: 0.3, hi: 0.72 }),
+  5: Object.freeze({ target: 105, lo: 0.3, hi: 0.72 }),
+});
+export const TIERS = FLAT_TIERS;
+export const TIERS_BY_TABLE = Object.freeze({ spec_v03: FLAT_TIERS, rarity: FLAT_TIERS, pips: PIPS_TIERS });
+export const tiersFor = (scoreTable) => TIERS_BY_TABLE[scoreTable] || FLAT_TIERS;
 
 export const DIFFICULTY_RULE_TEXT = 'Rule-based demo: win a level → next tier +1, lose → tier −1 (tiers 1–5). No AI prediction, no mid-level manipulation.';
 
@@ -51,7 +63,7 @@ export function generateLevel({
   candidates = 48,
 }) {
   const t = clampTier(tier);
-  const spec = TIERS[t];
+  const spec = tiersFor(scoreTable)[t];
   const geometry = buildGeometry(bonusIndex);
   const lo = spec.target * spec.lo;
   const hi = spec.target * spec.hi;

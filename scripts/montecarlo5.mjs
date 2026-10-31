@@ -4,7 +4,7 @@
 // Usage: node scripts/montecarlo5.mjs [--boards=2000] [--tierBoards=300] [--hands=3] [--rerolls=3] [--out=path]
 import { writeFileSync } from 'node:fs';
 import { createRng } from '../src/engine/rng.js';
-import { rollFaces9, generatePokerLevel, TIERS5 } from '../src/engine/levels5.js';
+import { rollFaces9, generatePokerLevel, tiersFor5 } from '../src/engine/levels5.js';
 import { playNaiveBot5, playGreedyBot5 } from '../src/engine/bot5.js';
 import { createPokerGame, bestSnake } from '../src/engine/poker.js';
 
@@ -12,7 +12,7 @@ const args = Object.fromEntries(process.argv.slice(2).map((a) => { const [k, v] 
 const N = Number(args.boards ?? 2000);
 const NT = Number(args.tierBoards ?? 300);
 const SEED = String(args.seed ?? '20261030');
-const config = { hands: Number(args.hands ?? 3), rerolls: Number(args.rerolls ?? 3), smallStraight: args.smallStraight !== 'false', bonusIndex: args.bonusIndex === 'none' ? null : 8 };
+const config = { hands: Number(args.hands ?? 3), rerolls: Number(args.rerolls ?? 2), smallStraight: args.smallStraight === 'true', bonusIndex: args.bonusIndex === 'none' ? null : 8, scoreTable: String(args.table ?? 'poker5_v2'), endOnTarget: args.endOnTarget !== 'false' };
 const lines = [];
 const out = (s = '') => { lines.push(s); console.log(s); };
 const pct = (x) => `${(100 * x).toFixed(1)}%`;
@@ -26,7 +26,7 @@ function summarize(values) {
 }
 const t0 = Date.now();
 out(`# Poker 5 — simulation report`);
-out(`seed ${SEED} · hands ${config.hands} · rerolls ${config.rerolls} · small straight ${config.smallStraight} · gold cell ${config.bonusIndex === null ? 'no (9 dice)' : 'yes (8 dice)'} · ${new Date().toISOString()}`);
+out(`seed ${SEED} · table ${config.scoreTable} · hands ${config.hands} · rerolls ${config.rerolls} · small straight ${config.smallStraight} · end on target ${config.endOnTarget} · gold cell ${config.bonusIndex === null ? 'no (9 dice)' : 'yes (8 dice)'} · ${new Date().toISOString()}`);
 out();
 {
   const rng = createRng(`${SEED}/poker/B`);
@@ -51,7 +51,7 @@ out();
   out();
   out('| Target T | P(naive ≥ T) | P(greedy ≥ T) |');
   out('|---|---|---|');
-  for (const T of [20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150]) out(`| ${T} | ${pct(n.pGe(T))} | ${pct(g.pGe(T))} |`);
+  for (const T of [20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 220, 240, 260, 300]) out(`| ${T} | ${pct(n.pGe(T))} | ${pct(g.pGe(T))} |`);
   out();
 }
 {
@@ -72,7 +72,7 @@ out();
       if (playNaiveBot5(level, { rng, config }).won) nw++;
       if (playGreedyBot5(level, { rng, config, samples: 8 }).won) gw++;
     }
-    out(`| ${tier} | ${TIERS5[tier].target} | ${(sumOpen / NT).toFixed(1)} | ${fb} | ${pct(nw / NT)} | ${pct(gw / NT)} |`);
+    out(`| ${tier} | ${tiersFor5(config.scoreTable)[tier].target} | ${(sumOpen / NT).toFixed(1)} | ${fb} | ${pct(nw / NT)} | ${pct(gw / NT)} |`);
   }
   out();
 }

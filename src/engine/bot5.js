@@ -3,7 +3,7 @@
 
 import { createPokerGame, toggleHold, reroll, toggleBonus, bankPath, bestSnake, rankSnakes } from './poker.js';
 import { orderedPathsOf, cellsOf, popcount } from './geometry.js';
-import { resolveTable5, classify5 } from './scoring5.js';
+import { resolveTable5, classify5, scoreHand5, PIPS_TABLE5 } from './scoring5.js';
 
 function coreCells(hand) {
   const counts = {};
@@ -63,14 +63,17 @@ export function playNaiveBot5(level, { rng, config = {}, rerollBelow = 10, bonus
 // after one reroll (sampled) and rerolls when the gain beats `margin`; otherwise banks.
 export function playGreedyBot5(level, { rng, config = {}, samples = 12, margin = 2, bonusThreshold = 25 } = {}) {
   let game = createPokerGame(level, config);
-  const table = resolveTable5(game.config.scoreTable);
+  const pips = game.config.scoreTable === PIPS_TABLE5;
+  const table = pips ? null : resolveTable5(game.config.scoreTable);
   const opts = { smallStraight: game.config.smallStraight };
   const sets = game.geometry.eligibleMasks.map((m) => cellsOf(m));
   const scratch = new Array(9);
+  const five = new Array(5);
   const bestPoints = (faces) => {
     let best = -1;
     for (const cells of sets) {
-      const p = table[classify5([faces[cells[0]], faces[cells[1]], faces[cells[2]], faces[cells[3]], faces[cells[4]]], opts)];
+      for (let k = 0; k < 5; k++) five[k] = faces[cells[k]];
+      const p = pips ? scoreHand5(five, PIPS_TABLE5, opts).points : table[classify5(five, opts)];
       if (p > best) best = p;
     }
     return best;

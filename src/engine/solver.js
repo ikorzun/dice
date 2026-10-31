@@ -2,7 +2,7 @@
 // dice and reports the theoretical best score with and without the one-use ×2 bonus.
 
 import { cellsOf } from './geometry.js';
-import { scoreHand, resolveTable } from './scoring.js';
+import { scoreHand, resolveTable, PIPS_TABLE } from './scoring.js';
 
 export function facesOfMask(faces, mask) {
   return cellsOf(mask).map((i) => faces[i]);
@@ -15,7 +15,7 @@ export function evaluateHand(faces, mask, table) {
 }
 
 export function solveBoard(faces, geometry, table, { bonusMultiplier = 2 } = {}) {
-  const t = resolveTable(table);
+  const t = table === PIPS_TABLE ? PIPS_TABLE : resolveTable(table);
   let bestPlain = null;
   let bestBonus = null;
   const partitions = geometry.partitions.map(([a, b]) => {
@@ -40,31 +40,38 @@ export function solveBoard(faces, geometry, table, { bonusMultiplier = 2 } = {})
 
 // Allocation-free evaluator for simulations and the greedy bot (same rules as solveBoard).
 export function makeFastEvaluator(geometry, table, bonusMultiplier = 2) {
-  const t = resolveTable(table);
+  const pips = table === PIPS_TABLE;
+  const t = pips ? null : resolveTable(table);
   const parts = geometry.partitions.map(([a, b]) => [cellsOf(a), cellsOf(b)]);
   const counts = new Int32Array(8);
   const extra = bonusMultiplier - 1;
 
   function handPoints(faces, cells) {
     counts.fill(0);
-    for (let k = 0; k < cells.length; k++) counts[faces[cells[k]]]++;
+    let sum = 0;
+    for (let k = 0; k < cells.length; k++) { const f = faces[cells[k]]; counts[f]++; sum += f; }
     let max = 0;
     let pairs = 0;
     let distinct = 0;
     let lowest = 0;
+    let pairSum = 0;
+    let bigSum = 0;
     for (let v = 1; v <= 6; v++) {
       const c = counts[v];
       if (c === 0) continue;
       distinct++;
       if (!lowest) lowest = v;
-      if (c > max) max = c;
-      if (c === 2) pairs++;
+      if (c > max) { max = c; bigSum = v * c; }
+      if (c === 2) { pairs++; pairSum += v * 2; }
     }
-    if (max === 4) return t.four_kind;
-    if (max === 3) return t.three_kind;
-    if (pairs === 2) return t.two_pairs;
-    if (distinct === 4) return counts[lowest + 1] && counts[lowest + 2] && counts[lowest + 3] ? t.straight : t.high;
-    return t.pair;
+    if (max === 4) return pips ? bigSum * 4 : t.four_kind;
+    if (max === 3) return pips ? bigSum * 3 : t.three_kind;
+    if (pairs === 2) return pips ? pairSum * 2 : t.two_pairs;
+    if (distinct === 4) {
+      const straight = counts[lowest + 1] && counts[lowest + 2] && counts[lowest + 3];
+      return pips ? (straight ? sum * 3 : 0) : (straight ? t.straight : t.high);
+    }
+    return pips ? pairSum * 2 : t.pair;
   }
 
   return {

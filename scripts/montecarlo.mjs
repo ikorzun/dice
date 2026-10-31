@@ -8,7 +8,7 @@ import { writeFileSync } from 'node:fs';
 import { createRng } from '../src/engine/rng.js';
 import { buildGeometry } from '../src/engine/geometry.js';
 import { makeFastEvaluator } from '../src/engine/solver.js';
-import { rollFaces, generateLevel, TIERS, MIN_TIER, MAX_TIER } from '../src/engine/levels.js';
+import { rollFaces, generateLevel, tiersFor, MIN_TIER, MAX_TIER } from '../src/engine/levels.js';
 import { playGreedyBot, playNaiveBot } from '../src/engine/bot.js';
 import { classify, CATEGORY_OUTCOMES } from '../src/engine/scoring.js';
 
@@ -92,9 +92,9 @@ if (ONLY.includes('B')) {
   for (let i = 0; i < NB; i++) {
     const faces = rollFaces(rng, BONUS);
     const level = { seed: `partB/${i}`, levelIndex: i, tier: 3, bonusIndex: BONUS, faces, target: 1000, rerolls: 2, scoreTable: TABLE, bonusMultiplier: 2 };
-    const res = playGreedyBot(level, { rng, samples: 24 });
+    const res = playGreedyBot(level, { rng, samples: 24, config: { scoreTable: TABLE } });
     scores.push(res.score);
-    naive.push(playNaiveBot(level, { rng }).score);
+    naive.push(playNaiveBot(level, { rng, config: { scoreTable: TABLE } }).score);
     base.push(evaluator.maxWithBonus(faces));
     rerolls += res.rerollsUsed;
   }
@@ -120,7 +120,7 @@ if (ONLY.includes('C')) {
   out('| Tier | Target | Band (lo–hi of no-reroll ×2 optimum) | Mean opening optimum ×2 | Fallbacks | Greedy win rate | Naive win rate | Greedy win rate, hold cap 3 | Naive win rate, hold cap 3 | Mean greedy score |');
   out('|---|---|---|---|---|---|---|---|---|---|');
   for (let tier = MIN_TIER; tier <= MAX_TIER; tier++) {
-    const spec = TIERS[tier];
+    const spec = tiersFor(TABLE)[tier];
     const rng = createRng(`${SEED}/partC/${tier}`);
     let wins = 0;
     let winsCap = 0;
@@ -138,13 +138,13 @@ if (ONLY.includes('C')) {
       const key = level.faces.join('');
       if (seen.has(key)) dup++;
       seen.add(key);
-      const res = playGreedyBot(level, { rng, samples: 16 });
+      const res = playGreedyBot(level, { rng, samples: 16, config: { scoreTable: TABLE } });
       if (res.won) wins++;
       sumScore += res.score;
-      const cap = playGreedyBot(level, { rng, samples: 16, config: { maxHolds: 3 } });
+      const cap = playGreedyBot(level, { rng, samples: 16, config: { maxHolds: 3, scoreTable: TABLE } });
       if (cap.won) winsCap++;
-      if (playNaiveBot(level, { rng }).won) naiveWins++;
-      if (playNaiveBot(level, { rng, config: { maxHolds: 3 } }).won) naiveWinsCap++;
+      if (playNaiveBot(level, { rng, config: { scoreTable: TABLE } }).won) naiveWins++;
+      if (playNaiveBot(level, { rng, config: { maxHolds: 3, scoreTable: TABLE } }).won) naiveWinsCap++;
     }
     out(`| ${tier} | ${spec.target} | ${(spec.target * spec.lo).toFixed(1)}–${(spec.target * spec.hi).toFixed(1)} | ${(sumOpt / NT).toFixed(1)} | ${fallbacks}${dup ? ` (dup ${dup})` : ''} | ${pct(wins / NT)} ${ciP(wins / NT, NT)} | ${pct(naiveWins / NT)} ${ciP(naiveWins / NT, NT)} | ${pct(winsCap / NT)} | ${pct(naiveWinsCap / NT)} | ${(sumScore / NT).toFixed(1)} |`);
   }

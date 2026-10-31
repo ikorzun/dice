@@ -4,8 +4,8 @@
 // plays effects, runs the example-based tutorial and keeps a local event log per mode.
 
 import { createRng } from '../engine/rng.js';
-import { CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_OUTCOMES, SCORE_TABLES } from '../engine/scoring.js';
-import { CATEGORY5_LABELS, CATEGORY5_OUTCOMES, CATEGORY5_OUTCOMES_SMALL, SCORE_TABLES5, DEFAULT_SCORE_TABLE5 } from '../engine/scoring5.js';
+import { CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_OUTCOMES, SCORE_TABLES, PIPS_RULES, scoreHand } from '../engine/scoring.js';
+import { CATEGORY5_LABELS, CATEGORY5_OUTCOMES, CATEGORY5_OUTCOMES_SMALL, SCORE_TABLES5, PIPS_RULES5, scoreHand5 } from '../engine/scoring5.js';
 import { areAdjacent, rowOf, colOf, orderedPathsOf } from '../engine/geometry.js';
 import {
   createGame, toggleHold as snakeToggleHold, reroll as snakeReroll, toggleBonus as snakeToggleBonus,
@@ -106,7 +106,12 @@ const MODES = {
     refill: false,
     engine: snakeEngine,
     generatorVersion: GENERATOR_VERSION,
-    defaultSettings: { settingsVersion: 2, maxHolds: null, scoreTable: 'spec_v03', autoBonusOnFinalHand: true, pathMode: false },
+    defaultSettings: { settingsVersion: 3, maxHolds: null, scoreTable: 'pips', autoBonusOnFinalHand: true, pathMode: false },
+    tableOptions: [
+      { value: 'pips', label: 'Pips × match · sum of matching dice × how many (3-3-3 = 27)' },
+      { value: 'spec_v03', label: 'Flat v0.3 · 30 / 15 / 10 / 5 / 2 / 0' },
+      { value: 'rarity', label: 'Flat by rarity · 30 / 15 / 12 / 10 / 2 / 0' },
+    ],
     gameConfig: (st) => ({ maxHolds: st.maxHolds, scoreTable: st.scoreTable, autoBonusOnFinalHand: st.autoBonusOnFinalHand }),
     generate: ({ runSeed, levelIndex, tier, settings }) => generateLevel({ runSeed, levelIndex, tier, scoreTable: settings.scoreTable }),
     idleCopy: (g, pathMode) => {
@@ -117,7 +122,7 @@ const MODES = {
     onboard: {
       lead: 'Two hands of four dice, dragged edge to edge like a snake. Both hands together use all eight dice.',
       note: 'The tutorial shows every move on your first board: hold, reroll, drag a hand, use the gold ×2.',
-      demo: { values: [5, 5, 2, 3, 5, 5], path: [0, 1, 4, 5], label: 'SWIPE 5 → 5 → 5 → 5 = FOUR OF A KIND' },
+      demo: { values: [5, 5, 2, 3, 5, 5], path: [0, 1, 4, 5], label: 'SWIPE 5 → 5 → 5 → 5 = FOUR OF A KIND · 20 × 4 = 80' },
     },
     help: {
       lead: 'Save a connected set of four for your second hand. The first hand must leave four dice you can still snake through.',
@@ -130,9 +135,14 @@ const MODES = {
       ],
       scoreTitle: 'SCORING · FOUR DICE',
       scoreRows: (settings) => {
-        const table = SCORE_TABLES[settings.scoreTable];
-        const examples = { four_kind: [2, 2, 2, 2], straight: [1, 2, 3, 4], three_kind: [4, 4, 4, 1], two_pairs: [1, 1, 6, 6], pair: [1, 1, 3, 6], high: [1, 2, 4, 6] };
-        return CATEGORY_ORDER.map((cat) => ({ label: CATEGORY_LABELS[cat], example: examples[cat], points: table[cat], odds: CATEGORY_OUTCOMES[cat] / 1296 }));
+        const pips = settings.scoreTable === 'pips';
+        const table = pips ? null : SCORE_TABLES[settings.scoreTable];
+        const examples = { four_kind: [4, 4, 4, 4], straight: [1, 2, 3, 4], three_kind: [3, 3, 3, 1], two_pairs: [2, 2, 5, 5], pair: [6, 6, 3, 1], high: [1, 2, 4, 6] };
+        return CATEGORY_ORDER.map((cat) => {
+          const ex = examples[cat];
+          const scored = scoreHand(ex, settings.scoreTable);
+          return { label: CATEGORY_LABELS[cat], example: ex, points: pips ? `${PIPS_RULES[cat]} = ${scored.points}` : table[cat], odds: CATEGORY_OUTCOMES[cat] / 1296 };
+        });
       },
       options: { table: true, small: false, endOnTarget: false, goldCell: false },
     },
@@ -151,8 +161,13 @@ const MODES = {
     refill: true,
     engine: pokerEngine,
     generatorVersion: GENERATOR5_VERSION,
-    defaultSettings: { settingsVersion: 2, maxHolds: null, smallStraight: false, endOnTarget: true, autoBonusOnFinalHand: true, pathMode: false, hands: 3, rerolls: 2, goldCell: true },
-    gameConfig: (st) => ({ maxHolds: st.maxHolds, smallStraight: st.smallStraight, endOnTarget: st.endOnTarget, autoBonusOnFinalHand: st.autoBonusOnFinalHand, hands: st.hands, rerolls: st.rerolls, bonusIndex: st.goldCell === false ? null : 8 }),
+    defaultSettings: { settingsVersion: 3, maxHolds: null, scoreTable: 'pips', smallStraight: false, endOnTarget: true, autoBonusOnFinalHand: true, pathMode: false, hands: 3, rerolls: 2, goldCell: true },
+    tableOptions: [
+      { value: 'pips', label: 'Pips × match · sum of matching dice × how many (3-3-3 = 27)' },
+      { value: 'poker5_v2', label: 'Flat · 50 / 30 / 25 / 20 / 10 / 5 / 2 / 0' },
+      { value: 'poker5_v1', label: 'Flat steep · 60 / 40 / 25 / 20 / 10 / 6 / 2 / 0' },
+    ],
+    gameConfig: (st) => ({ maxHolds: st.maxHolds, scoreTable: st.scoreTable, smallStraight: st.smallStraight, endOnTarget: st.endOnTarget, autoBonusOnFinalHand: st.autoBonusOnFinalHand, hands: st.hands, rerolls: st.rerolls, bonusIndex: st.goldCell === false ? null : 8 }),
     generate: ({ runSeed, levelIndex, tier, settings }) => generatePokerLevel({ runSeed, levelIndex, tier, config: MODES.poker5.gameConfig(settings) }),
     idleCopy: (g, pathMode) => {
       const n = g.hands.length + 1;
@@ -163,7 +178,7 @@ const MODES = {
     onboard: {
       lead: 'Eight dice and the gold ×2. Drag through five dice like a snake to play a poker hand. The five you used are replaced; the other three stay for your next hand.',
       note: 'Three hands and two rerolls per level; reach the target and the level is yours. The tutorial shows every move on your first board.',
-      demo: { values: [4, 4, 4, 3, 2, 2], path: [0, 1, 2, 5, 4], label: 'SWIPE 4 → 4 → 4 → 2 → 2 = FULL HOUSE' },
+      demo: { values: [4, 4, 4, 3, 2, 2], path: [0, 1, 2, 5, 4], label: 'SWIPE 4 → 4 → 4 → 2 → 2 = FULL HOUSE · 12 × 3 + 4 × 2 = 44' },
     },
     help: {
       lead: 'The dice you leave behind are the start of your next hand: plan the snake so the leftovers already match.',
@@ -177,13 +192,18 @@ const MODES = {
       ],
       scoreTitle: 'SCORING · FIVE DICE (POKER)',
       scoreRows: (settings) => {
-        const table = SCORE_TABLES5[DEFAULT_SCORE_TABLE5];
+        const pips = settings.scoreTable === 'pips';
+        const table = pips ? null : SCORE_TABLES5[settings.scoreTable] || SCORE_TABLES5.poker5_v2;
         const outcomes = settings.smallStraight ? CATEGORY5_OUTCOMES_SMALL : CATEGORY5_OUTCOMES;
-        const examples = { five_kind: [3, 3, 3, 3, 3], four_kind: [3, 3, 3, 3, 1], straight: [1, 2, 3, 4, 5], full_house: [2, 2, 5, 5, 5], small_straight: [1, 2, 3, 4, 4], three_kind: [4, 4, 4, 1, 2], two_pairs: [1, 1, 6, 6, 3], pair: [1, 1, 3, 5, 6], bust: [1, 2, 4, 5, 6] };
+        const examples = { five_kind: [5, 5, 5, 5, 5], four_kind: [4, 4, 4, 4, 1], straight: [1, 2, 3, 4, 5], full_house: [2, 2, 5, 5, 5], small_straight: [1, 2, 3, 4, 4], three_kind: [3, 3, 3, 1, 2], two_pairs: [2, 2, 6, 6, 3], pair: [6, 6, 3, 5, 1], bust: [1, 2, 4, 5, 6] };
         const order = ['five_kind', 'four_kind', 'straight', 'full_house', 'small_straight', 'three_kind', 'two_pairs', 'pair', 'bust'].filter((c) => settings.smallStraight || c !== 'small_straight');
-        return order.map((cat) => ({ label: CATEGORY5_LABELS[cat], example: examples[cat], points: table[cat], odds: outcomes[cat] / 7776 }));
+        return order.map((cat) => {
+          const ex = examples[cat];
+          const scored = scoreHand5(ex, settings.scoreTable, { smallStraight: true });
+          return { label: CATEGORY5_LABELS[cat], example: ex, points: pips ? `${PIPS_RULES5[cat]} = ${scored.points}` : table[cat], odds: outcomes[cat] / 7776 };
+        });
       },
-      options: { table: false, small: true, endOnTarget: true, goldCell: true },
+      options: { table: true, small: true, endOnTarget: true, goldCell: true },
     },
     coachText(step, g, hint) {
       if (step === 'swipe') return `DRAG ${show(g, hint.cells)} IN ONE MOVE, THEN LIFT · ${hint.hand.label} ${hint.hand.points}`;
@@ -402,7 +422,8 @@ function showLevelEnd() {
     const li = document.createElement('li');
     const mini = h.faces.map((f) => `<b>${f}</b>`).join('');
     const mult = h.multiplier > 1 ? `<em>×${h.multiplier}</em>` : '';
-    li.innerHTML = `<span class="mini">${mini}</span><span>HAND ${k + 1} · ${h.label}</span><span class="pts">${mult}${h.total}</span>`;
+    const how = st.settings.scoreTable === 'pips' && h.formula && h.points > 0 ? `<small>${h.formula}</small>` : '';
+    li.innerHTML = `<span class="mini">${mini}</span><span>HAND ${k + 1} · ${h.label} ${how}</span><span class="pts">${mult}${h.total}</span>`;
     list.appendChild(li);
   });
   if (mode.id === 'poker5') {
@@ -794,7 +815,9 @@ function renderPreview() {
   const p = engine.previewPath(g, path);
   if (!p.ok) { setPreview(p.message, 'bad'); return; }
   if (p.partial) { setPreview(`${p.count} / ${mode.handSize}`); return; }
-  const mult = p.multiplier > 1 ? ` (${p.hand.points} ×${p.multiplier})` : '';
+  const pipsOn = st.settings.scoreTable === 'pips';
+  const how = pipsOn && p.hand.formula && p.hand.points > 0 ? `${p.hand.formula}${p.multiplier > 1 ? ` ×${p.multiplier}` : ''}` : (p.multiplier > 1 ? `${p.hand.points} ×${p.multiplier}` : '');
+  const mult = how ? ` (${how})` : '';
   const leaves = p.leaves && p.leaves.length ? ` · leaves ${p.leaves.join(' ')}` : '';
   if (!p.safe && p.stranded && p.stranded.length) setPreview(`${p.hand.label} ${p.total} · CUTS OFF ${p.stranded.map((i) => `${g.faces[i]} ${CELL_NAMES[i]}`).join(' + ')}`, 'bad');
   else if (!p.safe) setPreview(`${p.hand.label} ${p.total} · ${p.safetyMessage.replace(/\.$/, '')}`, 'bad');
@@ -861,7 +884,9 @@ function showReveal(hand) {
   const r = $('reveal');
   r.querySelector('.cat').textContent = hand.label;
   r.querySelector('.pts').textContent = `+${hand.total}`;
-  r.querySelector('.mult').textContent = hand.multiplier > 1 ? `${hand.points} ×${hand.multiplier}${hand.bonusAuto ? ' AUTO' : ''}` : '';
+  const pipsOn = S().settings.scoreTable === 'pips' && hand.formula && hand.points > 0;
+  const base = pipsOn ? hand.formula : String(hand.points);
+  r.querySelector('.mult').textContent = hand.multiplier > 1 ? `${base} ×${hand.multiplier}${hand.bonusAuto ? ' AUTO' : ''}` : (pipsOn ? base : '');
   r.classList.remove('show');
   void r.offsetWidth;
   r.classList.add('show');
@@ -1215,6 +1240,7 @@ function openHelp() {
   renderScoreTable();
   $('optHoldCap').checked = st.settings.maxHolds != null;
   $('optTableRow').hidden = !mode.help.options.table;
+  if (mode.help.options.table) $('optTable').innerHTML = mode.tableOptions.map((o) => `<option value="${o.value}">${o.label}</option>`).join('');
   $('optSmallRow').hidden = !mode.help.options.small;
   $('optEndRow').hidden = !mode.help.options.endOnTarget;
   $('optGoldRow').hidden = !mode.help.options.goldCell;

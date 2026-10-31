@@ -255,6 +255,7 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .hands .mini b { width: 24px; height: 24px; border-radius: 5px; background: var(--die); color: var(--pip); font: 700 15px/24px var(--font-display); text-align: center; }
 .hands .pts { font-size: 22px; font-variant-numeric: tabular-nums; }
 .hands .pts em { font-style: normal; color: var(--gold); font-size: 15px; margin-right: 4px; }
+.hands li small { display: block; font: 500 12px/1.2 var(--font-display); letter-spacing: .06em; color: var(--muted); }
 .end-note { margin: 0; text-align: center; font: 500 15px/1.4 var(--font-display); letter-spacing: .06em; }
 .muted { color: var(--muted); }
 .small { font-size: 13px; line-height: 1.4; }
@@ -470,7 +471,7 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
   <div class="panel">
     <h2 class="end-title" id="onboardTitle">DICE SNAKE</h2>
     <p class="lead" id="onboardLead"></p>
-    <p class="lead"><strong>Match values, not big numbers.</strong> A pair of 1s is worth the same as a pair of 6s.</p>
+    <p class="lead" id="onboardScoring"><strong>Matching dice score their sum × how many matched.</strong> Three 3s = 9 × 3 = 27; two 6s = 12 × 2 = 24.</p>
     <div class="demo" aria-hidden="true">
       <div class="demo-grid" id="demoGrid"></div>
       <svg class="demo-line" viewBox="0 0 300 200"><polyline id="demoLine" points=""></polyline></svg>
@@ -486,7 +487,7 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
 <section class="overlay sheet" id="help" hidden>
   <div class="panel sheet-panel">
     <h2 class="end-title" id="helpTitle">HOW TO PLAY</h2>
-    <p class="lead"><strong>Match values, not big numbers.</strong> A pair of 1s is worth the same as a pair of 6s.</p>
+    <p class="lead"><strong>Matching dice score their sum × how many matched.</strong> Three 3s = 9 × 3 = 27; four 4s = 16 × 4 = 64; a straight scores the sum of all its dice × 3.</p>
     <p class="lead" id="helpLead"></p>
     <ol class="rules" id="helpRules"></ol>
     <h3 id="helpScoreTitle">SCORING</h3>
@@ -503,10 +504,7 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
     <h3>EXPERIMENTS</h3>
     <label class="opt"><input type="checkbox" id="optHoldCap"> Hold cap: at most 3 held dice per reroll</label>
     <label class="opt" id="optTableRow">Score table
-      <select id="optTable">
-        <option value="spec_v03">Spec v0.3 · 30 / 15 / 10 / 5 / 2 / 0</option>
-        <option value="rarity">Rarity order · 30 / 15 / 12 (two pairs) / 10 (trips) / 2 / 0</option>
-      </select>
+      <select id="optTable"></select>
     </label>
     <label class="opt" id="optSmallRow"><input type="checkbox" id="optSmall"> Small straight (four in a row) counts</label>
     <label class="opt" id="optEndRow"><input type="checkbox" id="optEndOnTarget"> End the level as soon as the target is reached</label>
@@ -641,6 +639,10 @@ const SCORE_TABLES = Object.freeze({
 });
 
 const DEFAULT_SCORE_TABLE = 'spec_v03';
+// 'pips' is not a flat table: matching dice score their pip sum times how many matched
+// (three 3s = 9 × 3 = 27); a straight scores the sum of all its dice × 3.
+const PIPS_TABLE = 'pips';
+const PIPS_RULES = Object.freeze({ four_kind: 'sum × 4', straight: 'sum × 3', three_kind: 'sum × 3', two_pairs: 'sum × 2', pair: 'sum × 2', high: '0' });
 
 function resolveTable(table = DEFAULT_SCORE_TABLE) {
   if (typeof table === 'string') {
@@ -649,6 +651,21 @@ function resolveTable(table = DEFAULT_SCORE_TABLE) {
     return t;
   }
   return table;
+}
+
+// Pip-based score of a classified four-die hand: { points, base, mult, formula }.
+function pipsScore(faces, category) {
+  const counts = [0, 0, 0, 0, 0, 0, 0];
+  for (const f of faces) counts[f]++;
+  const sumWhere = (pred) => { let s = 0; for (let v = 1; v <= 6; v++) if (pred(counts[v])) s += v * counts[v]; return s; };
+  let base = 0;
+  let mult = 0;
+  if (category === CATEGORY.FOUR_KIND) { base = sumWhere((c) => c === 4); mult = 4; }
+  else if (category === CATEGORY.THREE_KIND) { base = sumWhere((c) => c === 3); mult = 3; }
+  else if (category === CATEGORY.TWO_PAIRS || category === CATEGORY.PAIR) { base = sumWhere((c) => c === 2); mult = 2; }
+  else if (category === CATEGORY.STRAIGHT) { base = faces.reduce((s, f) => s + f, 0); mult = 3; }
+  const points = base * mult;
+  return { points, base, mult, formula: mult ? `${base} × ${mult}` : '0' };
 }
 
 function classify(faces) {
@@ -681,12 +698,16 @@ function classify(faces) {
 }
 
 function scoreHand(faces, table = DEFAULT_SCORE_TABLE) {
-  const t = resolveTable(table);
   const category = classify(faces);
-  return { category, label: CATEGORY_LABELS[category], points: t[category] };
+  if (table === PIPS_TABLE) {
+    const p = pipsScore(faces, category);
+    return { category, label: CATEGORY_LABELS[category], points: p.points, formula: p.formula };
+  }
+  const t = resolveTable(table);
+  return { category, label: CATEGORY_LABELS[category], points: t[category], formula: String(t[category]) };
 }
 
-return { CATEGORY, CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_OUTCOMES, SCORE_TABLES, DEFAULT_SCORE_TABLE, resolveTable, classify, scoreHand };
+return { CATEGORY, CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_OUTCOMES, SCORE_TABLES, DEFAULT_SCORE_TABLE, PIPS_TABLE, PIPS_RULES, resolveTable, pipsScore, classify, scoreHand };
 })();
 // ---- src/engine/scoring5.js ----
 const __mod_scoring5 = (() => {
@@ -752,6 +773,8 @@ const SCORE_TABLES5 = Object.freeze({
   poker5_v2: Object.freeze({ five_kind: 50, four_kind: 30, straight: 25, full_house: 20, small_straight: 10, three_kind: 10, two_pairs: 5, pair: 2, bust: 0 }),
 });
 const DEFAULT_SCORE_TABLE5 = 'poker5_v2';
+const PIPS_TABLE5 = 'pips';
+const PIPS_RULES5 = Object.freeze({ five_kind: 'sum × 5', four_kind: 'sum × 4', straight: 'sum × 3', full_house: 'triple × 3 + pair × 2', small_straight: 'run × 2', three_kind: 'sum × 3', two_pairs: 'sum × 2', pair: 'sum × 2', bust: '0' });
 
 function resolveTable5(table = DEFAULT_SCORE_TABLE5) {
   if (typeof table === 'string') {
@@ -760,6 +783,29 @@ function resolveTable5(table = DEFAULT_SCORE_TABLE5) {
     return t;
   }
   return table;
+}
+
+// Pip-based score of a classified five-die hand: matching dice score their pip sum × count.
+function pipsScore5(faces, category) {
+  const counts = [0, 0, 0, 0, 0, 0, 0, 0];
+  for (const f of faces) counts[f]++;
+  const sumWhere = (pred) => { let s = 0; for (let v = 1; v <= 6; v++) if (pred(counts[v])) s += v * counts[v]; return s; };
+  let points = 0;
+  let formula = '0';
+  if (category === CATEGORY5.FIVE_KIND) { const b = sumWhere((c) => c === 5); points = b * 5; formula = `${b} × 5`; }
+  else if (category === CATEGORY5.FOUR_KIND) { const b = sumWhere((c) => c === 4); points = b * 4; formula = `${b} × 4`; }
+  else if (category === CATEGORY5.FULL_HOUSE) { const t = sumWhere((c) => c === 3); const p = sumWhere((c) => c === 2); points = t * 3 + p * 2; formula = `${t} × 3 + ${p} × 2`; }
+  else if (category === CATEGORY5.STRAIGHT) { const b = faces.reduce((s, f) => s + f, 0); points = b * 3; formula = `${b} × 3`; }
+  else if (category === CATEGORY5.SMALL_STRAIGHT) {
+    let lo = 1;
+    while (lo <= 3 && !(counts[lo] && counts[lo + 1] && counts[lo + 2] && counts[lo + 3])) lo++;
+    const b = lo * 4 + 6;
+    points = b * 2;
+    formula = `${b} × 2`;
+  }
+  else if (category === CATEGORY5.THREE_KIND) { const b = sumWhere((c) => c === 3); points = b * 3; formula = `${b} × 3`; }
+  else if (category === CATEGORY5.TWO_PAIRS || category === CATEGORY5.PAIR) { const b = sumWhere((c) => c === 2); points = b * 2; formula = `${b} × 2`; }
+  return { points, formula };
 }
 
 function hasRunOfFour(counts) {
@@ -801,12 +847,16 @@ function classify5(faces, { smallStraight = false } = {}) {
 }
 
 function scoreHand5(faces, table = DEFAULT_SCORE_TABLE5, opts = {}) {
-  const t = resolveTable5(table);
   const category = classify5(faces, opts);
-  return { category, label: CATEGORY5_LABELS[category], points: t[category] };
+  if (table === PIPS_TABLE5) {
+    const p = pipsScore5(faces, category);
+    return { category, label: CATEGORY5_LABELS[category], points: p.points, formula: p.formula };
+  }
+  const t = resolveTable5(table);
+  return { category, label: CATEGORY5_LABELS[category], points: t[category], formula: String(t[category]) };
 }
 
-return { CATEGORY5, CATEGORY5_LABELS, CATEGORY5_OUTCOMES, CATEGORY5_OUTCOMES_SMALL, SCORE_TABLES5, DEFAULT_SCORE_TABLE5, resolveTable5, classify5, scoreHand5 };
+return { CATEGORY5, CATEGORY5_LABELS, CATEGORY5_OUTCOMES, CATEGORY5_OUTCOMES_SMALL, SCORE_TABLES5, DEFAULT_SCORE_TABLE5, PIPS_TABLE5, PIPS_RULES5, resolveTable5, pipsScore5, classify5, scoreHand5 };
 })();
 // ---- src/engine/geometry.js ----
 const __mod_geometry = (() => {
@@ -1006,7 +1056,7 @@ const __mod_solver = (() => {
 // dice and reports the theoretical best score with and without the one-use ×2 bonus.
 
 const { cellsOf } = __mod_geometry;
-const { scoreHand, resolveTable } = __mod_scoring;
+const { scoreHand, resolveTable, PIPS_TABLE } = __mod_scoring;
 
 function facesOfMask(faces, mask) {
   return cellsOf(mask).map((i) => faces[i]);
@@ -1019,7 +1069,7 @@ function evaluateHand(faces, mask, table) {
 }
 
 function solveBoard(faces, geometry, table, { bonusMultiplier = 2 } = {}) {
-  const t = resolveTable(table);
+  const t = table === PIPS_TABLE ? PIPS_TABLE : resolveTable(table);
   let bestPlain = null;
   let bestBonus = null;
   const partitions = geometry.partitions.map(([a, b]) => {
@@ -1044,31 +1094,38 @@ function solveBoard(faces, geometry, table, { bonusMultiplier = 2 } = {}) {
 
 // Allocation-free evaluator for simulations and the greedy bot (same rules as solveBoard).
 function makeFastEvaluator(geometry, table, bonusMultiplier = 2) {
-  const t = resolveTable(table);
+  const pips = table === PIPS_TABLE;
+  const t = pips ? null : resolveTable(table);
   const parts = geometry.partitions.map(([a, b]) => [cellsOf(a), cellsOf(b)]);
   const counts = new Int32Array(8);
   const extra = bonusMultiplier - 1;
 
   function handPoints(faces, cells) {
     counts.fill(0);
-    for (let k = 0; k < cells.length; k++) counts[faces[cells[k]]]++;
+    let sum = 0;
+    for (let k = 0; k < cells.length; k++) { const f = faces[cells[k]]; counts[f]++; sum += f; }
     let max = 0;
     let pairs = 0;
     let distinct = 0;
     let lowest = 0;
+    let pairSum = 0;
+    let bigSum = 0;
     for (let v = 1; v <= 6; v++) {
       const c = counts[v];
       if (c === 0) continue;
       distinct++;
       if (!lowest) lowest = v;
-      if (c > max) max = c;
-      if (c === 2) pairs++;
+      if (c > max) { max = c; bigSum = v * c; }
+      if (c === 2) { pairs++; pairSum += v * 2; }
     }
-    if (max === 4) return t.four_kind;
-    if (max === 3) return t.three_kind;
-    if (pairs === 2) return t.two_pairs;
-    if (distinct === 4) return counts[lowest + 1] && counts[lowest + 2] && counts[lowest + 3] ? t.straight : t.high;
-    return t.pair;
+    if (max === 4) return pips ? bigSum * 4 : t.four_kind;
+    if (max === 3) return pips ? bigSum * 3 : t.three_kind;
+    if (pairs === 2) return pips ? pairSum * 2 : t.two_pairs;
+    if (distinct === 4) {
+      const straight = counts[lowest + 1] && counts[lowest + 2] && counts[lowest + 3];
+      return pips ? (straight ? sum * 3 : 0) : (straight ? t.straight : t.high);
+    }
+    return pips ? pairSum * 2 : t.pair;
   }
 
   return {
@@ -1300,6 +1357,7 @@ function bankPath(state, path) {
     category: p.hand.category,
     label: p.hand.label,
     points: p.hand.points,
+    formula: p.hand.formula,
     multiplier: p.multiplier,
     total: p.total,
     bonusAuto: p.autoBonus,
@@ -1556,6 +1614,7 @@ function bankPath(state, path, drawDie) {
     category: p.hand.category,
     label: p.hand.label,
     points: p.hand.points,
+    formula: p.hand.formula,
     multiplier: p.multiplier,
     total: p.total,
     bonusAuto: p.autoBonus,
@@ -1699,13 +1758,25 @@ const MAX_TIER = 5;
 // 25 = trips ×2 + two pairs, 30 = straight ×2, 35 = straight ×2 + two pairs) and were
 // calibrated with scripts/montecarlo.mjs (see docs/ANALYSIS.md). lo/hi are fractions of the
 // target that bound the exact no-reroll optimum (with ×2) of an accepted board.
-const TIERS = Object.freeze({
+const FLAT_TIERS = Object.freeze({
   1: Object.freeze({ target: 12, lo: 0.35, hi: 0.9 }),
   2: Object.freeze({ target: 20, lo: 0.35, hi: 0.9 }),
   3: Object.freeze({ target: 25, lo: 0.3, hi: 0.72 }),
   4: Object.freeze({ target: 30, lo: 0.3, hi: 0.72 }),
   5: Object.freeze({ target: 35, lo: 0.3, hi: 0.72 }),
 });
+// Pip-based scoring (sum of matching dice × count) scores roughly three times higher;
+// calibrated separately with scripts/montecarlo.mjs --table=pips.
+const PIPS_TIERS = Object.freeze({
+  1: Object.freeze({ target: 40, lo: 0.35, hi: 0.9 }),
+  2: Object.freeze({ target: 60, lo: 0.35, hi: 0.9 }),
+  3: Object.freeze({ target: 75, lo: 0.3, hi: 0.72 }),
+  4: Object.freeze({ target: 90, lo: 0.3, hi: 0.72 }),
+  5: Object.freeze({ target: 105, lo: 0.3, hi: 0.72 }),
+});
+const TIERS = FLAT_TIERS;
+const TIERS_BY_TABLE = Object.freeze({ spec_v03: FLAT_TIERS, rarity: FLAT_TIERS, pips: PIPS_TIERS });
+const tiersFor = (scoreTable) => TIERS_BY_TABLE[scoreTable] || FLAT_TIERS;
 
 const DIFFICULTY_RULE_TEXT = 'Rule-based demo: win a level → next tier +1, lose → tier −1 (tiers 1–5). No AI prediction, no mid-level manipulation.';
 
@@ -1734,7 +1805,7 @@ function generateLevel({
   candidates = 48,
 }) {
   const t = clampTier(tier);
-  const spec = TIERS[t];
+  const spec = tiersFor(scoreTable)[t];
   const geometry = buildGeometry(bonusIndex);
   const lo = spec.target * spec.lo;
   const hi = spec.target * spec.hi;
@@ -1774,7 +1845,7 @@ function generateLevel({
   return { ...fallback.level, fallback: true };
 }
 
-return { GENERATOR_VERSION, MIN_TIER, MAX_TIER, TIERS, DIFFICULTY_RULE_TEXT, clampTier, nextTier, rollFaces, generateLevel };
+return { GENERATOR_VERSION, MIN_TIER, MAX_TIER, TIERS, TIERS_BY_TABLE, tiersFor, DIFFICULTY_RULE_TEXT, clampTier, nextTier, rollFaces, generateLevel };
 })();
 // ---- src/engine/levels5.js ----
 const __mod_levels5 = (() => {
@@ -1789,13 +1860,24 @@ const { clampTier } = __mod_levels;
 const GENERATOR5_VERSION = 'poker5-gen-2';
 
 // Calibrated with scripts/montecarlo5.mjs (see docs/DESIGN-POKER5.md).
-const TIERS5 = Object.freeze({
+const FLAT_TIERS5 = Object.freeze({
   1: Object.freeze({ target: 40, openingMax: 0.5 }),
   2: Object.freeze({ target: 55, openingMax: 0.5 }),
   3: Object.freeze({ target: 70, openingMax: 0.5 }),
   4: Object.freeze({ target: 85, openingMax: 0.5 }),
   5: Object.freeze({ target: 100, openingMax: 0.5 }),
 });
+// Pip-based scoring; calibrated with scripts/montecarlo5.mjs --table=pips.
+const PIPS_TIERS5 = Object.freeze({
+  1: Object.freeze({ target: 100, openingMax: 0.5 }),
+  2: Object.freeze({ target: 130, openingMax: 0.5 }),
+  3: Object.freeze({ target: 160, openingMax: 0.5 }),
+  4: Object.freeze({ target: 190, openingMax: 0.5 }),
+  5: Object.freeze({ target: 220, openingMax: 0.5 }),
+});
+const TIERS5 = FLAT_TIERS5;
+const TIERS5_BY_TABLE = Object.freeze({ poker5_v1: FLAT_TIERS5, poker5_v2: FLAT_TIERS5, pips: PIPS_TIERS5 });
+const tiersFor5 = (scoreTable) => TIERS5_BY_TABLE[scoreTable] || FLAT_TIERS5;
 
 function rollFaces9(rng, bonusIndex = null) {
   const faces = new Array(9);
@@ -1805,7 +1887,7 @@ function rollFaces9(rng, bonusIndex = null) {
 
 function generatePokerLevel({ runSeed, levelIndex, tier, config = {}, candidates = 32 }) {
   const t = clampTier(tier);
-  const spec = TIERS5[t];
+  const spec = tiersFor5(config.scoreTable || 'poker5_v2')[t];
   const bonusIndex = config.bonusIndex === undefined ? 8 : config.bonusIndex;
   let fallback = null;
   for (let k = 0; k < candidates; k++) {
@@ -1836,7 +1918,7 @@ function generatePokerLevel({ runSeed, levelIndex, tier, config = {}, candidates
   return { ...fallback, fallback: true };
 }
 
-return { GENERATOR5_VERSION, TIERS5, rollFaces9, generatePokerLevel };
+return { GENERATOR5_VERSION, TIERS5, TIERS5_BY_TABLE, tiersFor5, rollFaces9, generatePokerLevel };
 })();
 // ---- src/ui/app.js ----
 const __mod_app = (() => {
@@ -1846,8 +1928,8 @@ const __mod_app = (() => {
 // plays effects, runs the example-based tutorial and keeps a local event log per mode.
 
 const { createRng } = __mod_rng;
-const { CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_OUTCOMES, SCORE_TABLES } = __mod_scoring;
-const { CATEGORY5_LABELS, CATEGORY5_OUTCOMES, CATEGORY5_OUTCOMES_SMALL, SCORE_TABLES5, DEFAULT_SCORE_TABLE5 } = __mod_scoring5;
+const { CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_OUTCOMES, SCORE_TABLES, PIPS_RULES, scoreHand } = __mod_scoring;
+const { CATEGORY5_LABELS, CATEGORY5_OUTCOMES, CATEGORY5_OUTCOMES_SMALL, SCORE_TABLES5, PIPS_RULES5, scoreHand5 } = __mod_scoring5;
 const { areAdjacent, rowOf, colOf, orderedPathsOf } = __mod_geometry;
 const { createGame, toggleHold: snakeToggleHold, reroll: snakeReroll, toggleBonus: snakeToggleBonus, previewPath: snakePreviewPath, bankPath: snakeBankPath, hintFor: snakeHintFor, markHintUsed: snakeMarkHintUsed, remainingCells: snakeRemainingCells, canReroll: snakeCanReroll, snapshotGame: snakeSnapshot, restoreGame: snakeRestore, isOrdinary: snakeIsOrdinary, isBanked: snakeIsBanked, heldCount: snakeHeldCount, rerollTargets: snakeRerollTargets } = __mod_game;
 const { createPokerGame, toggleHold: pokerToggleHold, reroll: pokerReroll, toggleBonus: pokerToggleBonus, previewPath: pokerPreviewPath, bankPath: pokerBankPath, hintFor: pokerHintFor, markHintUsed: pokerMarkHintUsed, remainingCells: pokerRemainingCells, canReroll: pokerCanReroll, snapshotGame: pokerSnapshot, restoreGame: pokerRestore, isBanked: pokerIsBanked, isSealed: pokerIsSealed, heldCount: pokerHeldCount, isOrdinary: pokerIsOrdinary, rerollTargets: pokerRerollTargets } = __mod_poker;
@@ -1938,7 +2020,12 @@ const MODES = {
     refill: false,
     engine: snakeEngine,
     generatorVersion: GENERATOR_VERSION,
-    defaultSettings: { settingsVersion: 2, maxHolds: null, scoreTable: 'spec_v03', autoBonusOnFinalHand: true, pathMode: false },
+    defaultSettings: { settingsVersion: 3, maxHolds: null, scoreTable: 'pips', autoBonusOnFinalHand: true, pathMode: false },
+    tableOptions: [
+      { value: 'pips', label: 'Pips × match · sum of matching dice × how many (3-3-3 = 27)' },
+      { value: 'spec_v03', label: 'Flat v0.3 · 30 / 15 / 10 / 5 / 2 / 0' },
+      { value: 'rarity', label: 'Flat by rarity · 30 / 15 / 12 / 10 / 2 / 0' },
+    ],
     gameConfig: (st) => ({ maxHolds: st.maxHolds, scoreTable: st.scoreTable, autoBonusOnFinalHand: st.autoBonusOnFinalHand }),
     generate: ({ runSeed, levelIndex, tier, settings }) => generateLevel({ runSeed, levelIndex, tier, scoreTable: settings.scoreTable }),
     idleCopy: (g, pathMode) => {
@@ -1949,7 +2036,7 @@ const MODES = {
     onboard: {
       lead: 'Two hands of four dice, dragged edge to edge like a snake. Both hands together use all eight dice.',
       note: 'The tutorial shows every move on your first board: hold, reroll, drag a hand, use the gold ×2.',
-      demo: { values: [5, 5, 2, 3, 5, 5], path: [0, 1, 4, 5], label: 'SWIPE 5 → 5 → 5 → 5 = FOUR OF A KIND' },
+      demo: { values: [5, 5, 2, 3, 5, 5], path: [0, 1, 4, 5], label: 'SWIPE 5 → 5 → 5 → 5 = FOUR OF A KIND · 20 × 4 = 80' },
     },
     help: {
       lead: 'Save a connected set of four for your second hand. The first hand must leave four dice you can still snake through.',
@@ -1962,9 +2049,14 @@ const MODES = {
       ],
       scoreTitle: 'SCORING · FOUR DICE',
       scoreRows: (settings) => {
-        const table = SCORE_TABLES[settings.scoreTable];
-        const examples = { four_kind: [2, 2, 2, 2], straight: [1, 2, 3, 4], three_kind: [4, 4, 4, 1], two_pairs: [1, 1, 6, 6], pair: [1, 1, 3, 6], high: [1, 2, 4, 6] };
-        return CATEGORY_ORDER.map((cat) => ({ label: CATEGORY_LABELS[cat], example: examples[cat], points: table[cat], odds: CATEGORY_OUTCOMES[cat] / 1296 }));
+        const pips = settings.scoreTable === 'pips';
+        const table = pips ? null : SCORE_TABLES[settings.scoreTable];
+        const examples = { four_kind: [4, 4, 4, 4], straight: [1, 2, 3, 4], three_kind: [3, 3, 3, 1], two_pairs: [2, 2, 5, 5], pair: [6, 6, 3, 1], high: [1, 2, 4, 6] };
+        return CATEGORY_ORDER.map((cat) => {
+          const ex = examples[cat];
+          const scored = scoreHand(ex, settings.scoreTable);
+          return { label: CATEGORY_LABELS[cat], example: ex, points: pips ? `${PIPS_RULES[cat]} = ${scored.points}` : table[cat], odds: CATEGORY_OUTCOMES[cat] / 1296 };
+        });
       },
       options: { table: true, small: false, endOnTarget: false, goldCell: false },
     },
@@ -1983,8 +2075,13 @@ const MODES = {
     refill: true,
     engine: pokerEngine,
     generatorVersion: GENERATOR5_VERSION,
-    defaultSettings: { settingsVersion: 2, maxHolds: null, smallStraight: false, endOnTarget: true, autoBonusOnFinalHand: true, pathMode: false, hands: 3, rerolls: 2, goldCell: true },
-    gameConfig: (st) => ({ maxHolds: st.maxHolds, smallStraight: st.smallStraight, endOnTarget: st.endOnTarget, autoBonusOnFinalHand: st.autoBonusOnFinalHand, hands: st.hands, rerolls: st.rerolls, bonusIndex: st.goldCell === false ? null : 8 }),
+    defaultSettings: { settingsVersion: 3, maxHolds: null, scoreTable: 'pips', smallStraight: false, endOnTarget: true, autoBonusOnFinalHand: true, pathMode: false, hands: 3, rerolls: 2, goldCell: true },
+    tableOptions: [
+      { value: 'pips', label: 'Pips × match · sum of matching dice × how many (3-3-3 = 27)' },
+      { value: 'poker5_v2', label: 'Flat · 50 / 30 / 25 / 20 / 10 / 5 / 2 / 0' },
+      { value: 'poker5_v1', label: 'Flat steep · 60 / 40 / 25 / 20 / 10 / 6 / 2 / 0' },
+    ],
+    gameConfig: (st) => ({ maxHolds: st.maxHolds, scoreTable: st.scoreTable, smallStraight: st.smallStraight, endOnTarget: st.endOnTarget, autoBonusOnFinalHand: st.autoBonusOnFinalHand, hands: st.hands, rerolls: st.rerolls, bonusIndex: st.goldCell === false ? null : 8 }),
     generate: ({ runSeed, levelIndex, tier, settings }) => generatePokerLevel({ runSeed, levelIndex, tier, config: MODES.poker5.gameConfig(settings) }),
     idleCopy: (g, pathMode) => {
       const n = g.hands.length + 1;
@@ -1995,7 +2092,7 @@ const MODES = {
     onboard: {
       lead: 'Eight dice and the gold ×2. Drag through five dice like a snake to play a poker hand. The five you used are replaced; the other three stay for your next hand.',
       note: 'Three hands and two rerolls per level; reach the target and the level is yours. The tutorial shows every move on your first board.',
-      demo: { values: [4, 4, 4, 3, 2, 2], path: [0, 1, 2, 5, 4], label: 'SWIPE 4 → 4 → 4 → 2 → 2 = FULL HOUSE' },
+      demo: { values: [4, 4, 4, 3, 2, 2], path: [0, 1, 2, 5, 4], label: 'SWIPE 4 → 4 → 4 → 2 → 2 = FULL HOUSE · 12 × 3 + 4 × 2 = 44' },
     },
     help: {
       lead: 'The dice you leave behind are the start of your next hand: plan the snake so the leftovers already match.',
@@ -2009,13 +2106,18 @@ const MODES = {
       ],
       scoreTitle: 'SCORING · FIVE DICE (POKER)',
       scoreRows: (settings) => {
-        const table = SCORE_TABLES5[DEFAULT_SCORE_TABLE5];
+        const pips = settings.scoreTable === 'pips';
+        const table = pips ? null : SCORE_TABLES5[settings.scoreTable] || SCORE_TABLES5.poker5_v2;
         const outcomes = settings.smallStraight ? CATEGORY5_OUTCOMES_SMALL : CATEGORY5_OUTCOMES;
-        const examples = { five_kind: [3, 3, 3, 3, 3], four_kind: [3, 3, 3, 3, 1], straight: [1, 2, 3, 4, 5], full_house: [2, 2, 5, 5, 5], small_straight: [1, 2, 3, 4, 4], three_kind: [4, 4, 4, 1, 2], two_pairs: [1, 1, 6, 6, 3], pair: [1, 1, 3, 5, 6], bust: [1, 2, 4, 5, 6] };
+        const examples = { five_kind: [5, 5, 5, 5, 5], four_kind: [4, 4, 4, 4, 1], straight: [1, 2, 3, 4, 5], full_house: [2, 2, 5, 5, 5], small_straight: [1, 2, 3, 4, 4], three_kind: [3, 3, 3, 1, 2], two_pairs: [2, 2, 6, 6, 3], pair: [6, 6, 3, 5, 1], bust: [1, 2, 4, 5, 6] };
         const order = ['five_kind', 'four_kind', 'straight', 'full_house', 'small_straight', 'three_kind', 'two_pairs', 'pair', 'bust'].filter((c) => settings.smallStraight || c !== 'small_straight');
-        return order.map((cat) => ({ label: CATEGORY5_LABELS[cat], example: examples[cat], points: table[cat], odds: outcomes[cat] / 7776 }));
+        return order.map((cat) => {
+          const ex = examples[cat];
+          const scored = scoreHand5(ex, settings.scoreTable, { smallStraight: true });
+          return { label: CATEGORY5_LABELS[cat], example: ex, points: pips ? `${PIPS_RULES5[cat]} = ${scored.points}` : table[cat], odds: outcomes[cat] / 7776 };
+        });
       },
-      options: { table: false, small: true, endOnTarget: true, goldCell: true },
+      options: { table: true, small: true, endOnTarget: true, goldCell: true },
     },
     coachText(step, g, hint) {
       if (step === 'swipe') return `DRAG ${show(g, hint.cells)} IN ONE MOVE, THEN LIFT · ${hint.hand.label} ${hint.hand.points}`;
@@ -2234,7 +2336,8 @@ function showLevelEnd() {
     const li = document.createElement('li');
     const mini = h.faces.map((f) => `<b>${f}</b>`).join('');
     const mult = h.multiplier > 1 ? `<em>×${h.multiplier}</em>` : '';
-    li.innerHTML = `<span class="mini">${mini}</span><span>HAND ${k + 1} · ${h.label}</span><span class="pts">${mult}${h.total}</span>`;
+    const how = st.settings.scoreTable === 'pips' && h.formula && h.points > 0 ? `<small>${h.formula}</small>` : '';
+    li.innerHTML = `<span class="mini">${mini}</span><span>HAND ${k + 1} · ${h.label} ${how}</span><span class="pts">${mult}${h.total}</span>`;
     list.appendChild(li);
   });
   if (mode.id === 'poker5') {
@@ -2626,7 +2729,9 @@ function renderPreview() {
   const p = engine.previewPath(g, path);
   if (!p.ok) { setPreview(p.message, 'bad'); return; }
   if (p.partial) { setPreview(`${p.count} / ${mode.handSize}`); return; }
-  const mult = p.multiplier > 1 ? ` (${p.hand.points} ×${p.multiplier})` : '';
+  const pipsOn = st.settings.scoreTable === 'pips';
+  const how = pipsOn && p.hand.formula && p.hand.points > 0 ? `${p.hand.formula}${p.multiplier > 1 ? ` ×${p.multiplier}` : ''}` : (p.multiplier > 1 ? `${p.hand.points} ×${p.multiplier}` : '');
+  const mult = how ? ` (${how})` : '';
   const leaves = p.leaves && p.leaves.length ? ` · leaves ${p.leaves.join(' ')}` : '';
   if (!p.safe && p.stranded && p.stranded.length) setPreview(`${p.hand.label} ${p.total} · CUTS OFF ${p.stranded.map((i) => `${g.faces[i]} ${CELL_NAMES[i]}`).join(' + ')}`, 'bad');
   else if (!p.safe) setPreview(`${p.hand.label} ${p.total} · ${p.safetyMessage.replace(/\.$/, '')}`, 'bad');
@@ -2693,7 +2798,9 @@ function showReveal(hand) {
   const r = $('reveal');
   r.querySelector('.cat').textContent = hand.label;
   r.querySelector('.pts').textContent = `+${hand.total}`;
-  r.querySelector('.mult').textContent = hand.multiplier > 1 ? `${hand.points} ×${hand.multiplier}${hand.bonusAuto ? ' AUTO' : ''}` : '';
+  const pipsOn = S().settings.scoreTable === 'pips' && hand.formula && hand.points > 0;
+  const base = pipsOn ? hand.formula : String(hand.points);
+  r.querySelector('.mult').textContent = hand.multiplier > 1 ? `${base} ×${hand.multiplier}${hand.bonusAuto ? ' AUTO' : ''}` : (pipsOn ? base : '');
   r.classList.remove('show');
   void r.offsetWidth;
   r.classList.add('show');
@@ -3047,6 +3154,7 @@ function openHelp() {
   renderScoreTable();
   $('optHoldCap').checked = st.settings.maxHolds != null;
   $('optTableRow').hidden = !mode.help.options.table;
+  if (mode.help.options.table) $('optTable').innerHTML = mode.tableOptions.map((o) => `<option value="${o.value}">${o.label}</option>`).join('');
   $('optSmallRow').hidden = !mode.help.options.small;
   $('optEndRow').hidden = !mode.help.options.endOnTarget;
   $('optGoldRow').hidden = !mode.help.options.goldCell;

@@ -251,6 +251,7 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .hands .mini b { width: 24px; height: 24px; border-radius: 5px; background: var(--die); color: var(--pip); font: 700 15px/24px var(--font-display); text-align: center; }
 .hands .pts { font-size: 22px; font-variant-numeric: tabular-nums; }
 .hands .pts em { font-style: normal; color: var(--gold); font-size: 15px; margin-right: 4px; }
+.hands li small { display: block; font: 500 12px/1.2 var(--font-display); letter-spacing: .06em; color: var(--muted); }
 .end-note { margin: 0; text-align: center; font: 500 15px/1.4 var(--font-display); letter-spacing: .06em; }
 .muted { color: var(--muted); }
 .small { font-size: 13px; line-height: 1.4; }

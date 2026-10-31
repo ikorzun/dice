@@ -70,7 +70,7 @@
   <div class="panel">
     <h2 class="end-title" id="onboardTitle">DICE SNAKE</h2>
     <p class="lead" id="onboardLead"></p>
-    <p class="lead"><strong>Match values, not big numbers.</strong> A pair of 1s is worth the same as a pair of 6s.</p>
+    <p class="lead" id="onboardScoring"><strong>Matching dice score their sum × how many matched.</strong> Three 3s = 9 × 3 = 27; two 6s = 12 × 2 = 24.</p>
     <div class="demo" aria-hidden="true">
       <div class="demo-grid" id="demoGrid"></div>
       <svg class="demo-line" viewBox="0 0 300 200"><polyline id="demoLine" points=""></polyline></svg>
@@ -86,7 +86,7 @@
 <section class="overlay sheet" id="help" hidden>
   <div class="panel sheet-panel">
     <h2 class="end-title" id="helpTitle">HOW TO PLAY</h2>
-    <p class="lead"><strong>Match values, not big numbers.</strong> A pair of 1s is worth the same as a pair of 6s.</p>
+    <p class="lead"><strong>Matching dice score their sum × how many matched.</strong> Three 3s = 9 × 3 = 27; four 4s = 16 × 4 = 64; a straight scores the sum of all its dice × 3.</p>
     <p class="lead" id="helpLead"></p>
     <ol class="rules" id="helpRules"></ol>
     <h3 id="helpScoreTitle">SCORING</h3>
@@ -103,10 +103,7 @@
     <h3>EXPERIMENTS</h3>
     <label class="opt"><input type="checkbox" id="optHoldCap"> Hold cap: at most 3 held dice per reroll</label>
     <label class="opt" id="optTableRow">Score table
-      <select id="optTable">
-        <option value="spec_v03">Spec v0.3 · 30 / 15 / 10 / 5 / 2 / 0</option>
-        <option value="rarity">Rarity order · 30 / 15 / 12 (two pairs) / 10 (trips) / 2 / 0</option>
-      </select>
+      <select id="optTable"></select>
     </label>
     <label class="opt" id="optSmallRow"><input type="checkbox" id="optSmall"> Small straight (four in a row) counts</label>
     <label class="opt" id="optEndRow"><input type="checkbox" id="optEndOnTarget"> End the level as soon as the target is reached</label>

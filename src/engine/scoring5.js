@@ -60,6 +60,8 @@ export const SCORE_TABLES5 = Object.freeze({
   poker5_v2: Object.freeze({ five_kind: 50, four_kind: 30, straight: 25, full_house: 20, small_straight: 10, three_kind: 10, two_pairs: 5, pair: 2, bust: 0 }),
 });
 export const DEFAULT_SCORE_TABLE5 = 'poker5_v2';
+export const PIPS_TABLE5 = 'pips';
+export const PIPS_RULES5 = Object.freeze({ five_kind: 'sum × 5', four_kind: 'sum × 4', straight: 'sum × 3', full_house: 'triple × 3 + pair × 2', small_straight: 'run × 2', three_kind: 'sum × 3', two_pairs: 'sum × 2', pair: 'sum × 2', bust: '0' });
 
 export function resolveTable5(table = DEFAULT_SCORE_TABLE5) {
   if (typeof table === 'string') {
@@ -68,6 +70,29 @@ export function resolveTable5(table = DEFAULT_SCORE_TABLE5) {
     return t;
   }
   return table;
+}
+
+// Pip-based score of a classified five-die hand: matching dice score their pip sum × count.
+export function pipsScore5(faces, category) {
+  const counts = [0, 0, 0, 0, 0, 0, 0, 0];
+  for (const f of faces) counts[f]++;
+  const sumWhere = (pred) => { let s = 0; for (let v = 1; v <= 6; v++) if (pred(counts[v])) s += v * counts[v]; return s; };
+  let points = 0;
+  let formula = '0';
+  if (category === CATEGORY5.FIVE_KIND) { const b = sumWhere((c) => c === 5); points = b * 5; formula = `${b} × 5`; }
+  else if (category === CATEGORY5.FOUR_KIND) { const b = sumWhere((c) => c === 4); points = b * 4; formula = `${b} × 4`; }
+  else if (category === CATEGORY5.FULL_HOUSE) { const t = sumWhere((c) => c === 3); const p = sumWhere((c) => c === 2); points = t * 3 + p * 2; formula = `${t} × 3 + ${p} × 2`; }
+  else if (category === CATEGORY5.STRAIGHT) { const b = faces.reduce((s, f) => s + f, 0); points = b * 3; formula = `${b} × 3`; }
+  else if (category === CATEGORY5.SMALL_STRAIGHT) {
+    let lo = 1;
+    while (lo <= 3 && !(counts[lo] && counts[lo + 1] && counts[lo + 2] && counts[lo + 3])) lo++;
+    const b = lo * 4 + 6;
+    points = b * 2;
+    formula = `${b} × 2`;
+  }
+  else if (category === CATEGORY5.THREE_KIND) { const b = sumWhere((c) => c === 3); points = b * 3; formula = `${b} × 3`; }
+  else if (category === CATEGORY5.TWO_PAIRS || category === CATEGORY5.PAIR) { const b = sumWhere((c) => c === 2); points = b * 2; formula = `${b} × 2`; }
+  return { points, formula };
 }
 
 function hasRunOfFour(counts) {
@@ -109,7 +134,11 @@ export function classify5(faces, { smallStraight = false } = {}) {
 }
 
 export function scoreHand5(faces, table = DEFAULT_SCORE_TABLE5, opts = {}) {
-  const t = resolveTable5(table);
   const category = classify5(faces, opts);
-  return { category, label: CATEGORY5_LABELS[category], points: t[category] };
+  if (table === PIPS_TABLE5) {
+    const p = pipsScore5(faces, category);
+    return { category, label: CATEGORY5_LABELS[category], points: p.points, formula: p.formula };
+  }
+  const t = resolveTable5(table);
+  return { category, label: CATEGORY5_LABELS[category], points: t[category], formula: String(t[category]) };
 }

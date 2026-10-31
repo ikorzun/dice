@@ -9,13 +9,24 @@ import { clampTier } from './levels.js';
 export const GENERATOR5_VERSION = 'poker5-gen-2';
 
 // Calibrated with scripts/montecarlo5.mjs (see docs/DESIGN-POKER5.md).
-export const TIERS5 = Object.freeze({
+const FLAT_TIERS5 = Object.freeze({
   1: Object.freeze({ target: 40, openingMax: 0.5 }),
   2: Object.freeze({ target: 55, openingMax: 0.5 }),
   3: Object.freeze({ target: 70, openingMax: 0.5 }),
   4: Object.freeze({ target: 85, openingMax: 0.5 }),
   5: Object.freeze({ target: 100, openingMax: 0.5 }),
 });
+// Pip-based scoring; calibrated with scripts/montecarlo5.mjs --table=pips.
+const PIPS_TIERS5 = Object.freeze({
+  1: Object.freeze({ target: 100, openingMax: 0.5 }),
+  2: Object.freeze({ target: 130, openingMax: 0.5 }),
+  3: Object.freeze({ target: 160, openingMax: 0.5 }),
+  4: Object.freeze({ target: 190, openingMax: 0.5 }),
+  5: Object.freeze({ target: 220, openingMax: 0.5 }),
+});
+export const TIERS5 = FLAT_TIERS5;
+export const TIERS5_BY_TABLE = Object.freeze({ poker5_v1: FLAT_TIERS5, poker5_v2: FLAT_TIERS5, pips: PIPS_TIERS5 });
+export const tiersFor5 = (scoreTable) => TIERS5_BY_TABLE[scoreTable] || FLAT_TIERS5;
 
 export function rollFaces9(rng, bonusIndex = null) {
   const faces = new Array(9);
@@ -25,7 +36,7 @@ export function rollFaces9(rng, bonusIndex = null) {
 
 export function generatePokerLevel({ runSeed, levelIndex, tier, config = {}, candidates = 32 }) {
   const t = clampTier(tier);
-  const spec = TIERS5[t];
+  const spec = tiersFor5(config.scoreTable || 'poker5_v2')[t];
   const bonusIndex = config.bonusIndex === undefined ? 8 : config.bonusIndex;
   let fallback = null;
   for (let k = 0; k < candidates; k++) {

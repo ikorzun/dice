@@ -200,6 +200,7 @@ export function bankPath(state, path) {
     category: p.hand.category,
     label: p.hand.label,
     points: p.hand.points,
+    formula: p.hand.formula,
     multiplier: p.multiplier,
     total: p.total,
     bonusAuto: p.autoBonus,
