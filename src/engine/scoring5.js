@@ -53,11 +53,13 @@ export const CATEGORY5_OUTCOMES_SMALL = Object.freeze({
 });
 
 export const SCORE_TABLES5 = Object.freeze({
-  // Provisional Poker 5 table: ordered by rarity (straight 3.1% is rarer than full house 3.9%),
-  // "no match" stays at 0 by poker convention even though it is rarer than a pair.
+  // First Poker 5 table (steeper top): ordered by rarity, "no match" at 0 by poker convention.
   poker5_v1: Object.freeze({ five_kind: 60, four_kind: 40, straight: 25, full_house: 20, small_straight: 10, three_kind: 10, two_pairs: 6, pair: 2, bust: 0 }),
+  // Design-panel table (see docs/DESIGN-POKER5.md): Yahtzee-familiar 50 for five of a kind,
+  // straight above full house because on dice it is rarer (240 vs 300 of 7776).
+  poker5_v2: Object.freeze({ five_kind: 50, four_kind: 30, straight: 25, full_house: 20, small_straight: 10, three_kind: 10, two_pairs: 5, pair: 2, bust: 0 }),
 });
-export const DEFAULT_SCORE_TABLE5 = 'poker5_v1';
+export const DEFAULT_SCORE_TABLE5 = 'poker5_v2';
 
 export function resolveTable5(table = DEFAULT_SCORE_TABLE5) {
   if (typeof table === 'string') {

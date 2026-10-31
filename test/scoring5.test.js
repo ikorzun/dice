@@ -62,6 +62,7 @@ test('score tables cover every category and rank by rarity where chosen', () => 
     for (const cat of Object.values(CATEGORY5)) assert.ok(Number.isInteger(t[cat]), `${name} lacks ${cat}`);
     assert.ok(t.five_kind > t.four_kind && t.four_kind > t.straight && t.straight > t.full_house && t.full_house >= t.three_kind && t.three_kind > t.two_pairs && t.two_pairs > t.pair && t.pair > t.bust);
   }
-  assert.equal(scoreHand5([2, 2, 2, 2, 2]).points, 60);
+  assert.equal(scoreHand5([2, 2, 2, 2, 2]).points, 50);
+  assert.equal(scoreHand5([2, 2, 2, 2, 2], 'poker5_v1').points, 60);
   assert.equal(scoreHand5([1, 1, 3, 5, 6]).points, scoreHand5([6, 6, 3, 5, 1]).points);
 });

@@ -10,15 +10,15 @@ import { scoreHand5, resolveTable5, DEFAULT_SCORE_TABLE5, CATEGORY5_LABELS } fro
 export const POKER_DEFAULT_CONFIG = Object.freeze({
   handSize: 5,
   hands: 3,              // hands (banks) per level
-  rerolls: 3,            // shared rerolls per level
+  rerolls: 2,            // shared rerolls per level (parity with Snake 4+4)
   maxHolds: null,        // null = unlimited holds
   scoreTable: DEFAULT_SCORE_TABLE5,
-  smallStraight: true,   // four consecutive values count as a (small) straight
+  smallStraight: false,  // optional: four consecutive values count as a (small) straight
   bonusMultiplier: 2,    // one-use ×2
   bonusIndex: 8,         // gold ×2 cell like Snake 4+4 (null = nine dice and a ×2 badge only)
   autoBonusOnFinalHand: true,
   refill: true,          // banked cells receive fresh dice
-  endOnTarget: false,    // true: the level ends as soon as the target is reached
+  endOnTarget: true,     // the level ends as soon as the target is reached (stars by hands used)
   sealedPersist: false,  // sealed dice stay sealed after being banked and refilled
 });
 
@@ -123,6 +123,22 @@ export function evaluateHand5(faces, mask, config) {
   return { mask, cells, faces: handFaces, ...scored };
 }
 
+// The dice a snake leaves behind (the carry for the next hand), in cell order.
+export function leftoverCells(state, mask) {
+  return state.geometry.free.filter((i) => !((mask >> i) & 1) && !isBanked(state, i));
+}
+
+// Carry quality: how many equal faces the leftover dice already hold (the seed of the next hand).
+export function carryQuality(state, mask) {
+  const counts = [0, 0, 0, 0, 0, 0, 0];
+  let best = 0;
+  for (const i of leftoverCells(state, mask)) {
+    const c = ++counts[state.faces[i]];
+    if (c > best) best = c;
+  }
+  return best;
+}
+
 export function previewPath(state, path) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   if (state.handsLeft <= 0) return reject('COMPLETE', 'No hands left');
@@ -130,11 +146,12 @@ export function previewPath(state, path) {
   if (!v.ok) return v;
   if (!v.complete) return { ok: true, partial: true, count: path.length, mask: v.mask };
   const hand = evaluateHand5(state.faces, v.mask, state.config);
+  const leaves = leftoverCells(state, v.mask).map((i) => state.faces[i]);
   const isFinalHand = state.handsLeft === 1;
   const autoBonus = isFinalHand && state.bonus.available && !state.bonus.armed && state.config.autoBonusOnFinalHand;
   const usesBonus = state.bonus.available && (state.bonus.armed || autoBonus);
   const multiplier = usesBonus ? state.config.bonusMultiplier : 1;
-  return { ok: true, partial: false, mask: v.mask, hand, multiplier, total: hand.points * multiplier, usesBonus, autoBonus, safe: true, safetyCode: null, safetyMessage: null };
+  return { ok: true, partial: false, mask: v.mask, hand, multiplier, total: hand.points * multiplier, usesBonus, autoBonus, safe: true, safetyCode: null, safetyMessage: null, leaves };
 }
 
 // drawDie supplies refill faces (seeded by the UI / simulation).
@@ -187,14 +204,18 @@ export function bankPath(state, path, drawDie) {
   return { ok: true, hand, refilled, state: { ...state, hands, faces, held, bankedMask, sealedMask, bonus, score, handsLeft, phase, lastRefill: refilled } };
 }
 
-// Every eligible five-cell snake on the current board, best first.
+// Every eligible five-cell snake on the current board, best first; ties go to the snake
+// whose leftover dice already match the most (the better carry), then the lowest mask.
 export function rankSnakes(state) {
   const rows = [];
   for (const mask of state.geometry.eligibleMasks) {
     if (mask & state.bankedMask) continue;
-    rows.push(evaluateHand5(state.faces, mask, state.config));
+    const row = evaluateHand5(state.faces, mask, state.config);
+    row.carry = carryQuality(state, mask);
+    row.leaves = leftoverCells(state, mask).map((i) => state.faces[i]);
+    rows.push(row);
   }
-  rows.sort((a, b) => b.points - a.points || a.mask - b.mask);
+  rows.sort((a, b) => b.points - a.points || b.carry - a.carry || a.mask - b.mask);
   return rows;
 }
 
@@ -216,6 +237,7 @@ export function hintFor(state) {
     hand: best,
     partition: null,
     useBonus: recommendArm,
+    leaves: best.leaves,
     projected: state.score + best.points * (usesBonus ? state.config.bonusMultiplier : 1),
   };
 }

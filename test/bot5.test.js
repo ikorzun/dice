@@ -20,11 +20,14 @@ test('poker bot sessions: legal banks only, three hands, nine dice kept, x2 once
     assert.ok(level.openingBest <= level.target * TIERS5[tier].openingMax || level.fallback, 'opening snake must not already win');
     const res = i % 2 ? playNaiveBot5(level, { rng }) : playGreedyBot5(level, { rng, samples: 4 });
     const st = res.state;
-    assert.equal(st.hands.length, 3);
-    assert.equal(st.handsLeft, 0);
+    assert.ok(['won', 'lost'].includes(st.phase));
+    assert.equal(st.hands.length + st.handsLeft, 3);
+    if (st.phase === 'lost') assert.equal(st.handsLeft, 0);
+    if (st.handsLeft > 0) assert.ok(st.score >= level.target, 'an early end only on reaching the target');
     assert.ok(st.faces.every((f, k) => (k === st.bonusIndex ? f === null : Number.isInteger(f) && f >= 1 && f <= 6)), 'all ordinary dice remain after refills');
     assert.equal(st.score, st.hands.reduce((s, h) => s + h.total, 0));
-    assert.equal(st.hands.filter((h) => h.multiplier > 1).length, 1, 'x2 used exactly once');
+    assert.ok(st.hands.filter((h) => h.multiplier > 1).length <= 1, 'x2 used at most once');
+    if (st.handsLeft === 0) assert.equal(st.hands.filter((h) => h.multiplier > 1).length, 1, 'x2 used exactly once when all hands are played');
     assert.ok(st.rerollsLeft >= 0 && st.rerollsLeft <= 3);
     for (const h of st.hands) {
       assert.equal(h.cells.length, 5);

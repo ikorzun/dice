@@ -224,7 +224,9 @@ for (const vp of viewports) {
   const handsText = await page.$eval('#handsText', (el) => el.textContent);
   if (!/HAND 1 \/ 3/.test(handsText)) note(vp, `hands text: ${handsText}`);
   const pips = await page.$$eval('#rerollPips i', (els) => els.length);
-  if (pips !== 3) note(vp, `poker shows ${pips} reroll pips`);
+  if (pips !== 2) note(vp, `poker shows ${pips} reroll pips`);
+  const rerollLabel = await page.$eval('#rerollBtn', (b) => b.textContent);
+  if (!/^REROLL \d/.test(rerollLabel)) note(vp, `reroll label without count: ${rerollLabel}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-12-poker-start.png` });
   await tap(page, 4);
   s = await state(page);
@@ -232,7 +234,7 @@ for (const vp of viewports) {
   await page.click('#rerollBtn');
   await page.waitForTimeout(1200);
   s = await state(page);
-  if (s.rerollsLeft !== 2) note(vp, `poker rerollsLeft ${s.rerollsLeft} after one reroll`);
+  if (s.rerollsLeft !== 1) note(vp, `poker rerollsLeft ${s.rerollsLeft} after one reroll`);
   await tap(page, 8);
   s = await state(page);
   if (!s.bonus.armed) note(vp, 'tapping the gold cell did not arm x2 in poker');
@@ -255,12 +257,14 @@ for (const vp of viewports) {
   if (diceAfter !== 8) note(vp, `after refill ${diceAfter} dice`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-14-poker-after-first.png` });
   for (let h = 0; h < 2; h++) {
+    s = await state(page);
+    if (s.phase !== 'playing') break; // end-on-target may finish the level early
     const hc = await hintCells(page);
     await swipe(page, hc);
     await page.waitForTimeout(1700);
   }
   s = await state(page);
-  if (s.hands !== 3 || s.handsLeft !== 0) note(vp, `poker level did not end after three hands (hands=${s.hands}, left=${s.handsLeft})`);
+  if (s.phase === 'playing') note(vp, `poker level still playing after three hands (hands=${s.hands}, left=${s.handsLeft})`);
   if (!['won', 'lost'].includes(s.phase)) note(vp, `poker phase ${s.phase}`);
   await page.waitForTimeout(900);
   const pokerEnd = await page.$eval('#levelEnd', (el) => !el.hidden);

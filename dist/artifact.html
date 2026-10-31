@@ -146,6 +146,8 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .cell.die.stranded { box-shadow: inset 0 0 0 4px var(--bad), inset 0 -4px 0 var(--die-edge); animation: strandPulse 500ms ease-in-out infinite alternate; }
 .cell.die.stranded .tag { display: block; background: var(--bad); color: #fff; }
 @keyframes strandPulse { from { box-shadow: inset 0 0 0 3px var(--bad), inset 0 -4px 0 var(--die-edge); } to { box-shadow: inset 0 0 0 6px var(--bad), inset 0 -4px 0 var(--die-edge); } }
+.cell.die.stays .tag { display: block; background: var(--gold); color: #2a1f00; }
+.cell.die.stays .tag::after { content: ''; }
 .cell.die.sealed { box-shadow: inset 0 0 0 3px var(--gold), inset 0 -4px 0 var(--die-edge); }
 .cell.die.sealed .tag { display: block; background: var(--gold); color: #2a1f00; }
 .cell.refill { animation: refill 480ms cubic-bezier(.2, .9, .3, 1.2) var(--delay, 0ms) both; }
@@ -247,6 +249,8 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .end-sep { color: var(--muted); margin: 0 10px; }
 .hands { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .hands li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 10px; font: 700 16px/1.2 var(--font-display); letter-spacing: .08em; }
+.hands li.left { opacity: .7; border-style: dashed; }
+.hands li.left .pts { color: var(--gold); letter-spacing: .1em; }
 .hands .mini { display: inline-flex; gap: 4px; }
 .hands .mini b { width: 24px; height: 24px; border-radius: 5px; background: var(--die); color: var(--pip); font: 700 15px/24px var(--font-display); text-align: center; }
 .hands .pts { font-size: 22px; font-variant-numeric: tabular-nums; }
@@ -741,11 +745,13 @@ const CATEGORY5_OUTCOMES_SMALL = Object.freeze({
 });
 
 const SCORE_TABLES5 = Object.freeze({
-  // Provisional Poker 5 table: ordered by rarity (straight 3.1% is rarer than full house 3.9%),
-  // "no match" stays at 0 by poker convention even though it is rarer than a pair.
+  // First Poker 5 table (steeper top): ordered by rarity, "no match" at 0 by poker convention.
   poker5_v1: Object.freeze({ five_kind: 60, four_kind: 40, straight: 25, full_house: 20, small_straight: 10, three_kind: 10, two_pairs: 6, pair: 2, bust: 0 }),
+  // Design-panel table (see docs/DESIGN-POKER5.md): Yahtzee-familiar 50 for five of a kind,
+  // straight above full house because on dice it is rarer (240 vs 300 of 7776).
+  poker5_v2: Object.freeze({ five_kind: 50, four_kind: 30, straight: 25, full_house: 20, small_straight: 10, three_kind: 10, two_pairs: 5, pair: 2, bust: 0 }),
 });
-const DEFAULT_SCORE_TABLE5 = 'poker5_v1';
+const DEFAULT_SCORE_TABLE5 = 'poker5_v2';
 
 function resolveTable5(table = DEFAULT_SCORE_TABLE5) {
   if (typeof table === 'string') {
@@ -1392,15 +1398,15 @@ const { scoreHand5, resolveTable5, DEFAULT_SCORE_TABLE5, CATEGORY5_LABELS } = __
 const POKER_DEFAULT_CONFIG = Object.freeze({
   handSize: 5,
   hands: 3,              // hands (banks) per level
-  rerolls: 3,            // shared rerolls per level
+  rerolls: 2,            // shared rerolls per level (parity with Snake 4+4)
   maxHolds: null,        // null = unlimited holds
   scoreTable: DEFAULT_SCORE_TABLE5,
-  smallStraight: true,   // four consecutive values count as a (small) straight
+  smallStraight: false,  // optional: four consecutive values count as a (small) straight
   bonusMultiplier: 2,    // one-use ×2
   bonusIndex: 8,         // gold ×2 cell like Snake 4+4 (null = nine dice and a ×2 badge only)
   autoBonusOnFinalHand: true,
   refill: true,          // banked cells receive fresh dice
-  endOnTarget: false,    // true: the level ends as soon as the target is reached
+  endOnTarget: true,     // the level ends as soon as the target is reached (stars by hands used)
   sealedPersist: false,  // sealed dice stay sealed after being banked and refilled
 });
 
@@ -1505,6 +1511,22 @@ function evaluateHand5(faces, mask, config) {
   return { mask, cells, faces: handFaces, ...scored };
 }
 
+// The dice a snake leaves behind (the carry for the next hand), in cell order.
+function leftoverCells(state, mask) {
+  return state.geometry.free.filter((i) => !((mask >> i) & 1) && !isBanked(state, i));
+}
+
+// Carry quality: how many equal faces the leftover dice already hold (the seed of the next hand).
+function carryQuality(state, mask) {
+  const counts = [0, 0, 0, 0, 0, 0, 0];
+  let best = 0;
+  for (const i of leftoverCells(state, mask)) {
+    const c = ++counts[state.faces[i]];
+    if (c > best) best = c;
+  }
+  return best;
+}
+
 function previewPath(state, path) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   if (state.handsLeft <= 0) return reject('COMPLETE', 'No hands left');
@@ -1512,11 +1534,12 @@ function previewPath(state, path) {
   if (!v.ok) return v;
   if (!v.complete) return { ok: true, partial: true, count: path.length, mask: v.mask };
   const hand = evaluateHand5(state.faces, v.mask, state.config);
+  const leaves = leftoverCells(state, v.mask).map((i) => state.faces[i]);
   const isFinalHand = state.handsLeft === 1;
   const autoBonus = isFinalHand && state.bonus.available && !state.bonus.armed && state.config.autoBonusOnFinalHand;
   const usesBonus = state.bonus.available && (state.bonus.armed || autoBonus);
   const multiplier = usesBonus ? state.config.bonusMultiplier : 1;
-  return { ok: true, partial: false, mask: v.mask, hand, multiplier, total: hand.points * multiplier, usesBonus, autoBonus, safe: true, safetyCode: null, safetyMessage: null };
+  return { ok: true, partial: false, mask: v.mask, hand, multiplier, total: hand.points * multiplier, usesBonus, autoBonus, safe: true, safetyCode: null, safetyMessage: null, leaves };
 }
 
 // drawDie supplies refill faces (seeded by the UI / simulation).
@@ -1569,14 +1592,18 @@ function bankPath(state, path, drawDie) {
   return { ok: true, hand, refilled, state: { ...state, hands, faces, held, bankedMask, sealedMask, bonus, score, handsLeft, phase, lastRefill: refilled } };
 }
 
-// Every eligible five-cell snake on the current board, best first.
+// Every eligible five-cell snake on the current board, best first; ties go to the snake
+// whose leftover dice already match the most (the better carry), then the lowest mask.
 function rankSnakes(state) {
   const rows = [];
   for (const mask of state.geometry.eligibleMasks) {
     if (mask & state.bankedMask) continue;
-    rows.push(evaluateHand5(state.faces, mask, state.config));
+    const row = evaluateHand5(state.faces, mask, state.config);
+    row.carry = carryQuality(state, mask);
+    row.leaves = leftoverCells(state, mask).map((i) => state.faces[i]);
+    rows.push(row);
   }
-  rows.sort((a, b) => b.points - a.points || a.mask - b.mask);
+  rows.sort((a, b) => b.points - a.points || b.carry - a.carry || a.mask - b.mask);
   return rows;
 }
 
@@ -1598,6 +1625,7 @@ function hintFor(state) {
     hand: best,
     partition: null,
     useBonus: recommendArm,
+    leaves: best.leaves,
     projected: state.score + best.points * (usesBonus ? state.config.bonusMultiplier : 1),
   };
 }
@@ -1649,7 +1677,7 @@ function restoreGame(snapshot) {
 
 
 
-return { POKER_DEFAULT_CONFIG, createPokerGame, isSealed, isBanked, isOrdinary, remainingMask, remainingCells, heldCount, rerollTargets, toggleHold, canReroll, reroll, toggleBonus, evaluateHand5, previewPath, bankPath, rankSnakes, bestSnake, hintFor, markHintUsed, safeFirstMasks, snapshotGame, restoreGame, CATEGORY5_LABELS, resolveTable5 };
+return { POKER_DEFAULT_CONFIG, createPokerGame, isSealed, isBanked, isOrdinary, remainingMask, remainingCells, heldCount, rerollTargets, toggleHold, canReroll, reroll, toggleBonus, evaluateHand5, leftoverCells, carryQuality, previewPath, bankPath, rankSnakes, bestSnake, hintFor, markHintUsed, safeFirstMasks, snapshotGame, restoreGame, CATEGORY5_LABELS, resolveTable5 };
 })();
 // ---- src/engine/levels.js ----
 const __mod_levels = (() => {
@@ -1819,10 +1847,10 @@ const __mod_app = (() => {
 
 const { createRng } = __mod_rng;
 const { CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_OUTCOMES, SCORE_TABLES } = __mod_scoring;
-const { CATEGORY5_LABELS, CATEGORY5_OUTCOMES, CATEGORY5_OUTCOMES_SMALL, SCORE_TABLES5 } = __mod_scoring5;
+const { CATEGORY5_LABELS, CATEGORY5_OUTCOMES, CATEGORY5_OUTCOMES_SMALL, SCORE_TABLES5, DEFAULT_SCORE_TABLE5 } = __mod_scoring5;
 const { areAdjacent, rowOf, colOf, orderedPathsOf } = __mod_geometry;
-const { createGame, toggleHold: snakeToggleHold, reroll: snakeReroll, toggleBonus: snakeToggleBonus, previewPath: snakePreviewPath, bankPath: snakeBankPath, hintFor: snakeHintFor, markHintUsed: snakeMarkHintUsed, remainingCells: snakeRemainingCells, canReroll: snakeCanReroll, snapshotGame: snakeSnapshot, restoreGame: snakeRestore, isOrdinary: snakeIsOrdinary, isBanked: snakeIsBanked, heldCount: snakeHeldCount } = __mod_game;
-const { createPokerGame, toggleHold: pokerToggleHold, reroll: pokerReroll, toggleBonus: pokerToggleBonus, previewPath: pokerPreviewPath, bankPath: pokerBankPath, hintFor: pokerHintFor, markHintUsed: pokerMarkHintUsed, remainingCells: pokerRemainingCells, canReroll: pokerCanReroll, snapshotGame: pokerSnapshot, restoreGame: pokerRestore, isBanked: pokerIsBanked, isSealed: pokerIsSealed, heldCount: pokerHeldCount, isOrdinary: pokerIsOrdinary } = __mod_poker;
+const { createGame, toggleHold: snakeToggleHold, reroll: snakeReroll, toggleBonus: snakeToggleBonus, previewPath: snakePreviewPath, bankPath: snakeBankPath, hintFor: snakeHintFor, markHintUsed: snakeMarkHintUsed, remainingCells: snakeRemainingCells, canReroll: snakeCanReroll, snapshotGame: snakeSnapshot, restoreGame: snakeRestore, isOrdinary: snakeIsOrdinary, isBanked: snakeIsBanked, heldCount: snakeHeldCount, rerollTargets: snakeRerollTargets } = __mod_game;
+const { createPokerGame, toggleHold: pokerToggleHold, reroll: pokerReroll, toggleBonus: pokerToggleBonus, previewPath: pokerPreviewPath, bankPath: pokerBankPath, hintFor: pokerHintFor, markHintUsed: pokerMarkHintUsed, remainingCells: pokerRemainingCells, canReroll: pokerCanReroll, snapshotGame: pokerSnapshot, restoreGame: pokerRestore, isBanked: pokerIsBanked, isSealed: pokerIsSealed, heldCount: pokerHeldCount, isOrdinary: pokerIsOrdinary, rerollTargets: pokerRerollTargets } = __mod_poker;
 const { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } = __mod_levels;
 const { generatePokerLevel, GENERATOR5_VERSION } = __mod_levels5;
 
@@ -1868,6 +1896,7 @@ const snakeEngine = {
   isBanked: snakeIsBanked,
   isSealed: () => false,
   heldCount: snakeHeldCount,
+  rerollCount: (g) => snakeRerollTargets(g).length,
   handsPlayed: (g) => g.hands.length,
   handsTotal: () => 2,
   isLastHand: (g) => g.hands.length === 1,
@@ -1890,6 +1919,7 @@ const pokerEngine = {
   isBanked: pokerIsBanked,
   isSealed: pokerIsSealed,
   heldCount: pokerHeldCount,
+  rerollCount: (g) => pokerRerollTargets(g).length,
   handsPlayed: (g) => g.hands.length,
   handsTotal: (g) => g.hands.length + g.handsLeft,
   isLastHand: (g) => g.handsLeft === 1,
@@ -1908,7 +1938,7 @@ const MODES = {
     refill: false,
     engine: snakeEngine,
     generatorVersion: GENERATOR_VERSION,
-    defaultSettings: { maxHolds: null, scoreTable: 'spec_v03', autoBonusOnFinalHand: true, pathMode: false },
+    defaultSettings: { settingsVersion: 2, maxHolds: null, scoreTable: 'spec_v03', autoBonusOnFinalHand: true, pathMode: false },
     gameConfig: (st) => ({ maxHolds: st.maxHolds, scoreTable: st.scoreTable, autoBonusOnFinalHand: st.autoBonusOnFinalHand }),
     generate: ({ runSeed, levelIndex, tier, settings }) => generateLevel({ runSeed, levelIndex, tier, scoreTable: settings.scoreTable }),
     idleCopy: (g, pathMode) => {
@@ -1953,7 +1983,7 @@ const MODES = {
     refill: true,
     engine: pokerEngine,
     generatorVersion: GENERATOR5_VERSION,
-    defaultSettings: { maxHolds: null, smallStraight: true, endOnTarget: false, autoBonusOnFinalHand: true, pathMode: false, hands: 3, rerolls: 3, goldCell: true },
+    defaultSettings: { settingsVersion: 2, maxHolds: null, smallStraight: false, endOnTarget: true, autoBonusOnFinalHand: true, pathMode: false, hands: 3, rerolls: 2, goldCell: true },
     gameConfig: (st) => ({ maxHolds: st.maxHolds, smallStraight: st.smallStraight, endOnTarget: st.endOnTarget, autoBonusOnFinalHand: st.autoBonusOnFinalHand, hands: st.hands, rerolls: st.rerolls, bonusIndex: st.goldCell === false ? null : 8 }),
     generate: ({ runSeed, levelIndex, tier, settings }) => generatePokerLevel({ runSeed, levelIndex, tier, config: MODES.poker5.gameConfig(settings) }),
     idleCopy: (g, pathMode) => {
@@ -1964,7 +1994,7 @@ const MODES = {
     solverLine: (level) => `Best opening snake before any reroll: ${CATEGORY5_LABELS[level.openingCategory] || ''} ${level.openingBest}`,
     onboard: {
       lead: 'Eight dice and the gold ×2. Drag through five dice like a snake to play a poker hand. The five you used are replaced; the other three stay for your next hand.',
-      note: 'Three hands and three rerolls per level. The tutorial shows every move on your first board.',
+      note: 'Three hands and two rerolls per level; reach the target and the level is yours. The tutorial shows every move on your first board.',
       demo: { values: [4, 4, 4, 3, 2, 2], path: [0, 1, 2, 5, 4], label: 'SWIPE 4 → 4 → 4 → 2 → 2 = FULL HOUSE' },
     },
     help: {
@@ -1973,13 +2003,13 @@ const MODES = {
         'Eight dice and one gold ×2 cell on a 3×3 board. A hand is a snake of exactly five dice that touch edge to edge (no diagonals, no repeats).',
         'To play a hand, press a die and drag through five dice in one move, then lift. Example: 4 → 4 → 4 → 2 → 2 is a FULL HOUSE.',
         'The five dice you played are replaced by fresh dice. The other three stay exactly as they are.',
-        'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
+        'Tap a die to hold it. REROLL changes every unheld die (the button says how many). Two rerolls per level, shared by all hands.',
         'Three hands per level. Tap the gold cell (or the ×2 badge) to double the hand you play next; an unused ×2 is applied to the last hand automatically.',
-        'Reach the target with the three hands to clear the level.',
+        'Reach the target and the level ends at once: cleared on hand 1 is three stars, on hand 2 two, on hand 3 one.',
       ],
       scoreTitle: 'SCORING · FIVE DICE (POKER)',
       scoreRows: (settings) => {
-        const table = SCORE_TABLES5.poker5_v1;
+        const table = SCORE_TABLES5[DEFAULT_SCORE_TABLE5];
         const outcomes = settings.smallStraight ? CATEGORY5_OUTCOMES_SMALL : CATEGORY5_OUTCOMES;
         const examples = { five_kind: [3, 3, 3, 3, 3], four_kind: [3, 3, 3, 3, 1], straight: [1, 2, 3, 4, 5], full_house: [2, 2, 5, 5, 5], small_straight: [1, 2, 3, 4, 4], three_kind: [4, 4, 4, 1, 2], two_pairs: [1, 1, 6, 6, 3], pair: [1, 1, 3, 5, 6], bust: [1, 2, 4, 5, 6] };
         const order = ['five_kind', 'four_kind', 'straight', 'full_house', 'small_straight', 'three_kind', 'two_pairs', 'pair', 'bust'].filter((c) => settings.smallStraight || c !== 'small_straight');
@@ -2059,6 +2089,7 @@ function cycleLook() {
 const S = () => app.modes[app.modeId];
 const M = () => MODES[app.modeId];
 const E = () => MODES[app.modeId].engine;
+const engineOf = (mode) => mode.engine;
 
 // ---------- persistence ----------
 function readJson(key) {
@@ -2103,7 +2134,9 @@ function hydrateMode(id, saved) {
   st.runSeed = saved.runSeed || null;
   st.levelIndex = saved.levelIndex || 1;
   st.tier = saved.tier || 1;
-  st.settings = { ...st.settings, ...(saved.settings || {}) };
+  // Settings are reset when their defaults change version (new table, economy); PATH mode is kept.
+  const savedSettings = saved.settings && saved.settings.settingsVersion === mode.defaultSettings.settingsVersion ? saved.settings : { pathMode: !!(saved.settings && saved.settings.pathMode) };
+  st.settings = { ...st.settings, ...savedSettings };
   st.onboarded = !!saved.onboarded;
   st.coached = !!saved.coached;
   if (saved.coach && saved.coach.active) st.coach = { active: true, done: { hold: false, reroll: false, ...(saved.coach.done || {}) } };
@@ -2203,6 +2236,13 @@ function showLevelEnd() {
     li.innerHTML = `<span class="mini">${mini}</span><span>HAND ${k + 1} · ${h.label}</span><span class="pts">${mult}${h.total}</span>`;
     list.appendChild(li);
   });
+  if (mode.id === 'poker5') {
+    const left = g.geometry.free.filter((i) => !engineOf(mode).isBanked(g, i)).map((i) => `<b>${g.faces[i]}</b>`).join('');
+    const li = document.createElement('li');
+    li.className = 'left';
+    li.innerHTML = `<span class="mini">${left}</span><span>LEFT ON THE TABLE</span><span class="pts">${won ? '★'.repeat(g.handsLeft + 1) + '☆'.repeat(2 - g.handsLeft) : ''}</span>`;
+    list.appendChild(li);
+  }
   const used = g.hands.find((h) => h.multiplier > 1);
   const spare = g.handsLeft > 0 ? ` · ${g.handsLeft} hand${g.handsLeft > 1 ? 's' : ''} to spare` : '';
   $('endBonus').textContent = (used
@@ -2463,7 +2503,7 @@ function renderCell(i) {
   const face = cell.querySelector('.face');
   const tag = cell.querySelector('.tag');
   const order = cell.querySelector('.order');
-  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'bank-pop', 'refill'].filter((c) => cell.classList.contains(c));
+  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'bank-pop', 'refill', 'stays'].filter((c) => cell.classList.contains(c));
   cell.className = ['cell', ...transient].join(' ');
   if (!engine.isOrdinary(g, i)) {
     cell.classList.add('bonus');
@@ -2483,7 +2523,7 @@ function renderCell(i) {
   face.dataset.value = String(g.faces[i]);
   const sealed = engine.isSealed(g, i);
   const stranded = app.stranded && app.stranded.includes(i);
-  tag.textContent = stranded ? 'CUT OFF' : sealed ? 'FIXED' : 'HOLD';
+  tag.textContent = stranded ? 'CUT OFF' : sealed ? 'FIXED' : cell.classList.contains('stays') && !g.held[i] ? 'STAYS' : 'HOLD';
   if (sealed) cell.classList.add('sealed');
   if (stranded) cell.classList.add('stranded');
   if (g.held[i]) cell.classList.add('held');
@@ -2535,7 +2575,8 @@ function renderControls() {
   bs.disabled = app.busy || g.phase !== 'playing' || !g.bonus.available;
   const playing = g.phase === 'playing';
   els.rerollBtn.disabled = app.busy || !engine.canReroll(g);
-  els.rerollBtn.textContent = g.rerollsLeft > 0 ? 'REROLL' : 'NO REROLLS LEFT';
+  const n = engine.rerollCount(g);
+  els.rerollBtn.textContent = g.rerollsLeft > 0 ? (n > 0 ? `REROLL ${n}` : 'REROLL · ALL HELD') : 'NO REROLLS LEFT';
   els.bankLastBtn.hidden = !(playing && mode.id === 'snake4' && g.hands.length === 1);
   els.bankLastBtn.disabled = app.busy;
   els.tapbar.hidden = !st.settings.pathMode || !playing;
@@ -2583,9 +2624,11 @@ function renderPreview() {
   if (!p.ok) { setPreview(p.message, 'bad'); return; }
   if (p.partial) { setPreview(`${p.count} / ${mode.handSize}`); return; }
   const mult = p.multiplier > 1 ? ` (${p.hand.points} ×${p.multiplier})` : '';
+  const leaves = p.leaves && p.leaves.length ? ` · leaves ${p.leaves.join(' ')}` : '';
   if (!p.safe && p.stranded && p.stranded.length) setPreview(`${p.hand.label} ${p.total} · CUTS OFF ${p.stranded.map((i) => `${g.faces[i]} ${CELL_NAMES[i]}`).join(' + ')}`, 'bad');
   else if (!p.safe) setPreview(`${p.hand.label} ${p.total} · ${p.safetyMessage.replace(/\.$/, '')}`, 'bad');
-  else setPreview(`${p.hand.label} +${p.total}${mult}${p.autoBonus ? ' · ×2 AUTO' : ''}`, 'good');
+  else if (p.hand.points === 0) setPreview(`${p.hand.label} 0${leaves}`, 'bad');
+  else setPreview(`${p.hand.label} +${p.total}${mult}${p.autoBonus ? ' · ×2 AUTO' : ''}${leaves}`, 'good');
 }
 
 function computeStranded() {
@@ -2800,6 +2843,10 @@ async function attemptBank(path, source) {
     });
     await wait(T.refill + 60 * r.refilled.length);
     r.refilled.forEach((i) => els.cells[i].classList.remove('refill'));
+    if (st.game.phase === 'playing') {
+      const stays = st.game.geometry.free.filter((i) => !r.refilled.includes(i));
+      flashCells(stays, 'stays', 700);
+    }
   }
   app.busy = false;
   if (!stillCurrent(st, modeId)) return;
