@@ -39,13 +39,8 @@ export function playGreedyBot(level, { rng, samples = 24, config = {} } = {}) {
       }
     }
     if (bestMask < 0) break;
-    for (let k = 0; k < free.length; k++) {
-      const want = ((bestMask >> k) & 1) === 1;
-      if (game.held[free[k]] !== want) {
-        const r = toggleHold(game, free[k]);
-        if (r.ok) game = r.state;
-      }
-    }
+    for (let k = 0; k < free.length; k++) if (game.held[free[k]] && !((bestMask >> k) & 1)) { const r = toggleHold(game, free[k]); if (r.ok) game = r.state; }
+    for (let k = 0; k < free.length; k++) if (!game.held[free[k]] && ((bestMask >> k) & 1)) { const r = toggleHold(game, free[k]); if (r.ok) game = r.state; }
     const r = reroll(game, () => rng.die());
     if (!r.ok) break;
     game = r.state;
@@ -97,15 +92,10 @@ export function playNaiveBot(level, { rng, config = {} } = {}) {
     const solved = solveBoard(game.faces, geometry, table, opts);
     const row = solved.bestBonus;
     const keep = new Set([...keepCells(row.hands[0]), ...keepCells(row.hands[1])]);
+    for (const cell of geometry.free) if (game.held[cell] && !keep.has(cell)) { const r = toggleHold(game, cell); if (r.ok) game = r.state; }
+    for (const cell of geometry.free) if (!game.held[cell] && keep.has(cell)) { const r = toggleHold(game, cell); if (r.ok) game = r.state; }
     let heldNow = 0;
-    for (const cell of geometry.free) {
-      const want = keep.has(cell);
-      if (game.held[cell] !== want) {
-        const r = toggleHold(game, cell);
-        if (r.ok) game = r.state;
-      }
-      if (game.held[cell]) heldNow++;
-    }
+    for (const cell of geometry.free) if (game.held[cell]) heldNow++;
     if (heldNow === geometry.free.length) break;
     const r = reroll(game, () => rng.die());
     if (!r.ok) break;

@@ -196,7 +196,7 @@ export function bankPath(state, path) {
     index: state.hands.length,
     cells: path.slice(),
     mask: p.mask,
-    faces: p.hand.faces,
+    faces: path.map((i) => state.faces[i]), // aligned with cells (path order)
     category: p.hand.category,
     label: p.hand.label,
     points: p.hand.points,

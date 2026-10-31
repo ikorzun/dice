@@ -147,7 +147,7 @@ export function bankPath(state, path, drawDie) {
     index: state.hands.length,
     cells: path.slice(),
     mask: p.mask,
-    faces: p.hand.faces,
+    faces: path.map((i) => state.faces[i]), // aligned with cells (path order)
     category: p.hand.category,
     label: p.hand.label,
     points: p.hand.points,
@@ -207,8 +207,17 @@ export function hintFor(state) {
   if (state.phase !== 'playing' || state.handsLeft <= 0) return null;
   const best = bestSnake(state);
   if (!best) return null;
-  const mult = state.bonus.available ? state.config.bonusMultiplier : 1;
-  return { cells: orderedPathsOf(best.cells)[0], hand: best, partition: null, useBonus: state.bonus.available && state.handsLeft === 1, projected: state.score + best.points * mult };
+  // Same multiplier rule as previewPath/bankPath, so the projected score matches the real bank.
+  const autoBonus = state.handsLeft === 1 && state.bonus.available && !state.bonus.armed && state.config.autoBonusOnFinalHand;
+  const usesBonus = state.bonus.available && (state.bonus.armed || autoBonus);
+  const recommendArm = state.bonus.available && !state.bonus.armed && state.handsLeft === 1 && !state.config.autoBonusOnFinalHand;
+  return {
+    cells: orderedPathsOf(best.cells)[0],
+    hand: best,
+    partition: null,
+    useBonus: recommendArm,
+    projected: state.score + best.points * (usesBonus ? state.config.bonusMultiplier : 1),
+  };
 }
 
 export function markHintUsed(state) {

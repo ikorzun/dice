@@ -13,10 +13,16 @@ function coreCells(hand) {
   return hand.cells.filter((c, k) => counts[hand.faces[k]] >= 2);
 }
 
-function setHolds(game, keep) {
+// Release unwanted holds first so a hold cap never drops the dice the bot decided to keep.
+export function setHolds(game, keep) {
   for (const i of game.geometry.free) {
-    const want = keep.has(i);
-    if (game.held[i] !== want) {
+    if (game.held[i] && !keep.has(i)) {
+      const r = toggleHold(game, i);
+      if (r.ok) game = r.state;
+    }
+  }
+  for (const i of game.geometry.free) {
+    if (!game.held[i] && keep.has(i)) {
       const r = toggleHold(game, i);
       if (r.ok) game = r.state;
     }

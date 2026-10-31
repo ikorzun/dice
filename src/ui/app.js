@@ -231,6 +231,7 @@ const app = {
   toastTimer: null,
   ghostKey: '',
   ghostAnim: null,
+  endTimer: null,
   look: 'modern',
 };
 
@@ -274,6 +275,7 @@ function serializeMode(st, engine) {
     onboarded: st.onboarded,
     coached: st.coached,
     coach: st.coach,
+    pendingTier: st.pendingTier,
     game: st.game ? engine.snapshot(st.game) : null,
     log: st.log.slice(-LOG_LIMIT),
     levels: st.levels.slice(-200),
@@ -303,7 +305,8 @@ function hydrateMode(id, saved) {
   if (saved.coach && saved.coach.active) st.coach = { active: true, done: { hold: false, reroll: false, ...(saved.coach.done || {}) } };
   st.log = Array.isArray(saved.log) ? saved.log : [];
   st.levels = Array.isArray(saved.levels) ? saved.levels : [];
-  if (saved.game && saved.game.phase === 'playing') {
+  st.pendingTier = Number.isInteger(saved.pendingTier) ? saved.pendingTier : null;
+  if (saved.game) {
     try {
       st.game = mode.engine.restore(saved.game);
       const seed = saved.game.level.seed;
@@ -337,8 +340,10 @@ function startGame(level, attempt) {
   st.allHeldToastShown = false;
   app.path = [];
   app.tapPath = [];
+  clearTimeout(app.hintTimer);
   app.hintCells = null;
   app.coachTargets = null;
+  clearTimeout(app.endTimer);
   stopGhost();
   logEvent('level_start', {
     seed: level.seed, levelIndex: level.levelIndex, tier: level.tier, target: level.target, faces: level.faces, attempt,
@@ -404,11 +409,15 @@ function showLevelEnd() {
     ? `Rule-based difficulty: stays at tier ${st.tier} / 5`
     : `Rule-based difficulty: tier ${st.tier} → ${st.pendingTier} / 5`;
   $('nextBtn').textContent = won ? 'NEXT LEVEL' : 'NEXT LEVEL (EASIER)';
-  setTimeout(() => { $('levelEnd').hidden = false; }, T.endDelay);
+  $('levelEnd').dataset.mode = app.modeId;
+  clearTimeout(app.endTimer);
+  const forMode = app.modeId;
+  app.endTimer = setTimeout(() => { if (app.modeId === forMode) $('levelEnd').hidden = false; }, T.endDelay);
 }
 
 function onNext() {
   const st = S();
+  if ($('levelEnd').dataset.mode !== app.modeId || !st.game || st.game.phase === 'playing') return;
   if (st.pendingTier != null) st.tier = st.pendingTier;
   st.levelIndex += 1;
   newLevel();
@@ -416,8 +425,14 @@ function onNext() {
 
 function onRetry() {
   const st = S();
+  if ($('levelEnd').dataset.mode !== app.modeId || !st.game || st.game.phase === 'playing') return;
   logEvent('retry', { attempt: st.game.attempt + 1 });
   startGame(st.game.level, st.game.attempt + 1);
+}
+
+// After an await, the animated mode may have been switched or reset; only then touch the screen.
+function stillCurrent(st, modeId) {
+  return app.modeId === modeId && app.modes[modeId] === st;
 }
 
 // ---------- mode switching ----------
@@ -428,8 +443,10 @@ function switchMode(id, { silent = false } = {}) {
   app.modeId = id;
   app.path = [];
   app.tapPath = [];
+  clearTimeout(app.hintTimer);
   app.hintCells = null;
   app.coachTargets = null;
+  clearTimeout(app.endTimer);
   stopGhost();
   $('levelEnd').hidden = true;
   $('help').hidden = true;
@@ -642,7 +659,8 @@ function renderCell(i) {
   const face = cell.querySelector('.face');
   const tag = cell.querySelector('.tag');
   const order = cell.querySelector('.order');
-  cell.className = 'cell';
+  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'bank-pop', 'refill'].filter((c) => cell.classList.contains(c));
+  cell.className = ['cell', ...transient].join(' ');
   if (!engine.isOrdinary(g, i)) {
     cell.classList.add('bonus');
     if (!g.bonus.available) cell.classList.add('used');
@@ -722,6 +740,8 @@ function renderControls() {
   els.pathModeBtn.classList.toggle('on', st.settings.pathMode);
   els.pathModeBtn.setAttribute('aria-pressed', String(st.settings.pathMode));
   els.hintBtn.disabled = app.busy || !playing;
+  els.helpBtn.disabled = app.busy;
+  els.pathModeBtn.disabled = app.busy;
   for (const btn of els.tabs) btn.disabled = app.busy;
 }
 
@@ -899,12 +919,16 @@ async function doReroll(source) {
   const st = S();
   const g = st.game;
   if (app.busy) return;
+  const modeId = app.modeId;
   const r = E().reroll(g, () => st.rerollRng.die());
   if (!r.ok) { toast(r.message, 'bad'); return; }
   st.game = r.state;
   logEvent('reroll', { source, rolled: r.rolled, held: [0, 1, 2, 3, 4, 5, 6, 7, 8].filter((i) => g.held[i]), left: st.game.rerollsLeft });
+  persist(); // the spent reroll and the new faces survive a reload during the animation
   app.busy = true;
   clearPath();
+  clearTimeout(app.hintTimer);
+  app.hintCells = null;
   renderControls();
   haptic(8);
   r.rolled.forEach((i, k) => {
@@ -916,6 +940,7 @@ async function doReroll(source) {
   await wait(T.roll + T.stagger * Math.max(0, r.rolled.length - 1));
   r.rolled.forEach((i) => els.cells[i].classList.remove('rolling'));
   app.busy = false;
+  if (!stillCurrent(st, modeId)) return;
   render();
   persist();
 }
@@ -925,27 +950,30 @@ async function attemptBank(path, source) {
   const st = S();
   const g = st.game;
   const mode = M();
+  const modeId = app.modeId;
   const r = E().bankPath(g, path, () => st.refillRng.die());
   st.game = r.state;
   if (!r.ok) {
     logEvent('path_rejected', { source, code: r.code, path, stranded: r.stranded || [] });
     const cutOff = r.code === 'STRANDS' && r.stranded && r.stranded.length ? ` ${describeCells(g, r.stranded)} would be cut off.` : '';
     toast(`${r.message}${cutOff}`, 'bad');
+    clearPath();
+    render();
     shakeCells(path);
     if (r.code === 'STRANDS') {
       if (r.stranded && r.stranded.length) flashCells(r.stranded, 'stranded', T.flash);
       const h = E().hintFor(st.game);
       if (h) flashCells(h.cells, 'safe-hint', T.flash);
     }
-    clearPath();
-    render();
     persist();
     return;
   }
   const hand = r.hand;
   if (hand.index === 0) st.firstHandAt = Date.now();
   logEvent('bank', { source, hand: hand.index, cells: hand.cells, faces: hand.faces, category: hand.category, points: hand.points, multiplier: hand.multiplier, total: hand.total, auto: hand.bonusAuto, refilled: r.refilled || [] });
+  persist(); // the irreversible hand survives a reload during the animation
   app.busy = true;
+  clearTimeout(app.hintTimer);
   app.hintCells = null;
   app.coachTargets = null;
   stopGhost();
@@ -958,6 +986,7 @@ async function attemptBank(path, source) {
   renderPath();
   setPreview(`${hand.label} +${hand.total}`, 'good');
   await wait(T.bank);
+  if (!stillCurrent(st, modeId)) { app.busy = false; return; }
   if (mode.refill && r.refilled && r.refilled.length) {
     render();
     r.refilled.forEach((i, k) => {
@@ -969,6 +998,7 @@ async function attemptBank(path, source) {
     r.refilled.forEach((i) => els.cells[i].classList.remove('refill'));
   }
   app.busy = false;
+  if (!stillCurrent(st, modeId)) return;
   render();
   persist();
   if (st.game.phase !== 'playing') finishLevel();
@@ -989,9 +1019,9 @@ function onHint() {
   logEvent('hint', { cells: h.cells, category: h.hand.category, useBonus: h.useBonus, projected: h.projected });
   app.hintCells = h.cells;
   clearTimeout(app.hintTimer);
-  app.hintTimer = setTimeout(() => { app.hintCells = null; render(); }, 2600);
+  app.hintTimer = setTimeout(() => { app.hintCells = null; if (!app.busy) render(); }, 2600);
   render();
-  const arm = h.useBonus && !g.bonus.armed && M().bonus === 'cell' ? ' · ARM ×2' : '';
+  const arm = h.useBonus && !g.bonus.armed ? ' · ARM ×2' : '';
   setPreview(`HINT · ${h.hand.label} ${h.hand.points}${arm} → ${h.projected}`, 'hint');
   persist();
 }
@@ -1007,6 +1037,7 @@ function onBankLast() {
 }
 
 function togglePathMode() {
+  if (app.busy) return;
   const st = S();
   st.settings.pathMode = !st.settings.pathMode;
   clearPath();
@@ -1132,7 +1163,7 @@ function showOnboarding() {
   const finger = $('demoFinger');
   if (app.demoAnim) app.demoAnim.cancel();
   if (!reduceMotion && typeof finger.animate === 'function') {
-    const pts = ob.demo.path.map((k) => ({ left: `${((k % 3) + 0.5) * 100 / 3}%`, top: `${(Math.floor(k / 3) + 0.5) * 100 / 3 * (200 / 230)}%` }));
+    const pts = ob.demo.path.map((k) => ({ left: `${((k % 3) + 0.5) * 100 / 3}%`, top: `${((Math.floor(k / 3) + 0.5) * 100 / 2) * (200 / 230)}%` }));
     const n = pts.length;
     const frames = [{ ...pts[0], opacity: 0, offset: 0 }, { ...pts[0], opacity: 1, offset: 0.12 }];
     for (let k = 1; k < n; k++) frames.push({ ...pts[k], opacity: 1, offset: 0.12 + (k / (n - 1)) * 0.6 });
@@ -1151,6 +1182,7 @@ function renderScoreTable() {
 }
 
 function openHelp() {
+  if (app.busy) return;
   const st = S();
   const mode = M();
   $('helpTitle').textContent = `HOW TO PLAY · ${mode.name.toUpperCase()}`;
@@ -1206,6 +1238,7 @@ async function exportLog() {
 }
 
 function resetProgress() {
+  if (app.busy) return;
   logEvent('reset');
   const fresh = freshModeState(M());
   fresh.onboarded = true;
@@ -1236,7 +1269,7 @@ function bind() {
   els.bankLastBtn.addEventListener('click', onBankLast);
   els.hintBtn.addEventListener('click', onHint);
   els.pathModeBtn.addEventListener('click', togglePathMode);
-  els.undoBtn.addEventListener('click', () => { app.tapPath.pop(); render(); });
+  els.undoBtn.addEventListener('click', () => { if (app.busy) return; app.tapPath.pop(); render(); });
   els.bankTapBtn.addEventListener('click', () => attemptBank(app.tapPath.slice(), 'tap'));
   els.helpBtn.addEventListener('click', openHelp);
   $('lookBtn').addEventListener('click', cycleLook);
@@ -1251,12 +1284,12 @@ function bind() {
   $('onboardStart').addEventListener('click', () => { S().onboarded = true; $('onboarding').hidden = true; logEvent('onboarded', { tutorial: true }); coachStart('onboarding'); });
   $('onboardSkip').addEventListener('click', () => { S().onboarded = true; S().coached = true; $('onboarding').hidden = true; logEvent('onboarded', { tutorial: false }); persist(); });
   $('coachSkip').addEventListener('click', () => coachStop('skipped'));
-  $('tutorialBtn').addEventListener('click', () => { $('help').hidden = true; coachStart('help'); });
+  $('tutorialBtn').addEventListener('click', () => { if (app.busy) return; $('help').hidden = true; coachStart('help'); });
   window.addEventListener('keydown', (e) => {
     if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
     if (e.key === 'r' || e.key === 'R') doReroll('key');
     if (e.key === 'h' || e.key === 'H') onHint();
-    if (e.key === 'Escape') { $('help').hidden = true; clearPath(); render(); }
+    if (e.key === 'Escape') { $('help').hidden = true; if (!app.busy) { clearPath(); render(); } }
   });
   const refit = () => { fitBoard(); };
   window.addEventListener('resize', refit);

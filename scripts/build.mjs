@@ -22,6 +22,7 @@ const MODULES = [
 
 const modId = (file) => `__mod_${basename(file, '.js').replace(/[^\w]/g, '_')}`;
 const known = new Set(MODULES.map((f) => basename(f)));
+const exportsByModule = new Map(); // basename -> Set of exported names (filled in bundle order)
 
 function transform(file) {
   let src = readFileSync(file, 'utf8');
@@ -30,8 +31,14 @@ function transform(file) {
   src = src.replace(/^import\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"];[ \t]*$/gm, (m, names, from) => {
     const target = basename(from);
     if (!known.has(target)) throw new Error(`${file} imports ${from}, which is not in the bundle list`);
+    if (MODULES.findIndex((f) => basename(f) === target) >= MODULES.indexOf(file)) {
+      throw new Error(`${file} imports ${from}, which is bundled after it; fix the MODULES order`);
+    }
+    const exported = exportsByModule.get(target) || new Set();
     const list = names.split(',').map((s) => s.trim()).filter(Boolean).map((s) => {
       const alias = s.match(/^(\w+)\s+as\s+(\w+)$/);
+      const name = alias ? alias[1] : s;
+      if (!exported.has(name)) throw new Error(`${file} imports ${name} from ${from}, which does not export it`);
       return alias ? `${alias[1]}: ${alias[2]}` : s;
     });
     return `const { ${list.join(', ')} } = ${modId(target)};`;
@@ -52,6 +59,7 @@ function transform(file) {
   });
   if (/^export\b/m.test(src)) throw new Error(`unhandled export statement in ${file}`);
   if (src.includes('</script')) throw new Error(`"</script" inside ${file} would break inlining`);
+  exportsByModule.set(basename(file), new Set([...exportsList].map((n) => (n.includes(':') ? n.split(':')[0].trim() : n))));
   return `// ---- ${file} ----\nconst ${modId(file)} = (() => {\n${src}\nreturn { ${[...exportsList].join(', ')} };\n})();`;
 }
 
@@ -62,7 +70,9 @@ const css = readFileSync('src/ui/styles.css', 'utf8');
 const cssTag = '<link rel="stylesheet" href="src/ui/styles.css">';
 const jsTag = '<script type="module" src="src/ui/app.js"></script>';
 if (!html.includes(cssTag) || !html.includes(jsTag)) throw new Error('index.html is missing the stylesheet/script tags the build expects');
-const standalone = html.replace(cssTag, `<style>\n${css}</style>`).replace(jsTag, `<script>\n${bundle}\n</script>`);
+if (css.includes('</style')) throw new Error('"</style" inside styles.css would break inlining');
+// Replacer functions keep "$&", "$1" and friends inside the CSS/JS literal.
+const standalone = html.replace(cssTag, () => `<style>\n${css}</style>`).replace(jsTag, () => `<script>\n${bundle}\n</script>`);
 
 const title = html.match(/<title>[^<]*<\/title>/)[0];
 const fontLink = html.match(/<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com[^>]*>/)?.[0] ?? '';
