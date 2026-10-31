@@ -17,6 +17,8 @@ const MODULES = [
   'src/engine/poker.js',
   'src/engine/levels.js',
   'src/engine/levels5.js',
+  'src/ui/dice3d-math.js',
+  'src/ui/dice3d.js',
   'src/ui/app.js',
 ];
 

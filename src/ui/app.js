@@ -21,10 +21,12 @@ import {
 } from '../engine/poker.js';
 import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from '../engine/levels.js';
 import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
+import { loadDice3D, rollDice3D, dice3dStatus } from './dice3d.js';
 
 const APP_VERSION = '0.2.0';
 const STORAGE_KEY = 'dice-snake.v2';
 const LOOK_KEY = 'dice-snake.look';
+const DICE3D_KEY = 'dice-snake.dice3d';
 const LOOKS = [
   { id: 'modern', name: 'Modern · black' },
   { id: 'manuscript', name: 'Manuscript · parchment and ink' },
@@ -255,7 +257,23 @@ const app = {
   ghostAnim: null,
   endTimer: null,
   look: 'modern',
+  dice3d: true,
 };
+
+// ---------- 3D physics dice (optional, CDN libraries) ----------
+function setDice3D(on) {
+  app.dice3d = !!on;
+  try { localStorage.setItem(DICE3D_KEY, app.dice3d ? '1' : '0'); } catch { /* ignore */ }
+  const box = $('optDice3d');
+  if (box) box.checked = app.dice3d;
+  if (app.dice3d) loadDice3D();
+}
+
+function lookColors() {
+  const cs = getComputedStyle(document.body);
+  const pick = (name, fallback) => (cs.getPropertyValue(name).trim() || fallback);
+  return { die: pick('--die', '#f4efe4'), pip: pick('--pip', '#0c0b09'), edge: pick('--die-edge', '#cbc3b1') };
+}
 
 // ---------- looks (visual concepts) ----------
 function setLook(id, { announce = false } = {}) {
@@ -265,6 +283,8 @@ function setLook(id, { announce = false } = {}) {
   try { localStorage.setItem(LOOK_KEY, look.id); } catch { /* ignore */ }
   const sel = $('optLook');
   if (sel) sel.value = look.id;
+  const d3box = $('optDice3d');
+  if (d3box) d3box.checked = app.dice3d;
   if (announce) toast(`LOOK: ${look.name}`, 'hint');
   if (app.modes[app.modeId] && app.modes[app.modeId].game) logEvent('look', { look: look.id });
 }
@@ -974,14 +994,34 @@ async function doReroll(source) {
   app.hintCells = null;
   renderControls();
   haptic(8);
-  r.rolled.forEach((i, k) => {
-    const c = els.cells[i];
-    c.style.setProperty('--delay', `${k * T.stagger}ms`);
-    c.classList.add('rolling');
-    setTimeout(() => { c.querySelector('.face').dataset.value = String(st.game.faces[i]); }, T.rollSwap + k * T.stagger);
-  });
-  await wait(T.roll + T.stagger * Math.max(0, r.rolled.length - 1));
-  r.rolled.forEach((i) => els.cells[i].classList.remove('rolling'));
+  let rolled3d = false;
+  if (app.dice3d && !reduceMotion && dice3dStatus() === 'ready') {
+    cacheRects();
+    r.rolled.forEach((i) => els.cells[i].classList.add('hidden3d'));
+    try {
+      rolled3d = await rollDice3D({
+        board: els.board,
+        rects: app.cellRects,
+        dice: r.rolled.map((i) => ({ index: i, value: st.game.faces[i] })),
+        colors: lookColors(),
+        rng: createRng(`${st.game.level.seed}/throw/${st.game.stats.rerollsUsed}/${st.game.attempt}`),
+        onLanded: () => { r.rolled.forEach((i) => { els.cells[i].querySelector('.face').dataset.value = String(st.game.faces[i]); }); },
+      });
+    } catch {
+      rolled3d = false;
+    }
+    r.rolled.forEach((i) => els.cells[i].classList.remove('hidden3d'));
+  }
+  if (!rolled3d) {
+    r.rolled.forEach((i, k) => {
+      const c = els.cells[i];
+      c.style.setProperty('--delay', `${k * T.stagger}ms`);
+      c.classList.add('rolling');
+      setTimeout(() => { c.querySelector('.face').dataset.value = String(st.game.faces[i]); }, T.rollSwap + k * T.stagger);
+    });
+    await wait(T.roll + T.stagger * Math.max(0, r.rolled.length - 1));
+    r.rolled.forEach((i) => els.cells[i].classList.remove('rolling'));
+  }
   app.busy = false;
   if (!stillCurrent(st, modeId)) return;
   render();
@@ -1323,6 +1363,7 @@ function bind() {
   els.helpBtn.addEventListener('click', openHelp);
   $('lookBtn').addEventListener('click', cycleLook);
   $('optLook').addEventListener('change', () => setLook($('optLook').value));
+  $('optDice3d').addEventListener('change', () => setDice3D($('optDice3d').checked));
   $('bonusStatus').addEventListener('click', () => armBonus('badge'));
   $('closeHelpBtn').addEventListener('click', () => { $('help').hidden = true; });
   for (const id of ['optHoldCap', 'optTable', 'optSmall', 'optEndOnTarget', 'optGold', 'optAutoBonus']) $(id).addEventListener('change', applySettings);
@@ -1354,6 +1395,10 @@ function init() {
   let look = 'modern';
   try { look = localStorage.getItem(LOOK_KEY) || 'modern'; } catch { /* ignore */ }
   setLook(look);
+  let d3 = true;
+  try { d3 = localStorage.getItem(DICE3D_KEY) !== '0'; } catch { /* ignore */ }
+  app.dice3d = d3;
+  if (d3 && !reduceMotion) setTimeout(() => loadDice3D(), 800);
   const saved = readJson(STORAGE_KEY);
   if (saved && saved.modes) {
     for (const id of Object.keys(MODES)) app.modes[id] = hydrateMode(id, saved.modes[id]);
@@ -1365,7 +1410,7 @@ function init() {
   fitBoard();
   switchMode(app.modeId, { silent: true });
   requestAnimationFrame(fitBoard);
-  window.__diceSnake = { app, version: APP_VERSION, state: () => S(), mode: () => M(), hint: () => E().hintFor(S().game), switchMode, setLook, LOOKS };
+  window.__diceSnake = { app, version: APP_VERSION, state: () => S(), mode: () => M(), hint: () => E().hintFor(S().game), switchMode, setLook, LOOKS, dice3d: dice3dStatus, setDice3D };
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

@@ -50,7 +50,8 @@ for (const vp of viewports) {
   const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, deviceScaleFactor: 2, hasTouch: vp.mobile, isMobile: vp.mobile });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => note(vp, `pageerror ${e.message}`));
-  page.on('console', (m) => { if (m.type() === 'error') note(vp, `console ${m.text()}`); });
+  // Blocked CDN resources (fonts, three.js, cannon-es) are expected offline; everything else is a problem.
+  page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) note(vp, `console ${m.text()}`); });
   await page.goto(url);
   await page.waitForSelector('#board .cell');
   await page.waitForTimeout(150);
@@ -76,6 +77,9 @@ for (const vp of viewports) {
   if (layout.cell < 44) note(vp, `cell too small (${layout.cell.toFixed(0)}px)`);
   console.log(`${vp.w}x${vp.h}: board ${layout.board.toFixed(0)}px, cell ${layout.cell.toFixed(0)}px, reroll bottom ${layout.rerollBottom.toFixed(0)}, toolbar bottom ${layout.toolbarBottom.toFixed(0)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-1-start.png` });
+  await page.waitForTimeout(1500);
+  const d3 = await page.evaluate(() => window.__diceSnake.dice3d());
+  console.log(`${vp.w}x${vp.h}: 3D dice status ${d3}`);
 
   // hold / release (advances the tutorial to the reroll step)
   await tap(page, 0);
