@@ -1786,15 +1786,15 @@ const { createRng } = __mod_rng;
 const { createPokerGame, bestSnake } = __mod_poker;
 const { clampTier } = __mod_levels;
 
-const GENERATOR5_VERSION = 'poker5-gen-1';
+const GENERATOR5_VERSION = 'poker5-gen-2';
 
 // Calibrated with scripts/montecarlo5.mjs (see docs/DESIGN-POKER5.md).
 const TIERS5 = Object.freeze({
   1: Object.freeze({ target: 40, openingMax: 0.5 }),
   2: Object.freeze({ target: 55, openingMax: 0.5 }),
-  3: Object.freeze({ target: 75, openingMax: 0.5 }),
-  4: Object.freeze({ target: 95, openingMax: 0.5 }),
-  5: Object.freeze({ target: 115, openingMax: 0.5 }),
+  3: Object.freeze({ target: 70, openingMax: 0.5 }),
+  4: Object.freeze({ target: 85, openingMax: 0.5 }),
+  5: Object.freeze({ target: 100, openingMax: 0.5 }),
 });
 
 function rollFaces9(rng, bonusIndex = null) {
