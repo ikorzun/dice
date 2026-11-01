@@ -1,6 +1,6 @@
 // Fire on the dice of a strong hand (four of a kind, five of a kind, straight; owner, 01.11.2026): a WebGL
 // fragment shader in one canvas laid over the board, like the 3D dice. Drawn in the style of the game's
-// illustrations (owner): flat bands from the art palette with an ink outline of constant width, no glow.
+// illustrations (owner): flat bands from the art palette, no outline (owner) and no glow.
 // Rising, domain-warped fbm noise is cut into tongues by each die's rounded-square distance: they lap over
 // the die's edges and rise from it, tapering by themselves (never cut, even past the screen edge; the
 // canvas leaves room and only fades at its own border as a safety net); flat embers rise and fade.
@@ -68,15 +68,13 @@ void main() {
   }
   // a die stands in front of the flames rising behind it: on its face only its own flames lap
   if (dmin < 0.0) flame = own;
-  // flat bands from the art palette, cut crisply; the ink outline lies just outside the flame, never
-  // across a die's face
+  // flat bands from the art palette, cut crisply, with no outline (owner, 01.11.2026)
   float px = max(fwidth(flame), 1e-4);
-  vec3 col = vec3(0.051, 0.043, 0.059);                                                   // ink #0d0b0f
-  col = mix(col, vec3(0.992, 0.306, 0.235), clamp(flame / px + 0.5, 0.0, 1.0));          // red #fd4e3c
+  vec3 col = vec3(0.992, 0.306, 0.235);                                                   // red #fd4e3c
   col = mix(col, vec3(1.0, 0.478, 0.102), clamp((flame - 0.3) / px + 0.5, 0.0, 1.0));    // orange #ff7a1a
   col = mix(col, vec3(1.0, 0.714, 0.153), clamp((flame - 0.58) / px + 0.5, 0.0, 1.0));   // amber #ffb627
   col = mix(col, vec3(1.0, 0.914, 0.659), clamp((flame - 0.86) / px + 0.5, 0.0, 1.0));   // cream #ffe9a8
-  float a = clamp(flame / px + (dmin > 0.0 ? 2.6 : 0.5), 0.0, 1.0);                     // + 2 px of outline
+  float a = clamp(flame / px + 0.5, 0.0, 1.0);
   float ea = clamp(ember / max(fwidth(ember), 1e-4) + 0.5, 0.0, 1.0) * (1.0 - a) * step(0.0, dmin);
   vec3 C = col * a + vec3(1.0, 0.918, 0.227) * ea;                                        // yellow #ffea3a
   float A = a + ea;

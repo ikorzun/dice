@@ -898,6 +898,7 @@ function renderCell(i) {
   if (k < 0 && app.safeNext && app.safeNext.includes(i)) cell.classList.add('safe-next');
   // Auto Hand does not mark the dice of its hand (owner, 01.11.2026): finding it is the game
   cell.style.setProperty('--die-img', `var(--face-${g.faces[i]}${g.held[i] ? '-held' : ''})`); // the rendered die, when 3D is on
+  cell.style.setProperty('--die-plain', `var(--face-${g.faces[i]})`); // a burning die is not lime (owner, 01.11.2026)
   cell.setAttribute('aria-label', `Die ${g.faces[i]}${g.held[i] ? ', held' : ''}${sealed ? ', fixed' : ''}`);
 }
 

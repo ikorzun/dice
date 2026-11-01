@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>REFUND animation</title>
+<style>
+  @font-face { font-family: "Basteleur"; src: url("../../assets/fonts/Basteleur-Bold.otf") format("opentype"); font-weight: 700; }
+  :root { --bg: #000; --fg: #fff; --muted: #8a8a8a; --die: #fff; --hold: #d4ff82; --accent: #ffea3a; --tile: #262626; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 15px/1.4 system-ui, sans-serif; }
+  h1 { margin: 0 0 4px; font: 700 26px/1.1 "Basteleur", system-ui; }
+  p.lead { margin: 0 0 14px; color: var(--muted); }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .bar label { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; background: var(--tile); }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+  .col h2 { margin: 0 0 8px; font: 700 20px/1 "Basteleur", system-ui; }
+  .col h2 small { color: var(--muted); font: 13px system-ui; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-width: 420px; }
+  .tile { position: relative; aspect-ratio: 1; border-radius: 25.5%; background: var(--die); overflow: hidden; cursor: pointer; transition: background-color 120ms; }
+  .tile.on { background: var(--hold); }
+  .tile canvas, .tile i { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .tile i { background: url("../../assets/ui/bonuses/refund-idle.webp") 0 0 / 2400% 100% no-repeat; animation: strip calc(2s * var(--slow, 1)) steps(24, jump-none) infinite; }
+  @keyframes strip { from { background-position: 0% 0; } to { background-position: 100% 0; } }
+  button.go { margin-top: 12px; height: 52px; padding: 0 22px; border: 0; border-radius: 52px; background: var(--accent); color: #000; font: 700 18px "Basteleur", system-ui; cursor: pointer; }
+  .hero { position: fixed; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .9); }
+  .hero .stage { position: relative; width: min(92vw, 80vh, 640px); aspect-ratio: 1; }
+  .hero canvas { position: absolute; left: -25%; top: -35%; width: 150%; height: 150%; }
+  .hero i { position: absolute; inset: 0; border-radius: 25.5%; overflow: hidden; background: url("../../assets/ui/bonuses/refund-trigger.webp") 0 0 / 2400% 100% no-repeat; animation: strip calc(2s * var(--slow, 1)) steps(24, jump-none) forwards; }
+  .hero p { position: absolute; bottom: 16px; left: 0; right: 0; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<h1>REFUND · было / стало</h1>
+<p class="lead">Слева нынешняя анимация (весь рисунок качается целиком, 2,15 МБ). Справа риг из частей с пружинами и сменными рисунками (164 КБ на всё). Тап по плитке справа — реакция на включение. Кнопки — действие на весь экран.</p>
+<div class="bar">
+  <label><input type="checkbox" id="slow"> медленно ×0,25</label>
+  <label><input type="checkbox" id="twos"> 12 к/с («на двойках»)</label>
+</div>
+<div class="cols">
+  <section class="col">
+    <h2>БЫЛО <small>полосы кадров</small></h2>
+    <div class="grid" id="old"></div>
+    <button class="go" id="oldGo" type="button">ДЕЙСТВИЕ · БЫЛО</button>
+  </section>
+  <section class="col">
+    <h2>СТАЛО <small>риг на Canvas 2D</small></h2>
+    <div class="grid" id="new"></div>
+    <button class="go" id="newGo" type="button">ДЕЙСТВИЕ · СТАЛО</button>
+  </section>
+</div>
+<script type="module">
+import { loadRig, createPuppet } from './rig.js';
+import { birdDef, idle, react, trigger, REACT_S, TRIGGER_S } from './bird.js';
+
+const rig = await loadRig('bird', await birdDef('bird'));
+const dpr = Math.min(2, window.devicePixelRatio || 1);
+let speed = 1;
+let clock = 0; // the animations' own time: slowed down by the switch
+let last = performance.now();
+const puppets = [];
+
+for (let k = 0; k < 9; k++) {
+  const old = document.createElement('div');
+  old.className = 'tile';
+  old.innerHTML = '<i></i>';
+  old.querySelector('i').style.animationDelay = `${-k * 0.23}s`;
+  old.addEventListener('click', () => old.classList.toggle('on'));
+  document.getElementById('old').appendChild(old);
+
+  const tile = document.createElement('div');
+  tile.className = 'tile';
+  const canvas = document.createElement('canvas');
+  tile.appendChild(canvas);
+  document.getElementById('new').appendChild(tile);
+  const puppet = createPuppet(canvas, rig);
+  const loop = idle(k + 1);
+  puppet.play(loop, clock * 1000 - k * 370);
+  tile.addEventListener('click', () => {
+    const on = tile.classList.toggle('on');
+    if (!on) return;
+    puppet.play(react, clock * 1000);
+    setTimeout(() => puppet.play(loop, clock * 1000), (REACT_S * 1000) / speed);
+  });
+  puppets.push({ puppet, canvas });
+}
+
+function size() {
+  for (const { canvas } of puppets) {
+    const w = Math.round(canvas.clientWidth * dpr);
+    if (canvas.width !== w) { canvas.width = w; canvas.height = w; }
+  }
+}
+window.addEventListener('resize', size);
+size();
+
+let hero = null;
+function showHero(fresh) {
+  const box = document.createElement('div');
+  box.className = 'hero';
+  box.innerHTML = `<div class="stage">${fresh ? '<canvas></canvas>' : '<i></i>'}</div><p>тап — закрыть</p>`;
+  document.body.appendChild(box);
+  box.addEventListener('click', () => { box.remove(); hero = null; });
+  if (!fresh) return;
+  const canvas = box.querySelector('canvas');
+  canvas.width = canvas.height = Math.round(canvas.clientWidth * dpr);
+  const puppet = createPuppet(canvas, rig, { view: { x: -256, y: -358, size: 1536 } });
+  const loop = idle(42);
+  puppet.play(trigger, clock * 1000);
+  setTimeout(() => puppet.play(loop, clock * 1000), (TRIGGER_S * 1000 + 600) / speed);
+  hero = { puppet };
+}
+document.getElementById('oldGo').addEventListener('click', () => showHero(false));
+document.getElementById('newGo').addEventListener('click', () => showHero(true));
+document.getElementById('slow').addEventListener('change', (e) => {
+  speed = e.target.checked ? 0.25 : 1;
+  document.documentElement.style.setProperty('--slow', String(1 / speed));
+});
+document.getElementById('twos').addEventListener('change', (e) => {
+  for (const { puppet } of puppets) puppet.onTwos = e.target.checked;
+});
+
+function frame(now) {
+  clock += ((now - last) / 1000) * speed;
+  last = now;
+  const t = clock * 1000;
+  for (const { puppet } of puppets) puppet.draw(t);
+  if (hero) hero.puppet.draw(t);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__charAnim = { rig, puppets, showHero };
+</script>
+</body>
+</html>

@@ -254,6 +254,8 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 /* Resting dice drawn from the 3D model (dice3d.js renderFaces) when 3D is on, like the rolling ones.
    The picture is the cell's background, so hold and hint rings (inset shadows) stay on top of it. */
 #board.rendered .cell.die { --die-edge: transparent; --die-shadow: none; background: var(--die-img) center / 100% 100% no-repeat; }
+#board.rendered .cell.die.on-fire { background-image: var(--die-plain); } /* the fire marks the choice: no lime under it */
+.cell.die.held.on-fire { background-color: var(--die); }
 #board.rendered .cell.die .face { display: none; }
 .path-layer polyline { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 #pathLine { stroke: var(--path); stroke-width: 7; filter: drop-shadow(0 0 6px rgba(255, 123, 71, .65)); }
