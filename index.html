@@ -15,6 +15,7 @@
   <nav class="tabs" id="tabs" aria-label="Game mode">
     <button class="tab" type="button" data-mode="snake4" id="tabSnake4">SNAKE 4+4</button>
     <button class="tab" type="button" data-mode="poker5" id="tabPoker5">POKER 5</button>
+    <button class="tab" type="button" data-mode="auto" id="tabAuto">AUTO HAND</button>
   </nav>
   <header class="hud">
     <div class="stat score" id="scoreStat"><span class="label">SCORE</span><span class="value" id="score">0</span></div>
@@ -35,6 +36,7 @@
       <span class="rerolls"><span class="pips" id="rerollPips"></span><span id="rerollText">REROLLS</span></span>
       <button class="bonus-status" id="bonusStatus" type="button">×2 READY</button>
     </div>
+    <button class="btn-primary" id="playBtn" type="button" hidden>PLAY HAND</button>
     <button class="btn-primary" id="rerollBtn" type="button">REROLL</button>
     <button class="btn-secondary" id="bankLastBtn" type="button" hidden>BANK LAST 4</button>
     <div class="tapbar" id="tapbar" hidden>
@@ -86,7 +88,7 @@
 <section class="overlay sheet" id="help" hidden>
   <div class="panel sheet-panel">
     <h2 class="end-title" id="helpTitle">HOW TO PLAY</h2>
-    <p class="lead"><strong>Matching dice score their sum × a multiplier that grows with rarity.</strong> Pair × 2, two pairs × 3, three of a kind × 4, straight and full house × 5 (all five dice), four of a kind × 6, five of a kind × 8. Three 3s = 9 × 4 = 36; four 4s = 16 × 6 = 96.</p>
+    <p class="lead" id="helpScoring"><strong>Matching dice score their sum × a multiplier that grows with rarity.</strong> Pair × 2, two pairs × 3, three of a kind × 4, straight and full house × 5 (all five dice), four of a kind × 6, five of a kind × 8. Three 3s = 9 × 4 = 36; four 4s = 16 × 6 = 96.</p>
     <p class="lead" id="helpLead"></p>
     <ol class="rules" id="helpRules"></ol>
     <h3 id="helpScoreTitle">SCORING</h3>
