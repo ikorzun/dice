@@ -1270,12 +1270,11 @@ async function doReroll(source) {
   haptic(8);
   let rolled3d = false;
   if (app.dice3d && !reduceMotion && dice3dStatus() === 'ready') {
-    cacheRects();
     r.rolled.forEach((i) => els.cells[i].classList.add('hidden3d'));
     try {
       rolled3d = await rollDice3D({
         board: els.board,
-        rects: app.cellRects,
+        cells: els.cells,
         dice: r.rolled.map((i) => ({ index: i, from: g.faces[i], value: st.game.faces[i] })),
         colors: lookColors(),
         rng: createRng(`${st.game.level.seed}/throw/${st.game.stats.rerollsUsed}/${st.game.attempt}`),

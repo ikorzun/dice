@@ -1,27 +1,46 @@
-// 3D dice, after the owner's reference video (01.11.2026). On a reroll every rolled die spins at its
-// cell — no lift, no physics, no scale — at full speed from the first frame, slows only over the
-// last ~20% of 500 ms and lands face-on on the engine's value, with motion blur while it is fast;
-// the dice drift apart while they spin and fall back together ("gravity between the dice"). The
-// resting dice are pictures of the same model from the same camera (renderFaces), so nothing
+// 3D dice: variant D of prototypes/dice-anim ("three.js по ключам"), put in the game by the owner on
+// 01.11.2026 in place of the in-place spin after the reference video. A rerolled die crouches, rises
+// a little, tumbles once about a nearly horizontal axis into the floor, lands tilted on an edge, hops
+// and tips flat onto the engine's value; a shadow spot on the board follows it, and the dice start
+// 45 ms apart in a shuffled order. No physics: the lift and the squash are WAAPI keyframes on the
+// (hidden) cell and the GL die follows the cell's live box, so the curve is the prototype's exactly.
+// The resting dice are pictures of the same model from the same camera (renderFaces), so nothing
 // changes when the DOM die takes over. Each die is drawn by its own camera straight above it
 // (viewport + scissor over one canvas laid over the board). three.js loads lazily from the CDN;
 // when it is unavailable the caller keeps the CSS dice and their tumble.
 
-import { landingQuaternion, spinPlan, spinAt, spinRemaining, spreadAt, qAxisAngle, qMul, SPIN } from './dice3d-math.js';
+import { landingQuaternion, tumblePlan, tumblePose, qAxisAngle, qMul, ROLL } from './dice3d-math.js';
 import { DIE_BODY, DIE_PIPS, decodePart } from './dice-model.js';
 
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 const ROUND_R = 0.224; // bevel radius of the model, in half-sides (measured from the mesh)
 const CAM_DIST = 9;    // camera height above the die centre, in half-sides
-const BLEED = 1.5;     // viewport side ÷ die side: room for the corners of a spinning die
-// Motion blur: the die is drawn `samples` times per frame over the last `shutter` of the roll
-// (half a 60 fps frame of the 500 ms reference roll: an ~18° smear that keeps the pips readable as
-// soft dots, like the reference; ~2.6° between samples so they do not strobe) and averaged.
-const BLUR = Object.freeze({ samples: 8, shutter: 0.017 });
-// Two extra turns plus one tumble: ~36° a frame and ~2.6 turns a roll, like the reference.
-const TURNS = 2;
-const SPREAD_SHARE = 0.2; // how far apart the dice drift, in cell pitches per pitch from the centre
+const BLEED = 1.5;     // viewport side ÷ die side: room for the corners of a tumbling die
 const FADE_MS = 100;   // the landed canvas fades out over the DOM die
+// Lift of the cell (the prototype's 3D lift: a tumbling cube already looks bigger, so it rises only
+// 6%): crouch, rise, fall into the first impact, squash, hop, second contact, rest (ROLL.impacts).
+const LIFT = [
+  { offset: 0, transform: 'translate(0, 0) scale(1)', easing: 'cubic-bezier(.3, 0, .6, 1)' },
+  { offset: 0.08, transform: 'translate(0, 1.5%) scale(.95)', easing: 'cubic-bezier(.2, .7, .35, 1)' },
+  { offset: 0.36, transform: 'translate(0, -6%) scale(1.06)', easing: 'cubic-bezier(.55, 0, .85, .4)' },
+  { offset: 0.62, transform: 'translate(0, 0) scale(1)', easing: 'cubic-bezier(.2, .8, .4, 1)' },
+  { offset: 0.67, transform: 'translate(0, 0) scale(1.035, .965)', easing: 'cubic-bezier(.2, .7, .4, 1)' },
+  { offset: 0.74, transform: 'translate(0, -3%) scale(1.04)', easing: 'cubic-bezier(.5, 0, .8, .5)' },
+  { offset: 0.84, transform: 'translate(0, 0) scale(.985)', easing: 'cubic-bezier(.2, .8, .4, 1)' },
+  { offset: 1, transform: 'translate(0, 0) scale(1)' },
+];
+// Shadow spot under the die: it slides away and thins as the die rises, comes back as it falls and
+// sits under it at the impacts. The resting dice have no shadow, so it fades in during the crouch
+// and out after the second contact.
+const SHADOW = [
+  { offset: 0, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0, easing: 'cubic-bezier(.3, 0, .6, 1)' },
+  { offset: 0.08, transform: 'translate(4%, 6%) scale(1.02)', opacity: 0.6, easing: 'cubic-bezier(.2, .7, .35, 1)' },
+  { offset: 0.36, transform: 'translate(17%, 22%) scale(.84)', opacity: 0.2, easing: 'cubic-bezier(.55, 0, .85, .4)' },
+  { offset: 0.62, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0.6, easing: 'cubic-bezier(.2, .8, .4, 1)' },
+  { offset: 0.74, transform: 'translate(8%, 10%) scale(.98)', opacity: 0.45, easing: 'cubic-bezier(.5, 0, .8, .5)' },
+  { offset: 0.84, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0.58, easing: 'ease-out' },
+  { offset: 1, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0 },
+];
 
 let THREE = null;      // the module once loaded, false when loading failed
 let loading = null;
@@ -85,14 +104,11 @@ function prepare() {
   key.position.set(-2, 6, -3);
   scene.add(key);
   const geo = modelGeometries();
-  // Transparent so the blur samples can be averaged; pips after the body so far-side pips stay hidden.
-  const bodyMat = new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0, transparent: true });
+  const bodyMat = new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0 });
   // Unlit pips: the light would grey them, and the DOM die (and the reference) has them flat black.
-  const pipMat = new THREE.MeshBasicMaterial({ transparent: true });
+  const pipMat = new THREE.MeshBasicMaterial();
   const model = new THREE.Group();
-  const pips = new THREE.Mesh(geo.pips, pipMat);
-  pips.renderOrder = 1;
-  model.add(new THREE.Mesh(geo.body, bodyMat), pips);
+  model.add(new THREE.Mesh(geo.body, bodyMat), new THREE.Mesh(geo.pips, pipMat));
   scene.add(model);
   // The top face (y = 1) spans exactly the cell's die at the edge of a BLEED-wide view.
   const camera = new THREE.PerspectiveCamera((2 * Math.atan(BLEED / (CAM_DIST - 1)) * 180) / Math.PI, 1, 0.5, 40);
@@ -103,14 +119,16 @@ function prepare() {
   kit = { canvas, renderer, scene, camera, model, bodyMat, pipMat };
 }
 
-// dice: [{ index, from, value }] (the face shown before and the engine's new value); rects: DOMRect
-// per cell index; rng: seeded, for spin variety. Resolves once the canvas has faded over the DOM.
-export async function rollDice3D({ board, rects, dice, colors, rng, onLanded, durationMs = SPIN.durationMs }) {
+// dice: [{ index, from, value }] (the face shown before and the engine's new value); cells: the cell
+// elements by index (each rolled one hidden by the caller; its box carries the lift); rng: seeded,
+// for the throw's variety. Resolves once the canvas has faded over the DOM.
+export async function rollDice3D({ board, cells, dice, colors, rng, onLanded }) {
   if (!(await loadDice3D()) || !kit || !dice.length) return false;
   const boardRect = board.getBoundingClientRect();
   if (boardRect.width < 40) return false;
-  // room for the corners of the outer dice, drifted out by the spread
-  const bleed = (rects[dice[0].index].width * (BLEED - 1)) / 2 + (boardRect.width / 3) * SPREAD_SHARE;
+  // room for the corners of a tumbling die at its lift and peak scale
+  const cellRect = cells[dice[0].index].getBoundingClientRect();
+  const bleed = (cellRect.width * (BLEED * 1.06 - 1)) / 2 + cellRect.height * 0.06;
   const width = boardRect.width + 2 * bleed;
   const height = boardRect.height + 2 * bleed;
   const { canvas, renderer, scene, camera, model, bodyMat, pipMat } = kit;
@@ -120,55 +138,66 @@ export async function rollDice3D({ board, rects, dice, colors, rng, onLanded, du
   renderer.setSize(width, height, false);
   bodyMat.color.set(colors.die);
   pipMat.color.set(colors.pip);
+
+  // the cascade: a shuffled order, not a row
+  const order = dice.slice();
+  for (let i = order.length - 1; i > 0; i--) {
+    const k = Math.floor(rng.next() * (i + 1));
+    [order[i], order[k]] = [order[k], order[i]];
+  }
+  const halfTurn = qAxisAngle([0, 1, 0], Math.PI); // a die turned 180° on the board shows the same layout
+  const jobs = order.map((d, k) => {
+    const end = rng.next() < 0.5 ? landingQuaternion(d.value) : qMul(halfTurn, landingQuaternion(d.value));
+    const a = rng.next() * Math.PI * 2; // a nearly horizontal tumble axis: the die rolls over its edges
+    const plan = tumblePlan(landingQuaternion(d.from ?? d.value), end, [Math.cos(a), 0.25 * (rng.next() - 0.5), Math.sin(a)]);
+    const cell = cells[d.index];
+    const timing = { duration: ROLL.durationMs, delay: k * ROLL.staggerMs, fill: 'backwards' };
+    const r = cell.getBoundingClientRect();
+    const shadow = document.createElement('div');
+    shadow.className = 'dice3d-shadow';
+    Object.assign(shadow.style, {
+      left: `${r.left - boardRect.left + r.width * 0.03}px`,
+      top: `${r.top - boardRect.top + r.height * 0.03}px`,
+      width: `${r.width * 0.94}px`,
+      height: `${r.height * 0.94}px`,
+    });
+    board.appendChild(shadow);
+    shadow.animate(SHADOW, timing);
+    return { plan, cell, shadow, delay: timing.delay, lift: cell.animate(LIFT, timing) };
+  });
   board.appendChild(canvas);
 
-  const halfTurn = qAxisAngle([0, 1, 0], Math.PI); // a die turned 180° on the board shows the same layout
-  const jobs = dice.map((d) => {
-    const end = rng.next() < 0.5 ? landingQuaternion(d.value) : qMul(halfTurn, landingQuaternion(d.value));
-    // tumble about a uniformly random axis: the reference shows dice corner-on to the viewer as often as not
-    const a = rng.next() * Math.PI * 2;
-    const h = rng.next() * 2 - 1;
-    const axis = [Math.sqrt(1 - h * h) * Math.cos(a), h, Math.sqrt(1 - h * h) * Math.sin(a)];
-    const plan = spinPlan(landingQuaternion(d.from ?? d.value), end, axis, TURNS, 1);
-    const r = rects[d.index];
-    const size = r.width * BLEED;
-    const cx = r.left + r.width / 2 - boardRect.left;
-    const cy = r.top + r.height / 2 - boardRect.top;
-    const x = cx + bleed - size / 2;
-    const y = height - (cy + bleed + size / 2); // GL origin is bottom-left
-    // the spread moves each die away from the board centre, in proportion to its distance from it
-    return { plan, size, x, y, dx: (cx - boardRect.width / 2) * SPREAD_SHARE, dy: (cy - boardRect.height / 2) * SPREAD_SHARE };
-  });
-
-  const draw = (u) => {
+  // Every die every frame, also before its turn (its old face, still) and after it lands (its new
+  // face, flat): the board shows the canvas until the last die lands, then hands over at once.
+  const draw = () => {
+    const br = board.getBoundingClientRect();
     renderer.setScissorTest(false);
     renderer.clear();
     renderer.setScissorTest(true);
-    const samples = spinRemaining(u) > 0 ? BLUR.samples : 1;
-    for (const j of jobs) {
-      for (let k = 0; k < samples; k++) {
-        // oldest sample first; opacity 1/(k+1) keeps a running average of the samples drawn so far
-        const uk = samples > 1 ? u - (BLUR.shutter * (samples - 1 - k)) / (samples - 1) : u;
-        const s = spreadAt(uk);
-        renderer.setViewport(j.x + j.dx * s, j.y - j.dy * s, j.size, j.size);
-        renderer.setScissor(j.x + j.dx * s, j.y - j.dy * s, j.size, j.size);
-        const q = spinAt(j.plan, spinRemaining(uk));
-        model.quaternion.set(q.x, q.y, q.z, q.w);
-        bodyMat.opacity = 1 / (k + 1);
-        pipMat.opacity = bodyMat.opacity;
-        renderer.clearDepth();
-        renderer.render(scene, camera);
-      }
+    const live = jobs.map((j) => ({ j, box: j.cell.getBoundingClientRect() })).sort((p, q) => p.box.width - q.box.width); // the lifted die on top
+    for (const { j, box } of live) {
+      const u = Math.min(1, Math.max(0, ((j.lift.currentTime ?? 0) - j.delay) / ROLL.durationMs));
+      // the squash at the impact makes the box non-square: the picture squashes with it
+      const w = box.width * BLEED;
+      const h = box.height * BLEED;
+      const x = box.left + box.width / 2 - br.left + bleed - w / 2;
+      const y = height - (box.top + box.height / 2 - br.top + bleed + h / 2); // GL origin is bottom-left
+      renderer.setViewport(x, y, w, h);
+      renderer.setScissor(x, y, w, h);
+      const q = tumblePose(j.plan, u);
+      model.quaternion.set(q.x, q.y, q.z, q.w);
+      renderer.clearDepth();
+      renderer.render(scene, camera);
     }
   };
 
+  let landed = false;
+  Promise.all(jobs.map((j) => j.lift.finished)).catch(() => {}).then(() => { landed = true; });
   await new Promise((resolve) => {
-    const t0 = performance.now();
-    const tick = (now) => {
-      const u = (now - t0) / durationMs;
-      draw(Math.min(1, u));
-      if (u < 1) { requestAnimationFrame(tick); return; }
-      // Landed face-on: the DOM die takes over underneath and the canvas fades out over it.
+    const tick = () => {
+      draw();
+      if (!landed) { requestAnimationFrame(tick); return; }
+      // All landed face-on: the DOM dice take over underneath and the canvas fades out over them.
       if (onLanded) onLanded();
       canvas.style.transition = `opacity ${FADE_MS}ms linear`;
       requestAnimationFrame(() => { canvas.style.opacity = '0'; });
@@ -180,6 +209,7 @@ export async function rollDice3D({ board, rects, dice, colors, rng, onLanded, du
   renderer.setScissorTest(false);
   renderer.clear();
   canvas.remove(); // kept with its renderer for the next roll
+  jobs.forEach((j) => j.shadow.remove());
   kit.rolling = false;
   return true;
 }
@@ -200,8 +230,6 @@ export function renderFaces({ colors, px = 384 }) {
   out.height = px;
   const ctx = out.getContext('2d');
   bodyMat.color.set(colors.die);
-  bodyMat.opacity = 1;
-  pipMat.opacity = 1;
   const faces = {};
   for (const [suffix, pip] of [['', colors.pip], ['h', colors.hand]]) {
     pipMat.color.set(pip);

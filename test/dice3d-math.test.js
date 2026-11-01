@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  landingQuaternion, spinRemaining, spinPlan, spinAt, spreadAt, rotateVector, gridCell, qAxisAngle, qMul, FACE_AXES, DOM_PIPS, SPIN, SPREAD,
+  landingQuaternion, tumbleTheta, tumblePlan, tumblePose, rotateVector, gridCell, qAxisAngle, qMul, FACE_AXES, DOM_PIPS, ROLL,
 } from '../src/ui/dice3d-math.js';
 import { MODEL_FACE_VALUES, DIE_BODY, DIE_PIPS, decodePart } from '../src/ui/dice-model.js';
 
@@ -32,31 +32,36 @@ test('every value lands face-up with the pip layout of the DOM die', () => {
   }
 });
 
-test('the spin keeps full speed for the first 80% of the roll, then eases to rest without a bounce', () => {
-  assert.equal(spinRemaining(0), 1);
-  assert.ok(Math.abs(spinRemaining(1)) < 1e-12);
-  const step = 1 / 600;
-  const speed = (u) => (spinRemaining(u) - spinRemaining(u + step)) / step;
-  const top = speed(0);
-  for (let u = 0; u + step <= SPIN.flat - step; u += step) assert.ok(Math.abs(speed(u) - top) < 1e-6);
-  let prev = top;
-  for (let u = SPIN.flat; u + step <= 1; u += step) {
-    const s = speed(u);
-    assert.ok(s >= 0 && s <= prev + 1e-9, `speed rises at ${u}`);
-    prev = s;
+test('the tumble waits out the crouch, eases into an edge impact, then tips flat with one overshoot', () => {
+  const total = 2 * Math.PI;
+  const [hit, rest] = ROLL.impacts;
+  assert.equal(tumbleTheta(0, total), total);
+  assert.equal(tumbleTheta(0.08, total), total);
+  let prev = total;
+  for (let u = 0.09; u <= hit; u += 0.01) { // down all the way, slowing into the floor
+    assert.ok(tumbleTheta(u, total) < prev, `turns back at ${u}`);
+    prev = tumbleTheta(u, total);
   }
-  assert.ok(speed(1 - step) < top * 0.01);
+  assert.ok(Math.abs(tumbleTheta(hit, total) - ROLL.rock) < 1e-12); // lands tilted on an edge
+  let flips = 0;
+  for (let u = hit + 0.005; u < rest; u += 0.005) {
+    assert.ok(Math.abs(tumbleTheta(u, total)) <= ROLL.rock + 1e-12);
+    if (Math.sign(tumbleTheta(u, total)) !== Math.sign(tumbleTheta(u - 0.005, total)) && tumbleTheta(u, total) !== 0) flips++;
+  }
+  assert.equal(flips, 1); // one overshoot past flat, no wobble
+  assert.ok(Math.abs(tumbleTheta(rest, total)) < 1e-12);
+  assert.equal(tumbleTheta(1, total), 0);
 });
 
-test('a spin starts on the old face and ends on the new one, for every pair of values', () => {
+test('a throw starts on the old face and ends on the new one, for every pair of values', () => {
   const halfTurn = qAxisAngle([0, 1, 0], Math.PI); // the DOM cannot tell a die turned by 180° on the board
   for (let from = 1; from <= 6; from++) {
     for (let to = 1; to <= 6; to++) {
       const end = to % 2 ? landingQuaternion(to) : qMul(halfTurn, landingQuaternion(to));
       for (const axis of [[1, 0, 0], [0.3, 0.1, -0.9], [0, 0, 1]]) {
-        const plan = spinPlan(landingQuaternion(from), end, axis, 1 + (from % 2), 1);
-        assert.ok(sameRotation(spinAt(plan, 1), landingQuaternion(from)), `${from}→${to} start`);
-        assert.ok(sameRotation(spinAt(plan, 0), end), `${from}→${to} end`);
+        const plan = tumblePlan(landingQuaternion(from), end, axis);
+        assert.ok(sameRotation(tumblePose(plan, 0), landingQuaternion(from)), `${from}→${to} start`);
+        assert.ok(sameRotation(tumblePose(plan, 1), end), `${from}→${to} end`);
       }
     }
   }
@@ -70,14 +75,4 @@ test('the generated die model decodes into in-range triangle lists within the un
     assert.ok(indices.every((i) => i < positions.length / 3));
     assert.ok(positions.every((c) => Math.abs(c) <= 1.01));
   }
-});
-
-test('the dice spread apart while they spin and fall back together, fastest on arrival, then knock', () => {
-  assert.equal(spreadAt(0), 0);
-  assert.ok(Math.abs(spreadAt(1)) < 1e-12);
-  assert.equal(spreadAt(0.3), 1);
-  for (let u = 0; u < SPREAD.out; u += 0.01) assert.ok(spreadAt(u + 0.01) >= spreadAt(u)); // out
-  const v = (u) => spreadAt(u) - spreadAt(u + 0.01);
-  for (let u = SPREAD.hold; u + 0.02 < SPREAD.back; u += 0.01) assert.ok(v(u + 0.01) > v(u)); // accelerating back
-  assert.ok(spreadAt((SPREAD.back + 1) / 2) < 0); // the knock: a little past the rest place
 });

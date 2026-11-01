@@ -1,9 +1,8 @@
-// Pure math for the 3D reroll spin (no three.js dependency, unit-tested): the orientation that
-// shows each value face-up with the same pip layout as the DOM die, the spin that turns a die from
-// its old face to its new one, and the speed profile measured on the owner's reference video
-// (01.11.2026: 500 ms, full speed from the first frame, slowing only over the last ~20%).
-// World: y is up (the camera looks straight down), screen right is +x, screen down is +z.
-// Quaternions are plain { x, y, z, w }.
+// Pure math for the 3D reroll throw (no three.js dependency, unit-tested): the orientation that
+// shows each value face-up with the same pip layout as the DOM die, and the keyframed tumble of
+// variant D (prototypes/dice-anim, put in the game by the owner on 01.11.2026) that turns a die from
+// its old face to its new one. World: y is up (the camera looks straight down), screen right is +x,
+// screen down is +z. Quaternions are plain { x, y, z, w }.
 
 import { MODEL_FACE_VALUES, DIE_PIPS, decodePart } from './dice-model.js';
 
@@ -13,9 +12,13 @@ export const FACE_AXES = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1
 // DOM pip layout: cells 1..9 of the face's 3×3 grid, row-major (styles.css .face[data-value] rules).
 export const DOM_PIPS = Object.freeze({ 1: [5], 2: [3, 7], 3: [3, 5, 7], 4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 3, 4, 6, 7, 9] });
 
-export const SPIN = Object.freeze({
-  durationMs: 500, // the reference roll: 30 frames at 60 fps
-  flat: 0.8,       // share of the roll at constant speed; then a quadratic ease to rest (~100 ms)
+// One die's throw: crouch to 8%, rise to 36%, fall into the first impact on an edge at 62%, a hop
+// and the second contact at 84%; the dice start `staggerMs` apart in a shuffled order.
+export const ROLL = Object.freeze({
+  durationMs: 620,
+  staggerMs: 45,
+  impacts: [0.62, 0.84],
+  rock: 0.16, // tilt (radians) of the die on the edge it lands on at the first impact
 });
 
 export const qMul = (a, b) => ({
@@ -119,40 +122,35 @@ export function landingQuaternion(v) {
   return landings[v];
 }
 
-// Remaining share of the spin at time u (0..1): constant speed until SPIN.flat, then the speed
-// falls quadratically to zero at u = 1 (continuous speed, no bounce).
-export function spinRemaining(u, flat = SPIN.flat) {
-  const t = Math.min(1, Math.max(0, u));
-  const whole = flat + (1 - flat) / 3;
-  const done = t <= flat ? t : flat + ((1 - flat) / 3) * (1 - (1 - (t - flat) / (1 - flat)) ** 3);
-  return 1 - done / whole;
+// Angle still to turn at time u (0..1 of one die's throw): the tumble starts after the crouch
+// (u 0.08), eases out into the first impact (u 0.62) still tilted by `rock`, then tips flat with one
+// small overshoot by the second contact (u 0.84).
+export function tumbleTheta(u, total, rock = ROLL.rock) {
+  if (u <= 0.08) return total;
+  if (u <= ROLL.impacts[0]) {
+    const k = (u - 0.08) / (ROLL.impacts[0] - 0.08);
+    const e = 1 - (1 - k) * (1 - k); // fast off the hand, slowing into the floor
+    return total * (1 - e) + rock * e;
+  }
+  if (u <= ROLL.impacts[1]) {
+    const k = (u - ROLL.impacts[0]) / (ROLL.impacts[1] - ROLL.impacts[0]);
+    return rock * Math.cos(1.5 * Math.PI * k) * (1 - k);
+  }
+  return 0;
 }
 
-// A spin from `from` to `to` (quaternions): the residual turn between the two poses plus `turns`
-// full turns about the same axis, compounded with `tumbles` full turns about `axis`; `r` is the
-// remaining share (1 = start pose, 0 = end pose).
-export function spinPlan(from, to, axis, turns = 1, tumbles = 1) {
+// A throw from pose `from` to pose `to` (quaternions): the residual turn between the two poses, and
+// one full tumble about `axis` on top of it.
+export function tumblePlan(from, to, axis) {
   const rel = qMul(from, qConj(to)); // the world-frame turn that takes `to` back to `from`
   const sign = rel.w < 0 ? -1 : 1;
-  const angle = 2 * Math.acos(Math.min(1, Math.abs(rel.w)));
   const s = Math.sqrt(Math.max(0, 1 - rel.w * rel.w));
   const relAxis = s > 1e-6 ? [(rel.x * sign) / s, (rel.y * sign) / s, (rel.z * sign) / s] : axis;
-  return { to, relAxis, relAngle: angle + 2 * Math.PI * turns, axis, tumble: 2 * Math.PI * tumbles };
+  return { to, relAxis, relAngle: 2 * Math.acos(Math.min(1, Math.abs(rel.w))), axis };
 }
 
-export function spinAt(plan, r) {
-  return qMul(qAxisAngle(plan.axis, plan.tumble * r), qMul(qAxisAngle(plan.relAxis, plan.relAngle * r), plan.to));
-}
-
-// "Gravity between the dice" (owner, 01.11.2026): while they spin, the dice move apart so their
-// tumbling corners clear each other, then fall back together, accelerating like a weight, and
-// meet with a small knock. Share of the full spread at time u (0..1): a quick burst out, a hold,
-// a gravity-like return (quadratic, fastest on arrival) and a short knock past the rest place.
-export const SPREAD = Object.freeze({ out: 0.15, hold: 0.55, back: 0.9, knock: 0.15 });
-export function spreadAt(u) {
-  const t = Math.min(1, Math.max(0, u));
-  if (t < SPREAD.out) return 1 - (1 - t / SPREAD.out) ** 3;
-  if (t < SPREAD.hold) return 1;
-  if (t < SPREAD.back) return 1 - ((t - SPREAD.hold) / (SPREAD.back - SPREAD.hold)) ** 2;
-  return -SPREAD.knock * Math.sin((Math.PI * (t - SPREAD.back)) / (1 - SPREAD.back));
+// Pose at time u: the residual turn is done by the first impact; the tumble lands tilted by the rock
+// and tips flat.
+export function tumblePose(plan, u) {
+  return qMul(qAxisAngle(plan.axis, tumbleTheta(u, 2 * Math.PI)), qMul(qAxisAngle(plan.relAxis, tumbleTheta(u, plan.relAngle, 0)), plan.to));
 }
