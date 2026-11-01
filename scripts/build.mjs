@@ -5,7 +5,7 @@
 // Each module becomes its own scope; `import { a } from './x.js'` turns into destructuring
 // from that module's export object, so modules may reuse local names freely.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { basename } from 'node:path';
+import { basename, extname } from 'node:path';
 
 const MODULES = [
   'src/engine/rng.js',
@@ -74,7 +74,12 @@ function transform(file) {
 const bundle = `(() => {\n'use strict';\n${MODULES.map(transform).join('\n')}\n})();`;
 
 const html = readFileSync('index.html', 'utf8');
-const css = readFileSync('src/ui/styles.css', 'utf8');
+// The files the stylesheet points at (font, bonus art, icons) become data URIs, so the built pages
+// stand alone wherever they are opened.
+const MIME = { '.otf': 'font/otf', '.png': 'image/png', '.svg': 'image/svg+xml' };
+const css = readFileSync('src/ui/styles.css', 'utf8')
+  .replace(/url\("\.\.\/\.\.\/(assets\/[^"]+)"\)/g, (_, file) => `url("data:${MIME[extname(file)]};base64,${readFileSync(file).toString('base64')}")`);
+if (css.includes('url("../')) throw new Error('styles.css points at a file the build does not inline');
 const cssTag = '<link rel="stylesheet" href="src/ui/styles.css">';
 const jsTag = '<script type="module" src="src/ui/app.js"></script>';
 if (!html.includes(cssTag) || !html.includes(jsTag)) throw new Error('index.html is missing the stylesheet/script tags the build expects');

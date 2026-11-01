@@ -213,8 +213,9 @@ export async function rollDice3D({ board, cells, dice, colors, rng, onLanded }) 
 }
 
 // Pictures of the resting die for every value, from the roll's scene and camera, so a DOM die drawn
-// with them matches the last frame of a roll: { 1: dataURL, …, 6, '1h': …, '6h' } (h: the hand's
-// pip colour). Null until three.js is ready, and while a roll owns the canvas.
+// with them matches the last frame of a roll: keys are the value, then 'k' for the held body colour,
+// then 'h' for the hand's pip colour ('3', '3h', '3k', '3kh'). Null until three.js is ready, and
+// while a roll owns the canvas.
 export function renderFaces({ colors, px = 384 }) {
   if (!kit || kit.rolling) return null;
   const { canvas, renderer, scene, camera, model, bodyMat, pipMat } = kit;
@@ -227,18 +228,20 @@ export function renderFaces({ colors, px = 384 }) {
   out.width = px;
   out.height = px;
   const ctx = out.getContext('2d');
-  bodyMat.color.set(colors.die);
   const faces = {};
-  for (const [suffix, pip] of [['', colors.pip], ['h', colors.hand]]) {
-    pipMat.color.set(pip);
-    for (let v = 1; v <= 6; v++) {
-      const q = landingQuaternion(v);
-      model.quaternion.set(q.x, q.y, q.z, q.w);
-      renderer.clear();
-      renderer.render(scene, camera);
-      ctx.clearRect(0, 0, px, px);
-      ctx.drawImage(canvas, (view - px) / 2, (view - px) / 2, px, px, 0, 0, px, px);
-      faces[`${v}${suffix}`] = out.toDataURL('image/png');
+  for (const [body, die] of [['', colors.die], ['k', colors.held || colors.die]]) {
+    bodyMat.color.set(die);
+    for (const [pips, pip] of [['', colors.pip], ['h', colors.hand]]) {
+      pipMat.color.set(pip);
+      for (let v = 1; v <= 6; v++) {
+        const q = landingQuaternion(v);
+        model.quaternion.set(q.x, q.y, q.z, q.w);
+        renderer.clear();
+        renderer.render(scene, camera);
+        ctx.clearRect(0, 0, px, px);
+        ctx.drawImage(canvas, (view - px) / 2, (view - px) / 2, px, px, 0, 0, px, px);
+        faces[`${v}${body}${pips}`] = out.toDataURL('image/png');
+      }
     }
   }
   return faces;

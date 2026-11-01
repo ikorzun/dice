@@ -1,16 +1,20 @@
 # Dice Snake — notes for Claude Code sessions
 
 Portrait-mobile dice puzzle on a 3×3 grid, plain HTML/CSS/JS, no build step for development.
-Three modes live in one page (tabs): **Snake 4+4** (`src/engine/game.js`), **Poker 5**
+Three rule sets live in one page: **Snake 4+4** (`src/engine/game.js`), **Poker 5**
 (`src/engine/poker.js`) and **Auto Hand** (`src/engine/auto.js` + `hands.js`, adaptive levels
-in `adapt3.js`; rules, calibration and next steps in `docs/MODE3-PLAN.md`).
+in `adapt3.js`; rules, calibration and next steps in `docs/MODE3-PLAN.md`). Since the owner's
+Figma mockup (file `0mTCxjPtORKQzV7EZ6kTfE`, section DARK, node 1285:1548) the screen shows Auto
+Hand only, as a run of 25 levels; the other modes keep their code and engines but have no tab
+(`#tabs` hidden, `app.modeId` forced to `auto`). Mockup art lives in `assets/ui/`, the font
+(Basteleur Bold) in `assets/fonts/`; the build inlines both into `dist/`.
 
 ## Commands
 
 ```
 npm test          # node:test suites in test/ (must stay green)
 npm run build     # dist/index.html (standalone) + dist/artifact.html (claude.ai fragment)
-npm run smoke     # Playwright: phone viewports, both tabs, screenshots in dist/shots
+npm run smoke     # Playwright: phone viewports + desktop, the Auto Hand screen, screenshots in dist/shots
 npm run sim       # Snake 4+4 balance report -> docs/simulation-latest.md
 node scripts/montecarlo5.mjs --table=pips --out=docs/simulation5-pips.md   # Poker 5
 npm run sim3      # Auto Hand tiers, bots, experiments -> docs/simulation3-latest.md

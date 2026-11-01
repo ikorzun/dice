@@ -1,7 +1,8 @@
-// Dice Snake — portrait mobile UI driving three rule sets, one tab each:
-//   "Snake 4+4" (engine/game.js), "Poker 5" (engine/poker.js) and "Auto Hand" (engine/auto.js).
-// All rules live in the engines; this file renders state, interprets pointer gestures,
-// plays effects, runs the example-based tutorial and keeps a local event log per mode.
+// Dice Snake — portrait mobile UI driving three rule sets: "Snake 4+4" (engine/game.js), "Poker 5"
+// (engine/poker.js) and "Auto Hand" (engine/auto.js). Since the owner's Figma mockup (DARK,
+// 01.11.2026) the screen shows Auto Hand only, as a run of 25 levels; the other modes keep their
+// code but have no tab. All rules live in the engines; this file renders state, interprets pointer
+// gestures, plays effects, runs the example-based tutorial and keeps a local event log per mode.
 
 import { createRng } from '../engine/rng.js';
 import { CATEGORY_LABELS, CATEGORY_ORDER, CATEGORY_OUTCOMES, SCORE_TABLES, PIPS_RULES, scoreHand } from '../engine/scoring.js';
@@ -46,6 +47,8 @@ const TAP_THRESHOLD = 10; // CSS px of movement before a press becomes a path
 const CORE_INSET = 0.18; // path hit region = central 64% of a cell (no corner cutting)
 const LOG_LIMIT = 4000;
 const SVG_NS = 'http://www.w3.org/2000/svg';
+const RUN_LEVELS = 25; // an Auto Hand run (owner, 01.11.2026): LEVEL n/25, then a new run
+const BONUS_SCREEN_MS = 1600; // the bonus screen stays this long unless SKIP is pressed
 
 const reduceMotion = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const T = reduceMotion
@@ -360,13 +363,14 @@ function applyRenderedFaces() {
   if (app.busy) return; // a roll owns the 3D canvas; the next call redraws
   const faces = app.dice3d && dice3dStatus() === 'ready' ? renderFaces({ colors: lookColors() }) : null;
   els.board.classList.toggle('rendered', !!faces);
-  if (faces) for (const [key, url] of Object.entries(faces)) els.board.style.setProperty(`--face-${key.replace('h', '-hand')}`, `url(${url})`);
+  // keys: value, then k for the held body, then h for the hand's pips ('3', '3h', '3k', '3kh')
+  if (faces) for (const [key, url] of Object.entries(faces)) els.board.style.setProperty(`--face-${key[0]}${key.includes('k') ? '-held' : ''}${key.endsWith('h') ? '-hand' : ''}`, `url(${url})`);
 }
 
 function lookColors() {
   const cs = getComputedStyle(document.body);
   const pick = (name, fallback) => (cs.getPropertyValue(name).trim() || fallback);
-  return { die: pick('--die', '#f4efe4'), pip: pick('--pip', '#0c0b09'), hand: pick('--bad', '#ff5f5f') };
+  return { die: pick('--die', '#ffffff'), pip: pick('--pip', '#000000'), hand: pick('--bad', '#ff5442'), held: pick('--hold', '#d4ff82') };
 }
 
 // ---------- looks (visual concepts) ----------
@@ -569,6 +573,10 @@ function showLevelEnd() {
     ? `Rule-based difficulty: stays at tier ${st.tier} / 5`
     : `Rule-based difficulty: tier ${st.tier} → ${st.pendingTier} / 5`;
   $('nextBtn').textContent = won ? 'NEXT LEVEL' : 'NEXT LEVEL (EASIER)';
+  if (mode.id === 'auto' && g.level.levelIndex >= RUN_LEVELS) {
+    $('endTitle').textContent = 'RUN COMPLETE';
+    $('nextBtn').textContent = 'NEW RUN';
+  }
   $('levelEnd').dataset.mode = app.modeId;
   clearTimeout(app.endTimer);
   const forMode = app.modeId;
@@ -580,6 +588,12 @@ function onNext() {
   if ($('levelEnd').dataset.mode !== app.modeId || !st.game || st.game.phase === 'playing') return;
   if (st.pendingTier != null) st.tier = st.pendingTier;
   st.levelIndex += 1;
+  if (app.modeId === 'auto' && st.levelIndex > RUN_LEVELS) {
+    // a new run starts at level 1; the levels played stay, so the adaptive layouts keep the skill
+    logEvent('run_end', { runSeed: st.runSeed });
+    st.runSeed = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    st.levelIndex = 1;
+  }
   newLevel();
 }
 
@@ -708,7 +722,7 @@ function coachRender() {
   const bar = $('coach');
   if (!step) {
     bar.hidden = true;
-    els.preview.hidden = false;
+    els.preview.hidden = M().id === 'auto'; // Auto Hand shows its hand in the BONES · MULTIPLY counter
     els.rerollBtn.classList.remove('pulse');
     els.playBtn.classList.remove('pulse');
     app.coachTargets = null;
@@ -785,7 +799,7 @@ function buildBoard() {
     cell.dataset.index = String(i);
     cell.setAttribute('role', 'button');
     cell.tabIndex = 0;
-    cell.innerHTML = `<span class="face">${'<i></i>'.repeat(9)}</span><span class="x2">×2</span><span class="tag"></span><span class="order"></span>`;
+    cell.innerHTML = `<span class="art"></span><span class="face">${'<i></i>'.repeat(9)}</span><span class="x2">×2</span><span class="tag"></span><span class="order"></span>`;
     board.appendChild(cell);
     els.cells.push(cell);
   }
@@ -811,10 +825,17 @@ function buildBoard() {
   board.appendChild(ghost);
 }
 
+// The board is as wide as the column (less the wrap's 4 px sides) unless the other rows leave less
+// height; the column is top-aligned like the mockup, spare height stays under the buttons.
 function fitBoard() {
   const wrap = els.boardWrap;
-  const size = Math.max(120, Math.floor(Math.min(wrap.clientWidth, wrap.clientHeight)));
-  els.board.style.setProperty('--board', `${size}px`);
+  const col = getComputedStyle(els.app);
+  const rows = Array.from(els.app.children).filter((el) => el !== wrap && el.offsetHeight > 0 && getComputedStyle(el).position !== 'absolute');
+  const free = els.app.clientHeight - parseFloat(col.paddingTop) - parseFloat(col.paddingBottom)
+    - rows.reduce((sum, el) => sum + el.offsetHeight, 0) - (parseFloat(col.rowGap) || 0) * rows.length;
+  const side = parseFloat(getComputedStyle(wrap).paddingLeft) * 2;
+  const size = Math.max(120, Math.floor(Math.min(wrap.clientWidth - side, free - 2))); // rows are 2 px taller in all
+  wrap.style.setProperty('--board', `${size}px`);
   app.cellRects = null;
 }
 
@@ -878,11 +899,11 @@ function renderCell(i) {
   if (k < 0 && app.safeNext && app.safeNext.includes(i)) cell.classList.add('safe-next');
   const inHand = !!(app.autoHand && app.autoHand.cells.includes(i));
   if (inHand) cell.classList.add('in-hand');
-  cell.style.setProperty('--die-img', `var(--face-${g.faces[i]}${inHand ? '-hand' : ''})`); // the rendered die, when 3D is on
+  cell.style.setProperty('--die-img', `var(--face-${g.faces[i]}${g.held[i] ? '-held' : ''}${inHand ? '-hand' : ''})`); // the rendered die, when 3D is on
   cell.setAttribute('aria-label', `Die ${g.faces[i]}${g.held[i] ? ', held' : ''}${sealed ? ', fixed' : ''}${inHand ? ', in the hand' : ''}`);
 }
 
-// Auto Hand: bonus dice (gold, symbol + condition), blocks and the holes used bonuses leave.
+// Auto Hand: bonus dice (a character or a ×3 label; red once on), blocks and the holes used bonuses leave.
 function renderAutoSpecial(g, i, cell, tag) {
   const c = g.cells[i];
   if (c.type === 'block') {
@@ -903,10 +924,13 @@ function renderAutoSpecial(g, i, cell, tag) {
   const inHand = !!h && (joker >= 0 || h.bonusCells.includes(i));
   cell.classList.add('bonus', `kind-${c.kind}`);
   if (g.off[i]) cell.classList.add('off');
-  else if (inHand) cell.classList.add('armed');
+  else cell.classList.add('on');
+  if (inHand) cell.classList.add('armed');
   if (app.coachTargets && app.coachTargets.includes(i)) cell.classList.add('hint');
   cell.querySelector('.x2').textContent = kind.symbol;
-  tag.textContent = joker >= 0 ? `JOKER = ${h.jokerFaces[joker]}` : kind.label;
+  // the characters (×2 skeleton, joker skull) need no label; the joker in the hand names its face
+  const art = c.kind === 'x2_any' || c.kind === 'joker';
+  tag.textContent = joker >= 0 ? `= ${h.jokerFaces[joker]}` : art ? '' : kind.label;
   cell.setAttribute('aria-label', `${kind.symbol} ${kind.label} bonus, ${g.off[i] ? 'off, tap to switch on' : inHand ? 'on, in the hand' : 'on'}`);
 }
 
@@ -919,20 +943,20 @@ function autoIdleBonuses(g, h) {
 function renderHud() {
   const st = S();
   const g = st.game;
-  const engine = E();
   if (!app.scoreAnim) $('score').textContent = String(g.score);
   $('target').textContent = String(g.level.target);
-  $('levelText').textContent = `LEVEL ${g.level.levelIndex}${g.attempt > 1 ? ` · TRY ${g.attempt}` : ''}`;
-  $('tierText').textContent = `TIER ${g.level.tier} / 5 · RULE-BASED`;
-  $('tierText').hidden = M().id === 'auto'; // adaptive and hidden
-  const handsEl = $('handsText');
-  if (M().id !== 'snake4') {
-    handsEl.hidden = false;
-    handsEl.textContent = g.phase === 'playing' ? `HAND ${engine.handsPlayed(g) + 1} / ${engine.handsTotal(g)}` : `${g.hands.length} HANDS PLAYED`;
-  } else {
-    handsEl.hidden = true;
-  }
+  $('levelText').textContent = `${g.level.levelIndex}/${RUN_LEVELS}`;
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
+}
+
+// BONES · MULTIPLY · TOTAL: the hand on the board before its bonus dice, the multiplier of the
+// bonus dice that are on and join it (red), and the level score (TOTAL, kept by renderHud).
+function renderCounter() {
+  const h = app.autoHand;
+  const bonus = !!h && h.bonusMult > 1;
+  els.bones.textContent = String(h ? h.points : 0);
+  els.mult.textContent = bonus ? `x${h.bonusMult}` : '0';
+  els.multStat.classList.toggle('on', bonus);
 }
 
 function renderControls() {
@@ -959,17 +983,13 @@ function renderControls() {
   const auto = mode.id === 'auto';
   els.playBtn.hidden = !auto;
   if (auto) {
-    const h = app.autoHand;
-    els.playBtn.disabled = app.busy || !playing || !h;
-    els.playBtn.textContent = h ? `PLAY HAND +${h.total}` : playing ? 'NO HAND · REROLL' : 'PLAY HAND';
+    els.playBtn.disabled = app.busy || !playing || !app.autoHand;
+    els.playBtn.textContent = `PLAY•${g.handsLeft}`;
   }
-  els.rerollBtn.classList.toggle('btn-primary', !auto);
-  els.rerollBtn.classList.toggle('btn-secondary', auto);
-  els.controls.classList.toggle('auto', auto);
   els.pathModeBtn.hidden = auto;
   els.rerollBtn.disabled = app.busy || !engine.canReroll(g);
   const n = engine.rerollCount(g);
-  els.rerollBtn.textContent = g.rerollsLeft > 0 ? (n > 0 ? `REROLL ${n}` : 'REROLL · ALL HELD') : 'NO REROLLS LEFT';
+  els.rerollBtn.textContent = auto ? `REROLL•${g.rerollsLeft}` : g.rerollsLeft > 0 ? (n > 0 ? `REROLL ${n}` : 'REROLL · ALL HELD') : 'NO REROLLS LEFT';
   els.bankLastBtn.hidden = !(playing && mode.id === 'snake4' && g.hands.length === 1);
   els.bankLastBtn.disabled = app.busy;
   els.tapbar.hidden = !st.settings.pathMode || !playing || auto;
@@ -1052,6 +1072,7 @@ function render() {
   coachRender();
   for (let i = 0; i < 9; i++) renderCell(i);
   renderHud();
+  if (M().id === 'auto') renderCounter();
   renderControls();
   renderPath();
   renderPreview();
@@ -1193,6 +1214,31 @@ function showReveal(hand, { remaining = Infinity } = {}) {
   $('scoreStat').classList.remove('bump');
   void $('scoreStat').offsetWidth;
   $('scoreStat').classList.add('bump');
+}
+
+// A hand played with a bonus (owner, 01.11.2026): the board blurs, the bonus character stands over
+// it, a ×N sticker covers MULTIPLY, the counter shows the hand while TOTAL runs up; SKIP or
+// BONUS_SCREEN_MS ends it. The ×3 kinds have no character yet: the sticker alone.
+function showBonusScreen(hand, from, to) {
+  const art = hand.bonuses.find((k) => k === 'x2_any' || k === 'joker');
+  els.bonusHero.className = `bonus-hero${art ? ` kind-${art}` : ''}`;
+  els.multSticker.textContent = `x${hand.multiplier}`;
+  els.bones.textContent = String(hand.points);
+  els.mult.textContent = hand.multiplier > 1 ? `x${hand.multiplier}` : '0';
+  els.multStat.classList.toggle('on', hand.multiplier > 1);
+  els.app.classList.toggle('has-sticker', hand.multiplier > 1);
+  els.app.classList.add('bonus-show');
+  countUp($('score'), from, to, 300);
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      els.skipBtn.removeEventListener('click', done);
+      els.app.classList.remove('bonus-show', 'has-sticker');
+      resolve();
+    };
+    const timer = setTimeout(done, BONUS_SCREEN_MS);
+    els.skipBtn.addEventListener('click', done);
+  });
 }
 
 // ---------- actions ----------
@@ -1338,7 +1384,16 @@ async function attemptBank(path, source) {
   stopGhost();
   clearPath();
   haptic(hand.points >= 10 ? [14, 40, 18] : 12);
-  showReveal(hand, { remaining: g.level.target - g.score });
+  // Auto Hand with a bonus: the bonus screen tells the result first over the old board, then the
+  // hand burns and the board refills as usual.
+  const bonusScreen = mode.id === 'auto' && hand.bonuses.length > 0;
+  if (bonusScreen) {
+    renderControls();
+    await showBonusScreen(hand, g.score, st.game.score);
+    if (!stillCurrent(st, modeId)) { app.busy = false; return; }
+  } else {
+    showReveal(hand, { remaining: g.level.target - g.score });
+  }
   // Auto Hand also burns the bonus dice the hand used (they pop with it) and every unheld die
   // outside the hand (those fade out); the other modes pop only the hand.
   const popped = r.holes ? [...hand.cells, ...r.holes] : hand.cells;
@@ -1346,7 +1401,7 @@ async function attemptBank(path, source) {
   popped.forEach((i) => els.cells[i].classList.add('bank-pop'));
   faded.forEach((i) => els.cells[i].classList.add('burn'));
   renderHud();
-  if (mode.id === 'auto') countUp($('score'), g.score, st.game.score, hand.multiplier > 1 ? 380 : 0);
+  if (mode.id === 'auto' && !bonusScreen) countUp($('score'), g.score, st.game.score, hand.multiplier > 1 ? 380 : 0);
   renderControls();
   renderPath();
   setPreview(`${hand.label} +${hand.total}`, 'good');
@@ -1683,20 +1738,22 @@ function bind() {
   const refit = () => { fitBoard(); };
   window.addEventListener('resize', refit);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', refit);
-  if (typeof ResizeObserver === 'function') new ResizeObserver(refit).observe(els.boardWrap);
+  if (typeof ResizeObserver === 'function') {
+    const ro = new ResizeObserver(refit);
+    ro.observe(els.app);
+    ro.observe($('coach')); // the tutorial line takes height from the board while it shows
+  }
 }
 
 function init() {
-  for (const id of ['board', 'boardWrap', 'preview', 'playBtn', 'rerollBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast']) els[id] = $(id);
+  for (const id of ['app', 'board', 'boardWrap', 'preview', 'playBtn', 'rerollBtn', 'skipBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast', 'bones', 'mult', 'multStat', 'multSticker', 'bonusHero']) els[id] = $(id);
   els.tabs = Array.from(document.querySelectorAll('.tab'));
   els.controls = document.querySelector('.controls');
   // the snake modes share the scoring paragraphs written in index.html; Auto Hand brings its own
   els.defaultScoring = { onboard: $('onboardScoring').innerHTML, help: $('helpScoring').innerHTML };
   buildBoard();
   bind();
-  let look = 'modern';
-  try { look = localStorage.getItem(LOOK_KEY) || 'modern'; } catch { /* ignore */ }
-  setLook(look);
+  setLook('modern'); // the mockup's black screen; the other looks have no switch any more
   let d3 = true;
   try { d3 = localStorage.getItem(DICE3D_KEY) !== '0'; } catch { /* ignore */ }
   app.dice3d = d3;
@@ -1704,11 +1761,11 @@ function init() {
   const saved = readJson(STORAGE_KEY);
   if (saved && saved.modes) {
     for (const id of Object.keys(MODES)) app.modes[id] = hydrateMode(id, saved.modes[id]);
-    if (MODES[saved.activeMode]) app.modeId = saved.activeMode;
   } else {
     const legacy = readJson(LEGACY_KEY);
     if (legacy && legacy.runSeed) app.modes.snake4 = hydrateMode('snake4', legacy);
   }
+  app.modeId = 'auto'; // the only mode on screen
   fitBoard();
   switchMode(app.modeId, { silent: true });
   requestAnimationFrame(fitBoard);
