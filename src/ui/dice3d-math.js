@@ -12,13 +12,16 @@ export const FACE_AXES = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1
 // DOM pip layout: cells 1..9 of the face's 3×3 grid, row-major (styles.css .face[data-value] rules).
 export const DOM_PIPS = Object.freeze({ 1: [5], 2: [3, 7], 3: [3, 5, 7], 4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 3, 4, 6, 7, 9] });
 
-// One die's throw: crouch to 8%, rise to 36%, fall into the first impact on an edge at 62%, a hop
-// and the second contact at 84%; the dice start `staggerMs` apart in a shuffled order.
+// One die's throw (490 ms): crouch to 10%, rise to 45%, fall onto an edge at 78%, then the face
+// is pulled flat like a magnet by 90% and the die stays put (owner, 01.11.2026: no second bounce);
+// the dice start `staggerMs` apart in a shuffled order.
 export const ROLL = Object.freeze({
-  durationMs: 620,
+  durationMs: 490,
   staggerMs: 45,
-  impacts: [0.62, 0.84],
-  rock: 0.16, // tilt (radians) of the die on the edge it lands on at the first impact
+  start: 0.1,  // the tumble starts after the crouch
+  edge: 0.78,  // first touch, on an edge
+  flat: 0.9,   // the face snaps flat onto the board
+  rock: 0.16,  // tilt (radians) of the die on the edge it touches first
 });
 
 export const qMul = (a, b) => ({
@@ -122,19 +125,19 @@ export function landingQuaternion(v) {
   return landings[v];
 }
 
-// Angle still to turn at time u (0..1 of one die's throw): the tumble starts after the crouch
-// (u 0.08), eases out into the first impact (u 0.62) still tilted by `rock`, then tips flat with one
-// small overshoot by the second contact (u 0.84).
+// Angle still to turn at time u (0..1 of one die's throw): the tumble eases out into the edge touch,
+// still tilted by `rock`, then the face is pulled flat faster and faster and stops dead on it: the
+// angle only ever shrinks, with no overshoot.
 export function tumbleTheta(u, total, rock = ROLL.rock) {
-  if (u <= 0.08) return total;
-  if (u <= ROLL.impacts[0]) {
-    const k = (u - 0.08) / (ROLL.impacts[0] - 0.08);
+  if (u <= ROLL.start) return total;
+  if (u <= ROLL.edge) {
+    const k = (u - ROLL.start) / (ROLL.edge - ROLL.start);
     const e = 1 - (1 - k) * (1 - k); // fast off the hand, slowing into the floor
     return total * (1 - e) + rock * e;
   }
-  if (u <= ROLL.impacts[1]) {
-    const k = (u - ROLL.impacts[0]) / (ROLL.impacts[1] - ROLL.impacts[0]);
-    return rock * Math.cos(1.5 * Math.PI * k) * (1 - k);
+  if (u < ROLL.flat) {
+    const k = (u - ROLL.edge) / (ROLL.flat - ROLL.edge);
+    return rock * (1 - k * k); // the magnet: accelerating onto the face
   }
   return 0;
 }
@@ -149,8 +152,8 @@ export function tumblePlan(from, to, axis) {
   return { to, relAxis, relAngle: 2 * Math.acos(Math.min(1, Math.abs(rel.w))), axis };
 }
 
-// Pose at time u: the residual turn is done by the first impact; the tumble lands tilted by the rock
-// and tips flat.
+// Pose at time u: the residual turn is done by the edge touch; the tumble touches tilted by the rock
+// and snaps flat.
 export function tumblePose(plan, u) {
   return qMul(qAxisAngle(plan.axis, tumbleTheta(u, 2 * Math.PI)), qMul(qAxisAngle(plan.relAxis, tumbleTheta(u, plan.relAngle, 0)), plan.to));
 }

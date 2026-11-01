@@ -2641,13 +2641,16 @@ const FACE_AXES = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 
 // DOM pip layout: cells 1..9 of the face's 3×3 grid, row-major (styles.css .face[data-value] rules).
 const DOM_PIPS = Object.freeze({ 1: [5], 2: [3, 7], 3: [3, 5, 7], 4: [1, 3, 7, 9], 5: [1, 3, 5, 7, 9], 6: [1, 3, 4, 6, 7, 9] });
 
-// One die's throw: crouch to 8%, rise to 36%, fall into the first impact on an edge at 62%, a hop
-// and the second contact at 84%; the dice start `staggerMs` apart in a shuffled order.
+// One die's throw (490 ms): crouch to 10%, rise to 45%, fall onto an edge at 78%, then the face
+// is pulled flat like a magnet by 90% and the die stays put (owner, 01.11.2026: no second bounce);
+// the dice start `staggerMs` apart in a shuffled order.
 const ROLL = Object.freeze({
-  durationMs: 620,
+  durationMs: 490,
   staggerMs: 45,
-  impacts: [0.62, 0.84],
-  rock: 0.16, // tilt (radians) of the die on the edge it lands on at the first impact
+  start: 0.1,  // the tumble starts after the crouch
+  edge: 0.78,  // first touch, on an edge
+  flat: 0.9,   // the face snaps flat onto the board
+  rock: 0.16,  // tilt (radians) of the die on the edge it touches first
 });
 
 const qMul = (a, b) => ({
@@ -2751,19 +2754,19 @@ function landingQuaternion(v) {
   return landings[v];
 }
 
-// Angle still to turn at time u (0..1 of one die's throw): the tumble starts after the crouch
-// (u 0.08), eases out into the first impact (u 0.62) still tilted by `rock`, then tips flat with one
-// small overshoot by the second contact (u 0.84).
+// Angle still to turn at time u (0..1 of one die's throw): the tumble eases out into the edge touch,
+// still tilted by `rock`, then the face is pulled flat faster and faster and stops dead on it: the
+// angle only ever shrinks, with no overshoot.
 function tumbleTheta(u, total, rock = ROLL.rock) {
-  if (u <= 0.08) return total;
-  if (u <= ROLL.impacts[0]) {
-    const k = (u - 0.08) / (ROLL.impacts[0] - 0.08);
+  if (u <= ROLL.start) return total;
+  if (u <= ROLL.edge) {
+    const k = (u - ROLL.start) / (ROLL.edge - ROLL.start);
     const e = 1 - (1 - k) * (1 - k); // fast off the hand, slowing into the floor
     return total * (1 - e) + rock * e;
   }
-  if (u <= ROLL.impacts[1]) {
-    const k = (u - ROLL.impacts[0]) / (ROLL.impacts[1] - ROLL.impacts[0]);
-    return rock * Math.cos(1.5 * Math.PI * k) * (1 - k);
+  if (u < ROLL.flat) {
+    const k = (u - ROLL.edge) / (ROLL.flat - ROLL.edge);
+    return rock * (1 - k * k); // the magnet: accelerating onto the face
   }
   return 0;
 }
@@ -2778,8 +2781,8 @@ function tumblePlan(from, to, axis) {
   return { to, relAxis, relAngle: 2 * Math.acos(Math.min(1, Math.abs(rel.w))), axis };
 }
 
-// Pose at time u: the residual turn is done by the first impact; the tumble lands tilted by the rock
-// and tips flat.
+// Pose at time u: the residual turn is done by the edge touch; the tumble touches tilted by the rock
+// and snaps flat.
 function tumblePose(plan, u) {
   return qMul(qAxisAngle(plan.axis, tumbleTheta(u, 2 * Math.PI)), qMul(qAxisAngle(plan.relAxis, tumbleTheta(u, plan.relAngle, 0)), plan.to));
 }
@@ -2790,14 +2793,14 @@ return { FACE_AXES, DOM_PIPS, ROLL, qMul, qAxisAngle, rotateVector, gridCell, la
 const __mod_dice3d = (() => {
 // 3D dice: variant D of prototypes/dice-anim ("three.js по ключам"), put in the game by the owner on
 // 01.11.2026 in place of the in-place spin after the reference video. A rerolled die crouches, rises
-// a little, tumbles once about a nearly horizontal axis into the floor, lands tilted on an edge, hops
-// and tips flat onto the engine's value; a shadow spot on the board follows it, and the dice start
-// 45 ms apart in a shuffled order. No physics: the lift and the squash are WAAPI keyframes on the
-// (hidden) cell and the GL die follows the cell's live box, so the curve is the prototype's exactly.
-// The resting dice are pictures of the same model from the same camera (renderFaces), so nothing
-// changes when the DOM die takes over. Each die is drawn by its own camera straight above it
-// (viewport + scissor over one canvas laid over the board). three.js loads lazily from the CDN;
-// when it is unavailable the caller keeps the CSS dice and their tumble.
+// a little, tumbles once about a nearly horizontal axis into the floor, touches down on an edge and
+// is pulled flat onto the engine's value like a magnet, with no second bounce (owner, 01.11.2026);
+// a shadow spot on the board follows it, and the dice start 45 ms apart in a shuffled order. No
+// physics: the lift and the squash are WAAPI keyframes on the (hidden) cell and the GL die follows
+// the cell's live box. The resting dice are pictures of the same model from the same camera
+// (renderFaces), so nothing changes when the DOM die takes over. Each die is drawn by its own camera
+// straight above it (viewport + scissor over one canvas laid over the board). three.js loads lazily
+// from the CDN; when it is unavailable the caller keeps the CSS dice and their tumble.
 
 const { landingQuaternion, tumblePlan, tumblePose, qAxisAngle, qMul, ROLL } = __mod_dice3d_math;
 const { DIE_BODY, DIE_PIPS, decodePart } = __mod_dice_model;
@@ -2807,28 +2810,26 @@ const ROUND_R = 0.224; // bevel radius of the model, in half-sides (measured fro
 const CAM_DIST = 9;    // camera height above the die centre, in half-sides
 const BLEED = 1.5;     // viewport side ÷ die side: room for the corners of a tumbling die
 const FADE_MS = 100;   // the landed canvas fades out over the DOM die
-// Lift of the cell (the prototype's 3D lift: a tumbling cube already looks bigger, so it rises only
-// 6%): crouch, rise, fall into the first impact, squash, hop, second contact, rest (ROLL.impacts).
+// Lift of the cell (a tumbling cube already looks bigger, so it rises only 6%): crouch, rise, fall
+// onto the board by the edge touch and stay down; one short squash as the face snaps flat.
 const LIFT = [
   { offset: 0, transform: 'translate(0, 0) scale(1)', easing: 'cubic-bezier(.3, 0, .6, 1)' },
-  { offset: 0.08, transform: 'translate(0, 1.5%) scale(.95)', easing: 'cubic-bezier(.2, .7, .35, 1)' },
-  { offset: 0.36, transform: 'translate(0, -6%) scale(1.06)', easing: 'cubic-bezier(.55, 0, .85, .4)' },
-  { offset: 0.62, transform: 'translate(0, 0) scale(1)', easing: 'cubic-bezier(.2, .8, .4, 1)' },
-  { offset: 0.67, transform: 'translate(0, 0) scale(1.035, .965)', easing: 'cubic-bezier(.2, .7, .4, 1)' },
-  { offset: 0.74, transform: 'translate(0, -3%) scale(1.04)', easing: 'cubic-bezier(.5, 0, .8, .5)' },
-  { offset: 0.84, transform: 'translate(0, 0) scale(.985)', easing: 'cubic-bezier(.2, .8, .4, 1)' },
+  { offset: ROLL.start, transform: 'translate(0, 1.5%) scale(.95)', easing: 'cubic-bezier(.2, .7, .35, 1)' },
+  { offset: 0.455, transform: 'translate(0, -6%) scale(1.06)', easing: 'cubic-bezier(.55, 0, .85, .4)' },
+  { offset: ROLL.edge, transform: 'translate(0, 0) scale(1)', easing: 'linear' },
+  { offset: ROLL.flat - 0.03, transform: 'translate(0, 0) scale(1)', easing: 'cubic-bezier(.5, 0, 1, 1)' },
+  { offset: ROLL.flat, transform: 'translate(0, 0) scale(1.03, .97)', easing: 'cubic-bezier(.2, .8, .4, 1)' },
   { offset: 1, transform: 'translate(0, 0) scale(1)' },
 ];
 // Shadow spot under the die: it slides away and thins as the die rises, comes back as it falls and
-// sits under it at the impacts. The resting dice have no shadow, so it fades in during the crouch
-// and out after the second contact.
+// sits under it from the edge touch. The resting dice have no shadow, so it fades in during the
+// crouch and out once the face is flat.
 const SHADOW = [
   { offset: 0, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0, easing: 'cubic-bezier(.3, 0, .6, 1)' },
-  { offset: 0.08, transform: 'translate(4%, 6%) scale(1.02)', opacity: 0.6, easing: 'cubic-bezier(.2, .7, .35, 1)' },
-  { offset: 0.36, transform: 'translate(17%, 22%) scale(.84)', opacity: 0.2, easing: 'cubic-bezier(.55, 0, .85, .4)' },
-  { offset: 0.62, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0.6, easing: 'cubic-bezier(.2, .8, .4, 1)' },
-  { offset: 0.74, transform: 'translate(8%, 10%) scale(.98)', opacity: 0.45, easing: 'cubic-bezier(.5, 0, .8, .5)' },
-  { offset: 0.84, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0.58, easing: 'ease-out' },
+  { offset: ROLL.start, transform: 'translate(4%, 6%) scale(1.02)', opacity: 0.6, easing: 'cubic-bezier(.2, .7, .35, 1)' },
+  { offset: 0.455, transform: 'translate(17%, 22%) scale(.84)', opacity: 0.2, easing: 'cubic-bezier(.55, 0, .85, .4)' },
+  { offset: ROLL.edge, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0.6, easing: 'linear' },
+  { offset: ROLL.flat, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0.6, easing: 'ease-out' },
   { offset: 1, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0 },
 ];
 
@@ -2967,7 +2968,7 @@ async function rollDice3D({ board, cells, dice, colors, rng, onLanded }) {
     const live = jobs.map((j) => ({ j, box: j.cell.getBoundingClientRect() })).sort((p, q) => p.box.width - q.box.width); // the lifted die on top
     for (const { j, box } of live) {
       const u = Math.min(1, Math.max(0, ((j.lift.currentTime ?? 0) - j.delay) / ROLL.durationMs));
-      // the squash at the impact makes the box non-square: the picture squashes with it
+      // the squash as the face snaps flat makes the box non-square: the picture squashes with it
       const w = box.width * BLEED;
       const h = box.height * BLEED;
       const x = box.left + box.width / 2 - br.left + bleed - w / 2;

@@ -32,24 +32,21 @@ test('every value lands face-up with the pip layout of the DOM die', () => {
   }
 });
 
-test('the tumble waits out the crouch, eases into an edge impact, then tips flat with one overshoot', () => {
+test('the tumble waits out the crouch, eases onto an edge, then snaps flat with no bounce', () => {
   const total = 2 * Math.PI;
-  const [hit, rest] = ROLL.impacts;
   assert.equal(tumbleTheta(0, total), total);
-  assert.equal(tumbleTheta(0.08, total), total);
+  assert.equal(tumbleTheta(ROLL.start, total), total);
   let prev = total;
-  for (let u = 0.09; u <= hit; u += 0.01) { // down all the way, slowing into the floor
-    assert.ok(tumbleTheta(u, total) < prev, `turns back at ${u}`);
-    prev = tumbleTheta(u, total);
+  for (let u = ROLL.start + 0.005; u <= 1; u += 0.005) { // the angle only shrinks: no overshoot, no hop
+    const t = tumbleTheta(u, total);
+    assert.ok(t <= prev && t >= 0, `turns back at ${u}`);
+    prev = t;
   }
-  assert.ok(Math.abs(tumbleTheta(hit, total) - ROLL.rock) < 1e-12); // lands tilted on an edge
-  let flips = 0;
-  for (let u = hit + 0.005; u < rest; u += 0.005) {
-    assert.ok(Math.abs(tumbleTheta(u, total)) <= ROLL.rock + 1e-12);
-    if (Math.sign(tumbleTheta(u, total)) !== Math.sign(tumbleTheta(u - 0.005, total)) && tumbleTheta(u, total) !== 0) flips++;
-  }
-  assert.equal(flips, 1); // one overshoot past flat, no wobble
-  assert.ok(Math.abs(tumbleTheta(rest, total)) < 1e-12);
+  assert.ok(Math.abs(tumbleTheta(ROLL.edge, total) - ROLL.rock) < 1e-12); // touches down tilted on an edge
+  const step = 0.002;
+  const speed = (u) => (tumbleTheta(u, total) - tumbleTheta(u + step, total)) / step;
+  for (let u = ROLL.edge + step; u + 2 * step < ROLL.flat; u += step) assert.ok(speed(u + step) > speed(u)); // pulled in faster and faster
+  assert.equal(tumbleTheta(ROLL.flat, total), 0);
   assert.equal(tumbleTheta(1, total), 0);
 });
 
