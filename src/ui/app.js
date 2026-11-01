@@ -272,14 +272,14 @@ const MODES = {
     idleCopy: (g) => `Hand ${g.hands.length + 1}/${g.hands.length + g.handsLeft} · hold to keep · reroll or play`,
     solverLine: (level) => `Best opening hand before any reroll: ${CATEGORY5_LABELS[level.openingCategory] || ''} ${level.openingBest}`,
     onboard: {
-      lead: 'No dragging: the game finds the best poker hand among all the dice and turns its dots red. Play it, or hold the dice you like and reroll the rest.',
+      lead: 'No dragging: PLAY scores the best poker hand among all the dice, and BONES shows what it is worth. Which dice make it is for you to see: hold the ones you want and reroll the rest.',
       note: 'Three hands and three rerolls per level. Playing burns the hand and every die you did not hold. Bonus dice start off: tap one to switch it on; it multiplies a hand that fits it and leaves a hole.',
-      demo: { values: [6, 2, 6, 3, 6, 1], hand: [0, 2, 4], label: 'THREE 6s = 18 × 4 = 72 · PLAY HAND' },
+      demo: { values: [6, 2, 6, 3, 6, 1], label: 'THREE 6s = 18 × 4 = 72 · PLAY' },
     },
     help: {
       lead: 'Hold what you want to keep: every die you do not hold burns when you play. Bonus dice wait on the board, switched off, until you switch one on for a hand that fits it.',
       rules: [
-        'Dice, bonus dice and blocks on a 3×3 board. Positions do not matter: the game finds the best poker hand among all the dice and turns its dots red.',
+        'Dice, bonus dice and blocks on a 3×3 board. Positions do not matter: PLAY scores the best poker hand among all the dice; BONES shows its points, the board does not mark its dice.',
         'PLAY HAND scores it. The dice of the hand and every die you did not hold burn and are replaced; held dice outside the hand stay.',
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
         'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face). They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus leaves a hole.',
@@ -295,7 +295,7 @@ const MODES = {
       options: { table: false, small: false, endOnTarget: false, goldCell: false },
     },
     coachText(step, g, hint) {
-      if (step === 'swipe') return `RED DOTS = YOUR HAND · ${hint.hand.label} ${hint.hand.total} · PRESS PLAY`;
+      if (step === 'swipe') return `BEST HAND · ${hint.hand.label} ${hint.hand.total} · PRESS PLAY`;
       return `HAND ${g.hands.length + 1}/${g.hands.length + g.handsLeft} · UNHELD DICE BURNED · HOLD, REROLL OR PLAY`;
     },
   },
@@ -363,14 +363,14 @@ function applyRenderedFaces() {
   if (app.busy) return; // a roll owns the 3D canvas; the next call redraws
   const faces = app.dice3d && dice3dStatus() === 'ready' ? renderFaces({ colors: lookColors() }) : null;
   els.board.classList.toggle('rendered', !!faces);
-  // keys: value, then k for the held body, then h for the hand's pips ('3', '3h', '3k', '3kh')
-  if (faces) for (const [key, url] of Object.entries(faces)) els.board.style.setProperty(`--face-${key[0]}${key.includes('k') ? '-held' : ''}${key.endsWith('h') ? '-hand' : ''}`, `url(${url})`);
+  // keys: value, then k for the held body ('3', '3k')
+  if (faces) for (const [key, url] of Object.entries(faces)) els.board.style.setProperty(`--face-${key[0]}${key.endsWith('k') ? '-held' : ''}`, `url(${url})`);
 }
 
 function lookColors() {
   const cs = getComputedStyle(document.body);
   const pick = (name, fallback) => (cs.getPropertyValue(name).trim() || fallback);
-  return { die: pick('--die', '#ffffff'), pip: pick('--pip', '#000000'), hand: pick('--bad', '#ff5442'), held: pick('--hold', '#d4ff82') };
+  return { die: pick('--die', '#ffffff'), pip: pick('--pip', '#000000'), held: pick('--hold', '#d4ff82') };
 }
 
 // ---------- looks (visual concepts) ----------
@@ -825,17 +825,27 @@ function buildBoard() {
   board.appendChild(ghost);
 }
 
-// The board is as wide as the column (less the wrap's 4 px sides) unless the other rows leave less
-// height; the column is top-aligned like the mockup, spare height stays under the buttons.
+// The screen is one of two mockups scaled by --k. Phone (portrait): a column 393 px wide with 616 px
+// of rows (header 56, board 387, counter 45, buttons 80 and three 16 px gaps). Desktop and landscape
+// (node 1287:1641): the 589.5 px board left of a 440 px panel, 82.5 px apart, 1112 × 580.5 px with
+// the mockup's 84 px around it. The layout that gives the bigger board wins; k is then as large as
+// the window allows, and every size in styles.css is a multiple of it, so the rows keep the
+// mockup's proportions at any size. On the phone the tutorial line, when it shows, takes its height
+// first; on desktop it sits above the panel.
+const MOCKUP = Object.freeze({ width: 393, rows: 616, board: 385 });
+const DESKTOP = Object.freeze({ width: 1112 + 2 * 84, height: 580.5 + 2 * 84, board: 589.5 });
 function fitBoard() {
-  const wrap = els.boardWrap;
   const col = getComputedStyle(els.app);
-  const rows = Array.from(els.app.children).filter((el) => el !== wrap && el.offsetHeight > 0 && getComputedStyle(el).position !== 'absolute');
-  const free = els.app.clientHeight - parseFloat(col.paddingTop) - parseFloat(col.paddingBottom)
-    - rows.reduce((sum, el) => sum + el.offsetHeight, 0) - (parseFloat(col.rowGap) || 0) * rows.length;
-  const side = parseFloat(getComputedStyle(wrap).paddingLeft) * 2;
-  const size = Math.max(120, Math.floor(Math.min(wrap.clientWidth - side, free - 2))); // rows are 2 px taller in all
-  wrap.style.setProperty('--board', `${size}px`);
+  const width = document.documentElement.clientWidth - parseFloat(col.paddingLeft) - parseFloat(col.paddingRight);
+  const height = document.documentElement.clientHeight - parseFloat(col.paddingTop) - parseFloat(col.paddingBottom);
+  const phone = Math.min(width / MOCKUP.width, height / MOCKUP.rows);
+  const desk = Math.min(width / DESKTOP.width, height / DESKTOP.height);
+  const wide = DESKTOP.board * desk > MOCKUP.board * phone;
+  document.body.classList.toggle('wide', wide);
+  const coach = $('coach');
+  const coachHeight = !wide && !coach.hidden ? coach.offsetHeight + 16 * phone : 0;
+  const k = wide ? desk : Math.min(width / MOCKUP.width, (height - coachHeight) / MOCKUP.rows);
+  els.app.style.setProperty('--k', Math.max(0.4, k).toFixed(4));
   app.cellRects = null;
 }
 
@@ -897,10 +907,9 @@ function renderCell(i) {
   if (app.hintCells && app.hintCells.includes(i)) cell.classList.add('hint');
   if (app.coachTargets && app.coachTargets.includes(i) && k < 0) cell.classList.add('hint');
   if (k < 0 && app.safeNext && app.safeNext.includes(i)) cell.classList.add('safe-next');
-  const inHand = !!(app.autoHand && app.autoHand.cells.includes(i));
-  if (inHand) cell.classList.add('in-hand');
-  cell.style.setProperty('--die-img', `var(--face-${g.faces[i]}${g.held[i] ? '-held' : ''}${inHand ? '-hand' : ''})`); // the rendered die, when 3D is on
-  cell.setAttribute('aria-label', `Die ${g.faces[i]}${g.held[i] ? ', held' : ''}${sealed ? ', fixed' : ''}${inHand ? ', in the hand' : ''}`);
+  // Auto Hand does not mark the dice of its hand (owner, 01.11.2026): finding it is the game
+  cell.style.setProperty('--die-img', `var(--face-${g.faces[i]}${g.held[i] ? '-held' : ''})`); // the rendered die, when 3D is on
+  cell.setAttribute('aria-label', `Die ${g.faces[i]}${g.held[i] ? ', held' : ''}${sealed ? ', fixed' : ''}`);
 }
 
 // Auto Hand: bonus dice (a character or a ×3 label; red once on), blocks and the holes used bonuses leave.
@@ -949,8 +958,9 @@ function renderHud() {
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
 }
 
-// BONES · MULTIPLY · TOTAL: the hand on the board before its bonus dice, the multiplier of the
-// bonus dice that are on and join it (red), and the level score (TOTAL, kept by renderHud).
+// BONES · MULTIPLY · TOTAL · THRESHOLD: the hand on the board before its bonus dice, the multiplier
+// of the bonus dice that are on and join it (red), the level score and the target (both kept by
+// renderHud).
 function renderCounter() {
   const h = app.autoHand;
   const bonus = !!h && h.bonusMult > 1;
@@ -1585,11 +1595,9 @@ function showOnboarding() {
   $('onboardScoring').innerHTML = mode.scoringHtml || els.defaultScoring.onboard;
   $('onboardNote').textContent = ob.note;
   const grid = $('demoGrid');
-  // A demo either traces a path (snake modes) or marks a hand whose numbers turn red (Auto Hand).
+  // A demo traces a path (snake modes); Auto Hand shows the dice and names the hand in the label.
   const path = ob.demo.path || [];
-  const marked = ob.demo.path || ob.demo.hand;
-  grid.classList.toggle('red', !ob.demo.path);
-  grid.innerHTML = ob.demo.values.map((v, k) => `<i data-value="${v}"${marked.includes(k) ? ' class="on"' : ''}></i>`).join('');
+  grid.innerHTML = ob.demo.values.map((v, k) => `<i data-value="${v}"${path.includes(k) ? ' class="on"' : ''}></i>`).join('');
   const pt = (k) => [50 + (k % 3) * 100, 50 + Math.floor(k / 3) * 100];
   $('demoLine').setAttribute('points', path.map((k) => pt(k).join(',')).join(' '));
   $('demoLabel').textContent = ob.demo.label;

@@ -21,8 +21,7 @@
   </nav>
   <header class="hud">
     <div class="stat"><span class="label">LEVEL</span><span class="value" id="levelText">1/25</span></div>
-    <div class="stat mid"><span class="label">THRESHOLD</span><span class="value" id="target">0</span></div>
-    <button class="book" id="helpBtn" type="button" aria-label="How to play"></button>
+    <button class="book" id="helpBtn" type="button" aria-label="How to play"><i></i>Bible</button>
   </header>
   <div class="preview" id="preview" aria-live="polite" hidden></div>
   <div class="coach" id="coach" hidden>
@@ -36,9 +35,9 @@
   </section>
   <section class="counter" aria-live="polite">
     <div class="stat"><span class="label">BONES</span><span class="value" id="bones">0</span></div>
-    <div class="stat mid" id="multStat"><span class="label">MULTIPLY</span><span class="value" id="mult">0</span></div>
+    <div class="stat mid" id="multStat"><span class="label">MULTIPLY</span><span class="value" id="mult">0</span><span class="sticker big" id="multSticker">x2</span></div>
     <div class="stat mid" id="scoreStat"><span class="label">TOTAL</span><span class="value" id="score">0</span></div>
-    <span class="sticker big" id="multSticker">x2</span>
+    <div class="stat mid" id="targetStat"><span class="label">THRESHOLD</span><span class="value" id="target">0</span></div>
   </section>
   <section class="controls">
     <div class="status" hidden>

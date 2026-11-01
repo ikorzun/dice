@@ -72,38 +72,42 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .app {
   position: relative;
   height: 100%;
-  max-width: 560px;
+  /* the mockup's 393 px column scaled by --k (app.js fitBoard), plus the notch insets */
+  width: calc(393px * var(--k, 1) + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px));
+  max-width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: calc(16px * var(--k, 1));
   padding-block: max(16px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-bottom, 0px));
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
 }
 .app > * { flex: none; }
+.app { --kb: var(--k, 1); } /* the board's scale: --k on the phone, ×1.5 on desktop */
 
 /* Mode tabs */
 .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .tab { height: 34px; border: 1px solid var(--line-strong); border-radius: 9px; background: transparent; color: var(--muted); font: 700 14px/1 var(--font-display); letter-spacing: .16em; }
 .tab.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 
-/* Header (LEVEL · THRESHOLD · rules) and counter (BONES · MULTIPLY · TOTAL): label 13 px, value 32 px */
-.hud, .counter { position: relative; display: flex; align-items: center; padding: 0 12px; }
-.hud { height: 56px; }
-.counter { height: 52px; justify-content: space-between; }
-.stat { flex: 1 0 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-family: var(--font-display); font-weight: 700; text-transform: uppercase; white-space: nowrap; color: var(--fg); }
+/* Header (LEVEL · rules) and counter (BONES · MULTIPLY · TOTAL · THRESHOLD): label 11 px, value 28 px */
+.hud, .counter { position: relative; display: flex; padding: 0 calc(12px * var(--k, 1)); }
+.hud { height: calc(56px * var(--k, 1)); }
+.counter { height: calc(45px * var(--k, 1)); justify-content: space-between; }
+.stat { flex: 1 0 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: calc(2px * var(--k, 1)); font-family: var(--font-display); font-weight: 700; text-transform: uppercase; white-space: nowrap; color: var(--fg); }
 .stat.mid { align-items: center; }
-.stat .label { font-size: 13px; line-height: normal; opacity: .6; }
-.counter .stat .label { opacity: .5; }
-.stat .value { font-size: 32px; line-height: 1; font-variant-numeric: tabular-nums; }
-#multStat { border-left: 1px solid rgba(0, 0, 0, .3); border-right: 1px solid rgba(0, 0, 0, .3); }
+.stat .label { font-size: calc(11px * var(--k, 1)); line-height: normal; opacity: .5; }
+#targetStat .label { opacity: .6; }
+.stat .value { font-size: calc(28px * var(--k, 1)); line-height: 1; font-variant-numeric: tabular-nums; }
+#multStat { position: relative; border-left: 1px solid rgba(0, 0, 0, .3); border-right: 1px solid rgba(0, 0, 0, .3); }
 #multStat.on .label { color: #ff5442; opacity: 1; }
-.book { flex: none; width: 120.333px; height: 100%; border: 0; padding: 0; background: url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjM2IiBoZWlnaHQ9IjM0LjEyMDkiIHZpZXdCb3g9IjAgMCAzNiAzNC4xMjA5IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cGF0aCBpZD0iUHJpbWFyeSIgZD0iTTE4IDcuNjg1MTZWMjkuNDMyOEwxOC4wMzUyIDI5LjQxODdDMjEuODc0MiAyNy44MjI3IDI1Ljk5NDUgMjcgMzAuMTUgMjdIMzEuNVY0LjVIMzAuMTVDMjcuMTgyOCA0LjUgMjQuMjM2NyA1LjA5MDYyIDIxLjQ5NDUgNi4yMjk2OUMyMC4zMTMzIDYuNzIxODcgMTkuMTQ2MSA3LjIwNzAzIDE4IDcuNjg1MTZaTTE2LjIzNTIgMi4wNzQyMkwxOCAyLjgxMjVMMTkuNzY0OCAyLjA3NDIyQzIzLjA1NTUgMC43MDMxMjUgMjYuNTg1MiAwIDMwLjE1IDBIMzIuNjI1QzM0LjQ4ODMgMCAzNiAxLjUxMTcyIDM2IDMuMzc1VjI4LjEyNUMzNiAyOS45ODgzIDM0LjQ4ODMgMzEuNSAzMi42MjUgMzEuNUgzMC4xNUMyNi41ODUyIDMxLjUgMjMuMDU1NSAzMi4yMDMxIDE5Ljc2NDggMzMuNTc0MkwxOC44NjQ4IDMzLjk0NjlDMTguMzA5NCAzNC4xNzg5IDE3LjY5MDYgMzQuMTc4OSAxNy4xMzUyIDMzLjk0NjlMMTYuMjM1MiAzMy41NzQyQzEyLjk0NDUgMzIuMjAzMSA5LjQxNDg0IDMxLjUgNS44NSAzMS41SDMuMzc1QzEuNTExNzIgMzEuNSAwIDI5Ljk4ODMgMCAyOC4xMjVWMy4zNzVDMCAxLjUxMTcyIDEuNTExNzIgMCAzLjM3NSAwSDUuODVDOS40MTQ4NCAwIDEyLjk0NDUgMC43MDMxMjUgMTYuMjM1MiAyLjA3NDIyWk0yMS43NDc3IDguNjEzMjhDMjMuNDYzMyA3Ljc1NTQ3IDI1LjM1NDcgNy4zMTI1IDI3LjI2NzIgNy4zMTI1SDI3LjU2MjVDMjguNDk3NyA3LjMxMjUgMjkuMjUgOC4wNjQ4NCAyOS4yNSA5QzI5LjI1IDkuOTM1MTYgMjguNDk3NyAxMC42ODc1IDI3LjU2MjUgMTAuNjg3NUgyNy4yNjcyQzI1Ljg3NSAxMC42ODc1IDI0LjUwMzkgMTEuMDEwOSAyMy4yNTk0IDExLjYzNjdDMjIuNDIyNyAxMi4wNTE2IDIxLjQxMDIgMTEuNzE0MSAyMC45OTUzIDEwLjg4NDRDMjAuNTgwNSAxMC4wNTQ3IDIwLjkxOCA5LjAzNTE2IDIxLjc0NzcgOC42MjAzMVY4LjYxMzI4Wk0yMS43NDc3IDE1LjM2MzNDMjMuNDYzMyAxNC41MDU1IDI1LjM1NDcgMTQuMDYyNSAyNy4yNjcyIDE0LjA2MjVIMjcuNTYyNUMyOC40OTc3IDE0LjA2MjUgMjkuMjUgMTQuODE0OCAyOS4yNSAxNS43NUMyOS4yNSAxNi42ODUyIDI4LjQ5NzcgMTcuNDM3NSAyNy41NjI1IDE3LjQzNzVIMjcuMjY3MkMyNS44NzUgMTcuNDM3NSAyNC41MDM5IDE3Ljc2MDkgMjMuMjU5NCAxOC4zODY3QzIyLjQyMjcgMTguODAxNiAyMS40MTAyIDE4LjQ2NDEgMjAuOTk1MyAxNy42MzQ0QzIwLjU4MDUgMTYuODA0NyAyMC45MTggMTUuNzg1MiAyMS43NDc3IDE1LjM3MDNWMTUuMzYzM1pNMjEuNzQ3NyAyMi4xMTMzQzIzLjQ2MzMgMjEuMjU1NSAyNS4zNTQ3IDIwLjgxMjUgMjcuMjY3MiAyMC44MTI1SDI3LjU2MjVDMjguNDk3NyAyMC44MTI1IDI5LjI1IDIxLjU2NDggMjkuMjUgMjIuNUMyOS4yNSAyMy40MzUyIDI4LjQ5NzcgMjQuMTg3NSAyNy41NjI1IDI0LjE4NzVIMjcuMjY3MkMyNS44NzUgMjQuMTg3NSAyNC41MDM5IDI0LjUxMDkgMjMuMjU5NCAyNS4xMzY3QzIyLjQyMjcgMjUuNTUxNiAyMS40MTAyIDI1LjIxNDEgMjAuOTk1MyAyNC4zODQ0QzIwLjU4MDUgMjMuNTU0NyAyMC45MTggMjIuNTM1MiAyMS43NDc3IDIyLjEyMDNWMjIuMTEzM1pNNi4xODc1IDcuMzEyNUM1LjI1MjM0IDcuMzEyNSA0LjUgOC4wNjQ4NCA0LjUgOUM0LjUgOS45MzUxNiA1LjI1MjM0IDEwLjY4NzUgNi4xODc1IDEwLjY4NzVINy42MDc4MUM5IDEwLjY4NzUgMTAuMzcxMSAxMS4wMTA5IDExLjYxNTYgMTEuNjM2N0MxMi40NTIzIDEyLjA1MTYgMTMuNDY0OCAxMS43MTQxIDEzLjg3OTcgMTAuODg0NEMxNC4yOTQ1IDEwLjA1NDcgMTMuOTU3IDkuMDM1MTYgMTMuMTI3MyA4LjYyMDMxQzExLjQxMTcgNy43NjI1IDkuNTIwMzEgNy4zMTk1MyA3LjYwNzgxIDcuMzE5NTNMNi4xODc1IDcuMzEyNVpNNi4xODc1IDE0LjA2MjVDNS4yNTIzNCAxNC4wNjI1IDQuNSAxNC44MTQ4IDQuNSAxNS43NUM0LjUgMTYuNjg1MiA1LjI1MjM0IDE3LjQzNzUgNi4xODc1IDE3LjQzNzVINy42MDc4MUM5IDE3LjQzNzUgMTAuMzcxMSAxNy43NjA5IDExLjYxNTYgMTguMzg2N0MxMi40NTIzIDE4LjgwMTYgMTMuNDY0OCAxOC40NjQxIDEzLjg3OTcgMTcuNjM0NEMxNC4yOTQ1IDE2LjgwNDcgMTMuOTU3IDE1Ljc4NTIgMTMuMTI3MyAxNS4zNzAzQzExLjQxMTcgMTQuNTEyNSA5LjUyMDMxIDE0LjA2OTUgNy42MDc4MSAxNC4wNjk1TDYuMTg3NSAxNC4wNjI1Wk02LjE4NzUgMjAuODEyNUM1LjI1MjM0IDIwLjgxMjUgNC41IDIxLjU2NDggNC41IDIyLjVDNC41IDIzLjQzNTIgNS4yNTIzNCAyNC4xODc1IDYuMTg3NSAyNC4xODc1SDcuNjA3ODFDOSAyNC4xODc1IDEwLjM3MTEgMjQuNTEwOSAxMS42MTU2IDI1LjEzNjdDMTIuNDUyMyAyNS41NTE2IDEzLjQ2NDggMjUuMjE0MSAxMy44Nzk3IDI0LjM4NDRDMTQuMjk0NSAyMy41NTQ3IDEzLjk1NyAyMi41MzUyIDEzLjEyNzMgMjIuMTIwM0MxMS40MTE3IDIxLjI2MjUgOS41MjAzMSAyMC44MTk1IDcuNjA3ODEgMjAuODE5NUw2LjE4NzUgMjAuODEyNVoiIGZpbGw9IiNBN0E3QTciLz4KPC9zdmc+Cg==") right center / 36px 34.1209px no-repeat; }
-.book:disabled { opacity: .35; cursor: default; }
+.book { flex: 1 0 0; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: calc(8px * var(--k, 1)); height: 100%; border: 0; padding: 0; background: none; color: var(--fg); font: 700 calc(28px * var(--k, 1))/1 var(--font-display); white-space: nowrap; }
+.book i { flex: none; width: calc(36px * var(--k, 1)); height: calc(34.1209px * var(--k, 1)); background: url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjM2IiBoZWlnaHQ9IjM0LjEyMDkiIHZpZXdCb3g9IjAgMCAzNiAzNC4xMjA5IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cGF0aCBpZD0iUHJpbWFyeSIgZD0iTTE4IDcuNjg1MTZWMjkuNDMyOEwxOC4wMzUyIDI5LjQxODdDMjEuODc0MiAyNy44MjI3IDI1Ljk5NDUgMjcgMzAuMTUgMjdIMzEuNVY0LjVIMzAuMTVDMjcuMTgyOCA0LjUgMjQuMjM2NyA1LjA5MDYyIDIxLjQ5NDUgNi4yMjk2OUMyMC4zMTMzIDYuNzIxODcgMTkuMTQ2MSA3LjIwNzAzIDE4IDcuNjg1MTZaTTE2LjIzNTIgMi4wNzQyMkwxOCAyLjgxMjVMMTkuNzY0OCAyLjA3NDIyQzIzLjA1NTUgMC43MDMxMjUgMjYuNTg1MiAwIDMwLjE1IDBIMzIuNjI1QzM0LjQ4ODMgMCAzNiAxLjUxMTcyIDM2IDMuMzc1VjI4LjEyNUMzNiAyOS45ODgzIDM0LjQ4ODMgMzEuNSAzMi42MjUgMzEuNUgzMC4xNUMyNi41ODUyIDMxLjUgMjMuMDU1NSAzMi4yMDMxIDE5Ljc2NDggMzMuNTc0MkwxOC44NjQ4IDMzLjk0NjlDMTguMzA5NCAzNC4xNzg5IDE3LjY5MDYgMzQuMTc4OSAxNy4xMzUyIDMzLjk0NjlMMTYuMjM1MiAzMy41NzQyQzEyLjk0NDUgMzIuMjAzMSA5LjQxNDg0IDMxLjUgNS44NSAzMS41SDMuMzc1QzEuNTExNzIgMzEuNSAwIDI5Ljk4ODMgMCAyOC4xMjVWMy4zNzVDMCAxLjUxMTcyIDEuNTExNzIgMCAzLjM3NSAwSDUuODVDOS40MTQ4NCAwIDEyLjk0NDUgMC43MDMxMjUgMTYuMjM1MiAyLjA3NDIyWk0yMS43NDc3IDguNjEzMjhDMjMuNDYzMyA3Ljc1NTQ3IDI1LjM1NDcgNy4zMTI1IDI3LjI2NzIgNy4zMTI1SDI3LjU2MjVDMjguNDk3NyA3LjMxMjUgMjkuMjUgOC4wNjQ4NCAyOS4yNSA5QzI5LjI1IDkuOTM1MTYgMjguNDk3NyAxMC42ODc1IDI3LjU2MjUgMTAuNjg3NUgyNy4yNjcyQzI1Ljg3NSAxMC42ODc1IDI0LjUwMzkgMTEuMDEwOSAyMy4yNTk0IDExLjYzNjdDMjIuNDIyNyAxMi4wNTE2IDIxLjQxMDIgMTEuNzE0MSAyMC45OTUzIDEwLjg4NDRDMjAuNTgwNSAxMC4wNTQ3IDIwLjkxOCA5LjAzNTE2IDIxLjc0NzcgOC42MjAzMVY4LjYxMzI4Wk0yMS43NDc3IDE1LjM2MzNDMjMuNDYzMyAxNC41MDU1IDI1LjM1NDcgMTQuMDYyNSAyNy4yNjcyIDE0LjA2MjVIMjcuNTYyNUMyOC40OTc3IDE0LjA2MjUgMjkuMjUgMTQuODE0OCAyOS4yNSAxNS43NUMyOS4yNSAxNi42ODUyIDI4LjQ5NzcgMTcuNDM3NSAyNy41NjI1IDE3LjQzNzVIMjcuMjY3MkMyNS44NzUgMTcuNDM3NSAyNC41MDM5IDE3Ljc2MDkgMjMuMjU5NCAxOC4zODY3QzIyLjQyMjcgMTguODAxNiAyMS40MTAyIDE4LjQ2NDEgMjAuOTk1MyAxNy42MzQ0QzIwLjU4MDUgMTYuODA0NyAyMC45MTggMTUuNzg1MiAyMS43NDc3IDE1LjM3MDNWMTUuMzYzM1pNMjEuNzQ3NyAyMi4xMTMzQzIzLjQ2MzMgMjEuMjU1NSAyNS4zNTQ3IDIwLjgxMjUgMjcuMjY3MiAyMC44MTI1SDI3LjU2MjVDMjguNDk3NyAyMC44MTI1IDI5LjI1IDIxLjU2NDggMjkuMjUgMjIuNUMyOS4yNSAyMy40MzUyIDI4LjQ5NzcgMjQuMTg3NSAyNy41NjI1IDI0LjE4NzVIMjcuMjY3MkMyNS44NzUgMjQuMTg3NSAyNC41MDM5IDI0LjUxMDkgMjMuMjU5NCAyNS4xMzY3QzIyLjQyMjcgMjUuNTUxNiAyMS40MTAyIDI1LjIxNDEgMjAuOTk1MyAyNC4zODQ0QzIwLjU4MDUgMjMuNTU0NyAyMC45MTggMjIuNTM1MiAyMS43NDc3IDIyLjEyMDNWMjIuMTEzM1pNNi4xODc1IDcuMzEyNUM1LjI1MjM0IDcuMzEyNSA0LjUgOC4wNjQ4NCA0LjUgOUM0LjUgOS45MzUxNiA1LjI1MjM0IDEwLjY4NzUgNi4xODc1IDEwLjY4NzVINy42MDc4MUM5IDEwLjY4NzUgMTAuMzcxMSAxMS4wMTA5IDExLjYxNTYgMTEuNjM2N0MxMi40NTIzIDEyLjA1MTYgMTMuNDY0OCAxMS43MTQxIDEzLjg3OTcgMTAuODg0NEMxNC4yOTQ1IDEwLjA1NDcgMTMuOTU3IDkuMDM1MTYgMTMuMTI3MyA4LjYyMDMxQzExLjQxMTcgNy43NjI1IDkuNTIwMzEgNy4zMTk1MyA3LjYwNzgxIDcuMzE5NTNMNi4xODc1IDcuMzEyNVpNNi4xODc1IDE0LjA2MjVDNS4yNTIzNCAxNC4wNjI1IDQuNSAxNC44MTQ4IDQuNSAxNS43NUM0LjUgMTYuNjg1MiA1LjI1MjM0IDE3LjQzNzUgNi4xODc1IDE3LjQzNzVINy42MDc4MUM5IDE3LjQzNzUgMTAuMzcxMSAxNy43NjA5IDExLjYxNTYgMTguMzg2N0MxMi40NTIzIDE4LjgwMTYgMTMuNDY0OCAxOC40NjQxIDEzLjg3OTcgMTcuNjM0NEMxNC4yOTQ1IDE2LjgwNDcgMTMuOTU3IDE1Ljc4NTIgMTMuMTI3MyAxNS4zNzAzQzExLjQxMTcgMTQuNTEyNSA5LjUyMDMxIDE0LjA2OTUgNy42MDc4MSAxNC4wNjk1TDYuMTg3NSAxNC4wNjI1Wk02LjE4NzUgMjAuODEyNUM1LjI1MjM0IDIwLjgxMjUgNC41IDIxLjU2NDggNC41IDIyLjVDNC41IDIzLjQzNTIgNS4yNTIzNCAyNC4xODc1IDYuMTg3NSAyNC4xODc1SDcuNjA3ODFDOSAyNC4xODc1IDEwLjM3MTEgMjQuNTEwOSAxMS42MTU2IDI1LjEzNjdDMTIuNDUyMyAyNS41NTE2IDEzLjQ2NDggMjUuMjE0MSAxMy44Nzk3IDI0LjM4NDRDMTQuMjk0NSAyMy41NTQ3IDEzLjk1NyAyMi41MzUyIDEzLjEyNzMgMjIuMTIwM0MxMS40MTE3IDIxLjI2MjUgOS41MjAzMSAyMC44MTk1IDcuNjA3ODEgMjAuODE5NUw2LjE4NzUgMjAuODEyNVoiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=") center / 100% 100% no-repeat; }
+.book:disabled { cursor: default; } /* blocked while a roll or a hand plays, but the header stays as drawn */
 #scoreStat.bump .value { animation: bump 380ms ease-out; }
 @keyframes bump { 0% { transform: scale(1); } 35% { transform: scale(1.2); color: var(--accent); } 100% { transform: scale(1); } }
-/* MULTIPLY with a bonus on, and the big ×N of the bonus screen: white letters on a red sticker */
+/* MULTIPLY with a bonus on, and the big ×N of the bonus screen (over MULTIPLY): white letters on a red sticker */
 .sticker, #multStat.on .value {
   color: #fff;
   text-shadow: .15em 0 0 #ff5442, -.15em 0 0 #ff5442, 0 .15em 0 #ff5442, 0 -.15em 0 #ff5442, .106em .106em 0 #ff5442, -.106em .106em 0 #ff5442, .106em -.106em 0 #ff5442, -.106em -.106em 0 #ff5442,
@@ -124,7 +128,6 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .demo-grid { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% * 200 / 230); display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6px; }
 .demo-grid i { display: block; border-radius: 14%; background: var(--die); box-shadow: inset 0 -4px 0 var(--die-edge); position: relative; }
 .demo-grid i.on::after { color: var(--pip); }
-.demo-grid.red i.on::after { color: var(--bad); }
 .demo-grid i::after { content: attr(data-value); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 700 36px/1 var(--font-display); color: var(--pip); }
 .demo-line { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% * 200 / 230); pointer-events: none; }
 .demo-line polyline { fill: none; stroke: var(--path); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 400; stroke-dashoffset: 400; animation: demoLine 2.8s ease-in-out infinite; }
@@ -148,16 +151,16 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .preview.hint { color: var(--gold); }
 
 /* Board */
-.board-wrap { position: relative; display: flex; justify-content: center; padding: 0 4px; }
+.board-wrap { --board: calc(385px * var(--kb, 1)); position: relative; display: flex; justify-content: center; padding: 0 calc(4px * var(--kb, 1)); }
 .board {
   -webkit-touch-callout: none;
   position: relative;
   width: var(--board, 300px);
-  height: calc(var(--board, 300px) + 2px);
+  height: calc(var(--board, 300px) + 2px * var(--kb, 1));
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  gap: 5px 4px;
+  gap: calc(5px * var(--kb, 1)) calc(4px * var(--kb, 1));
   touch-action: none;
   transition: filter 200ms ease, opacity 200ms ease;
 }
@@ -187,9 +190,8 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.bonus.pressed { transform: scale(.95); }
 .cell.bonus.on { background-color: var(--on); }
 .cell.bonus.used { border-color: var(--line-strong); color: var(--muted); box-shadow: none; animation: none; }
-/* Auto Hand: red dots mark the dice of the hand; bonus dice are dark tiles until switched on (red);
-   the skeleton is ×2, the pink skull the joker, the ×3 kinds a label; blocks are locks */
-.cell.die.in-hand .face i { background: var(--bad); }
+/* Auto Hand: bonus dice are dark tiles until switched on (red); the skeleton is ×2, the pink skull
+   the joker, the ×3 kinds a label; blocks are locks */
 .cell.bonus.safe-hint, .cell.bonus.hint { animation: armPulse 650ms ease-in-out infinite; }
 .cell .art { position: absolute; display: none; background: center / 100% 100% no-repeat; pointer-events: none; }
 .cell.bonus.kind-x2_any .art, .cell.bonus.kind-joker .art { display: block; }
@@ -212,11 +214,11 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .face[data-value="4"] i:nth-child(1), .face[data-value="4"] i:nth-child(3), .face[data-value="4"] i:nth-child(7), .face[data-value="4"] i:nth-child(9),
 .face[data-value="5"] i:nth-child(1), .face[data-value="5"] i:nth-child(3), .face[data-value="5"] i:nth-child(5), .face[data-value="5"] i:nth-child(7), .face[data-value="5"] i:nth-child(9),
 .face[data-value="6"] i:nth-child(1), .face[data-value="6"] i:nth-child(3), .face[data-value="6"] i:nth-child(4), .face[data-value="6"] i:nth-child(6), .face[data-value="6"] i:nth-child(7), .face[data-value="6"] i:nth-child(9) { opacity: 1; }
-.cell .tag { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); font: 700 11px/1 var(--font-display); letter-spacing: .16em; padding: 3px 6px; border-radius: 4px; display: none; white-space: nowrap; }
+.cell .tag { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); font: 700 calc(11px * var(--kb, 1))/1 var(--font-display); letter-spacing: .16em; padding: calc(3px * var(--kb, 1)) calc(6px * var(--kb, 1)); border-radius: 4px; display: none; white-space: nowrap; }
 .cell.bonus .tag { display: block; bottom: 10%; color: var(--fg); }
 .cell.bonus .tag:empty { display: none; }
 .cell.bonus.used .tag { color: var(--muted); }
-.cell .x2 { display: none; font: 700 clamp(28px, 10vw, 48px)/1 var(--font-display); letter-spacing: -.02em; }
+.cell .x2 { display: none; font: 700 calc(40px * var(--kb, 1))/1 var(--font-display); letter-spacing: -.02em; }
 .cell.bonus .x2 { display: block; }
 .cell .order { position: absolute; top: 6%; right: 7%; width: 22px; height: 22px; border-radius: 50%; background: var(--path); color: #fff; font: 700 13px/22px var(--font-display); text-align: center; display: none; }
 .cell.in-path .order { display: block; }
@@ -246,11 +248,12 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .app.bonus-show #skipBtn { display: block; }
 .app.bonus-show .bonus-hero.kind-x2_any, .app.bonus-show .bonus-hero.kind-joker { display: block; }
 .app.bonus-show.has-sticker .counter .sticker.big { display: block; }
+.app.bonus-show.has-sticker #mult { visibility: hidden; } /* the sticker says it; on desktop the value would peek out */
 .bonus-hero { position: absolute; z-index: 9; left: calc(50% - var(--board, 300px) * .365); top: calc(var(--board, 300px) * .083); width: var(--board, 300px); height: var(--board, 300px); border-radius: 25.5%; overflow: hidden; pointer-events: none; animation: heroIn 320ms cubic-bezier(.2, .8, .3, 1.15) both; }
 .bonus-hero i { position: absolute; background: center / 100% 100% no-repeat; }
 .bonus-hero.kind-x2_any i { left: -22.87%; top: -28.31%; width: 146.12%; height: 146.12%; background-image: var(--img-skeleton); }
 .bonus-hero.kind-joker i { inset: 0; background-image: var(--img-skull); }
-.counter .sticker.big { position: absolute; left: 50%; top: 50%; z-index: 9; font: 700 64px/1 var(--font-display); text-transform: uppercase; white-space: nowrap; pointer-events: none; transform: translate(-50%, -40%) rotate(-10.24deg); animation: stickerIn 260ms 160ms cubic-bezier(.2, .8, .3, 1.3) both; }
+.counter .sticker.big { position: absolute; left: 50%; top: 50%; z-index: 9; font: 700 calc(64px * var(--k, 1))/1 var(--font-display); text-transform: uppercase; white-space: nowrap; pointer-events: none; transform: translate(-50%, -40%) rotate(-10.24deg); animation: stickerIn 260ms 160ms cubic-bezier(.2, .8, .3, 1.3) both; }
 @keyframes heroIn { from { opacity: 0; transform: translateY(8%) scale(.7); } to { opacity: 1; transform: none; } }
 @keyframes stickerIn { from { opacity: 0; transform: translate(-50%, -40%) rotate(-10.24deg) scale(1.8); } to { opacity: 1; transform: translate(-50%, -40%) rotate(-10.24deg) scale(1); } }
 
@@ -267,9 +270,9 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 #hintLine { stroke: var(--gold); stroke-width: 5; stroke-dasharray: 9 11; }
 
 .reveal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; z-index: 6; opacity: 0; white-space: nowrap; }
-.reveal .cat { font: 700 26px/1 var(--font-display); letter-spacing: .14em; color: var(--reveal-fg); text-shadow: 0 2px 12px #000, 0 0 2px #000; }
-.reveal .pts { font: 700 70px/1 var(--font-display); color: var(--path); text-shadow: 0 2px 16px #000; font-variant-numeric: tabular-nums; }
-.reveal .mult { font: 700 22px/1 var(--font-display); letter-spacing: .1em; color: var(--gold); text-shadow: 0 2px 10px #000; }
+.reveal .cat { font: 700 calc(26px * var(--kb, 1))/1 var(--font-display); letter-spacing: .14em; color: var(--reveal-fg); text-shadow: 0 2px 12px #000, 0 0 2px #000; }
+.reveal .pts { font: 700 calc(70px * var(--kb, 1))/1 var(--font-display); color: var(--path); text-shadow: 0 2px 16px #000; font-variant-numeric: tabular-nums; }
+.reveal .mult { font: 700 calc(22px * var(--kb, 1))/1 var(--font-display); letter-spacing: .1em; color: var(--gold); text-shadow: 0 2px 10px #000; }
 .reveal.show { animation: reveal 950ms ease-out forwards; }
 /* Auto Hand: the bonus step lands as a hit; the fire marks a hand that alone covers the rest of the target */
 .reveal.show.long { animation-duration: 1350ms; }
@@ -304,8 +307,8 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .btn-secondary:disabled { opacity: .35; cursor: default; }
 .tapbar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 /* PLAY•hands left and REROLL•rerolls left, side by side (SKIP alone on the bonus screen) */
-.controls { display: flex; gap: 8px; padding: 0 12px; }
-.btn-play, .btn-dark { flex: 1 0 0; min-width: 0; height: 80px; padding: 4px 0; border: 0; border-radius: 72px; font: 700 20px/normal var(--font-display); text-transform: uppercase; white-space: nowrap; transition: transform 100ms ease, opacity 150ms; }
+.controls { display: flex; gap: calc(8px * var(--k, 1)); padding: 0 calc(12px * var(--k, 1)); }
+.btn-play, .btn-dark { flex: 1 0 0; min-width: 0; height: calc(80px * var(--k, 1)); padding: 4px 0; border: 0; border-radius: calc(72px * var(--k, 1)); font: 700 calc(20px * var(--k, 1))/normal var(--font-display); text-transform: uppercase; white-space: nowrap; transition: transform 100ms ease, opacity 150ms; }
 .btn-play { background: var(--accent); color: #000; }
 .btn-dark { background: var(--tile); color: var(--fg); }
 .btn-play:active, .btn-dark:active { transform: scale(.98); }
@@ -315,7 +318,7 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .btn-ghost.on { color: var(--bg); background: var(--fg); border-color: var(--fg); }
 
 /* Toast */
-.toast { pointer-events: none; position: absolute; left: 50%; bottom: 200px; transform: translateX(-50%); max-width: calc(100% - 32px); padding: 10px 14px; border-radius: 10px; background: var(--panel-bg); border: 1px solid var(--line-strong); color: var(--fg); font: 700 15px/1.2 var(--font-display); letter-spacing: .06em; text-align: center; z-index: 8; animation: toastIn 180ms ease-out; }
+.toast { pointer-events: none; position: absolute; left: 50%; bottom: calc(220px * var(--k, 1)); transform: translateX(-50%); max-width: calc(100% - 32px); padding: 10px 14px; border-radius: 10px; background: var(--panel-bg); border: 1px solid var(--line-strong); color: var(--fg); font: 700 15px/1.2 var(--font-display); letter-spacing: .06em; text-align: center; z-index: 8; animation: toastIn 180ms ease-out; }
 .toast.bad { border-color: var(--bad); color: var(--bad); }
 .toast.good { border-color: var(--good); color: var(--good); }
 .toast.hint { border-color: var(--gold); color: var(--gold); }
@@ -355,6 +358,39 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .opt input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--gold); }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .log-out { width: 100%; height: 120px; background: var(--panel-bg); color: var(--muted); border: 1px solid var(--line-strong); border-radius: 8px; font: 12px/1.3 ui-monospace, Menlo, Consolas, monospace; user-select: text; -webkit-user-select: text; }
+
+/* Desktop and landscape (Figma "MacBook Air - 1", node 1287:1641): the board on the left, the header,
+   the counter card and two stacked buttons on the right. app.js (fitBoard) switches to it when it
+   gives the bigger board; --k is then the desktop mockup's scale and the board is the phone board
+   ×1.5 (--kb). */
+body.wide { display: flex; align-items: center; background: #000; } /* the panel centred top to bottom */
+body.wide .app {
+  --kb: calc(var(--k, 1) * 1.5);
+  width: 100%;
+  height: auto; /* as tall as the board: the buttons' 1fr row takes what the header and counter leave */
+  display: grid;
+  grid-template-columns: calc(589.5px * var(--k, 1)) calc(440px * var(--k, 1));
+  grid-template-rows: auto auto auto 1fr;
+  grid-template-areas: "board coach" "board hud" "board counter" "board controls";
+  column-gap: calc(82.5px * var(--k, 1));
+  row-gap: 0;
+  justify-content: center;
+}
+body.wide .board-wrap { grid-area: board; }
+body.wide .coach { grid-area: coach; margin-bottom: calc(24px * var(--k, 1)); }
+body.wide .hud { grid-area: hud; align-items: flex-end; justify-content: space-between; padding: 0 calc(4.5px * var(--k, 1)) 0 calc(24px * var(--k, 1)); }
+body.wide .hud .stat { flex: none; width: calc(184.5px * var(--k, 1)); }
+body.wide .stat .value { font-size: calc(44px * var(--k, 1)); }
+body.wide .book { flex: none; height: auto; font-size: calc(36px * var(--k, 1)); }
+body.wide .counter { grid-area: counter; display: grid; grid-template-columns: 1fr 1fr; gap: calc(33px * var(--k, 1)); height: auto; margin-top: calc(24px * var(--k, 1)); padding: calc(24px * var(--k, 1)); background: var(--tile); border-radius: calc(24px * var(--k, 1)); }
+body.wide .counter .stat { align-items: flex-start; }
+body.wide #targetStat { grid-area: 1 / 2; }
+body.wide #multStat { grid-area: 2 / 1; }
+body.wide #scoreStat { grid-area: 2 / 2; }
+body.wide #bones, body.wide #mult, body.wide #score { opacity: .6; }
+body.wide #multStat.on .value { opacity: 1; }
+body.wide .controls { grid-area: controls; flex-direction: column; gap: calc(24px * var(--k, 1)); min-height: 0; margin-top: calc(24px * var(--k, 1)); padding: 0; }
+body.wide .btn-play, body.wide .btn-dark { height: auto; width: 100%; font-size: calc(29px * var(--k, 1)); }
 
 /* Basteleur is wide and the mockup sets it without tracking: the rules above were spaced for a
    condensed face */
@@ -512,8 +548,7 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
   </nav>
   <header class="hud">
     <div class="stat"><span class="label">LEVEL</span><span class="value" id="levelText">1/25</span></div>
-    <div class="stat mid"><span class="label">THRESHOLD</span><span class="value" id="target">0</span></div>
-    <button class="book" id="helpBtn" type="button" aria-label="How to play"></button>
+    <button class="book" id="helpBtn" type="button" aria-label="How to play"><i></i>Bible</button>
   </header>
   <div class="preview" id="preview" aria-live="polite" hidden></div>
   <div class="coach" id="coach" hidden>
@@ -527,9 +562,9 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
   </section>
   <section class="counter" aria-live="polite">
     <div class="stat"><span class="label">BONES</span><span class="value" id="bones">0</span></div>
-    <div class="stat mid" id="multStat"><span class="label">MULTIPLY</span><span class="value" id="mult">0</span></div>
+    <div class="stat mid" id="multStat"><span class="label">MULTIPLY</span><span class="value" id="mult">0</span><span class="sticker big" id="multSticker">x2</span></div>
     <div class="stat mid" id="scoreStat"><span class="label">TOTAL</span><span class="value" id="score">0</span></div>
-    <span class="sticker big" id="multSticker">x2</span>
+    <div class="stat mid" id="targetStat"><span class="label">THRESHOLD</span><span class="value" id="target">0</span></div>
   </section>
   <section class="controls">
     <div class="status" hidden>
@@ -2872,10 +2907,13 @@ const __mod_dice3d = (() => {
 // from the CDN; when it is unavailable the caller keeps the CSS dice and their tumble.
 
 const { landingQuaternion, tumblePlan, tumblePose, qAxisAngle, qMul, ROLL } = __mod_dice3d_math;
-const { DIE_BODY, DIE_PIPS, decodePart } = __mod_dice_model;
+const { DIE_PIPS, decodePart } = __mod_dice_model;
 
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-const ROUND_R = 0.224; // bevel radius of the model, in half-sides (measured from the mesh)
+// The die is rounded like the owner's Figma mockup (32 px on a 125.67 px die), in half-sides: a
+// rounded box replaces the model's own body (bevel 0.224), and the model's pips are wrapped onto it.
+const ROUND_R = (32 / 125.667) * 2;
+const SEGMENTS = 32;   // per cube edge: ~8 steps across each rounded band, smooth at 3× pixel ratio
 const CAM_DIST = 9;    // camera height above the die centre, in half-sides
 const BLEED = 1.5;     // viewport side ÷ die side: room for the corners of a tumbling die
 const FADE_MS = 100;   // the landed canvas fades out over the DOM die
@@ -2904,7 +2942,7 @@ const SHADOW = [
 
 let THREE = null;      // the module once loaded, false when loading failed
 let loading = null;
-let geometries = null; // { body, pips } built once from dice-model.js
+let geometries = null; // { body, pips } built once
 let kit = null;        // one renderer, scene and die for every roll: shaders compile once
 
 function loadDice3D() {
@@ -2918,30 +2956,58 @@ function loadDice3D() {
 
 const dice3dStatus = () => (THREE === null ? (loading ? 'loading' : 'idle') : THREE ? 'ready' : 'unavailable');
 
+// Pulls every point onto the rounded box of half-side 1 (radius `radius` around the inner box of
+// half-side 1 - ROUND_R) and, when asked, writes the exact normal there.
+function roundOnto(positions, radius, normals = null) {
+  const lim = 1 - ROUND_R;
+  for (let i = 0; i < positions.length; i += 3) {
+    const c = [0, 1, 2].map((a) => Math.max(-lim, Math.min(lim, positions[i + a])));
+    const d = [0, 1, 2].map((a) => positions[i + a] - c[a]);
+    const l = Math.hypot(d[0], d[1], d[2]) || 1;
+    for (let a = 0; a < 3; a++) {
+      positions[i + a] = c[a] + (d[a] / l) * radius;
+      if (normals) normals[i + a] = d[a] / l;
+    }
+  }
+}
+
 function modelGeometries() {
   if (geometries) return geometries;
-  const build = (part, rounded) => {
-    const { positions, indices } = decodePart(part);
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    g.setIndex(new THREE.BufferAttribute(indices, 1));
-    if (rounded) {
-      // Exact normals of a rounded box: smooth bevels and flat faces, whatever the decimation did.
-      const n = new Float32Array(positions.length);
-      const lim = 1 - ROUND_R;
-      for (let i = 0; i < positions.length; i += 3) {
-        const d = [0, 1, 2].map((a) => positions[i + a] - Math.max(-lim, Math.min(lim, positions[i + a])));
-        const l = Math.hypot(d[0], d[1], d[2]) || 1;
-        for (let a = 0; a < 3; a++) n[i + a] = d[a] / l;
-      }
-      g.setAttribute('normal', new THREE.BufferAttribute(n, 3));
-    } else {
-      g.computeVertexNormals();
+  const body = new THREE.BoxGeometry(2, 2, 2, SEGMENTS, SEGMENTS, SEGMENTS);
+  roundOnto(body.attributes.position.array, ROUND_R, body.attributes.normal.array);
+  // The model's pips are flat discs 0.002 above each face; near the edges they follow the curve.
+  // Each triangle is split in 16 first, or its long sides would cut under the rounded surface.
+  const { positions, indices } = decodePart(DIE_PIPS);
+  let tris = Array.from(indices, (i) => [positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]]);
+  for (let pass = 0; pass < 2; pass++) {
+    const split = [];
+    const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2];
+    for (let t = 0; t < tris.length; t += 3) {
+      const [a, b, c] = [tris[t], tris[t + 1], tris[t + 2]];
+      const [ab, bc, ca] = [mid(a, b), mid(b, c), mid(c, a)];
+      split.push(a, ab, ca, ab, b, bc, ca, bc, c, ab, bc, ca);
     }
-    return g;
-  };
-  geometries = { body: build(DIE_BODY, true), pips: build(DIE_PIPS, false) };
+    tris = split;
+  }
+  const flat = new Float32Array(tris.flat());
+  roundOnto(flat, ROUND_R + 0.002);
+  const pips = new THREE.BufferGeometry();
+  pips.setAttribute('position', new THREE.BufferAttribute(flat, 3));
+  pips.computeVertexNormals();
+  geometries = { body, pips };
   return geometries;
+}
+
+// Widest point of the resting die as the camera sees it (x ÷ depth over the rounded top edge and
+// the side wall): framing the view on it makes the die's outline span its cell exactly.
+function silhouette() {
+  const lim = 1 - ROUND_R;
+  let best = 0;
+  for (let k = 0; k <= 90; k++) {
+    const t = (k * Math.PI) / 180;
+    best = Math.max(best, (lim + ROUND_R * Math.sin(t)) / (CAM_DIST - lim - ROUND_R * Math.cos(t)));
+  }
+  return best;
 }
 
 // Built once after three.js loads, and its shaders compiled right away, so no roll ever waits for
@@ -2970,8 +3036,8 @@ function prepare() {
   const model = new THREE.Group();
   model.add(new THREE.Mesh(geo.body, bodyMat), new THREE.Mesh(geo.pips, pipMat));
   scene.add(model);
-  // The top face (y = 1) spans exactly the cell's die at the edge of a BLEED-wide view.
-  const camera = new THREE.PerspectiveCamera((2 * Math.atan(BLEED / (CAM_DIST - 1)) * 180) / Math.PI, 1, 0.5, 40);
+  // The resting die's outline spans exactly the middle 1/BLEED of the view (its cell).
+  const camera = new THREE.PerspectiveCamera((2 * Math.atan(BLEED * silhouette()) * 180) / Math.PI, 1, 0.5, 40);
   camera.position.set(0, CAM_DIST, 0);
   camera.up.set(0, 0, -1);
   camera.lookAt(0, 0, 0);
@@ -3075,9 +3141,8 @@ async function rollDice3D({ board, cells, dice, colors, rng, onLanded }) {
 }
 
 // Pictures of the resting die for every value, from the roll's scene and camera, so a DOM die drawn
-// with them matches the last frame of a roll: keys are the value, then 'k' for the held body colour,
-// then 'h' for the hand's pip colour ('3', '3h', '3k', '3kh'). Null until three.js is ready, and
-// while a roll owns the canvas.
+// with them matches the last frame of a roll: keys are the value, then 'k' for the held body colour
+// ('3', '3k'). Null until three.js is ready, and while a roll owns the canvas.
 function renderFaces({ colors, px = 384 }) {
   if (!kit || kit.rolling) return null;
   const { canvas, renderer, scene, camera, model, bodyMat, pipMat } = kit;
@@ -3091,19 +3156,17 @@ function renderFaces({ colors, px = 384 }) {
   out.height = px;
   const ctx = out.getContext('2d');
   const faces = {};
+  pipMat.color.set(colors.pip);
   for (const [body, die] of [['', colors.die], ['k', colors.held || colors.die]]) {
     bodyMat.color.set(die);
-    for (const [pips, pip] of [['', colors.pip], ['h', colors.hand]]) {
-      pipMat.color.set(pip);
-      for (let v = 1; v <= 6; v++) {
-        const q = landingQuaternion(v);
-        model.quaternion.set(q.x, q.y, q.z, q.w);
-        renderer.clear();
-        renderer.render(scene, camera);
-        ctx.clearRect(0, 0, px, px);
-        ctx.drawImage(canvas, (view - px) / 2, (view - px) / 2, px, px, 0, 0, px, px);
-        faces[`${v}${body}${pips}`] = out.toDataURL('image/png');
-      }
+    for (let v = 1; v <= 6; v++) {
+      const q = landingQuaternion(v);
+      model.quaternion.set(q.x, q.y, q.z, q.w);
+      renderer.clear();
+      renderer.render(scene, camera);
+      ctx.clearRect(0, 0, px, px);
+      ctx.drawImage(canvas, (view - px) / 2, (view - px) / 2, px, px, 0, 0, px, px);
+      faces[`${v}${body}`] = out.toDataURL('image/png');
     }
   }
   return faces;
@@ -3372,14 +3435,14 @@ const MODES = {
     idleCopy: (g) => `Hand ${g.hands.length + 1}/${g.hands.length + g.handsLeft} · hold to keep · reroll or play`,
     solverLine: (level) => `Best opening hand before any reroll: ${CATEGORY5_LABELS[level.openingCategory] || ''} ${level.openingBest}`,
     onboard: {
-      lead: 'No dragging: the game finds the best poker hand among all the dice and turns its dots red. Play it, or hold the dice you like and reroll the rest.',
+      lead: 'No dragging: PLAY scores the best poker hand among all the dice, and BONES shows what it is worth. Which dice make it is for you to see: hold the ones you want and reroll the rest.',
       note: 'Three hands and three rerolls per level. Playing burns the hand and every die you did not hold. Bonus dice start off: tap one to switch it on; it multiplies a hand that fits it and leaves a hole.',
-      demo: { values: [6, 2, 6, 3, 6, 1], hand: [0, 2, 4], label: 'THREE 6s = 18 × 4 = 72 · PLAY HAND' },
+      demo: { values: [6, 2, 6, 3, 6, 1], label: 'THREE 6s = 18 × 4 = 72 · PLAY' },
     },
     help: {
       lead: 'Hold what you want to keep: every die you do not hold burns when you play. Bonus dice wait on the board, switched off, until you switch one on for a hand that fits it.',
       rules: [
-        'Dice, bonus dice and blocks on a 3×3 board. Positions do not matter: the game finds the best poker hand among all the dice and turns its dots red.',
+        'Dice, bonus dice and blocks on a 3×3 board. Positions do not matter: PLAY scores the best poker hand among all the dice; BONES shows its points, the board does not mark its dice.',
         'PLAY HAND scores it. The dice of the hand and every die you did not hold burn and are replaced; held dice outside the hand stay.',
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
         'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face). They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus leaves a hole.',
@@ -3395,7 +3458,7 @@ const MODES = {
       options: { table: false, small: false, endOnTarget: false, goldCell: false },
     },
     coachText(step, g, hint) {
-      if (step === 'swipe') return `RED DOTS = YOUR HAND · ${hint.hand.label} ${hint.hand.total} · PRESS PLAY`;
+      if (step === 'swipe') return `BEST HAND · ${hint.hand.label} ${hint.hand.total} · PRESS PLAY`;
       return `HAND ${g.hands.length + 1}/${g.hands.length + g.handsLeft} · UNHELD DICE BURNED · HOLD, REROLL OR PLAY`;
     },
   },
@@ -3463,14 +3526,14 @@ function applyRenderedFaces() {
   if (app.busy) return; // a roll owns the 3D canvas; the next call redraws
   const faces = app.dice3d && dice3dStatus() === 'ready' ? renderFaces({ colors: lookColors() }) : null;
   els.board.classList.toggle('rendered', !!faces);
-  // keys: value, then k for the held body, then h for the hand's pips ('3', '3h', '3k', '3kh')
-  if (faces) for (const [key, url] of Object.entries(faces)) els.board.style.setProperty(`--face-${key[0]}${key.includes('k') ? '-held' : ''}${key.endsWith('h') ? '-hand' : ''}`, `url(${url})`);
+  // keys: value, then k for the held body ('3', '3k')
+  if (faces) for (const [key, url] of Object.entries(faces)) els.board.style.setProperty(`--face-${key[0]}${key.endsWith('k') ? '-held' : ''}`, `url(${url})`);
 }
 
 function lookColors() {
   const cs = getComputedStyle(document.body);
   const pick = (name, fallback) => (cs.getPropertyValue(name).trim() || fallback);
-  return { die: pick('--die', '#ffffff'), pip: pick('--pip', '#000000'), hand: pick('--bad', '#ff5442'), held: pick('--hold', '#d4ff82') };
+  return { die: pick('--die', '#ffffff'), pip: pick('--pip', '#000000'), held: pick('--hold', '#d4ff82') };
 }
 
 // ---------- looks (visual concepts) ----------
@@ -3925,17 +3988,27 @@ function buildBoard() {
   board.appendChild(ghost);
 }
 
-// The board is as wide as the column (less the wrap's 4 px sides) unless the other rows leave less
-// height; the column is top-aligned like the mockup, spare height stays under the buttons.
+// The screen is one of two mockups scaled by --k. Phone (portrait): a column 393 px wide with 616 px
+// of rows (header 56, board 387, counter 45, buttons 80 and three 16 px gaps). Desktop and landscape
+// (node 1287:1641): the 589.5 px board left of a 440 px panel, 82.5 px apart, 1112 × 580.5 px with
+// the mockup's 84 px around it. The layout that gives the bigger board wins; k is then as large as
+// the window allows, and every size in styles.css is a multiple of it, so the rows keep the
+// mockup's proportions at any size. On the phone the tutorial line, when it shows, takes its height
+// first; on desktop it sits above the panel.
+const MOCKUP = Object.freeze({ width: 393, rows: 616, board: 385 });
+const DESKTOP = Object.freeze({ width: 1112 + 2 * 84, height: 580.5 + 2 * 84, board: 589.5 });
 function fitBoard() {
-  const wrap = els.boardWrap;
   const col = getComputedStyle(els.app);
-  const rows = Array.from(els.app.children).filter((el) => el !== wrap && el.offsetHeight > 0 && getComputedStyle(el).position !== 'absolute');
-  const free = els.app.clientHeight - parseFloat(col.paddingTop) - parseFloat(col.paddingBottom)
-    - rows.reduce((sum, el) => sum + el.offsetHeight, 0) - (parseFloat(col.rowGap) || 0) * rows.length;
-  const side = parseFloat(getComputedStyle(wrap).paddingLeft) * 2;
-  const size = Math.max(120, Math.floor(Math.min(wrap.clientWidth - side, free - 2))); // rows are 2 px taller in all
-  wrap.style.setProperty('--board', `${size}px`);
+  const width = document.documentElement.clientWidth - parseFloat(col.paddingLeft) - parseFloat(col.paddingRight);
+  const height = document.documentElement.clientHeight - parseFloat(col.paddingTop) - parseFloat(col.paddingBottom);
+  const phone = Math.min(width / MOCKUP.width, height / MOCKUP.rows);
+  const desk = Math.min(width / DESKTOP.width, height / DESKTOP.height);
+  const wide = DESKTOP.board * desk > MOCKUP.board * phone;
+  document.body.classList.toggle('wide', wide);
+  const coach = $('coach');
+  const coachHeight = !wide && !coach.hidden ? coach.offsetHeight + 16 * phone : 0;
+  const k = wide ? desk : Math.min(width / MOCKUP.width, (height - coachHeight) / MOCKUP.rows);
+  els.app.style.setProperty('--k', Math.max(0.4, k).toFixed(4));
   app.cellRects = null;
 }
 
@@ -3997,10 +4070,9 @@ function renderCell(i) {
   if (app.hintCells && app.hintCells.includes(i)) cell.classList.add('hint');
   if (app.coachTargets && app.coachTargets.includes(i) && k < 0) cell.classList.add('hint');
   if (k < 0 && app.safeNext && app.safeNext.includes(i)) cell.classList.add('safe-next');
-  const inHand = !!(app.autoHand && app.autoHand.cells.includes(i));
-  if (inHand) cell.classList.add('in-hand');
-  cell.style.setProperty('--die-img', `var(--face-${g.faces[i]}${g.held[i] ? '-held' : ''}${inHand ? '-hand' : ''})`); // the rendered die, when 3D is on
-  cell.setAttribute('aria-label', `Die ${g.faces[i]}${g.held[i] ? ', held' : ''}${sealed ? ', fixed' : ''}${inHand ? ', in the hand' : ''}`);
+  // Auto Hand does not mark the dice of its hand (owner, 01.11.2026): finding it is the game
+  cell.style.setProperty('--die-img', `var(--face-${g.faces[i]}${g.held[i] ? '-held' : ''})`); // the rendered die, when 3D is on
+  cell.setAttribute('aria-label', `Die ${g.faces[i]}${g.held[i] ? ', held' : ''}${sealed ? ', fixed' : ''}`);
 }
 
 // Auto Hand: bonus dice (a character or a ×3 label; red once on), blocks and the holes used bonuses leave.
@@ -4049,8 +4121,9 @@ function renderHud() {
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
 }
 
-// BONES · MULTIPLY · TOTAL: the hand on the board before its bonus dice, the multiplier of the
-// bonus dice that are on and join it (red), and the level score (TOTAL, kept by renderHud).
+// BONES · MULTIPLY · TOTAL · THRESHOLD: the hand on the board before its bonus dice, the multiplier
+// of the bonus dice that are on and join it (red), the level score and the target (both kept by
+// renderHud).
 function renderCounter() {
   const h = app.autoHand;
   const bonus = !!h && h.bonusMult > 1;
@@ -4685,11 +4758,9 @@ function showOnboarding() {
   $('onboardScoring').innerHTML = mode.scoringHtml || els.defaultScoring.onboard;
   $('onboardNote').textContent = ob.note;
   const grid = $('demoGrid');
-  // A demo either traces a path (snake modes) or marks a hand whose numbers turn red (Auto Hand).
+  // A demo traces a path (snake modes); Auto Hand shows the dice and names the hand in the label.
   const path = ob.demo.path || [];
-  const marked = ob.demo.path || ob.demo.hand;
-  grid.classList.toggle('red', !ob.demo.path);
-  grid.innerHTML = ob.demo.values.map((v, k) => `<i data-value="${v}"${marked.includes(k) ? ' class="on"' : ''}></i>`).join('');
+  grid.innerHTML = ob.demo.values.map((v, k) => `<i data-value="${v}"${path.includes(k) ? ' class="on"' : ''}></i>`).join('');
   const pt = (k) => [50 + (k % 3) * 100, 50 + Math.floor(k / 3) * 100];
   $('demoLine').setAttribute('points', path.map((k) => pt(k).join(',')).join(' '));
   $('demoLabel').textContent = ob.demo.label;

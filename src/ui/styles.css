@@ -61,38 +61,42 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .app {
   position: relative;
   height: 100%;
-  max-width: 560px;
+  /* the mockup's 393 px column scaled by --k (app.js fitBoard), plus the notch insets */
+  width: calc(393px * var(--k, 1) + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px));
+  max-width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: calc(16px * var(--k, 1));
   padding-block: max(16px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-bottom, 0px));
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
 }
 .app > * { flex: none; }
+.app { --kb: var(--k, 1); } /* the board's scale: --k on the phone, ×1.5 on desktop */
 
 /* Mode tabs */
 .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .tab { height: 34px; border: 1px solid var(--line-strong); border-radius: 9px; background: transparent; color: var(--muted); font: 700 14px/1 var(--font-display); letter-spacing: .16em; }
 .tab.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 
-/* Header (LEVEL · THRESHOLD · rules) and counter (BONES · MULTIPLY · TOTAL): label 13 px, value 32 px */
-.hud, .counter { position: relative; display: flex; align-items: center; padding: 0 12px; }
-.hud { height: 56px; }
-.counter { height: 52px; justify-content: space-between; }
-.stat { flex: 1 0 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-family: var(--font-display); font-weight: 700; text-transform: uppercase; white-space: nowrap; color: var(--fg); }
+/* Header (LEVEL · rules) and counter (BONES · MULTIPLY · TOTAL · THRESHOLD): label 11 px, value 28 px */
+.hud, .counter { position: relative; display: flex; padding: 0 calc(12px * var(--k, 1)); }
+.hud { height: calc(56px * var(--k, 1)); }
+.counter { height: calc(45px * var(--k, 1)); justify-content: space-between; }
+.stat { flex: 1 0 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: calc(2px * var(--k, 1)); font-family: var(--font-display); font-weight: 700; text-transform: uppercase; white-space: nowrap; color: var(--fg); }
 .stat.mid { align-items: center; }
-.stat .label { font-size: 13px; line-height: normal; opacity: .6; }
-.counter .stat .label { opacity: .5; }
-.stat .value { font-size: 32px; line-height: 1; font-variant-numeric: tabular-nums; }
-#multStat { border-left: 1px solid rgba(0, 0, 0, .3); border-right: 1px solid rgba(0, 0, 0, .3); }
+.stat .label { font-size: calc(11px * var(--k, 1)); line-height: normal; opacity: .5; }
+#targetStat .label { opacity: .6; }
+.stat .value { font-size: calc(28px * var(--k, 1)); line-height: 1; font-variant-numeric: tabular-nums; }
+#multStat { position: relative; border-left: 1px solid rgba(0, 0, 0, .3); border-right: 1px solid rgba(0, 0, 0, .3); }
 #multStat.on .label { color: #ff5442; opacity: 1; }
-.book { flex: none; width: 120.333px; height: 100%; border: 0; padding: 0; background: url("../../assets/ui/book.svg") right center / 36px 34.1209px no-repeat; }
-.book:disabled { opacity: .35; cursor: default; }
+.book { flex: 1 0 0; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: calc(8px * var(--k, 1)); height: 100%; border: 0; padding: 0; background: none; color: var(--fg); font: 700 calc(28px * var(--k, 1))/1 var(--font-display); white-space: nowrap; }
+.book i { flex: none; width: calc(36px * var(--k, 1)); height: calc(34.1209px * var(--k, 1)); background: url("../../assets/ui/book.svg") center / 100% 100% no-repeat; }
+.book:disabled { cursor: default; } /* blocked while a roll or a hand plays, but the header stays as drawn */
 #scoreStat.bump .value { animation: bump 380ms ease-out; }
 @keyframes bump { 0% { transform: scale(1); } 35% { transform: scale(1.2); color: var(--accent); } 100% { transform: scale(1); } }
-/* MULTIPLY with a bonus on, and the big ×N of the bonus screen: white letters on a red sticker */
+/* MULTIPLY with a bonus on, and the big ×N of the bonus screen (over MULTIPLY): white letters on a red sticker */
 .sticker, #multStat.on .value {
   color: #fff;
   text-shadow: .15em 0 0 #ff5442, -.15em 0 0 #ff5442, 0 .15em 0 #ff5442, 0 -.15em 0 #ff5442, .106em .106em 0 #ff5442, -.106em .106em 0 #ff5442, .106em -.106em 0 #ff5442, -.106em -.106em 0 #ff5442,
@@ -113,7 +117,6 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .demo-grid { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% * 200 / 230); display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6px; }
 .demo-grid i { display: block; border-radius: 14%; background: var(--die); box-shadow: inset 0 -4px 0 var(--die-edge); position: relative; }
 .demo-grid i.on::after { color: var(--pip); }
-.demo-grid.red i.on::after { color: var(--bad); }
 .demo-grid i::after { content: attr(data-value); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 700 36px/1 var(--font-display); color: var(--pip); }
 .demo-line { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% * 200 / 230); pointer-events: none; }
 .demo-line polyline { fill: none; stroke: var(--path); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 400; stroke-dashoffset: 400; animation: demoLine 2.8s ease-in-out infinite; }
@@ -137,16 +140,16 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .preview.hint { color: var(--gold); }
 
 /* Board */
-.board-wrap { position: relative; display: flex; justify-content: center; padding: 0 4px; }
+.board-wrap { --board: calc(385px * var(--kb, 1)); position: relative; display: flex; justify-content: center; padding: 0 calc(4px * var(--kb, 1)); }
 .board {
   -webkit-touch-callout: none;
   position: relative;
   width: var(--board, 300px);
-  height: calc(var(--board, 300px) + 2px);
+  height: calc(var(--board, 300px) + 2px * var(--kb, 1));
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  gap: 5px 4px;
+  gap: calc(5px * var(--kb, 1)) calc(4px * var(--kb, 1));
   touch-action: none;
   transition: filter 200ms ease, opacity 200ms ease;
 }
@@ -176,9 +179,8 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.bonus.pressed { transform: scale(.95); }
 .cell.bonus.on { background-color: var(--on); }
 .cell.bonus.used { border-color: var(--line-strong); color: var(--muted); box-shadow: none; animation: none; }
-/* Auto Hand: red dots mark the dice of the hand; bonus dice are dark tiles until switched on (red);
-   the skeleton is ×2, the pink skull the joker, the ×3 kinds a label; blocks are locks */
-.cell.die.in-hand .face i { background: var(--bad); }
+/* Auto Hand: bonus dice are dark tiles until switched on (red); the skeleton is ×2, the pink skull
+   the joker, the ×3 kinds a label; blocks are locks */
 .cell.bonus.safe-hint, .cell.bonus.hint { animation: armPulse 650ms ease-in-out infinite; }
 .cell .art { position: absolute; display: none; background: center / 100% 100% no-repeat; pointer-events: none; }
 .cell.bonus.kind-x2_any .art, .cell.bonus.kind-joker .art { display: block; }
@@ -201,11 +203,11 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .face[data-value="4"] i:nth-child(1), .face[data-value="4"] i:nth-child(3), .face[data-value="4"] i:nth-child(7), .face[data-value="4"] i:nth-child(9),
 .face[data-value="5"] i:nth-child(1), .face[data-value="5"] i:nth-child(3), .face[data-value="5"] i:nth-child(5), .face[data-value="5"] i:nth-child(7), .face[data-value="5"] i:nth-child(9),
 .face[data-value="6"] i:nth-child(1), .face[data-value="6"] i:nth-child(3), .face[data-value="6"] i:nth-child(4), .face[data-value="6"] i:nth-child(6), .face[data-value="6"] i:nth-child(7), .face[data-value="6"] i:nth-child(9) { opacity: 1; }
-.cell .tag { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); font: 700 11px/1 var(--font-display); letter-spacing: .16em; padding: 3px 6px; border-radius: 4px; display: none; white-space: nowrap; }
+.cell .tag { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); font: 700 calc(11px * var(--kb, 1))/1 var(--font-display); letter-spacing: .16em; padding: calc(3px * var(--kb, 1)) calc(6px * var(--kb, 1)); border-radius: 4px; display: none; white-space: nowrap; }
 .cell.bonus .tag { display: block; bottom: 10%; color: var(--fg); }
 .cell.bonus .tag:empty { display: none; }
 .cell.bonus.used .tag { color: var(--muted); }
-.cell .x2 { display: none; font: 700 clamp(28px, 10vw, 48px)/1 var(--font-display); letter-spacing: -.02em; }
+.cell .x2 { display: none; font: 700 calc(40px * var(--kb, 1))/1 var(--font-display); letter-spacing: -.02em; }
 .cell.bonus .x2 { display: block; }
 .cell .order { position: absolute; top: 6%; right: 7%; width: 22px; height: 22px; border-radius: 50%; background: var(--path); color: #fff; font: 700 13px/22px var(--font-display); text-align: center; display: none; }
 .cell.in-path .order { display: block; }
@@ -235,11 +237,12 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .app.bonus-show #skipBtn { display: block; }
 .app.bonus-show .bonus-hero.kind-x2_any, .app.bonus-show .bonus-hero.kind-joker { display: block; }
 .app.bonus-show.has-sticker .counter .sticker.big { display: block; }
+.app.bonus-show.has-sticker #mult { visibility: hidden; } /* the sticker says it; on desktop the value would peek out */
 .bonus-hero { position: absolute; z-index: 9; left: calc(50% - var(--board, 300px) * .365); top: calc(var(--board, 300px) * .083); width: var(--board, 300px); height: var(--board, 300px); border-radius: 25.5%; overflow: hidden; pointer-events: none; animation: heroIn 320ms cubic-bezier(.2, .8, .3, 1.15) both; }
 .bonus-hero i { position: absolute; background: center / 100% 100% no-repeat; }
 .bonus-hero.kind-x2_any i { left: -22.87%; top: -28.31%; width: 146.12%; height: 146.12%; background-image: var(--img-skeleton); }
 .bonus-hero.kind-joker i { inset: 0; background-image: var(--img-skull); }
-.counter .sticker.big { position: absolute; left: 50%; top: 50%; z-index: 9; font: 700 64px/1 var(--font-display); text-transform: uppercase; white-space: nowrap; pointer-events: none; transform: translate(-50%, -40%) rotate(-10.24deg); animation: stickerIn 260ms 160ms cubic-bezier(.2, .8, .3, 1.3) both; }
+.counter .sticker.big { position: absolute; left: 50%; top: 50%; z-index: 9; font: 700 calc(64px * var(--k, 1))/1 var(--font-display); text-transform: uppercase; white-space: nowrap; pointer-events: none; transform: translate(-50%, -40%) rotate(-10.24deg); animation: stickerIn 260ms 160ms cubic-bezier(.2, .8, .3, 1.3) both; }
 @keyframes heroIn { from { opacity: 0; transform: translateY(8%) scale(.7); } to { opacity: 1; transform: none; } }
 @keyframes stickerIn { from { opacity: 0; transform: translate(-50%, -40%) rotate(-10.24deg) scale(1.8); } to { opacity: 1; transform: translate(-50%, -40%) rotate(-10.24deg) scale(1); } }
 
@@ -256,9 +259,9 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 #hintLine { stroke: var(--gold); stroke-width: 5; stroke-dasharray: 9 11; }
 
 .reveal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; z-index: 6; opacity: 0; white-space: nowrap; }
-.reveal .cat { font: 700 26px/1 var(--font-display); letter-spacing: .14em; color: var(--reveal-fg); text-shadow: 0 2px 12px #000, 0 0 2px #000; }
-.reveal .pts { font: 700 70px/1 var(--font-display); color: var(--path); text-shadow: 0 2px 16px #000; font-variant-numeric: tabular-nums; }
-.reveal .mult { font: 700 22px/1 var(--font-display); letter-spacing: .1em; color: var(--gold); text-shadow: 0 2px 10px #000; }
+.reveal .cat { font: 700 calc(26px * var(--kb, 1))/1 var(--font-display); letter-spacing: .14em; color: var(--reveal-fg); text-shadow: 0 2px 12px #000, 0 0 2px #000; }
+.reveal .pts { font: 700 calc(70px * var(--kb, 1))/1 var(--font-display); color: var(--path); text-shadow: 0 2px 16px #000; font-variant-numeric: tabular-nums; }
+.reveal .mult { font: 700 calc(22px * var(--kb, 1))/1 var(--font-display); letter-spacing: .1em; color: var(--gold); text-shadow: 0 2px 10px #000; }
 .reveal.show { animation: reveal 950ms ease-out forwards; }
 /* Auto Hand: the bonus step lands as a hit; the fire marks a hand that alone covers the rest of the target */
 .reveal.show.long { animation-duration: 1350ms; }
@@ -293,8 +296,8 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .btn-secondary:disabled { opacity: .35; cursor: default; }
 .tapbar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 /* PLAY•hands left and REROLL•rerolls left, side by side (SKIP alone on the bonus screen) */
-.controls { display: flex; gap: 8px; padding: 0 12px; }
-.btn-play, .btn-dark { flex: 1 0 0; min-width: 0; height: 80px; padding: 4px 0; border: 0; border-radius: 72px; font: 700 20px/normal var(--font-display); text-transform: uppercase; white-space: nowrap; transition: transform 100ms ease, opacity 150ms; }
+.controls { display: flex; gap: calc(8px * var(--k, 1)); padding: 0 calc(12px * var(--k, 1)); }
+.btn-play, .btn-dark { flex: 1 0 0; min-width: 0; height: calc(80px * var(--k, 1)); padding: 4px 0; border: 0; border-radius: calc(72px * var(--k, 1)); font: 700 calc(20px * var(--k, 1))/normal var(--font-display); text-transform: uppercase; white-space: nowrap; transition: transform 100ms ease, opacity 150ms; }
 .btn-play { background: var(--accent); color: #000; }
 .btn-dark { background: var(--tile); color: var(--fg); }
 .btn-play:active, .btn-dark:active { transform: scale(.98); }
@@ -304,7 +307,7 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .btn-ghost.on { color: var(--bg); background: var(--fg); border-color: var(--fg); }
 
 /* Toast */
-.toast { pointer-events: none; position: absolute; left: 50%; bottom: 200px; transform: translateX(-50%); max-width: calc(100% - 32px); padding: 10px 14px; border-radius: 10px; background: var(--panel-bg); border: 1px solid var(--line-strong); color: var(--fg); font: 700 15px/1.2 var(--font-display); letter-spacing: .06em; text-align: center; z-index: 8; animation: toastIn 180ms ease-out; }
+.toast { pointer-events: none; position: absolute; left: 50%; bottom: calc(220px * var(--k, 1)); transform: translateX(-50%); max-width: calc(100% - 32px); padding: 10px 14px; border-radius: 10px; background: var(--panel-bg); border: 1px solid var(--line-strong); color: var(--fg); font: 700 15px/1.2 var(--font-display); letter-spacing: .06em; text-align: center; z-index: 8; animation: toastIn 180ms ease-out; }
 .toast.bad { border-color: var(--bad); color: var(--bad); }
 .toast.good { border-color: var(--good); color: var(--good); }
 .toast.hint { border-color: var(--gold); color: var(--gold); }
@@ -344,6 +347,39 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .opt input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--gold); }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .log-out { width: 100%; height: 120px; background: var(--panel-bg); color: var(--muted); border: 1px solid var(--line-strong); border-radius: 8px; font: 12px/1.3 ui-monospace, Menlo, Consolas, monospace; user-select: text; -webkit-user-select: text; }
+
+/* Desktop and landscape (Figma "MacBook Air - 1", node 1287:1641): the board on the left, the header,
+   the counter card and two stacked buttons on the right. app.js (fitBoard) switches to it when it
+   gives the bigger board; --k is then the desktop mockup's scale and the board is the phone board
+   ×1.5 (--kb). */
+body.wide { display: flex; align-items: center; background: #000; } /* the panel centred top to bottom */
+body.wide .app {
+  --kb: calc(var(--k, 1) * 1.5);
+  width: 100%;
+  height: auto; /* as tall as the board: the buttons' 1fr row takes what the header and counter leave */
+  display: grid;
+  grid-template-columns: calc(589.5px * var(--k, 1)) calc(440px * var(--k, 1));
+  grid-template-rows: auto auto auto 1fr;
+  grid-template-areas: "board coach" "board hud" "board counter" "board controls";
+  column-gap: calc(82.5px * var(--k, 1));
+  row-gap: 0;
+  justify-content: center;
+}
+body.wide .board-wrap { grid-area: board; }
+body.wide .coach { grid-area: coach; margin-bottom: calc(24px * var(--k, 1)); }
+body.wide .hud { grid-area: hud; align-items: flex-end; justify-content: space-between; padding: 0 calc(4.5px * var(--k, 1)) 0 calc(24px * var(--k, 1)); }
+body.wide .hud .stat { flex: none; width: calc(184.5px * var(--k, 1)); }
+body.wide .stat .value { font-size: calc(44px * var(--k, 1)); }
+body.wide .book { flex: none; height: auto; font-size: calc(36px * var(--k, 1)); }
+body.wide .counter { grid-area: counter; display: grid; grid-template-columns: 1fr 1fr; gap: calc(33px * var(--k, 1)); height: auto; margin-top: calc(24px * var(--k, 1)); padding: calc(24px * var(--k, 1)); background: var(--tile); border-radius: calc(24px * var(--k, 1)); }
+body.wide .counter .stat { align-items: flex-start; }
+body.wide #targetStat { grid-area: 1 / 2; }
+body.wide #multStat { grid-area: 2 / 1; }
+body.wide #scoreStat { grid-area: 2 / 2; }
+body.wide #bones, body.wide #mult, body.wide #score { opacity: .6; }
+body.wide #multStat.on .value { opacity: 1; }
+body.wide .controls { grid-area: controls; flex-direction: column; gap: calc(24px * var(--k, 1)); min-height: 0; margin-top: calc(24px * var(--k, 1)); padding: 0; }
+body.wide .btn-play, body.wide .btn-dark { height: auto; width: 100%; font-size: calc(29px * var(--k, 1)); }
 
 /* Basteleur is wide and the mockup sets it without tracking: the rules above were spaced for a
    condensed face */

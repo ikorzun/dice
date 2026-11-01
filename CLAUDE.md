@@ -7,7 +7,10 @@ in `adapt3.js`; rules, calibration and next steps in `docs/MODE3-PLAN.md`). Sinc
 Figma mockup (file `0mTCxjPtORKQzV7EZ6kTfE`, section DARK, node 1285:1548) the screen shows Auto
 Hand only, as a run of 25 levels; the other modes keep their code and engines but have no tab
 (`#tabs` hidden, `app.modeId` forced to `auto`). Mockup art lives in `assets/ui/`, the font
-(Basteleur Bold) in `assets/fonts/`; the build inlines both into `dist/`.
+(Basteleur Bold, OFL) in `assets/fonts/`; the build inlines both into `dist/`. The screen is one
+of two mockups (phone column, or desktop/landscape with the board left of a panel: `body.wide`)
+scaled by `--k`, picked by `fitBoard` in `app.js` for the bigger board: write every size as
+`calc(Npx * var(--k, 1))`, board sizes with `--kb`.
 
 ## Commands
 

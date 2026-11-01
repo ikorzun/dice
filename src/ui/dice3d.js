@@ -10,10 +10,13 @@
 // from the CDN; when it is unavailable the caller keeps the CSS dice and their tumble.
 
 import { landingQuaternion, tumblePlan, tumblePose, qAxisAngle, qMul, ROLL } from './dice3d-math.js';
-import { DIE_BODY, DIE_PIPS, decodePart } from './dice-model.js';
+import { DIE_PIPS, decodePart } from './dice-model.js';
 
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-const ROUND_R = 0.224; // bevel radius of the model, in half-sides (measured from the mesh)
+// The die is rounded like the owner's Figma mockup (32 px on a 125.67 px die), in half-sides: a
+// rounded box replaces the model's own body (bevel 0.224), and the model's pips are wrapped onto it.
+const ROUND_R = (32 / 125.667) * 2;
+const SEGMENTS = 32;   // per cube edge: ~8 steps across each rounded band, smooth at 3× pixel ratio
 const CAM_DIST = 9;    // camera height above the die centre, in half-sides
 const BLEED = 1.5;     // viewport side ÷ die side: room for the corners of a tumbling die
 const FADE_MS = 100;   // the landed canvas fades out over the DOM die
@@ -42,7 +45,7 @@ const SHADOW = [
 
 let THREE = null;      // the module once loaded, false when loading failed
 let loading = null;
-let geometries = null; // { body, pips } built once from dice-model.js
+let geometries = null; // { body, pips } built once
 let kit = null;        // one renderer, scene and die for every roll: shaders compile once
 
 export function loadDice3D() {
@@ -56,30 +59,58 @@ export function loadDice3D() {
 
 export const dice3dStatus = () => (THREE === null ? (loading ? 'loading' : 'idle') : THREE ? 'ready' : 'unavailable');
 
+// Pulls every point onto the rounded box of half-side 1 (radius `radius` around the inner box of
+// half-side 1 - ROUND_R) and, when asked, writes the exact normal there.
+function roundOnto(positions, radius, normals = null) {
+  const lim = 1 - ROUND_R;
+  for (let i = 0; i < positions.length; i += 3) {
+    const c = [0, 1, 2].map((a) => Math.max(-lim, Math.min(lim, positions[i + a])));
+    const d = [0, 1, 2].map((a) => positions[i + a] - c[a]);
+    const l = Math.hypot(d[0], d[1], d[2]) || 1;
+    for (let a = 0; a < 3; a++) {
+      positions[i + a] = c[a] + (d[a] / l) * radius;
+      if (normals) normals[i + a] = d[a] / l;
+    }
+  }
+}
+
 function modelGeometries() {
   if (geometries) return geometries;
-  const build = (part, rounded) => {
-    const { positions, indices } = decodePart(part);
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    g.setIndex(new THREE.BufferAttribute(indices, 1));
-    if (rounded) {
-      // Exact normals of a rounded box: smooth bevels and flat faces, whatever the decimation did.
-      const n = new Float32Array(positions.length);
-      const lim = 1 - ROUND_R;
-      for (let i = 0; i < positions.length; i += 3) {
-        const d = [0, 1, 2].map((a) => positions[i + a] - Math.max(-lim, Math.min(lim, positions[i + a])));
-        const l = Math.hypot(d[0], d[1], d[2]) || 1;
-        for (let a = 0; a < 3; a++) n[i + a] = d[a] / l;
-      }
-      g.setAttribute('normal', new THREE.BufferAttribute(n, 3));
-    } else {
-      g.computeVertexNormals();
+  const body = new THREE.BoxGeometry(2, 2, 2, SEGMENTS, SEGMENTS, SEGMENTS);
+  roundOnto(body.attributes.position.array, ROUND_R, body.attributes.normal.array);
+  // The model's pips are flat discs 0.002 above each face; near the edges they follow the curve.
+  // Each triangle is split in 16 first, or its long sides would cut under the rounded surface.
+  const { positions, indices } = decodePart(DIE_PIPS);
+  let tris = Array.from(indices, (i) => [positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]]);
+  for (let pass = 0; pass < 2; pass++) {
+    const split = [];
+    const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2];
+    for (let t = 0; t < tris.length; t += 3) {
+      const [a, b, c] = [tris[t], tris[t + 1], tris[t + 2]];
+      const [ab, bc, ca] = [mid(a, b), mid(b, c), mid(c, a)];
+      split.push(a, ab, ca, ab, b, bc, ca, bc, c, ab, bc, ca);
     }
-    return g;
-  };
-  geometries = { body: build(DIE_BODY, true), pips: build(DIE_PIPS, false) };
+    tris = split;
+  }
+  const flat = new Float32Array(tris.flat());
+  roundOnto(flat, ROUND_R + 0.002);
+  const pips = new THREE.BufferGeometry();
+  pips.setAttribute('position', new THREE.BufferAttribute(flat, 3));
+  pips.computeVertexNormals();
+  geometries = { body, pips };
   return geometries;
+}
+
+// Widest point of the resting die as the camera sees it (x ÷ depth over the rounded top edge and
+// the side wall): framing the view on it makes the die's outline span its cell exactly.
+function silhouette() {
+  const lim = 1 - ROUND_R;
+  let best = 0;
+  for (let k = 0; k <= 90; k++) {
+    const t = (k * Math.PI) / 180;
+    best = Math.max(best, (lim + ROUND_R * Math.sin(t)) / (CAM_DIST - lim - ROUND_R * Math.cos(t)));
+  }
+  return best;
 }
 
 // Built once after three.js loads, and its shaders compiled right away, so no roll ever waits for
@@ -108,8 +139,8 @@ function prepare() {
   const model = new THREE.Group();
   model.add(new THREE.Mesh(geo.body, bodyMat), new THREE.Mesh(geo.pips, pipMat));
   scene.add(model);
-  // The top face (y = 1) spans exactly the cell's die at the edge of a BLEED-wide view.
-  const camera = new THREE.PerspectiveCamera((2 * Math.atan(BLEED / (CAM_DIST - 1)) * 180) / Math.PI, 1, 0.5, 40);
+  // The resting die's outline spans exactly the middle 1/BLEED of the view (its cell).
+  const camera = new THREE.PerspectiveCamera((2 * Math.atan(BLEED * silhouette()) * 180) / Math.PI, 1, 0.5, 40);
   camera.position.set(0, CAM_DIST, 0);
   camera.up.set(0, 0, -1);
   camera.lookAt(0, 0, 0);
@@ -213,9 +244,8 @@ export async function rollDice3D({ board, cells, dice, colors, rng, onLanded }) 
 }
 
 // Pictures of the resting die for every value, from the roll's scene and camera, so a DOM die drawn
-// with them matches the last frame of a roll: keys are the value, then 'k' for the held body colour,
-// then 'h' for the hand's pip colour ('3', '3h', '3k', '3kh'). Null until three.js is ready, and
-// while a roll owns the canvas.
+// with them matches the last frame of a roll: keys are the value, then 'k' for the held body colour
+// ('3', '3k'). Null until three.js is ready, and while a roll owns the canvas.
 export function renderFaces({ colors, px = 384 }) {
   if (!kit || kit.rolling) return null;
   const { canvas, renderer, scene, camera, model, bodyMat, pipMat } = kit;
@@ -229,19 +259,17 @@ export function renderFaces({ colors, px = 384 }) {
   out.height = px;
   const ctx = out.getContext('2d');
   const faces = {};
+  pipMat.color.set(colors.pip);
   for (const [body, die] of [['', colors.die], ['k', colors.held || colors.die]]) {
     bodyMat.color.set(die);
-    for (const [pips, pip] of [['', colors.pip], ['h', colors.hand]]) {
-      pipMat.color.set(pip);
-      for (let v = 1; v <= 6; v++) {
-        const q = landingQuaternion(v);
-        model.quaternion.set(q.x, q.y, q.z, q.w);
-        renderer.clear();
-        renderer.render(scene, camera);
-        ctx.clearRect(0, 0, px, px);
-        ctx.drawImage(canvas, (view - px) / 2, (view - px) / 2, px, px, 0, 0, px, px);
-        faces[`${v}${body}${pips}`] = out.toDataURL('image/png');
-      }
+    for (let v = 1; v <= 6; v++) {
+      const q = landingQuaternion(v);
+      model.quaternion.set(q.x, q.y, q.z, q.w);
+      renderer.clear();
+      renderer.render(scene, camera);
+      ctx.clearRect(0, 0, px, px);
+      ctx.drawImage(canvas, (view - px) / 2, (view - px) / 2, px, px, 0, 0, px, px);
+      faces[`${v}${body}`] = out.toDataURL('image/png');
     }
   }
   return faces;

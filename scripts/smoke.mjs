@@ -76,13 +76,17 @@ for (const vp of viewports) {
   const layout = await page.evaluate(() => {
     const d = document.documentElement;
     const box = (sel) => document.querySelector(sel).getBoundingClientRect();
-    return { scrollW: d.scrollWidth, clientW: d.clientWidth, board: box('#board').width, cell: box('#board .cell').width, controlsBottom: box('.controls').bottom, counterTop: box('.counter').top, boardBottom: box('#board').bottom, play: box('#playBtn'), reroll: box('#rerollBtn') };
+    return { wide: document.body.classList.contains('wide'), scrollW: d.scrollWidth, clientW: d.clientWidth, board: box('#board').width, cell: box('#board .cell').width, controlsBottom: box('.controls').bottom, counterTop: box('.counter').top, boardTop: box('#board').top, boardBottom: box('#board').bottom, panelTop: Math.min(box('.hud').top, document.getElementById('coach').hidden ? Infinity : box('#coach').top), play: box('#playBtn'), reroll: box('#rerollBtn') };
   });
   if (layout.scrollW > layout.clientW) note(vp, `horizontal overflow ${layout.scrollW}>${layout.clientW}`);
   if (layout.controlsBottom > vp.h + 0.5) note(vp, `buttons below viewport (${layout.controlsBottom.toFixed(0)} > ${vp.h})`);
   if (layout.cell < 44) note(vp, `cell too small (${layout.cell.toFixed(0)}px)`);
-  if (Math.abs(layout.counterTop - layout.boardBottom - 16) > 1) note(vp, `counter not 16px under the board (${(layout.counterTop - layout.boardBottom).toFixed(1)})`);
-  if (layout.play.height !== 80 || Math.abs(layout.play.top - layout.reroll.top) > 0.5) note(vp, 'PLAY and REROLL are not the 80px pair of the mockup');
+  // phone: rows under the board, PLAY and REROLL side by side; desktop: a panel level with the board,
+  // PLAY over REROLL (the two Figma layouts)
+  if (layout.wide !== (vp.w > vp.h)) note(vp, `layout ${layout.wide ? 'desktop' : 'phone'} on a ${vp.w}x${vp.h} window`);
+  if (!layout.wide && Math.abs(layout.counterTop - layout.boardBottom - layout.play.height / 5) > 1) note(vp, `counter not 16/80 of a button under the board (${(layout.counterTop - layout.boardBottom).toFixed(1)})`);
+  if (!layout.wide && (Math.abs(layout.play.width - layout.reroll.width) > 0.5 || Math.abs(layout.play.top - layout.reroll.top) > 0.5)) note(vp, 'PLAY and REROLL are not side by side');
+  if (layout.wide && (Math.abs(layout.panelTop - layout.boardTop) > 1 || Math.abs(layout.controlsBottom - layout.boardBottom) > 1.5 || Math.abs(layout.play.left - layout.reroll.left) > 0.5)) note(vp, 'desktop panel not level with the board, or PLAY not over REROLL');
   console.log(`${vp.w}x${vp.h}: board ${layout.board.toFixed(0)}px, cell ${layout.cell.toFixed(0)}px, buttons bottom ${layout.controlsBottom.toFixed(0)}`);
   if ((await text('#levelText')) !== '1/25') note(vp, `level text: ${await text('#levelText')}`);
   if (Number(await text('#target')) !== a.target) note(vp, 'THRESHOLD is not the target');
@@ -98,16 +102,14 @@ for (const vp of viewports) {
   const coachTarget = await page.$$eval('#board .cell.hint', (els) => els.map((e) => Number(e.dataset.index)));
   if (coachTarget.length !== 1 || a.hand.cells.includes(coachTarget[0])) note(vp, `tutorial hold target [${coachTarget}] should be one die outside the hand [${a.hand.cells}]`);
   if (a.cells.filter((t) => t === 'die').length !== 8 || a.cells[8] !== 'bonus') note(vp, `level 1 layout: ${a.cells}`);
-  const red = await page.$$eval('#board .cell.in-hand', (els) => els.map((e) => Number(e.dataset.index)));
-  if (red.join(',') !== a.hand.cells.join(',')) note(vp, `red dice [${red}] differ from the hand [${a.hand.cells}]`);
-  const pipColors = await page.evaluate(() => [
-    getComputedStyle(document.querySelector('#board .cell.in-hand .face i')).backgroundColor,
-    getComputedStyle(document.querySelector('#board .cell.die:not(.in-hand) .face i')).backgroundColor,
-  ]);
-  if (pipColors[0] === pipColors[1]) note(vp, `hand dots are not red (${pipColors[0]})`);
-  // with 3D on, resting dice are pictures of the model: the hand's dice use the red-pip pictures
-  const handPictures = await page.$$eval('#board .cell.in-hand', (els) => els.map((e) => e.style.getPropertyValue('--die-img')));
-  if (handPictures.some((v) => !/-hand\)$/.test(v))) note(vp, `hand dice without the red-pip picture: ${handPictures}`);
+  // the hand is not marked on the board (owner, 01.11.2026): every die has the same pips and picture
+  const pipColors = await page.$$eval('#board .cell.die .face i', (els) => [...new Set(els.map((e) => getComputedStyle(e).backgroundColor))]);
+  if (pipColors.length !== 1) note(vp, `dice pips differ in colour: ${pipColors}`);
+  const pictures = await page.$$eval('#board .cell.die', (els) => els.map((e) => e.style.getPropertyValue('--die-img')));
+  if (pictures.some((v) => /-hand/.test(v))) note(vp, `a die uses a hand picture: ${pictures}`);
+  // the whole screen scales with the window: k fits the mockup's 393 × 616 px of rows
+  const k = await page.evaluate(() => parseFloat(getComputedStyle(document.getElementById('app')).getPropertyValue('--k')));
+  if (!(k > 0.4) || Math.abs(layout.board - 385 * k * (layout.wide ? 1.5 : 1)) > 1) note(vp, `board ${layout.board.toFixed(1)}px does not follow k=${k}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-1-start.png` });
   // dragging does not play a hand
   await swipe(page, a.hand.cells.slice(0, 3));
