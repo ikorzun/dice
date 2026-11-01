@@ -58,4 +58,5 @@ Locally the CDN loads, so the 3D throw runs in the smoke; it waits for `app.busy
 - `docs/MODE3-PLAN.md` — Auto Hand rules (owner's decisions), calibration, adaptive difficulty, status.
 - `docs/RESEARCH-BALATRO.md` — Balatro deep dive and what it means for the modes.
 - `docs/RESEARCH-DICE-ANIMATION.md` — dice animation options; prototypes in `prototypes/dice-anim/`.
+- `docs/RESEARCH-CHARACTER-ANIMATION.md` — bonus character animation: why the sprite-warp looks bad, options, the cutout-rig plan.
 - `docs/simulation*.md` — balance reports.
