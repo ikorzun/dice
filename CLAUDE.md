@@ -1,8 +1,9 @@
 # Dice Snake — notes for Claude Code sessions
 
 Portrait-mobile dice puzzle on a 3×3 grid, plain HTML/CSS/JS, no build step for development.
-Two modes live in one page (tabs): **Snake 4+4** (`src/engine/game.js`) and **Poker 5**
-(`src/engine/poker.js`); a third, **Auto Hand**, is planned in `docs/MODE3-PLAN.md`.
+Three modes live in one page (tabs): **Snake 4+4** (`src/engine/game.js`), **Poker 5**
+(`src/engine/poker.js`) and **Auto Hand** (`src/engine/auto.js` + `hands.js`, adaptive levels
+in `adapt3.js`; rules, calibration and next steps in `docs/MODE3-PLAN.md`).
 
 ## Commands
 
@@ -12,10 +13,15 @@ npm run build     # dist/index.html (standalone) + dist/artifact.html (claude.ai
 npm run smoke     # Playwright: phone viewports, both tabs, screenshots in dist/shots
 npm run sim       # Snake 4+4 balance report -> docs/simulation-latest.md
 node scripts/montecarlo5.mjs --table=pips --out=docs/simulation5-pips.md   # Poker 5
-npm run serve     # python3 -m http.server 8080 -> http://localhost:8080/
+npm run sim3      # Auto Hand tiers, bots, experiments -> docs/simulation3-latest.md
+node scripts/recipes3.mjs --levels=400       # Auto Hand layout table -> src/engine/recipes3.js (generated)
+node scripts/adapt3-sim.mjs --runs=100 --out=docs/simulation3-adaptive.md  # adaptive levels check
+node scripts/model-to-js.mjs                 # die model GLB -> src/ui/dice-model.js (generated)
+npm run serve     # python3 -m http.server 8080 -> http://localhost:8080/ (prototypes/dice-anim/ too)
 ```
 
-Playwright must be installed locally for `npm run smoke` (`npm i -D playwright && npx playwright install chromium`).
+Playwright must be installed locally for `npm run smoke` (`npm i --no-save playwright && npx playwright install chromium`).
+Locally the CDN loads, so the 3D throw runs in the smoke; it waits for `app.busy` instead of fixed delays.
 
 ## Architecture rules
 
@@ -28,9 +34,11 @@ Playwright must be installed locally for `npm run smoke` (`npm i -D playwright &
   (sum of the matching dice × rarity multiplier: pair 2, two pairs 3, trips 4, straight and
   full house 5, four 6, five 8). Flat tables remain as experiments.
 - Level targets are per table (`levels.js` / `levels5.js`); recalibrate with the simulation
-  scripts after any scoring or economy change.
+  scripts after any scoring or economy change. Auto Hand: the game plays `generateAdaptiveLevel`
+  (`adapt3.js`, target ladder + layout chosen from the run's history and `recipes3.js`); tier
+  levels (`levels3.js`) are the bots' reference. Regenerate `recipes3.js` after any rule change.
 - `scripts/build.mjs` bundles modules into per-module scopes; it validates import names and
-  module order. Dynamic `import()` of CDN URLs (three.js, cannon-es in `src/ui/dice3d.js`) is
+  module order. Dynamic `import()` of CDN URLs (three.js in `src/ui/dice3d.js`) is
   left untouched and must keep its CSS fallback.
 - Before pushing: `npm test`, `npm run build`, `npm run smoke`.
 
@@ -40,5 +48,7 @@ Playwright must be installed locally for `npm run smoke` (`npm i -D playwright &
 - `docs/RESEARCH.md` — similar games and practices with sources.
 - `docs/DESIGN-POKER5.md` — design panel synthesis for Poker 5 and the decisions taken.
 - `docs/ART-PRODUCTION.md` — engine choice, animation capabilities, asset breakdown, prompts.
-- `docs/MODE3-PLAN.md` — implementation plan for the Auto Hand mode (open questions inside).
+- `docs/MODE3-PLAN.md` — Auto Hand rules (owner's decisions), calibration, adaptive difficulty, status.
+- `docs/RESEARCH-BALATRO.md` — Balatro deep dive and what it means for the modes.
+- `docs/RESEARCH-DICE-ANIMATION.md` — dice animation options; prototypes in `prototypes/dice-anim/`.
 - `docs/simulation*.md` — balance reports.

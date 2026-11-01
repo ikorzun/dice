@@ -1,0 +1,206 @@
+{
+  "flip": {
+    "errors": [],
+    "runs": [
+      {
+        "ms": 916,
+        "frames": 53,
+        "avgFrame": 16.66,
+        "longFrames": 0,
+        "maxFrame": 16.8,
+        "ok": true
+      },
+      {
+        "ms": 914,
+        "frames": 53,
+        "avgFrame": 16.67,
+        "longFrames": 0,
+        "maxFrame": 16.8,
+        "ok": true
+      },
+      {
+        "ms": 914,
+        "frames": 53,
+        "avgFrame": 16.67,
+        "longFrames": 0,
+        "maxFrame": 16.8,
+        "ok": true
+      },
+      {
+        "ms": 916,
+        "frames": 53,
+        "avgFrame": 16.67,
+        "longFrames": 0,
+        "maxFrame": 16.8,
+        "ok": true
+      }
+    ],
+    "slowOk": true,
+    "skip": 210,
+    "skipOk": true,
+    "throttled": {
+      "ms": 912,
+      "frames": 53,
+      "avgFrame": 16.66,
+      "longFrames": 0,
+      "maxFrame": 16.8,
+      "ok": true
+    },
+    "handOk": true,
+    "reducedOk": true,
+    "reducedMs": 349
+  },
+  "cube": {
+    "errors": [],
+    "runs": [
+      {
+        "ms": 915,
+        "frames": 53,
+        "avgFrame": 16.67,
+        "longFrames": 0,
+        "maxFrame": 16.8,
+        "ok": true
+      },
+      {
+        "ms": 915,
+        "frames": 53,
+        "avgFrame": 16.67,
+        "longFrames": 0,
+        "maxFrame": 16.8,
+        "ok": true
+      },
+      {
+        "ms": 915,
+        "frames": 53,
+        "avgFrame": 16.66,
+        "longFrames": 0,
+        "maxFrame": 16.8,
+        "ok": true
+      },
+      {
+        "ms": 915,
+        "frames": 53,
+        "avgFrame": 16.67,
+        "longFrames": 0,
+        "maxFrame": 16.8,
+        "ok": true
+      }
+    ],
+    "slowOk": true,
+    "skip": 211,
+    "skipOk": true,
+    "throttled": {
+      "ms": 912,
+      "frames": 53,
+      "avgFrame": 16.67,
+      "longFrames": 0,
+      "maxFrame": 16.8,
+      "ok": true
+    },
+    "handOk": true,
+    "reducedOk": true,
+    "reducedMs": 332
+  },
+  "sprite": {
+    "errors": [],
+    "runs": [
+      {
+        "ms": 915,
+        "frames": 53,
+        "avgFrame": 16.67,
+        "longFrames": 0,
+        "maxFrame": 16.8,
+        "ok": true
+      },
+      {
+        "ms": 915,
+        "frames": 53,
+        "avgFrame": 16.67,
+        "longFrames": 0,
+        "maxFrame": 16.8,
+        "ok": true
+      },
+      {
+        "ms": 914,
+        "frames": 53,
+        "avgFrame": 16.67,
+        "longFrames": 0,
+        "maxFrame": 16.8,
+        "ok": true
+      },
+      {
+        "ms": 915,
+        "frames": 53,
+        "avgFrame": 16.67,
+        "longFrames": 0,
+        "maxFrame": 16.8,
+        "ok": true
+      }
+    ],
+    "slowOk": true,
+    "skip": 206,
+    "skipOk": true,
+    "throttled": {
+      "ms": 914,
+      "frames": 53,
+      "avgFrame": 16.67,
+      "longFrames": 0,
+      "maxFrame": 16.8,
+      "ok": true
+    },
+    "handOk": true,
+    "reducedOk": true,
+    "reducedMs": 331
+  },
+  "gl": {
+    "errors": [],
+    "runs": [
+      {
+        "ms": 917,
+        "frames": 42,
+        "avgFrame": 21.03,
+        "longFrames": 11,
+        "maxFrame": 33.4,
+        "ok": true
+      },
+      {
+        "ms": 917,
+        "frames": 43,
+        "avgFrame": 20.54,
+        "longFrames": 10,
+        "maxFrame": 33.4,
+        "ok": true
+      },
+      {
+        "ms": 916,
+        "frames": 42,
+        "avgFrame": 21.03,
+        "longFrames": 11,
+        "maxFrame": 33.4,
+        "ok": true
+      },
+      {
+        "ms": 917,
+        "frames": 43,
+        "avgFrame": 20.54,
+        "longFrames": 10,
+        "maxFrame": 33.4,
+        "ok": true
+      }
+    ],
+    "slowOk": true,
+    "skip": 204,
+    "skipOk": true,
+    "throttled": {
+      "ms": 911,
+      "frames": 42,
+      "avgFrame": 21.03,
+      "longFrames": 11,
+      "maxFrame": 33.4,
+      "ok": true
+    },
+    "handOk": true,
+    "reducedOk": true,
+    "reducedMs": 333
+  }
+}

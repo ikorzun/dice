@@ -1,0 +1,16 @@
+{
+  "frame": 144,
+  "frames": 16,
+  "still": 256,
+  "bleed": 1.5,
+  "u0": 0.08,
+  "u1": 0.84,
+  "turns": 1.1,
+  "sub": 8,
+  "quality": 0.75,
+  "ms": 2808,
+  "bytes": {
+    "rolls": 182414,
+    "faces": 13150
+  }
+}
