@@ -7,6 +7,7 @@
   "scripts": {
     "test": "node --test",
     "sim": "node scripts/montecarlo.mjs --tierBoards=400 --out=docs/simulation-latest.md",
+    "sim3": "node scripts/montecarlo3.mjs --out=docs/simulation3-latest.md",
     "build": "node scripts/build.mjs",
     "smoke": "node scripts/smoke.mjs",
     "serve": "python3 -m http.server 8080"
