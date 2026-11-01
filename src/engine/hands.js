@@ -3,7 +3,8 @@
 // combination (pair = 2, two pairs = 4, full house / straight / five of a kind = 5). Its score
 // is the pips rule of Poker 5 (pip sum × rarity multiplier) with the straight at ×8, then the
 // applicable bonuses that are switched on add up: ×(1 + Σ(bonus − 1)), so ×2 and ×3 make ×4.
-// A joker bonus stands in for the best missing face.
+// A joker bonus stands in for the best missing face; a refund bonus joins any hand and gives a
+// reroll back when the hand is played (it does not multiply).
 
 import { PIPS_MULT5, CATEGORY5_LABELS } from './scoring5.js';
 
@@ -18,6 +19,7 @@ export const BONUS_KINDS = Object.freeze({
   x3_pairs: Object.freeze({ symbol: '×3', label: 'PAIRS', mult: 3, fits: (c) => c === 'pair' || c === 'two_pairs' }),
   x3_trips: Object.freeze({ symbol: '×3', label: 'TRIPS', mult: 3, fits: (c) => c === 'three_kind' || c === 'full_house' }),
   joker: Object.freeze({ symbol: '★', label: 'JOKER', wild: true }),
+  refund: Object.freeze({ symbol: '+1', label: 'REFUND', mult: 1, fits: () => true, refund: 1 }),
 });
 
 // Category of a set of dice that is itself a combination (every die counts), or null.

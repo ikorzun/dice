@@ -9,7 +9,7 @@ import { clampTier } from './levels.js';
 import { createAutoGame, currentHand } from './auto.js';
 
 export const GENERATOR3_VERSION = 'auto-gen-1';
-export const BONUS_UNLOCKS = Object.freeze(['x2_any', 'x3_straight', 'x3_pairs', 'x3_trips', 'joker']);
+export const BONUS_UNLOCKS = Object.freeze(['x2_any', 'x3_straight', 'x3_pairs', 'x3_trips', 'joker', 'refund']);
 export const MIN_DICE3 = 6;
 
 // Tier levels are the balance reference of the bots and scripts/montecarlo3.mjs; the game itself

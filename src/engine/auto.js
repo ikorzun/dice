@@ -159,13 +159,16 @@ export function playHand(state, drawDie) {
     off[i] = false;
   }
   const phase = handsLeft > 0 ? 'playing' : score >= state.level.target ? 'won' : 'lost';
+  // a refund bonus in the hand gives rerolls back
+  hand.refund = used.reduce((n, i) => n + (BONUS_KINDS[state.cells[i].kind].refund || 0), 0);
+  const rerollsLeft = state.rerollsLeft + hand.refund;
   return {
     ok: true,
     hand,
     burned,
     refilled: burned,
     holes: used,
-    state: { ...state, cells, faces, held, off, hands: [...state.hands, hand], score, handsLeft, phase },
+    state: { ...state, cells, faces, held, off, hands: [...state.hands, hand], score, handsLeft, rerollsLeft, phase },
   };
 }
 

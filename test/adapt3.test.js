@@ -50,7 +50,7 @@ test('the win chance falls with the target and rises with the skill', () => {
   assert.ok(winChance(r, 400, 1.2) > winChance(r, 400, 0.8));
 });
 
-test('candidates: at most two bonus dice of different unlocked kinds, the unlocked kind on levels 2–5, six dice or more', () => {
+test('candidates: at most two bonus dice of different unlocked kinds, the newly unlocked kind on its level, six dice or more', () => {
   for (let level = 1; level <= 12; level++) {
     const list = candidates(level);
     assert.ok(list.length > 0);
@@ -59,7 +59,7 @@ test('candidates: at most two bonus dice of different unlocked kinds, the unlock
       assert.ok(r.dice >= 6 && r.dice + r.blocks + r.kinds.length === 9);
       assert.ok(r.kinds.length <= ADAPT3.maxBonuses && new Set(r.kinds).size === r.kinds.length);
       assert.ok(r.kinds.every((k) => open.includes(k)));
-      if (level >= 2 && level <= 5) assert.ok(r.kinds.includes(BONUS_UNLOCKS[level - 1]));
+      if (level >= 2 && level <= BONUS_UNLOCKS.length) assert.ok(r.kinds.includes(BONUS_UNLOCKS[level - 1]));
     }
   }
 });

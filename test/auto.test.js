@@ -167,6 +167,30 @@ test('playing burns the hand and every unheld die; held dice outside the hand st
   assert.equal(s.phase, 'playing');
 });
 
+test('a refund bonus joins any hand without multiplying it, gives a reroll back and leaves a hole', () => {
+  const layout = [...L1.slice(0, 8), B('refund')];
+  let g = createAutoGame(level(layout, F));
+  g = reroll(g, seq([1, 2, 3, 4, 5, 6, 1, 2])).state; // spend one of the three rerolls
+  assert.equal(g.rerollsLeft, 2);
+  const off = currentHand(g);
+  g = on(g, 8);
+  const h = currentHand(g);
+  assert.deepEqual(h.bonusCells, [8]);
+  assert.equal(h.bonusMult, 1);
+  assert.equal(h.total, off.total);
+  const r = playHand(g, seq([2]));
+  assert.deepEqual(r.hand.bonuses, ['refund']);
+  assert.equal(r.hand.refund, 1);
+  assert.deepEqual(r.holes, [8]);
+  assert.equal(r.state.rerollsLeft, 3);
+  assert.equal(r.state.cells[8].type, 'hole');
+  // switched off it stays on the board and the rerolls do not change
+  const kept = playHand(createAutoGame(level(layout, F)), seq([2]));
+  assert.equal(kept.hand.refund, 0);
+  assert.equal(kept.state.rerollsLeft, 3);
+  assert.equal(kept.state.cells[8].type, 'bonus');
+});
+
 test('a level is always three hands, even when the target is reached early', () => {
   let g = createAutoGame(level(L1, F, 50));
   g = playHand(g, seq([6])).state;

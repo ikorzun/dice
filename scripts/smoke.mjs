@@ -151,7 +151,16 @@ for (const vp of viewports) {
   const keepInHand = a.hand.cells.includes(keep);
   // a hand with a bonus: the bonus screen (blurred board, skeleton, ×2 sticker, SKIP)
   await page.click('#playBtn');
-  await page.waitForTimeout(450);
+  // four of a kind, five of a kind and the straight burn first (owner, 01.11.2026): only the hand's dice
+  await page.waitForTimeout(120);
+  const burning = await page.$$eval('#board .cell.on-fire', (els) => els.map((e) => Number(e.dataset.index)).sort());
+  const strong = ['four_kind', 'five_kind', 'straight'].includes(a.hand.hand.category);
+  const shouldBurn = strong ? [...a.hand.cells, ...(a.hand.hand.jokerCells || [])].sort() : [];
+  if (burning.join() !== shouldBurn.join()) note(vp, `fire on [${burning}] for a ${a.hand.hand.category} on [${shouldBurn}]`);
+  const fireLayer = await page.evaluate(() => { const c = document.querySelector('.fire-layer'); return c ? getComputedStyle(c).display : 'none'; });
+  if (strong && fireLayer !== 'block') note(vp, `the shader fire is not drawn (canvas ${fireLayer})`);
+  await page.waitForFunction(() => document.getElementById('app').classList.contains('bonus-show'), null, { timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(330);
   const screen = await page.evaluate(() => ({ cls: document.getElementById('app').className, skip: getComputedStyle(document.getElementById('skipBtn')).display, play: getComputedStyle(document.getElementById('playBtn')).display, hero: getComputedStyle(document.getElementById('bonusHero')).display, sticker: document.getElementById('multSticker').textContent }));
   if (!/bonus-show/.test(screen.cls) || screen.skip === 'none' || screen.play !== 'none' || screen.hero === 'none' || screen.sticker !== 'x2') note(vp, `bonus screen: ${JSON.stringify(screen)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-5-bonus-screen.png` });
