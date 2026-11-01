@@ -1,18 +1,18 @@
 // Fire on the dice of a strong hand (four of a kind, five of a kind, straight; owner, 01.11.2026): a WebGL
-// fragment shader in one canvas laid over the board, like the 3D dice. After the owner's reference video
-// the fire lives on the die, in natural colours: warm wisps flow up across the face (the ridges of a
-// domain-warped fbm, the pips show through), the outline glows, and tongues of flame rise from the die and
-// taper away by themselves (owner: never cut a flame, even past the screen edge; the canvas leaves room
-// and only fades at its own border as a safety net). Embers rise and fade, the die lights the board. Every frame reads the dice's live boxes
-// and opacity, so the fire shrinks away with them when the hand burns. No three.js: plain WebGL 1.
-// Without WebGL the dice glow instead (body.fire-fallback, CSS).
+// fragment shader in one canvas laid over the board, like the 3D dice. Drawn in the style of the game's
+// illustrations (owner): flat bands from the art palette with an ink outline of constant width, no glow.
+// Rising, domain-warped fbm noise is cut into tongues by each die's rounded-square distance: they lap over
+// the die's edges and rise from it, tapering by themselves (never cut, even past the screen edge; the
+// canvas leaves room and only fades at its own border as a safety net); flat embers rise and fade.
+// Every frame reads the dice's live boxes and opacity, so the fire shrinks away with them when the hand
+// burns. No three.js: plain WebGL 1. Without WebGL the dice glow instead (body.fire-fallback, CSS).
 
 const MAX_DICE = 9;
 const IGNITE_S = 0.25;   // the fire grows on the dice this long
 const MAX_PIXELS = 9e5;  // the canvas resolution is capped: soft fire needs no retina pixels
 
 const VERT = 'attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }';
-const FRAG = `
+const frag = (derivatives) => `${derivatives ? '#extension GL_OES_standard_derivatives : enable' : '#define fwidth(x) 0.02'}
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
 #else
@@ -41,55 +41,48 @@ vec2 hash2(vec2 p) { return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, ve
 void main() {
   float t = uTime;
   vec2 p = gl_FragCoord.xy / uCell;                              // die sides, y up
-  // the flow every die shares: warped fbm rising; its ridges are the bright wisps
   vec2 np = vec2(p.x * 2.6, p.y * 1.7 - t * 1.4);
   vec2 w = vec2(fbm(np * 0.7 + vec2(0.0, t * 0.5)), fbm(np * 0.7 + vec2(4.3, 2.1) - vec2(0.0, t * 0.3)));
-  // wisps: ridges of a smooth noise stretched up, so they run like flame streaks
-  float wisp = pow(1.0 - abs(2.0 * fbm3(vec2(p.x * 3.2, p.y * 1.1 - t * 1.5) + 0.9 * w) - 1.0), 3.5);
-  float sheet = smoothstep(0.3, 0.75, fbm(np * 0.6 + w - vec2(0.0, t * 0.4)));
-  // tongues: a faster, finer warped noise; where it is low the flame is eaten away
+  // tongues: a fast, warped noise; where it is low the flame is eaten away
   float n = smoothstep(0.22, 0.78, fbm(vec2(p.x * 4.0, p.y * 1.3 - t * 2.0) + 1.8 * w - vec2(0.0, t * 0.6)));
-  float flame = 0.0, aGlow = 0.0, aFace = 0.0, aWisp = 0.0, aRim = 0.0, aEmber = 0.0;
+  float flame = -1.0, ember = -1.0, own = -1.0, dmin = 1e3;
   for (int i = 0; i < ${MAX_DICE}; i++) {
     if (i >= uCount) break;
     vec4 die = uDie[i];
     vec2 q = (gl_FragCoord.xy - die.xy) / max(2.0 * die.z, 1.0); // the die is [-0.5, 0.5]^2
     float d = sdRound(q, 0.5, 0.255);                             // > 0 outside
-    float inside = smoothstep(0.004, -0.02, d);
-    // levels toned down by the owner (01.11.2026): lower flames, softer wisps, rim and glow, fewer embers
-    aGlow = max(aGlow, exp(-max(d, 0.0) * 9.0) * step(0.0, d) * 0.3 * die.w);
-    aFace = max(aFace, inside * (0.05 + 0.12 * sheet) * die.w);
-    aWisp = max(aWisp, inside * wisp * 0.55 * die.w);
-    aRim = max(aRim, exp(-abs(d) * 40.0) * (0.35 + 0.35 * sheet) * die.w);
-    // tongues: tall above, up the sides, a lick below; they lap over the edge and taper as they rise
+    // tall above, up the sides, a lick below; they lap over the edge (the pips stay clear) and taper
     float reach = 0.1 + 0.42 * smoothstep(-0.3, 1.0, q.y);
-    float s = (1.0 - max(d, 0.0) / reach) * smoothstep(-0.1, -0.01, d);
-    flame = max(flame, (1.35 * s - (1.0 - n) * (0.75 + 0.6 * clamp(q.y - 0.3, 0.0, 1.0))) * die.w);
+    float s = (1.0 - max(d, 0.0) / reach) * smoothstep(-0.16, -0.02, d);
+    float f = 1.35 * s - (1.0 - n) * (0.75 + 0.6 * clamp(q.y - 0.3, 0.0, 1.0));
+    f = f * die.w - (1.0 - die.w) * 0.6;                           // dying down: the shape shrinks
+    flame = max(flame, f);
+    if (d < 0.0) own = f;                                          // the die this pixel is on
+    dmin = min(dmin, d);
     vec2 e = vec2(q.x * 7.0, q.y * 5.0 - t * 2.2 + float(i) * 3.7); // embers: one or none per grid cell, rising
     vec2 h = hash2(floor(e) + float(i) * 17.0);
     vec2 c = fract(e) - (0.2 + 0.6 * h) - vec2(0.15 * sin(t * 3.0 + h.x * 6.28), 0.0);
     float rise = q.y - 0.45;
-    float live = step(0.75, h.y) * smoothstep(0.0, 0.08, rise) * smoothstep(1.1, 0.4, rise) * step(abs(q.x), 0.6);
-    aEmber = max(aEmber, 0.8 * smoothstep(0.2, 0.05, length(c * vec2(1.0, 0.7))) * live * die.w);
+    float live = step(0.75, h.y) * step(0.02, rise) * step(rise, 0.9) * step(abs(q.x), 0.6) * step(0.3, die.w);
+    ember = max(ember, (0.14 * (1.0 - rise) - length(c * vec2(1.0, 0.7))) * live - (1.0 - live));
   }
-  // natural fire colours, layered back to front (premultiplied)
-  vec3 C = vec3(0.0);
-  float A = 0.0;
-  C = vec3(1.0, 0.35, 0.05) * aGlow; A = aGlow;
-  C = mix(vec3(1.0, 0.42, 0.06), vec3(1.0, 0.62, 0.15), sheet) * aFace + C * (1.0 - aFace); A = aFace + A * (1.0 - aFace);
-  C = mix(vec3(0.95, 0.25, 0.02), vec3(1.0, 0.62, 0.1), wisp * wisp) * aWisp + C * (1.0 - aWisp); A = aWisp + A * (1.0 - aWisp);
-  C = vec3(1.0, 0.6, 0.12) * aRim + C * (1.0 - aRim); A = aRim + A * (1.0 - aRim);
-  float k = clamp(flame, 0.0, 1.0);
-  vec3 tongue = mix(vec3(0.5, 0.03, 0.0), vec3(1.0, 0.3, 0.02), smoothstep(0.0, 0.4, k));
-  tongue = mix(tongue, vec3(1.0, 0.62, 0.12), smoothstep(0.4, 0.75, k));
-  tongue = mix(tongue, vec3(1.0, 0.92, 0.65), smoothstep(0.85, 1.0, k));
-  float aTongue = 0.72 * smoothstep(0.02, 0.45, k);
-  C = tongue * aTongue + C * (1.0 - aTongue); A = aTongue + A * (1.0 - aTongue);
-  C = vec3(1.0, 0.82, 0.4) * aEmber + C * (1.0 - aEmber); A = aEmber + A * (1.0 - aEmber);
+  // a die stands in front of the flames rising behind it: on its face only its own flames lap
+  if (dmin < 0.0) flame = own;
+  // flat bands from the art palette, cut crisply; the ink outline lies just outside the flame, never
+  // across a die's face
+  float px = max(fwidth(flame), 1e-4);
+  vec3 col = vec3(0.051, 0.043, 0.059);                                                   // ink #0d0b0f
+  col = mix(col, vec3(0.992, 0.306, 0.235), clamp(flame / px + 0.5, 0.0, 1.0));          // red #fd4e3c
+  col = mix(col, vec3(1.0, 0.478, 0.102), clamp((flame - 0.3) / px + 0.5, 0.0, 1.0));    // orange #ff7a1a
+  col = mix(col, vec3(1.0, 0.714, 0.153), clamp((flame - 0.58) / px + 0.5, 0.0, 1.0));   // amber #ffb627
+  col = mix(col, vec3(1.0, 0.914, 0.659), clamp((flame - 0.86) / px + 0.5, 0.0, 1.0));   // cream #ffe9a8
+  float a = clamp(flame / px + (dmin > 0.0 ? 2.6 : 0.5), 0.0, 1.0);                     // + 2 px of outline
+  float ea = clamp(ember / max(fwidth(ember), 1e-4) + 0.5, 0.0, 1.0) * (1.0 - a) * step(0.0, dmin);
+  vec3 C = col * a + vec3(1.0, 0.918, 0.227) * ea;                                        // yellow #ffea3a
+  float A = a + ea;
   // a safety net only: the canvas is roomy enough that no flame reaches its border
   vec2 m = min(gl_FragCoord.xy, uRes - gl_FragCoord.xy) / (0.15 * uCell);
-  float edge = smoothstep(0.0, 1.0, min(m.x, m.y));
-  gl_FragColor = vec4(C, A) * edge;
+  gl_FragColor = vec4(C, A) * smoothstep(0.0, 1.0, min(m.x, m.y));
 }`;
 
 // The fire layer for `board`. ignite(cells) sets those cell elements on fire, out() puts it out at once
@@ -110,6 +103,8 @@ export function createFire(board) {
     canvas.className = 'fire-layer';
     gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false });
     if (!gl) return false;
+    const derivatives = !!gl.getExtension('OES_standard_derivatives');
+    if (!gl) return false;
     const shader = (type, src) => {
       const s = gl.createShader(type);
       gl.shaderSource(s, src);
@@ -117,7 +112,7 @@ export function createFire(board) {
       return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null;
     };
     const vs = shader(gl.VERTEX_SHADER, VERT);
-    const fs = shader(gl.FRAGMENT_SHADER, FRAG);
+    const fs = shader(gl.FRAGMENT_SHADER, frag(derivatives));
     if (!vs || !fs) return false;
     const prog = gl.createProgram();
     gl.attachShader(prog, vs);

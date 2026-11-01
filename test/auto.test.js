@@ -145,6 +145,17 @@ test('reroll changes every unheld die, never bonuses, blocks or held dice; works
   assert.equal(reroll(h, seq([3])).code, 'NO_REROLLS');
 });
 
+test('a reroll clears every hold and switches every bonus off again: both count for one throw', () => {
+  let g = createAutoGame(level(L1, F));
+  g = toggleHold(g, 0).state;
+  g = on(g, 8);
+  const r = reroll(g, seq([5]));
+  assert.equal(r.state.faces[0], F[0]); // the held die kept its face through the reroll
+  assert.deepEqual(r.state.held, new Array(9).fill(false));
+  assert.equal(r.state.off[8], true);
+  assert.deepEqual(currentHand(r.state).bonusCells, []);
+});
+
 test('playing burns the hand and every unheld die; held dice outside the hand stay held; the used bonus leaves a hole', () => {
   let g = on(createAutoGame(level(L1, F)), 8);
   g = toggleHold(g, 7).state; // the 1 at the bottom is not in the straight

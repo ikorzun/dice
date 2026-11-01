@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Playwright smoke test for the built page: three phone viewports plus desktop. The screen is the
-// owner's Figma mockup (Auto Hand only): onboarding and tutorial, hold (lime), reroll, a bonus
+// owner's Figma mockup (Auto Hand only): the title and guide, the tutorial, hold (lime), reroll, a bonus
 // switched on, the bonus screen and SKIP, three hands, the level end, LEVEL n/25 and the help
 // sheet; captures screenshots to dist/shots and fails on console errors, horizontal overflow or
 // controls outside the viewport.
@@ -62,11 +62,20 @@ for (const vp of viewports) {
     return { mode: window.__diceSnake.mode().id, cells: g.cells.map((c) => c.type), faces: g.faces, held: g.held, off: g.off, hands: g.hands.length, handsLeft: g.handsLeft, rerollsLeft: g.rerollsLeft, phase: g.phase, score: g.score, target: g.level.target, level: g.level.levelIndex, hand: window.__diceSnake.hint() };
   });
   const text = (sel) => page.$eval(sel, (el) => el.textContent);
-  if (!(await page.$eval('#onboarding', (el) => !el.hidden))) note(vp, 'onboarding not shown on first visit');
-  if ((await text('#onboardTitle')) !== 'AUTO HAND') note(vp, `onboarding title: ${await text('#onboardTitle')}`);
-  if (!/straight × 8/.test(await text('#onboardScoring'))) note(vp, 'scoring text does not say straight × 8');
-  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-0-onboarding.png` });
-  await page.click('#onboardStart');
+  // the first visit: the title, then three pages, combinations first; no page scrolls
+  if (!(await page.$eval('#guide', (el) => !el.hidden))) note(vp, 'the first screen is not shown on the first visit');
+  const name = await page.$eval('#gameName', (e) => e.textContent.replace(/\s+/g, ' ').trim());
+  if (name !== 'DICE TWICE') note(vp, `title: ${name}`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-0-title.png` });
+  for (let n = 1; n <= 3; n++) {
+    await page.click('#guideNext');
+    await page.waitForTimeout(250);
+    const pg = await page.evaluate(() => { const g = document.getElementById('guide'); return { over: g.scrollHeight - g.clientHeight, page: [...g.querySelectorAll('.guide-page')].findIndex((el) => !el.hidden) }; });
+    if (pg.page !== n || pg.over > 0) note(vp, `guide page ${n}: ${JSON.stringify(pg)}`);
+    if (n === 1 && !/STRAIGHT\s*×8/.test(await text('#combos'))) note(vp, 'the combinations page does not list the straight × 8');
+    await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-0-guide-${n}.png` });
+  }
+  await page.click('#guideNext'); // LET'S ROLL: the tutorial on the board
   await page.waitForTimeout(150);
   let a = await auto();
   if (a.mode !== 'auto') note(vp, `mode on screen: ${a.mode}`);
@@ -96,11 +105,11 @@ for (const vp of viewports) {
   await page.waitForTimeout(1500);
   console.log(`${vp.w}x${vp.h}: 3D dice status ${await page.evaluate(() => window.__diceSnake.dice3d())}`);
 
-  // tutorial step 1 points at a die outside the hand: held dice survive the hand
+  // tutorial step 1 points at a die of the hand: a held die stays on the reroll that follows
   const holdText = await text('#coachText');
-  if (!/SURVIVE/.test(holdText)) note(vp, `tutorial hold step: ${holdText}`);
+  if (!/STAYS ON REROLL/.test(holdText)) note(vp, `tutorial hold step: ${holdText}`);
   const coachTarget = await page.$$eval('#board .cell.hint', (els) => els.map((e) => Number(e.dataset.index)));
-  if (coachTarget.length !== 1 || a.hand.cells.includes(coachTarget[0])) note(vp, `tutorial hold target [${coachTarget}] should be one die outside the hand [${a.hand.cells}]`);
+  if (coachTarget.length !== 1 || !a.hand.cells.includes(coachTarget[0])) note(vp, `tutorial hold target [${coachTarget}] should be one die of the hand [${a.hand.cells}]`);
   if (a.cells.filter((t) => t === 'die').length !== 8 || a.cells[8] !== 'bonus') note(vp, `level 1 layout: ${a.cells}`);
   // the hand is not marked on the board (owner, 01.11.2026): every die has the same pips and picture
   const pipColors = await page.$$eval('#board .cell.die .face i', (els) => [...new Set(els.map((e) => getComputedStyle(e).backgroundColor))]);
@@ -115,8 +124,8 @@ for (const vp of viewports) {
   await swipe(page, a.hand.cells.slice(0, 3));
   await page.waitForTimeout(200);
   if ((await auto()).hands !== 0) note(vp, 'a drag played a hand');
-  // hold a die outside the hand: lime, and REROLL keeps it and the bonus
-  const keep = coachTarget[0] ?? a.cells.findIndex((t, i) => t === 'die' && !a.hand.cells.includes(i));
+  // hold the die the tutorial points at: lime; REROLL keeps its face, then clears the hold (owner, 01.11.2026)
+  const keep = coachTarget[0] ?? a.hand.cells[0];
   await tap(page, keep);
   const heldLook = await page.$eval(`#board .cell[data-index="${keep}"]`, (e) => ({ cls: e.className, img: e.style.getPropertyValue('--die-img'), tag: getComputedStyle(e.querySelector('.tag')).display }));
   if (!/held/.test(heldLook.cls) || !/-held/.test(heldLook.img) || heldLook.tag !== 'none') note(vp, `held die look: ${JSON.stringify(heldLook)}`);
@@ -129,7 +138,8 @@ for (const vp of viewports) {
   await page.waitForTimeout(1100);
   await idle(page);
   a = await auto();
-  if (!a.held[keep] || a.faces[keep] !== keptFace) note(vp, 'reroll changed the held die');
+  if (a.faces[keep] !== keptFace) note(vp, 'reroll changed the held die');
+  if (a.held.some(Boolean)) note(vp, `holds not cleared by the reroll: ${a.held}`);
   if (a.rerollsLeft !== 2 || a.cells[8] !== 'bonus') note(vp, `reroll: left=${a.rerollsLeft}, cell 8=${a.cells[8]}`);
   if ((await text('#rerollBtn')) !== 'REROLL•2') note(vp, `reroll label after one reroll: ${await text('#rerollBtn')}`);
   // bonus dice start off: the tutorial asks to switch the ×2 on first, then to play
@@ -137,6 +147,12 @@ for (const vp of viewports) {
   if (!/SWITCH IT ON/.test(await text('#coachText'))) note(vp, `tutorial does not ask to switch the ×2 on: "${await text('#coachText')}"`);
   await tap(page, 8);
   if ((await auto()).off[8]) note(vp, 'tapping the bonus did not switch it on');
+  // the first tap on a kind raises its sheet, once
+  await page.waitForTimeout(300);
+  const sheet = await page.evaluate(() => ({ open: !document.getElementById('bonusSheet').hidden, name: document.getElementById('bonusSheetName').textContent }));
+  if (!sheet.open || !/ANY HAND/.test(sheet.name)) note(vp, `bonus sheet: ${JSON.stringify(sheet)}`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-3b-bonus-sheet.png` });
+  await page.click('#bonusSheetOk');
   const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, mult: document.getElementById('mult').textContent, stat: document.getElementById('multStat').className }));
   if (!/\bon\b/.test(on.cell) || on.mult !== 'x2' || !/\bon\b/.test(on.stat)) note(vp, `bonus on: ${JSON.stringify(on)}`);
   const playPulse = await page.$eval('#playBtn', (b) => b.classList.contains('pulse'));
@@ -144,11 +160,22 @@ for (const vp of viewports) {
   // off again keeps it for later, on again uses it
   await tap(page, 8);
   if (!(await auto()).off[8]) note(vp, 'tapping the bonus again did not switch it off');
+  if (!(await page.$eval('#bonusSheet', (el) => el.hidden))) note(vp, 'the bonus sheet came up a second time');
   await tap(page, 8);
+  if ((await auto()).off[8]) note(vp, 'tapping the bonus a third time did not switch it on');
+  // a switched-on bonus counts for one throw: a reroll switches it off again
+  await page.click('#rerollBtn');
+  await page.waitForTimeout(300);
+  await idle(page);
+  if (!(await auto()).off[8]) note(vp, 'a reroll did not switch the bonus off');
+  await tap(page, 8);
+  // held dice outside the hand survive it: hold one now, after the last reroll
   a = await auto();
-  if (a.off[8]) note(vp, 'tapping the bonus a third time did not switch it on');
+  const keep2 = a.cells.findIndex((t, i) => t === 'die' && !a.hand.cells.includes(i));
+  if (keep2 >= 0) await tap(page, keep2);
+  a = await auto();
+  if (a.off[8] || (keep2 >= 0 && !a.held[keep2])) note(vp, `before the hand: bonus off=${a.off[8]}, hold ${keep2}=${a.held[keep2]}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-4-bonus-on.png` });
-  const keepInHand = a.hand.cells.includes(keep);
   // a hand with a bonus: the bonus screen (blurred board, skeleton, ×2 sticker, SKIP)
   await page.click('#playBtn');
   // four of a kind, five of a kind and the straight burn first (owner, 01.11.2026): only the hand's dice
@@ -170,7 +197,7 @@ for (const vp of viewports) {
   if (await page.$eval('#app', (el) => el.classList.contains('bonus-show'))) note(vp, 'SKIP did not close the bonus screen');
   if (b.hands !== 1 || b.handsLeft !== 2) note(vp, `first hand: hands=${b.hands} left=${b.handsLeft}`);
   if (b.cells[8] !== 'hole') note(vp, `the ×2 did not leave a hole (cell 8=${b.cells[8]})`);
-  if (!keepInHand && (!b.held[keep] || b.faces[keep] !== a.faces[keep])) note(vp, 'held die outside the hand did not survive the hand');
+  if (keep2 >= 0 && (!b.held[keep2] || b.faces[keep2] !== a.faces[keep2])) note(vp, 'held die outside the hand did not survive the hand');
   if (Number(await text('#score')) !== b.score || (await text('#playBtn')) !== 'PLAY•2') note(vp, `after the hand: TOTAL ${await text('#score')} (score ${b.score}), ${await text('#playBtn')}`);
   const hidden = await page.$$eval('#board .cell.die', (els) => els.filter((e) => Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
   if (hidden.length) note(vp, `dice invisible after the hand: [${hidden}]`);
@@ -197,10 +224,18 @@ for (const vp of viewports) {
   const invisible = await page.$$eval('#board .cell.die', (els) => els.filter((e) => e.classList.contains('bank-pop') || Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
   if (invisible.length) note(vp, `dice invisible after a new level: [${invisible}]`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-8-level2.png` });
+  // the Bible: the guide's pages without the title, every bonus, then the settings
   await page.click('#helpBtn');
-  await page.waitForTimeout(100);
-  if (!/AUTO HAND/.test(await text('#helpTitle'))) note(vp, 'help title');
+  await page.waitForTimeout(300);
+  const bible = await page.evaluate(() => ({ open: !document.getElementById('guide').hidden, page: [...document.querySelectorAll('.guide-page')].findIndex((el) => !el.hidden), close: document.getElementById('guideSkip').textContent }));
+  if (!bible.open || bible.page !== 1 || bible.close !== 'CLOSE') note(vp, `Bible: ${JSON.stringify(bible)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-9-help.png` });
+  await page.click('#guideNext');
+  await page.click('#guideNext');
+  if ((await page.$$eval('.bonus-list li', (l) => l.length)) !== 6) note(vp, 'the Bible does not show the six bonus dice');
+  await page.click('#guideSettings');
+  await page.waitForTimeout(100);
+  if ((await text('#helpTitle')) !== 'SETTINGS' || !(await page.$eval('#helpRules', (el) => el.hidden))) note(vp, 'the settings sheet still shows the rules');
   await page.click('#closeHelpBtn');
 
   // persistence: reload restores the level in progress

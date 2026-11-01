@@ -1,5 +1,6 @@
 // Bots for the Auto Hand mode (balancing only). Both play through the public engine and
-// switch on the bonuses they want (a bonus may start switched off). The best hand depends
+// switch on the bonuses they want (a bonus may start switched off; a reroll clears holds and
+// switches bonuses off, so the bots set both again before every reroll and before playing). The best hand depends
 // only on the multiset of faces and the kinds of the bonuses that are on, so the greedy bot
 // scores a board by its face counts and memoizes; its lookahead is exact, not sampled.
 
@@ -44,7 +45,7 @@ export function playNaiveBot3(level, { rng, config = {} } = {}) {
     if (game.rerollsLeft >= game.handsLeft) {
       game = setHolds(game, new Set(currentHand(game).cells));
       const r = reroll(game, () => rng.die());
-      if (r.ok) game = r.state;
+      if (r.ok) game = setBonuses(r.state, () => true);
     }
     game = play(game, rng);
   }
@@ -127,8 +128,10 @@ export function playGreedyBot3(level, { rng, config = {}, hand = null, margin = 
   let game = createAutoGame(level, hand ? { ...config, handOptions: hand } : config);
   while (game.phase === 'playing') {
     const last = game.handsLeft === 1;
-    game = setBonuses(game, (kind) => last || !unconditional(kind));
+    const policy = (kind) => last || !unconditional(kind);
+    let keep = null;
     while (game.rerollsLeft > 0) {
+      game = setBonuses(game, policy);
       const ctx = contextFor(onKinds(game), hand);
       const cells = diceCells(game);
       const standing = currentHand(game).total;
@@ -142,11 +145,14 @@ export function playGreedyBot3(level, { rng, config = {}, hand = null, margin = 
         if (est > bestEst) { bestEst = est; bestMask = m; }
       }
       if (bestMask < 0) break;
-      game = setHolds(game, new Set(cells.filter((c, k) => (bestMask >> k) & 1)));
+      keep = new Set(cells.filter((c, k) => (bestMask >> k) & 1));
+      game = setHolds(game, keep);
       const r = reroll(game, () => rng.die());
       if (!r.ok) throw new Error(`bot produced an illegal reroll: ${r.code}`);
       game = r.state;
     }
+    game = setBonuses(game, policy);
+    if (keep) game = setHolds(game, keep); // hold the keepers again: unheld dice burn on play
     if (!last && currentHand(game).total >= strong) game = setBonuses(game, () => true);
     game = play(game, rng);
   }

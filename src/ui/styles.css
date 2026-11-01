@@ -10,7 +10,6 @@
   --line-strong: #3d3d3d;
   --tile: #262626;          /* reroll button, bonus tiles */
   --accent: #ffea3a;        /* play button */
-  --on: #fd4e3c;            /* a bonus that is switched on (the red of the skeleton tile) */
   --die: #ffffff;
   --die-edge: #d6d6d6;
   --pip: #000000;
@@ -33,9 +32,9 @@
   --reveal-fg: var(--fg);
   --spark: var(--accent);
   /* the mockup's art, named once so the build inlines each file once */
-  --img-skeleton: url("../../assets/ui/skeleton.png");
-  --img-skeleton-on: url("../../assets/ui/skeleton-on.png");
-  --img-skull: url("../../assets/ui/skull.png");
+  --img-x2: url("../../assets/ui/bonuses/x2-any.webp");   /* the skeleton knight (art/bonuses/out/at) */
+  --img-joker: url("../../assets/ui/bonuses/joker.webp"); /* the joker skull (art/bonuses/out/at) */
+  --img-title: url("../../assets/ui/title.webp"); /* DICE TWICE title art, art/title */
   --img-refund-idle: url("../../assets/ui/bonuses/refund-idle.webp");       /* 24 frames, 384 px */
   --img-refund-trigger: url("../../assets/ui/bonuses/refund-trigger.webp"); /* 24 frames, 512 px */
   color-scheme: dark;
@@ -115,26 +114,6 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .btn-primary.pulse, .btn-secondary.pulse { animation: pulseBtn 1.1s ease-in-out infinite; }
 @keyframes pulseBtn { 0%, 100% { box-shadow: 0 0 0 0 rgba(243, 197, 79, 0); } 50% { box-shadow: 0 0 0 6px rgba(243, 197, 79, .55); } }
 
-/* Onboarding demo */
-.demo { position: relative; width: 100%; max-width: 300px; margin: 0 auto; aspect-ratio: 300 / 230; }
-.demo-grid { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% * 200 / 230); display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 6px; }
-.demo-grid i { display: block; border-radius: 14%; background: var(--die); box-shadow: inset 0 -4px 0 var(--die-edge); position: relative; }
-.demo-grid i.on::after { color: var(--pip); }
-.demo-grid i::after { content: attr(data-value); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 700 36px/1 var(--font-display); color: var(--pip); }
-.demo-line { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% * 200 / 230); pointer-events: none; }
-.demo-line polyline { fill: none; stroke: var(--path); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 400; stroke-dashoffset: 400; animation: demoLine 2.8s ease-in-out infinite; }
-.demo-finger { position: absolute; width: 16%; aspect-ratio: 1; border-radius: 50%; background: rgba(255, 255, 255, .3); border: 3px solid var(--fg); box-shadow: 0 0 0 6px rgba(255, 255, 255, .14); transform: translate(-50%, -50%); left: 16.7%; top: 21.7%; opacity: 0; }
-.demo-label { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font: 700 14px/1 var(--font-display); letter-spacing: .1em; color: var(--path); }
-@keyframes demoLine { 0%, 15% { stroke-dashoffset: 400; opacity: 1; } 75% { stroke-dashoffset: 0; opacity: 1; } 90%, 100% { stroke-dashoffset: 0; opacity: 0; } }
-@keyframes demoFinger {
-  0% { left: 16.7%; top: 21.7%; opacity: 0; }
-  10% { left: 16.7%; top: 21.7%; opacity: 1; }
-  15% { left: 16.7%; top: 21.7%; }
-  35% { left: 50%; top: 21.7%; }
-  55% { left: 50%; top: 65.2%; }
-  75% { left: 83.3%; top: 65.2%; opacity: 1; }
-  90%, 100% { left: 83.3%; top: 65.2%; opacity: 0; }
-}
 
 /* Live preview line */
 .preview { min-height: 26px; text-align: center; font: 700 18px/26px var(--font-display); letter-spacing: .08em; color: var(--muted); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -178,22 +157,25 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.die.sealed .tag { display: block; background: var(--gold); color: #2a1f00; }
 .cell.refill { animation: refill 480ms cubic-bezier(.2, .9, .3, 1.2) var(--delay, 0ms) both; }
 @keyframes refill { 0% { transform: translateY(-45%) scale(.55); opacity: 0; } 60% { transform: translateY(4%) scale(1.04); opacity: 1; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
-.cell.bonus { background: var(--tile); color: var(--fg); display: flex; align-items: center; justify-content: center; overflow: hidden; transition: transform 110ms ease, box-shadow 110ms ease; }
+/* Auto Hand: a bonus die is a blank die like the others, its character or label on the face (owner,
+   01.11.2026). Switched on, it turns lime like a held die and its character hops. Blocks are locks. */
+.cell.bonus { background: var(--face-0, var(--die)) center / 100% 100% no-repeat; color: var(--pip); display: flex; align-items: center; justify-content: center; overflow: hidden; transition: transform 110ms ease, box-shadow 110ms ease; }
 .cell.bonus.pressed { transform: scale(.95); }
-.cell.bonus.on { background-color: var(--on); }
+.cell.bonus.on { background: var(--face-0-held, var(--hold)) center / 100% 100% no-repeat; animation: bonusOn 360ms cubic-bezier(.2, .8, .3, 1.3); }
+.cell.bonus.on .art { animation: artHop 420ms cubic-bezier(.2, .8, .3, 1.3); }
+@keyframes bonusOn { 40% { transform: scale(1.07); } }
+@keyframes artHop { 35% { transform: translateY(-9%) scale(1.06, .95); } 70% { transform: translateY(2%) scale(.98, 1.03); } }
 .cell.bonus.used { border-color: var(--line-strong); color: var(--muted); box-shadow: none; animation: none; }
-/* Auto Hand: bonus dice are dark tiles until switched on (red); the skeleton is ×2, the pink skull
-   the joker, the ×3 kinds a label; blocks are locks */
 .cell.bonus.safe-hint, .cell.bonus.hint { animation: armPulse 650ms ease-in-out infinite; }
 .cell .art { position: absolute; display: none; background: center / 100% 100% no-repeat; pointer-events: none; }
 .cell.bonus.kind-x2_any .art, .cell.bonus.kind-joker .art, .cell.bonus.kind-refund .art { display: block; }
-.cell.bonus.kind-x2_any .art { left: -22.87%; top: -28.31%; width: 146.12%; height: 146.12%; background-image: var(--img-skeleton); }
-.cell.bonus.kind-x2_any.on .art { background-image: var(--img-skeleton-on); }
-.cell.bonus.kind-joker .art { inset: 0; background-image: var(--img-skull); }
+.cell.bonus.kind-x2_any .art { inset: 8%; background-image: var(--img-x2); }
+.cell.bonus.kind-joker .art { inset: 12%; background-image: var(--img-joker); }
 .cell.bonus.kind-x2_any .x2, .cell.bonus.kind-joker .x2, .cell.bonus.kind-refund .x2 { display: none; }
 /* REFUND, the pawnbroker bird: its idle loop on the tile, 24 frames at 12 fps (art/bonuses/anim/refund).
    steps(24, jump-none) from 0% to 100% lands on every frame of a 24-frame strip and loops seamlessly. */
 .cell.bonus.kind-refund .art { inset: 0; background: var(--img-refund-idle) 0 0 / 2400% 100% no-repeat; animation: strip 2s steps(24, jump-none) infinite; }
+.cell.bonus.kind-refund.on .art { animation: strip 2s steps(24, jump-none) infinite, artHop 420ms cubic-bezier(.2, .8, .3, 1.3); }
 @keyframes strip { from { background-position: 0% 0; } to { background-position: 100% 0; } }
 /* Fire: the dice of a played four of a kind, five of a kind or straight burn (owner, 01.11.2026; never on
    the board before PLAY). A shader in a canvas over the board (fire.js); without WebGL the dice glow. */
@@ -215,7 +197,7 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .face[data-value="5"] i:nth-child(1), .face[data-value="5"] i:nth-child(3), .face[data-value="5"] i:nth-child(5), .face[data-value="5"] i:nth-child(7), .face[data-value="5"] i:nth-child(9),
 .face[data-value="6"] i:nth-child(1), .face[data-value="6"] i:nth-child(3), .face[data-value="6"] i:nth-child(4), .face[data-value="6"] i:nth-child(6), .face[data-value="6"] i:nth-child(7), .face[data-value="6"] i:nth-child(9) { opacity: 1; }
 .cell .tag { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); font: 700 calc(11px * var(--kb, 1))/1 var(--font-display); letter-spacing: .16em; padding: calc(3px * var(--kb, 1)) calc(6px * var(--kb, 1)); border-radius: 4px; display: none; white-space: nowrap; }
-.cell.bonus .tag { display: block; bottom: 10%; color: var(--fg); }
+.cell.bonus .tag { display: block; bottom: 10%; color: var(--pip); }
 .cell.bonus .tag:empty { display: none; }
 .cell.bonus.used .tag { color: var(--muted); }
 .cell .x2 { display: none; font: 700 calc(40px * var(--kb, 1))/1 var(--font-display); letter-spacing: -.02em; }
@@ -249,13 +231,13 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .app.bonus-show .bonus-hero.kind-x2_any, .app.bonus-show .bonus-hero.kind-joker, .app.bonus-show .bonus-hero.kind-refund { display: block; }
 .app.bonus-show.has-sticker .counter .sticker.big { display: block; }
 .app.bonus-show.has-sticker #mult { visibility: hidden; } /* the sticker says it; on desktop the value would peek out */
-.bonus-hero { position: absolute; z-index: 9; left: calc(50% - var(--board, 300px) * .365); top: calc(var(--board, 300px) * .083); width: var(--board, 300px); height: var(--board, 300px); border-radius: 25.5%; overflow: hidden; pointer-events: none; animation: heroIn 320ms cubic-bezier(.2, .8, .3, 1.15) both; }
+.bonus-hero { position: absolute; z-index: 9; left: calc(50% - var(--board, 300px) / 2); top: 0; width: var(--board, 300px); height: var(--board, 300px); border-radius: 25.5%; overflow: hidden; pointer-events: none; animation: heroIn 320ms cubic-bezier(.2, .8, .3, 1.15) both; }
 .bonus-hero i { position: absolute; background: center / 100% 100% no-repeat; }
-.bonus-hero.kind-x2_any i { left: -22.87%; top: -28.31%; width: 146.12%; height: 146.12%; background-image: var(--img-skeleton); }
-.bonus-hero.kind-joker i { inset: 0; background-image: var(--img-skull); }
+.bonus-hero.kind-x2_any i { inset: 4%; background-image: var(--img-x2); }
+.bonus-hero.kind-joker i { inset: 10%; background-image: var(--img-joker); }
 /* REFUND on the bonus screen: its 2-second action (a sigh, then the coin tossed back), played once
    and held on the last frame, centred over the board */
-.bonus-hero.kind-refund { left: calc(50% - var(--board, 300px) / 2); top: 0; animation-name: heroFade; }
+.bonus-hero.kind-refund { animation-name: heroFade; }
 .bonus-hero.kind-refund i { inset: 0; background: var(--img-refund-trigger) 0 0 / 2400% 100% no-repeat; animation: strip 2s steps(24, jump-none) forwards; }
 @keyframes heroFade { from { opacity: 0; } to { opacity: 1; } }
 #rerollBtn.bump { animation: btnBump 520ms cubic-bezier(.2, .8, .3, 1.3); }
@@ -402,12 +384,72 @@ body.wide .btn-play, body.wide .btn-dark { height: auto; width: 100%; font-size:
 /* Basteleur is wide and the mockup sets it without tracking: the rules above were spaced for a
    condensed face */
 .end-title, .btn-primary, .btn-secondary, .btn-ghost, .coach-step, .coach-text, .toast, .preview, .reveal .cat, .reveal .mult,
-.end-note, .hands li, .sheet-panel h3, .score-table th, .demo-label, .cell .tag, .tab { letter-spacing: 0; }
+.end-note, .hands li, .sheet-panel h3, .score-table th, .cell .tag, .tab { letter-spacing: 0; }
 .end-title { font-size: 34px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ================= FIRST SCREEN AND GUIDE (owner, 01.11.2026) =================
+   The title, then three pages, combinations first: a line of words next to a picture of the game.
+   Sized by the window (vmin) so each page fits a phone without scrolling. */
+.guide { flex-direction: column; justify-content: flex-start; background: #000; }
+.guide > * { width: min(100%, 440px); }
+.guide-bar { flex: none; height: 44px; display: flex; align-items: center; justify-content: space-between; }
+.guide-dots { display: flex; gap: 8px; }
+.guide-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--tile); }
+.guide-dots i.on { background: var(--accent); }
+.guide-skip, .guide-link { margin-left: auto; padding: 10px 0; border: 0; background: none; color: var(--muted); font: 700 16px/1 var(--font-display); }
+.guide-page { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(12px, 3vh, 26px); text-align: center; animation: pageIn 225ms ease-out; }
+@keyframes pageIn { from { opacity: 0; transform: translateX(24px); } }
+.guide-head { margin: 0; font: 700 clamp(25px, 7.2vmin, 38px)/1.08 var(--font-display); text-wrap: balance; }
+.guide-note { margin: 0; color: var(--muted); font: 700 clamp(14px, 3.9vmin, 18px)/1.2 var(--font-display); }
+.guide-actions { flex: none; display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding-top: 12px; }
+.guide-actions .btn-play { flex: none; height: clamp(60px, 9vh, 80px); font-size: clamp(20px, 5.6vmin, 26px); }
+.guide-actions .guide-link { margin: 0 auto; }
+.guide-title { justify-content: flex-start; gap: 0; }
+.game-name { margin: clamp(4px, 2vh, 20px) 0 0; font: 700 clamp(58px, 18vmin, 110px)/.92 var(--font-title); color: var(--fg); }
+.game-name span { color: var(--accent); }
+.title-art { flex: 1 1 auto; min-height: 0; width: 100%; background: var(--img-title) center / contain no-repeat; }
+.gdie { display: block; width: var(--gd, 24px); height: var(--gd, 24px); background: var(--f) center / 100% 100% no-repeat; }
+.combos { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; gap: clamp(5px, 1.2vh, 10px); --gd: clamp(18px, 5.4vmin, 28px); }
+.combos li { display: grid; grid-template-columns: calc(5 * var(--gd) + 12px) 1fr auto; align-items: center; gap: 12px; padding: clamp(5px, 1.1vh, 9px) 14px; border-radius: 16px; background: var(--tile); }
+.combos .gdice { display: flex; gap: 3px; }
+.combos b { font: 700 clamp(14px, 3.9vmin, 18px)/1 var(--font-display); text-align: left; }
+.combos em { font: 700 clamp(20px, 5.6vmin, 28px)/1 var(--font-display); font-style: normal; color: var(--accent); }
+.hold-pic { display: flex; gap: clamp(16px, 5vmin, 28px); align-items: flex-start; --gd: clamp(48px, 15vmin, 72px); }
+.hold-pic .grp { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.hold-pic .grp > span { display: flex; gap: 6px; }
+.hold-pic small { font: 700 clamp(13px, 3.6vmin, 16px)/1 var(--font-display); color: var(--hold); }
+.hold-pic .roll small { color: var(--fg); }
+.hold-pic .roll .gdie { animation: reroll 1.4s steps(1) infinite, wobble 1.4s ease-in-out infinite; }
+.hold-pic .roll .gdie + .gdie { animation-delay: -.7s; }
+@keyframes reroll { 0% { background-image: var(--gface-2); } 25% { background-image: var(--gface-5); } 50% { background-image: var(--gface-3); } 75% { background-image: var(--gface-6); } }
+@keyframes wobble { 0%, 100% { transform: none; } 20% { transform: translateY(-14%) rotate(-12deg); } 40% { transform: translateY(0) rotate(8deg); } 60% { transform: none; } }
+.bonus-pic { display: flex; align-items: center; justify-content: center; gap: clamp(18px, 6vmin, 32px); width: 100%; }
+.guide .cell, .sheet-up .cell { display: flex; flex: none; width: var(--tile-size, 30vmin); max-width: 140px; aspect-ratio: 1; }
+.bonus-pic .tap .cell { animation: tapOn 2.4s steps(1) infinite; }
+.bonus-pic .tap .cell .art { animation: tapHop 2.4s infinite; }
+@keyframes tapOn { 0% { background: var(--face-0, var(--die)) center / 100% 100% no-repeat; } 50% { background: var(--face-0-held, var(--hold)) center / 100% 100% no-repeat; } }
+@keyframes tapHop { 50% { transform: none; } 57% { transform: translateY(-9%) scale(1.06, .95); } 64% { transform: translateY(2%); } 70% { transform: none; } }
+.bonus-pic .goal { display: grid; gap: 4px; text-align: left; }
+.bonus-pic .goal small { font: 700 clamp(12px, 3.4vmin, 15px)/1 var(--font-display); color: var(--muted); }
+.bonus-pic .goal b { font: 700 clamp(44px, 13vmin, 64px)/1 var(--font-display); }
+.bonus-list { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(8px, 2vh, 16px) 10px; --tile-size: 22vmin; }
+.bonus-list li { display: grid; justify-items: center; gap: 6px; }
+.bonus-list .cell { max-width: 96px; }
+.bonus-list small { font: 700 clamp(11px, 3vmin, 14px)/1.1 var(--font-display); color: var(--muted); }
+
+/* The first tap on each bonus kind: a bottom sheet with the die, its name and what it does */
+.sheet-up { position: fixed; inset: 0; z-index: 30; display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, .55); animation: heroFade 200ms ease-out; }
+.sheet-card { width: min(100%, 520px); display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 14px 18px; padding: 22px 20px max(20px, env(safe-area-inset-bottom, 0px)); border-radius: 28px 28px 0 0; background: var(--tile); animation: sheetUp 260ms cubic-bezier(.2, .8, .3, 1); }
+@keyframes sheetUp { from { transform: translateY(100%); } }
+.sheet-tile { --tile-size: clamp(84px, 24vmin, 112px); }
+.sheet-text h3 { margin: 0 0 6px; font: 700 clamp(22px, 6.4vmin, 30px)/1.05 var(--font-display); }
+.sheet-text p { margin: 0; font-size: 17px; line-height: 1.35; }
+.sheet-note { grid-column: 1 / -1; margin: 0; color: var(--muted); font: 700 13px/1.3 var(--font-display); }
+.sheet-card .btn-play { grid-column: 1 / -1; flex: none; height: 60px; font-size: 22px; }
 
 /* ================= LOOKS (visual concepts) =================
    The viewer's light/dark theme does not apply: each look sets every colour explicitly. */

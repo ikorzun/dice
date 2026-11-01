@@ -162,11 +162,6 @@ const MODES = {
       return g.hands.length === 0 ? 'Drag through 4 dice to play · tap to hold' : 'Drag through the last 4 dice';
     },
     solverLine: (level) => `Best possible on the opening roll (no rerolls, with ×2): ${level.bestNoRerollWithBonus}`,
-    onboard: {
-      lead: 'Two hands of four dice, dragged edge to edge like a snake. Both hands together use all eight dice.',
-      note: 'The tutorial shows every move on your first board: hold, reroll, drag a hand, use the gold ×2.',
-      demo: { values: [5, 5, 2, 3, 5, 5], path: [0, 1, 4, 5], label: 'SWIPE 5 → 5 → 5 → 5 = FOUR OF A KIND · 20 × 6 = 120' },
-    },
     help: {
       lead: 'Save a connected set of four for your second hand. The first hand must leave four dice you can still snake through.',
       rules: [
@@ -218,11 +213,6 @@ const MODES = {
       return pathMode ? `Hand ${n}/${total} · tap 5 dice in order` : `Hand ${n}/${total} · drag 5 dice · tap to hold`;
     },
     solverLine: (level) => `Best opening snake before any reroll: ${CATEGORY5_LABELS[level.openingCategory] || ''} ${level.openingBest}`,
-    onboard: {
-      lead: 'Eight dice and the gold ×2. Drag through five dice like a snake to play a poker hand. The five you used are replaced; the other three stay for your next hand.',
-      note: 'Three hands and two rerolls per level; reach the target and the level is yours. The tutorial shows every move on your first board.',
-      demo: { values: [4, 4, 4, 3, 2, 2], path: [0, 1, 2, 5, 4], label: 'SWIPE 4 → 4 → 4 → 2 → 2 = FULL HOUSE · 16 × 5 = 80' },
-    },
     help: {
       lead: 'The dice you leave behind are the start of your next hand: plan the snake so the leftovers already match.',
       rules: [
@@ -274,11 +264,6 @@ const MODES = {
     summary: (g) => ({ recipe: g.level.recipe, ratio: g.level.recipe ? skillSample(recipeById(g.level.recipe), g.score) : null, skill: g.level.skill, predictedWin: g.level.predictedWin, help: g.hands.map((h) => h.help || 0) }),
     idleCopy: (g) => `Hand ${g.hands.length + 1}/${g.hands.length + g.handsLeft} · hold to keep · reroll or play`,
     solverLine: (level) => `Best opening hand before any reroll: ${CATEGORY5_LABELS[level.openingCategory] || ''} ${level.openingBest}`,
-    onboard: {
-      lead: 'No dragging: PLAY scores the best poker hand among all the dice, and BONES shows what it is worth. Which dice make it is for you to see: hold the ones you want and reroll the rest.',
-      note: 'Three hands and three rerolls per level. Playing burns the hand and every die you did not hold. Bonus dice start off: tap one to switch it on; it multiplies a hand that fits it and leaves a hole.',
-      demo: { values: [6, 2, 6, 3, 6, 1], label: 'THREE 6s = 18 × 4 = 72 · PLAY' },
-    },
     help: {
       lead: 'Hold what you want to keep: every die you do not hold burns when you play. Bonus dice wait on the board, switched off, until you switch one on for a hand that fits it.',
       rules: [
@@ -633,7 +618,7 @@ function switchMode(id, { silent = false } = {}) {
   if (!st.game) newLevel();
   else if (st.game.phase !== 'playing') { render(); showLevelEnd(); }
   else render();
-  if (!st.onboarded) showOnboarding();
+  if (!st.onboarded) openGuide('intro');
   if (!silent && from !== id) logEvent('mode_switch', { from, to: id });
   persist();
 }
@@ -742,10 +727,9 @@ function coachRender() {
   let targets = [];
   let ghostPath = null;
   if (step === 'hold' && mode.id === 'auto') {
-    // the lesson is that held dice outside the hand survive it: point at the best of them
-    const outside = E().remainingCells(g).filter((i) => !hint.cells.includes(i));
-    const c = outside.reduce((b, i) => (g.faces[i] > g.faces[b] ? i : b), outside[0] ?? hint.cells[0]);
-    text = `TAP THE ${g.faces[c]}: HELD DICE SURVIVE THE HAND`;
+    // hold a keeper of the hand: it stays through the reroll that follows (holds last one throw)
+    const c = hint.cells.reduce((b, i) => (g.faces[i] > g.faces[b] ? i : b), hint.cells[0]);
+    text = `TAP THE ${g.faces[c]}: A HELD DIE STAYS ON REROLL`;
     targets = [c];
     ghostPath = [c];
   } else if (step === 'hold') {
@@ -755,7 +739,7 @@ function coachRender() {
     ghostPath = [c];
   } else if (step === 'reroll') {
     index = 2;
-    if (mode.id === 'auto') text = E().canReroll(g) ? 'REROLL CHANGES EVERY DIE YOU DID NOT HOLD' : 'EVERY DIE IS HELD: RELEASE ONE, THEN REROLL';
+    if (mode.id === 'auto') text = E().canReroll(g) ? 'REROLL: THE REST CHANGE, THEN HOLDS CLEAR' : 'EVERY DIE IS HELD: RELEASE ONE, THEN REROLL';
     else text = E().canReroll(g)
       ? 'NOW PRESS REROLL. ONLY THE DICE WITHOUT HOLD CHANGE.'
       : 'EVERY DIE IS HELD. TAP ONE TO RELEASE IT, THEN PRESS REROLL.';
@@ -1121,7 +1105,7 @@ const BONUS_INTRO = {
 function autoTips() {
   const st = S();
   const g = st.game;
-  if (M().id !== 'auto' || !g || g.phase !== 'playing' || st.coach.active || !$('onboarding').hidden) return;
+  if (M().id !== 'auto' || !g || g.phase !== 'playing' || st.coach.active || !$('guide').hidden) return;
   const fresh = g.cells.map((c, i) => i).find((i) => g.cells[i].type === 'bonus' && !st.tips[`new:${g.cells[i].kind}`]);
   if (fresh !== undefined) {
     st.tips[`new:${g.cells[fresh].kind}`] = true;
@@ -1273,6 +1257,30 @@ function armBonus(source, cell) {
   haptic(10);
   logEvent('bonus', { armed: r.armed, off: r.off, cell, source });
   render();
+  persist();
+  // the first tap on each kind explains it, at the moment the player reaches for it (digest §3)
+  const kind = M().id === 'auto' && g.cells[cell] && g.cells[cell].kind;
+  if (kind && !st.tips[`sheet:${kind}`]) {
+    st.tips[`sheet:${kind}`] = true;
+    showBonusSheet(kind);
+  }
+}
+
+const BONUS_WHAT = {
+  x2_any: 'Doubles any hand you play with it.',
+  x3_straight: 'Triples a straight.',
+  x3_pairs: 'Triples a pair or two pairs.',
+  x3_trips: 'Triples three of a kind or a full house.',
+  joker: 'Becomes the face your hand needs most.',
+  refund: 'Play it and get one reroll back.',
+};
+
+// A bottom sheet with the bonus die, its name and what it does (owner, 01.11.2026).
+function showBonusSheet(kind) {
+  $('bonusSheetTile').innerHTML = guideTile(kind, true);
+  $('bonusSheetName').textContent = `${BONUS_KINDS[kind].symbol} ${BONUS_KINDS[kind].label}`;
+  $('bonusSheetWhat').textContent = BONUS_WHAT[kind];
+  $('bonusSheet').hidden = false;
   persist();
 }
 
@@ -1611,33 +1619,69 @@ function onPointerCancel(e) {
   render();
 }
 
-// ---------- onboarding / help / settings / data ----------
-function showOnboarding() {
-  const mode = M();
-  const ob = mode.onboard;
-  $('onboardTitle').textContent = mode.name.toUpperCase();
-  $('onboardLead').textContent = ob.lead;
-  $('onboardScoring').innerHTML = mode.scoringHtml || els.defaultScoring.onboard;
-  $('onboardNote').textContent = ob.note;
-  const grid = $('demoGrid');
-  // A demo traces a path (snake modes); Auto Hand shows the dice and names the hand in the label.
-  const path = ob.demo.path || [];
-  grid.innerHTML = ob.demo.values.map((v, k) => `<i data-value="${v}"${path.includes(k) ? ' class="on"' : ''}></i>`).join('');
-  const pt = (k) => [50 + (k % 3) * 100, 50 + Math.floor(k / 3) * 100];
-  $('demoLine').setAttribute('points', path.map((k) => pt(k).join(',')).join(' '));
-  $('demoLabel').textContent = ob.demo.label;
-  const finger = $('demoFinger');
-  if (app.demoAnim) app.demoAnim.cancel();
-  app.demoAnim = null;
-  if (path.length && !reduceMotion && typeof finger.animate === 'function') {
-    const pts = path.map((k) => ({ left: `${((k % 3) + 0.5) * 100 / 3}%`, top: `${((Math.floor(k / 3) + 0.5) * 100 / 2) * (200 / 230)}%` }));
-    const n = pts.length;
-    const frames = [{ ...pts[0], opacity: 0, offset: 0 }, { ...pts[0], opacity: 1, offset: 0.12 }];
-    for (let k = 1; k < n; k++) frames.push({ ...pts[k], opacity: 1, offset: 0.12 + (k / (n - 1)) * 0.6 });
-    frames.push({ ...pts[n - 1], opacity: 0, offset: 0.88 }, { ...pts[n - 1], opacity: 0, offset: 1 });
-    app.demoAnim = finger.animate(frames, { duration: 2800, iterations: Infinity, easing: 'ease-in-out' });
+// ---------- first screen, guide, settings / data ----------
+// The title (DICE TWICE, owner 01.11.2026) and three short pages, combinations first (owner): a line
+// of words next to a picture of the game on each (digest §3: no wall of text before play, dice drawn as
+// pips). The Bible opens the same pages without the title, with every bonus and a link to the settings.
+const GUIDE_COMBOS = [['pair', [6, 6]], ['two_pairs', [2, 2, 6, 6]], ['three_kind', [3, 3, 3]], ['full_house', [2, 2, 5, 5, 5]], ['four_kind', [4, 4, 4, 4]], ['straight', [1, 2, 3, 4, 5]], ['five_kind', [5, 5, 5, 5, 5]]];
+const GUIDE_BONUSES = { x2_any: 'ANY HAND', x3_straight: 'STRAIGHT', x3_pairs: 'PAIR, TWO PAIRS', x3_trips: 'TRIPS, FULL HOUSE', joker: 'ANY FACE', refund: 'A REROLL BACK' };
+const PIPS = { 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+// a flat die for the guide until the 3D faces are rendered
+const flatFace = (v, held) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="3" y="3" width="94" height="94" rx="24" fill="${held ? '#d4ff82' : '#fff'}"/>${PIPS[v].map((k) => `<circle cx="${24 + (k % 3) * 26}" cy="${24 + Math.floor(k / 3) * 26}" r="9"/>`).join('')}</svg>`)}")`;
+const guideDie = (v, held) => `<i class="gdie" style="--f: var(--gface-${v}${held ? '-held' : ''})"></i>`;
+const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="art"></span><span class="x2">${BONUS_KINDS[kind].symbol}</span><span class="tag">${['x2_any', 'joker', 'refund'].includes(kind) ? '' : BONUS_KINDS[kind].label}</span></span>`;
+
+function openGuide(mode) {
+  const guide = $('guide');
+  for (let v = 1; v <= 6; v++) {
+    for (const held of [false, true]) {
+      const key = `face-${v}${held ? '-held' : ''}`;
+      guide.style.setProperty(`--g${key}`, els.board.style.getPropertyValue(`--${key}`) || flatFace(v, held));
+    }
   }
-  $('onboarding').hidden = false;
+  for (const key of ['--face-0', '--face-0-held']) guide.style.setProperty(key, els.board.style.getPropertyValue(key) || 'initial'); // the bonus dice
+  $('combos').innerHTML = GUIDE_COMBOS.map(([cat, dice]) => `<li><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}</b><em>×${AUTO_MULT[cat]}</em></li>`).join('');
+  $('holdPic').innerHTML = `<span class="grp"><span>${[6, 6, 6].map((v) => guideDie(v, true)).join('')}</span><small>TAP = HOLD</small></span><span class="grp roll"><span>${[2, 4].map((v) => guideDie(v)).join('')}</span><small>REROLL</small></span>`;
+  const help = mode === 'help';
+  $('bonusPic').innerHTML = help
+    ? `<ul class="bonus-list">${Object.keys(GUIDE_BONUSES).map((k) => `<li>${guideTile(k, false)}<small>${GUIDE_BONUSES[k]}</small></li>`).join('')}</ul>`
+    : `<span class="tap">${guideTile('x2_any', false)}</span><span class="goal"><small>THRESHOLD</small><b>340</b><small>IN 3 HANDS</small></span>`;
+  $('bonusNote').textContent = help ? 'TAP TO SWITCH ON · THEY ADD UP' : '25 LEVELS IN A RUN';
+  app.guide = { mode, page: help ? 1 : 0 };
+  guide.classList.toggle('help', help);
+  $('guideSkip').textContent = help ? 'CLOSE' : 'SKIP';
+  $('guideSettings').hidden = !help;
+  showGuidePage(app.guide.page);
+  guide.hidden = false;
+}
+
+function showGuidePage(page) {
+  app.guide.page = page;
+  $('guide').querySelectorAll('.guide-page').forEach((el) => { el.hidden = Number(el.dataset.page) !== page; });
+  $('guideDots').querySelectorAll('i').forEach((dot, k) => dot.classList.toggle('on', k === page - 1));
+  $('guideDots').hidden = page === 0;
+  $('guideSkip').hidden = page === 0;
+  $('guideNext').textContent = page === 0 ? 'PLAY' : page < 3 ? 'NEXT' : app.guide.mode === 'help' ? 'GOT IT' : "LET'S ROLL";
+}
+
+function guideNext() {
+  if (app.guide.page < 3) showGuidePage(app.guide.page + 1);
+  else closeGuide(true);
+}
+
+// The first visit ends in the tutorial on the board, or straight in the game after SKIP.
+function closeGuide(tutorial) {
+  $('guide').hidden = true;
+  if (app.guide.mode !== 'intro') return;
+  const st = S();
+  st.onboarded = true;
+  logEvent('onboarded', { tutorial });
+  if (tutorial) {
+    coachStart('onboarding');
+    return;
+  }
+  st.coached = true;
+  persist();
 }
 
 function renderScoreTable() {
@@ -1654,10 +1698,12 @@ function openHelp() {
   if (app.busy) return;
   const st = S();
   const mode = M();
-  $('helpTitle').textContent = `HOW TO PLAY · ${mode.name.toUpperCase()}`;
+  // Auto Hand's rules are the guide's pages: this sheet is its settings
+  $('helpTitle').textContent = mode.id === 'auto' ? 'SETTINGS' : `HOW TO PLAY · ${mode.name.toUpperCase()}`;
+  $('helpRules').hidden = mode.id === 'auto';
   $('helpScoring').innerHTML = mode.scoringHtml || els.defaultScoring.help;
   $('helpLead').textContent = mode.help.lead;
-  $('helpRules').innerHTML = mode.help.rules.map((r) => `<li>${r}</li>`).join('');
+  $('helpRuleList').innerHTML = mode.help.rules.map((r) => `<li>${r}</li>`).join('');
   $('helpScoreTitle').textContent = mode.help.scoreTitle;
   renderScoreTable();
   $('optHoldCap').checked = st.settings.maxHolds != null;
@@ -1747,7 +1793,7 @@ function bind() {
   els.pathModeBtn.addEventListener('click', togglePathMode);
   els.undoBtn.addEventListener('click', () => { if (app.busy) return; app.tapPath.pop(); render(); });
   els.bankTapBtn.addEventListener('click', () => attemptBank(app.tapPath.slice(), 'tap'));
-  els.helpBtn.addEventListener('click', openHelp);
+  els.helpBtn.addEventListener('click', () => { if (!app.busy) openGuide('help'); });
   $('lookBtn').addEventListener('click', cycleLook);
   $('optLook').addEventListener('change', () => setLook($('optLook').value));
   $('optDice3d').addEventListener('change', () => setDice3D($('optDice3d').checked));
@@ -1758,15 +1804,26 @@ function bind() {
   $('resetBtn').addEventListener('click', resetProgress);
   $('nextBtn').addEventListener('click', onNext);
   $('retryBtn').addEventListener('click', onRetry);
-  $('onboardStart').addEventListener('click', () => { S().onboarded = true; $('onboarding').hidden = true; logEvent('onboarded', { tutorial: true }); coachStart('onboarding'); });
-  $('onboardSkip').addEventListener('click', () => { S().onboarded = true; S().coached = true; $('onboarding').hidden = true; logEvent('onboarded', { tutorial: false }); persist(); });
+  $('bonusSheetOk').addEventListener('click', () => { $('bonusSheet').hidden = true; });
+  $('bonusSheet').addEventListener('click', (e) => { if (e.target === e.currentTarget) $('bonusSheet').hidden = true; });
+  $('guideNext').addEventListener('click', guideNext);
+  $('guideSkip').addEventListener('click', () => closeGuide(false));
+  $('guideSettings').addEventListener('click', () => { $('guide').hidden = true; openHelp(); });
+  let swipeX = null; // swiping the guide turns its pages
+  $('guide').addEventListener('pointerdown', (e) => { swipeX = e.clientX; });
+  $('guide').addEventListener('pointerup', (e) => {
+    const dx = swipeX == null ? 0 : e.clientX - swipeX;
+    swipeX = null;
+    if (dx < -50 && app.guide.page < 3) showGuidePage(app.guide.page + 1);
+    if (dx > 50 && app.guide.page > (app.guide.mode === 'help' ? 1 : 0)) showGuidePage(app.guide.page - 1);
+  });
   $('coachSkip').addEventListener('click', () => coachStop('skipped'));
   $('tutorialBtn').addEventListener('click', () => { if (app.busy) return; $('help').hidden = true; coachStart('help'); });
   window.addEventListener('keydown', (e) => {
     if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
     if (e.key === 'r' || e.key === 'R') doReroll('key');
     if (e.key === 'h' || e.key === 'H') onHint();
-    if (e.key === 'Escape') { $('help').hidden = true; if (!app.busy) { clearPath(); render(); } }
+    if (e.key === 'Escape') { $('help').hidden = true; $('bonusSheet').hidden = true; if (app.guide && app.guide.mode === 'help') $('guide').hidden = true; if (!app.busy) { clearPath(); render(); } }
   });
   const refit = () => { fitBoard(); };
   window.addEventListener('resize', refit);
@@ -1783,7 +1840,7 @@ function init() {
   els.tabs = Array.from(document.querySelectorAll('.tab'));
   els.controls = document.querySelector('.controls');
   // the snake modes share the scoring paragraphs written in index.html; Auto Hand brings its own
-  els.defaultScoring = { onboard: $('onboardScoring').innerHTML, help: $('helpScoring').innerHTML };
+  els.defaultScoring = { help: $('helpScoring').innerHTML };
   buildBoard();
   bind();
   setLook('modern'); // the mockup's black screen; the other looks have no switch any more

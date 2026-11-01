@@ -262,8 +262,9 @@ export function renderFaces({ colors, px = 384 }) {
   pipMat.color.set(colors.pip);
   for (const [body, die] of [['', colors.die], ['k', colors.held || colors.die]]) {
     bodyMat.color.set(die);
-    for (let v = 1; v <= 6; v++) {
-      const q = landingQuaternion(v);
+    for (let v = 0; v <= 6; v++) { // 0: the blank face a bonus die wears
+      const q = landingQuaternion(v || 1);
+      pipMat.visible = v > 0;
       model.quaternion.set(q.x, q.y, q.z, q.w);
       renderer.clear();
       renderer.render(scene, camera);
@@ -272,5 +273,6 @@ export function renderFaces({ colors, px = 384 }) {
       faces[`${v}${body}`] = out.toDataURL('image/png');
     }
   }
+  pipMat.visible = true;
   return faces;
 }

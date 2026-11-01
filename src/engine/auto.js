@@ -89,6 +89,8 @@ export function toggleBonus(state, i) {
   return { ok: true, off: off[i], state: { ...state, off, stats: bump(state, 'bonusToggles') } };
 }
 
+// Rerolls every unheld die, then clears every hold and switches every bonus off again (owner,
+// 01.11.2026): a hold and a switched-on bonus count for one throw.
 export function reroll(state, rollDie) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   if (state.rerollsLeft <= 0) return reject('NO_REROLLS', 'No rerolls left');
@@ -100,7 +102,9 @@ export function reroll(state, rollDie) {
     if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`rollDie returned ${f}`);
     faces[i] = f;
   }
-  return { ok: true, rolled: targets, state: { ...state, faces, rerollsLeft: state.rerollsLeft - 1, stats: bump(state, 'rerollsUsed') } };
+  const held = state.held.map(() => false);
+  const off = state.cells.map((c, i) => (isBonus(state, i) ? true : state.off[i]));
+  return { ok: true, rolled: targets, state: { ...state, faces, held, off, rerollsLeft: state.rerollsLeft - 1, stats: bump(state, 'rerollsUsed') } };
 }
 
 // The best hand on the board with every bonus that is on, or null.
