@@ -8,14 +8,14 @@ import { createRng } from '../src/engine/rng.js';
 const SIZE = { pair: 2, two_pairs: 4, three_kind: 3, four_kind: 4, full_house: 5, straight: 5, five_kind: 5 };
 const levelsFor = (tier, n) => Array.from({ length: n }, (_, i) => generateAutoLevel({ runSeed: `bot3/t${tier}/r${i}`, levelIndex: tier + (i % 8), tier }));
 
-test('auto bots play legal levels: three hands, hands of the right size, used bonuses become holes', () => {
+test('auto bots play legal levels: up to three hands (the target ends it), hands of the right size, used bonuses become holes', () => {
   for (let tier = 1; tier <= 5; tier++) {
     const rng = createRng(`bot3-legal-${tier}`);
     for (const [k, level] of levelsFor(tier, 6).entries()) {
       const { state: st, score, won } = k % 2 ? playGreedyBot3(level, { rng }) : playNaiveBot3(level, { rng });
       assert.ok(['won', 'lost'].includes(st.phase));
-      assert.equal(st.hands.length, 3);
-      assert.equal(st.handsLeft, 0);
+      assert.equal(st.hands.length + st.handsLeft, 3);
+      assert.ok(st.handsLeft === 0 || (won && score >= level.target)); // early only on a win
       assert.equal(score, st.hands.reduce((s, h) => s + h.total, 0));
       assert.equal(won, score >= level.target);
       assert.ok(st.rerollsLeft >= 0 && st.rerollsLeft <= 3);

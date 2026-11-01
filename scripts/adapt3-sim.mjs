@@ -60,7 +60,7 @@ for (const [name, play] of PLAYERS) {
       const level = generateAdaptiveLevel({ runSeed: `${SEED}/${name}/${r}`, levelIndex: L, history, config: {} });
       const res = play(level, { rng });
       const recipe = recipeById(level.recipe);
-      history.push({ mode: 'auto', recipe: level.recipe, ratio: skillSample(recipe, res.score), won: res.won, predictedWin: level.predictedWin });
+      history.push({ mode: 'auto', recipe: level.recipe, ratio: skillSample(recipe, res.score, res.state.hands.length), won: res.won, predictedWin: level.predictedWin });
       skill = level.skill;
       if (L === 1) continue;
       const b = L <= 10 ? 0 : L <= 20 ? 1 : 2;

@@ -165,6 +165,7 @@ export function createFire(board) {
   }
 
   function ignite(list) {
+    if (raf && list.length === cells.length && list.every((c) => cells.includes(c))) return; // already burning
     out();
     cells = list.slice(0, MAX_DICE);
     cells.forEach((c) => c.classList.add('on-fire'));
@@ -181,6 +182,7 @@ export function createFire(board) {
 
   function out() {
     cancelAnimationFrame(raf);
+    raf = 0;
     cells.forEach((c) => c.classList.remove('on-fire'));
     cells = [];
     if (canvas) canvas.style.display = 'none';

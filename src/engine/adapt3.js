@@ -48,8 +48,15 @@ export function percentileOf(recipe, score) {
   return p[k] + ((p[k + 1] - p[k]) * (score - q[k])) / (q[k + 1] - q[k]);
 }
 
-// A finished level's skill sample: the score over the greedy median of its recipe.
-export const skillSample = (recipe, score) => score / recipe.greedy[RECIPE_QUANTILES.indexOf(0.5)];
+// A finished level's skill sample: its score over the greedy median of its recipe (three hands). A level
+// won early stops at the target: each hand it did not play counts as 0.75 of a typical one (a third of
+// the median), so one lucky hand is not blown up and an early win is not cut short. Greedy win rate
+// (docs/simulation3-adaptive.md, aim 75 %): score alone 85 %, the pace 64 %, a full typical hand 71 %,
+// 0.75 of one 74 %.
+export function skillSample(recipe, score, hands = 3) {
+  const median = recipe.greedy[RECIPE_QUANTILES.indexOf(0.5)];
+  return (score + (0.75 * Math.max(0, 3 - hands) * median) / 3) / median;
+}
 
 // Skill after the finished auto levels of the run, oldest first. Entries carry `ratio` (the score
 // sample) and, once adaptive, `won` and `predictedWin`: wins above or below the prediction nudge

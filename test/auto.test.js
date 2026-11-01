@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { classifyExact, bestHand } from '../src/engine/hands.js';
 import {
-  createAutoGame, toggleHold, toggleBonus, reroll, currentHand, playHand, hintFor, canReroll,
+  createAutoGame, toggleHold, toggleBonus, reroll, currentHand, heldHand, playHand, hintFor, canReroll,
   rerollTargets, snapshotGame, restoreGame, diceCells,
 } from '../src/engine/auto.js';
 import { generateAutoLevel, TIERS3, MIN_DICE3, BONUS_UNLOCKS } from '../src/engine/levels3.js';
@@ -108,7 +108,7 @@ test('the board starts with eight dice and the bonus switched off, three hands a
 });
 
 test('the player switches a bonus on to join the hand, and off again to keep it for later', () => {
-  let g = createAutoGame(level(L1, F));
+  let g = createAutoGame(level(L1, F, 10000)); // a far target: the level goes on after the hand
   const r = toggleBonus(g, 8);
   assert.equal(r.ok, true);
   assert.equal(r.off, false);
@@ -156,8 +156,18 @@ test('a reroll clears every hold and switches every bonus off again: both count 
   assert.deepEqual(currentHand(r.state).bonusCells, []);
 });
 
+test('the held hand is the best hand among the held dice only', () => {
+  let g = createAutoGame(level([D, D, D, D, D, D, D, D, D], [6, 6, 6, 6, 1, 2, 3, 4, 5]));
+  assert.equal(heldHand(g), null);
+  for (const i of [0, 1, 2]) g = toggleHold(g, i).state;
+  assert.equal(heldHand(g).category, 'three_kind');
+  g = toggleHold(g, 3).state;
+  assert.deepEqual([heldHand(g).category, heldHand(g).cells], ['four_kind', [0, 1, 2, 3]]);
+  assert.equal(currentHand(g).category, 'straight'); // the board's best hand (2-6, 160) is another one
+});
+
 test('playing burns the hand and every unheld die; held dice outside the hand stay held; the used bonus leaves a hole', () => {
-  let g = on(createAutoGame(level(L1, F)), 8);
+  let g = on(createAutoGame(level(L1, F, 10000)), 8);
   g = toggleHold(g, 7).state; // the 1 at the bottom is not in the straight
   g = toggleHold(g, 4).state; // the 3 is in the straight: held, but played, so it burns
   const r = playHand(g, seq([2]));
@@ -202,16 +212,12 @@ test('a refund bonus joins any hand without multiplying it, gives a reroll back 
   assert.equal(kept.state.cells[8].type, 'bonus');
 });
 
-test('a level is always three hands, even when the target is reached early', () => {
+test('a level ends as soon as the score reaches the target, otherwise after three hands', () => {
   let g = createAutoGame(level(L1, F, 50));
   g = playHand(g, seq([6])).state;
   assert.ok(g.score >= 50);
-  assert.equal(g.phase, 'playing');
-  g = playHand(g, seq([6])).state;
-  assert.equal(g.phase, 'playing');
-  g = playHand(g, seq([6])).state;
   assert.equal(g.phase, 'won');
-  assert.equal(g.handsLeft, 0);
+  assert.equal(g.handsLeft, 2);
   assert.equal(playHand(g, seq([6])).code, 'PHASE');
   const lost = [1, 2, 3].reduce((s) => playHand(s, seq([1, 2, 3, 4, 6])).state, createAutoGame(level(L1, F, 100000)));
   assert.equal(lost.phase, 'lost');

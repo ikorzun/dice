@@ -4,7 +4,8 @@
 // the hands) or plays it.
 // Playing burns the hand, every unheld die and the bonuses the hand used: burnt dice are
 // replaced, a used bonus leaves a hole. Held dice outside the hand stay, still held.
-// A level is always three hands. Pure state transitions, same action shape as poker.js.
+// A level ends as soon as the score reaches the target (owner, 01.11.2026), otherwise after its
+// three hands. Pure state transitions, same action shape as poker.js.
 
 import { bestHand, BONUS_KINDS } from './hands.js';
 
@@ -114,6 +115,14 @@ export function currentHand(state) {
   return bestHand(dice, bonuses, state.config.handOptions ?? undefined);
 }
 
+// The best hand among the held dice alone (with the bonuses that are on), or null: the UI sets a strong
+// one on fire as soon as the player holds it (owner, 01.11.2026).
+export function heldHand(state) {
+  const dice = diceCells(state).filter((i) => state.held[i]).map((i) => ({ cell: i, face: state.faces[i], held: true }));
+  const bonuses = state.cells.map((c, i) => i).filter((i) => isBonus(state, i) && !state.off[i]).map((i) => ({ cell: i, kind: state.cells[i].kind }));
+  return dice.length ? bestHand(dice, bonuses, state.config.handOptions ?? undefined) : null;
+}
+
 export function playHand(state, drawDie) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   if (state.handsLeft <= 0) return reject('COMPLETE', 'No hands left');
@@ -162,7 +171,7 @@ export function playHand(state, drawDie) {
     cells[i] = { type: 'hole' };
     off[i] = false;
   }
-  const phase = handsLeft > 0 ? 'playing' : score >= state.level.target ? 'won' : 'lost';
+  const phase = score >= state.level.target ? 'won' : handsLeft > 0 ? 'playing' : 'lost';
   // a refund bonus in the hand gives rerolls back
   hand.refund = used.reduce((n, i) => n + (BONUS_KINDS[state.cells[i].kind].refund || 0), 0);
   const rerollsLeft = state.rerollsLeft + hand.refund;

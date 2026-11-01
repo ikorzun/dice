@@ -101,6 +101,7 @@ for (const vp of viewports) {
   if (Number(await text('#target')) !== a.target) note(vp, 'THRESHOLD is not the target');
   if ((await text('#playBtn')) !== 'PLAY•3' || (await text('#rerollBtn')) !== 'REROLL•3') note(vp, `button labels: ${await text('#playBtn')} / ${await text('#rerollBtn')}`);
   if (Number(await text('#bones')) !== a.hand.hand.points) note(vp, `BONES ${await text('#bones')} is not the hand (${a.hand.hand.points})`);
+  if ((await text('#bonesLabel')) !== a.hand.hand.label) note(vp, `the label over BONES is ${await text('#bonesLabel')}, not the hand's name (${a.hand.hand.label})`);
   if ((await text('#mult')) !== '0' || Number(await text('#score')) !== 0) note(vp, 'MULTIPLY / TOTAL do not start at 0');
   await page.waitForTimeout(1500);
   console.log(`${vp.w}x${vp.h}: 3D dice status ${await page.evaluate(() => window.__diceSnake.dice3d())}`);
@@ -195,20 +196,21 @@ for (const vp of viewports) {
   await idle(page);
   const b = await auto();
   if (await page.$eval('#app', (el) => el.classList.contains('bonus-show'))) note(vp, 'SKIP did not close the bonus screen');
-  if (b.hands !== 1 || b.handsLeft !== 2) note(vp, `first hand: hands=${b.hands} left=${b.handsLeft}`);
+  if (b.hands !== 1 || b.handsLeft !== 2 || (b.score >= b.target) !== (b.phase === 'won')) note(vp, `first hand: hands=${b.hands} left=${b.handsLeft} phase=${b.phase}`);
   if (b.cells[8] !== 'hole') note(vp, `the ×2 did not leave a hole (cell 8=${b.cells[8]})`);
   if (keep2 >= 0 && (!b.held[keep2] || b.faces[keep2] !== a.faces[keep2])) note(vp, 'held die outside the hand did not survive the hand');
-  if (Number(await text('#score')) !== b.score || (await text('#playBtn')) !== 'PLAY•2') note(vp, `after the hand: TOTAL ${await text('#score')} (score ${b.score}), ${await text('#playBtn')}`);
+  if (b.phase === 'playing' && (Number(await text('#score')) !== b.score || (await text('#playBtn')) !== 'PLAY•2')) note(vp, `after the hand: TOTAL ${await text('#score')} (score ${b.score}), ${await text('#playBtn')}`);
   const hidden = await page.$$eval('#board .cell.die', (els) => els.filter((e) => Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
   if (hidden.length) note(vp, `dice invisible after the hand: [${hidden}]`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-6-after-first.png` });
-  for (let h = 0; h < 2; h++) {
+  // the level ends at the target (owner, 01.11.2026) or after the third hand
+  for (let h = 0; h < 2 && (await auto()).phase === 'playing'; h++) {
     await page.click('#playBtn');
     await page.waitForTimeout(1700);
     await idle(page);
   }
   a = await auto();
-  if (!['won', 'lost'].includes(a.phase) || a.hands !== 3) note(vp, `level after three hands: phase=${a.phase}, hands=${a.hands}`);
+  if (!(a.phase === 'won' ? a.score >= a.target : a.phase === 'lost' && a.hands === 3)) note(vp, `level end: phase=${a.phase}, hands=${a.hands}, ${a.score}/${a.target}`);
   await page.waitForTimeout(900);
   if (!(await page.$eval('#levelEnd', (el) => !el.hidden))) note(vp, 'level-end overlay not shown');
   if (!(await page.$eval('#coach', (el) => el.hidden))) note(vp, 'tutorial bar still visible after the level ended');

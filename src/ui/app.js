@@ -25,7 +25,7 @@ import {
   createAutoGame, toggleHold as autoToggleHold, reroll as autoReroll, toggleBonus as autoToggleBonus,
   playHand as autoPlayHand, currentHand as autoCurrentHand, hintFor as autoHintFor, markHintUsed as autoMarkHintUsed,
   diceCells as autoDiceCells, canReroll as autoCanReroll, snapshotGame as autoSnapshot, restoreGame as autoRestore,
-  isDie as autoIsDie, heldCount as autoHeldCount, rerollTargets as autoRerollTargets,
+  isDie as autoIsDie, heldCount as autoHeldCount, rerollTargets as autoRerollTargets, heldHand as autoHeldHand,
 } from '../engine/auto.js';
 import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from '../engine/levels.js';
 import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
@@ -45,6 +45,7 @@ const LOOKS = [
 ];
 const LEGACY_KEY = 'dice-snake-3x3.v1';
 const TAP_THRESHOLD = 10; // CSS px of movement before a press becomes a path
+const LONG_PRESS_MS = 450; // a long press on a bonus die opens its description (owner, 01.11.2026)
 const CORE_INSET = 0.18; // path hit region = central 64% of a cell (no corner cutting)
 const LOG_LIMIT = 4000;
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -261,7 +262,7 @@ const MODES = {
     generate: ({ runSeed, levelIndex, tier, settings, history }) => generateAdaptiveLevel({ runSeed, levelIndex, tier, history, config: MODES.auto.gameConfig(settings) }),
     scoringHtml: '<strong>Matching dice score their sum × a multiplier that grows with rarity.</strong> Pair × 2, two pairs × 3, three of a kind × 4, full house × 5, four of a kind × 6, straight × 8, five of a kind × 8. Bonus dice add up: ×2 and ×3 together make ×4.',
     difficultyText: 'Adaptive, hidden from the player: the target rises slowly by level; the next layout is picked from this run\'s scores so a level is won about 3 times in 4; far behind, some new dice copy the dice you hold.',
-    summary: (g) => ({ recipe: g.level.recipe, ratio: g.level.recipe ? skillSample(recipeById(g.level.recipe), g.score) : null, skill: g.level.skill, predictedWin: g.level.predictedWin, help: g.hands.map((h) => h.help || 0) }),
+    summary: (g) => ({ recipe: g.level.recipe, ratio: g.level.recipe ? skillSample(recipeById(g.level.recipe), g.score, g.hands.length) : null, skill: g.level.skill, predictedWin: g.level.predictedWin, help: g.hands.map((h) => h.help || 0) }),
     idleCopy: (g) => `Hand ${g.hands.length + 1}/${g.hands.length + g.handsLeft} · hold to keep · reroll or play`,
     solverLine: (level) => `Best opening hand before any reroll: ${CATEGORY5_LABELS[level.openingCategory] || ''} ${level.openingBest}`,
     help: {
@@ -271,7 +272,7 @@ const MODES = {
         'PLAY HAND scores it. The dice of the hand and every die you did not hold burn and are replaced; held dice outside the hand stay.',
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
         'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back). They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus leaves a hole.',
-        'A level is always three hands: reach the target by the end of the third.',
+        'Reach the target and the level ends at once; a level has three hands at most.',
       ],
       scoreTitle: 'SCORING · THE HAND IS THE DICE OF THE COMBINATION',
       scoreRows: () => {
@@ -858,7 +859,7 @@ function renderCell(i) {
   const order = cell.querySelector('.order');
   // Effect classes that are still mid-animation survive a re-render; 'bank-pop' is not among
   // them because it fills forwards (opacity 0) and must be dropped by the render after the bank.
-  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'hole-new'].filter((c) => cell.classList.contains(c));
+  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'hole-new', 'on-fire'].filter((c) => cell.classList.contains(c));
   cell.className = ['cell', ...transient].join(' ');
   cell.querySelector('.x2').textContent = '×2';
   if (M().id === 'auto' && !engine.isOrdinary(g, i)) {
@@ -952,6 +953,7 @@ function renderHud() {
 function renderCounter() {
   const h = app.autoHand;
   const bonus = !!h && h.bonusMult > 1;
+  els.bonesLabel.textContent = h ? h.label : 'BONES'; // the combination's name over its points (owner, 01.11.2026)
   els.bones.textContent = String(h ? h.points : 0);
   els.mult.textContent = bonus ? `x${h.bonusMult}` : '0';
   els.multStat.classList.toggle('on', bonus);
@@ -1074,6 +1076,21 @@ function render() {
   renderControls();
   renderPath();
   renderPreview();
+  renderHeldFire();
+}
+
+// A strong hand burns as soon as the player holds it (owner, 01.11.2026): the held dice of a four of a
+// kind, five of a kind or straight; the fire moves to the played hand on PLAY and dies with a reroll.
+function renderHeldFire() {
+  const g = S().game;
+  if (M().id !== 'auto' || app.busy) return;
+  const h = g && g.phase === 'playing' ? autoHeldHand(g) : null;
+  const cells = h && FIRE_HANDS.has(h.category) ? [...h.cells, ...h.jokerCells] : [];
+  const now = app.fire ? app.fire.burning() : [];
+  if (cells.slice().sort().join() === now.slice().sort().join()) return;
+  if (!cells.length) { app.fire.out(); return; }
+  app.fire = app.fire || createFire(els.board);
+  app.fire.ignite(cells.map((i) => els.cells[i]));
 }
 
 // ---------- effects ----------
@@ -1223,6 +1240,7 @@ function showBonusScreen(hand, from, to) {
   const art = ['refund', 'x2_any', 'joker'].find((k) => hand.bonuses.includes(k));
   els.bonusHero.className = `bonus-hero${art ? ` kind-${art}` : ''}`;
   els.multSticker.textContent = `x${hand.multiplier}`;
+  els.bonesLabel.textContent = hand.label;
   els.bones.textContent = String(hand.points);
   els.mult.textContent = hand.multiplier > 1 ? `x${hand.multiplier}` : '0';
   els.multStat.classList.toggle('on', hand.multiplier > 1);
@@ -1260,10 +1278,7 @@ function armBonus(source, cell) {
   persist();
   // the first tap on each kind explains it, at the moment the player reaches for it (digest §3)
   const kind = M().id === 'auto' && g.cells[cell] && g.cells[cell].kind;
-  if (kind && !st.tips[`sheet:${kind}`]) {
-    st.tips[`sheet:${kind}`] = true;
-    showBonusSheet(kind);
-  }
+  if (kind && !st.tips[`sheet:${kind}`]) showBonusSheet(kind);
 }
 
 const BONUS_WHAT = {
@@ -1277,6 +1292,7 @@ const BONUS_WHAT = {
 
 // A bottom sheet with the bonus die, its name and what it does (owner, 01.11.2026).
 function showBonusSheet(kind) {
+  S().tips[`sheet:${kind}`] = true;
   $('bonusSheetTile').innerHTML = guideTile(kind, true);
   $('bonusSheetName').textContent = `${BONUS_KINDS[kind].symbol} ${BONUS_KINDS[kind].label}`;
   $('bonusSheetWhat').textContent = BONUS_WHAT[kind];
@@ -1564,8 +1580,18 @@ function onPointerDown(e) {
   cacheRects();
   const cell = hitTest(e.clientX, e.clientY);
   if (cell < 0) return;
-  app.gesture = { id: e.pointerId, x: e.clientX, y: e.clientY, startCell: cell, mode: 'pending' };
+  const gs = { id: e.pointerId, x: e.clientX, y: e.clientY, startCell: cell, mode: 'pending' };
+  app.gesture = gs;
   try { els.board.setPointerCapture(e.pointerId); } catch { /* not needed on all platforms */ }
+  const c = S().game.cells[cell];
+  if (M().id === 'auto' && c && c.type === 'bonus') {
+    gs.longTimer = setTimeout(() => {
+      if (app.gesture !== gs || gs.mode !== 'pending') return;
+      gs.mode = 'long'; // the release opens nothing and switches nothing
+      haptic(12);
+      showBonusSheet(c.kind);
+    }, LONG_PRESS_MS);
+  }
   if (canUseInPath(cell)) els.cells[cell].classList.add('pressed');
   e.preventDefault();
 }
@@ -1597,6 +1623,7 @@ function onPointerUp(e) {
   const gs = app.gesture;
   if (!gs || e.pointerId !== gs.id) return;
   app.gesture = null;
+  clearTimeout(gs.longTimer);
   els.cells[gs.startCell].classList.remove('pressed');
   try { els.board.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
   if (gs.mode === 'pending') { onTap(gs.startCell); return; }
@@ -1613,6 +1640,7 @@ function onPointerCancel(e) {
   const gs = app.gesture;
   if (!gs || e.pointerId !== gs.id) return;
   app.gesture = null;
+  clearTimeout(gs.longTimer);
   els.cells[gs.startCell].classList.remove('pressed');
   if (gs.mode === 'path') logEvent('path_cancelled', { path: app.path.slice() });
   clearPath();
@@ -1836,7 +1864,7 @@ function bind() {
 }
 
 function init() {
-  for (const id of ['app', 'board', 'boardWrap', 'preview', 'playBtn', 'rerollBtn', 'skipBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast', 'bones', 'mult', 'multStat', 'multSticker', 'bonusHero']) els[id] = $(id);
+  for (const id of ['app', 'board', 'boardWrap', 'preview', 'playBtn', 'rerollBtn', 'skipBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast', 'bones', 'bonesLabel', 'mult', 'multStat', 'multSticker', 'bonusHero']) els[id] = $(id);
   els.tabs = Array.from(document.querySelectorAll('.tab'));
   els.controls = document.querySelector('.controls');
   // the snake modes share the scoring paragraphs written in index.html; Auto Hand brings its own
