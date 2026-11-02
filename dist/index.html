@@ -3941,6 +3941,8 @@ const app = {
   autoHand: null, // best hand on the Auto Hand board, computed once per render
   fire: null, // the shader fire over the board (fire.js), made on the first strong hand
   sheetAt: 0, // when the bonus sheet opened (its opening finger must not close it)
+  sheetQueue: [], // kinds whose sheet waits for the open one to close
+  afterGuide: [], // card deals waiting for the guide to uncover the board
   busy: false,
   path: [],
   tapPath: [],
@@ -4371,7 +4373,7 @@ function coachRender() {
     // bonus dice start off: first switch the one that fits on, then play
     index = 3;
     const b = autoIdleBonuses(g, hint.hand)[0];
-    text = cardSeen(g.cells[b].kind) ? `TAP ${BONUS_KINDS[g.cells[b].kind].symbol} TO SWITCH IT ON, THEN PLAY` : 'TAP THE CARD TO TURN IT OVER';
+    text = `TAP ${BONUS_KINDS[g.cells[b].kind].symbol} TO SWITCH IT ON, THEN PLAY`;
     targets = [b];
     ghostPath = [b];
   } else if (step === 'swipe') {
@@ -4549,14 +4551,13 @@ function renderAutoSpecial(g, i, cell, tag) {
   else cell.classList.add('on');
   if (inHand) cell.classList.add('armed');
   if (app.coachTargets && app.coachTargets.includes(i)) cell.classList.add('hint');
-  // a kind never seen lies face down until tapped; a seen one is dealt face down and turns over itself
-  const faceDown = !cardSeen(c.kind);
-  if (faceDown) cell.classList.add('face-down');
+  // every card is dealt face down and turns over by itself, one after another (dealCard)
   if (cell.dealtFor !== g.level || cell.dealtAt !== i) {
     cell.dealtFor = g.level;
     cell.dealtAt = i;
-    if (!faceDown) flipCard(cell, 250 + 90 * i);
+    dealCard(g, i);
   }
+  if (cell.waiting) cell.classList.add('face-down');
   // the card names its bonus and multiplier; the joker in the hand names its face
   tag.textContent = joker >= 0 ? `JOKER = ${h.jokerFaces[joker]}` : cardLabel(c.kind);
   cell.setAttribute('aria-label', `${kind.symbol} ${kind.label} bonus, ${g.off[i] ? 'off, tap to switch on' : inHand ? 'on, in the hand' : 'on'}`);
@@ -4760,8 +4761,8 @@ function autoTips() {
     st.tips[`new:${g.cells[fresh].kind}`] = true;
     // the ×2 of level 1 is taught by the board and the tutorial; later kinds get a line
     if (g.level.levelIndex > 1) {
-      // a face-down card keeps its secret: the card and its sheet name it once it is turned over
-      toast(cardSeen(g.cells[fresh].kind) ? BONUS_INTRO[g.cells[fresh].kind] : 'NEW CARD: TAP IT TO TURN IT OVER', 'hint', 3200);
+      // a kind never seen gets its sheet when its card turns over; a seen one a line
+      if (cardSeen(g.cells[fresh].kind)) toast(BONUS_INTRO[g.cells[fresh].kind], 'hint', 3200);
       flashCells([fresh], 'safe-hint', 1600);
     }
     persist();
@@ -4917,6 +4918,8 @@ function armBonus(source, cell) {
 // sheet was shown).
 const cardSeen = (kind) => !!(S().tips[`seen:${kind}`] || S().tips[`sheet:${kind}`]);
 const cardLabel = (kind) => (kind === 'joker' ? 'JOKER' : `${BONUS_KINDS[kind].label} ${BONUS_KINDS[kind].symbol}`);
+const DEAL_FIRST_MS = 250;  // the first card of a deal turns over this long after it lands
+const DEAL_NEXT_MS = 2000;  // each next card this long after the one before (owner, 02.11.2026)
 
 // Turns a card over (after `delay` ms): it shrinks to an edge on its back and opens on its face.
 function flipCard(cell, delay = 0) {
@@ -4933,19 +4936,50 @@ function flipCard(cell, delay = 0) {
   cell.addEventListener('animationend', done);
 }
 
-// The first tap on a face-down card turns it (and every card of its kind) over; a second later its sheet
-// rises, at the moment the player reaches for it (digest §3). It switches nothing.
-function revealCard(i, { sheetAfter = 1000 } = {}) {
+// A new layout deals every card face down; they turn over by themselves in board order, 2 s apart, counted
+// from when the board shows (the first visit's guide covers it until it closes).
+function dealCard(g, i) {
+  const cell = els.cells[i];
+  const order = g.cells.slice(0, i).filter((c) => c.type === 'bonus').length;
+  clearTimeout(cell.dealTimer);
+  cell.waiting = true;
+  const deal = {};
+  cell.deal = deal;
+  const start = () => { if (cell.deal === deal) cell.dealTimer = setTimeout(() => turnCard(i), DEAL_FIRST_MS + DEAL_NEXT_MS * order); };
+  if ($('guide').hidden && S().onboarded) start(); // a first visit draws the board just before its guide opens
+  else app.afterGuide.push(start);
+}
+
+// Turns a dealt card face up (on time, or at once when tapped or pressed). The first card of a kind ever
+// seen brings its sheet a second later (digest §3: the rule at the moment it matters); it switches nothing.
+function turnCard(i, { sheet = true } = {}) {
+  const cell = els.cells[i];
+  clearTimeout(cell.dealTimer);
+  if (!cell.waiting) return;
+  cell.waiting = false;
   const st = S();
-  const kind = st.game.cells[i].kind;
-  st.tips[`seen:${kind}`] = true;
-  haptic(10);
-  logEvent('card', { kind, cell: i });
-  render();
-  st.game.cells.forEach((c, k) => { if (c.type === 'bonus' && c.kind === kind) flipCard(els.cells[k]); });
+  const c = st.game && st.game.cells[i];
+  if (!c || c.type !== 'bonus') return;
+  const first = !cardSeen(c.kind);
+  st.tips[`seen:${c.kind}`] = true;
+  renderCell(i);
+  flipCard(cell);
+  if (!first) return;
+  logEvent('card', { kind: c.kind, cell: i });
   persist();
-  clearTimeout(app.sheetTimer);
-  app.sheetTimer = setTimeout(() => { if (st.game.cells[i].type === 'bonus') showBonusSheet(kind); }, sheetAfter);
+  if (sheet) setTimeout(() => queueSheet(c.kind), 1000);
+}
+
+// Sheets come one at a time: a card's sheet waits while another is open.
+function queueSheet(kind) {
+  if ($('bonusSheet').hidden && !app.sheetQueue.length) showBonusSheet(kind);
+  else app.sheetQueue.push(kind);
+}
+
+function closeBonusSheet() {
+  $('bonusSheet').hidden = true;
+  const next = app.sheetQueue.shift();
+  if (next) setTimeout(() => showBonusSheet(next), 250);
 }
 
 const BONUS_WHAT = {
@@ -4976,7 +5010,7 @@ function onTap(i) {
   if (!engine.isOrdinary(g, i)) {
     if (M().id === 'auto' && g.cells[i].type !== 'bonus') return; // blocks and holes do nothing
     pressFeedback(i);
-    if (M().id === 'auto' && !cardSeen(g.cells[i].kind)) { revealCard(i); return; }
+    if (M().id === 'auto' && els.cells[i].waiting) { turnCard(i); return; } // a tap turns a dealt card at once
     armBonus('cell', i);
     return;
   }
@@ -5269,8 +5303,8 @@ function onPointerDown(e) {
       if (app.gesture !== gs || gs.mode !== 'pending') return;
       dropGesture(); // the gesture ends here: the sheet takes the finger, its release switches nothing
       haptic(12);
-      if (!cardSeen(c.kind)) revealCard(cell, { sheetAfter: 0 }); // a face-down card turns over with it
-      else showBonusSheet(c.kind);
+      turnCard(cell, { sheet: false }); // a face-down card turns over with it
+      showBonusSheet(c.kind);
     }, LONG_PRESS_MS);
   }
   if (canUseInPath(cell)) els.cells[cell].classList.add('pressed');
@@ -5369,8 +5403,14 @@ function guideNext() {
 }
 
 // The first visit ends in the tutorial on the board, or straight in the game after SKIP.
-function closeGuide(tutorial) {
+// The guide is gone: the board shows, and a deal waiting behind it starts.
+function guideGone() {
   $('guide').hidden = true;
+  app.afterGuide.splice(0).forEach((start) => start());
+}
+
+function closeGuide(tutorial) {
+  guideGone();
   if (app.guide.mode !== 'intro') return;
   const st = S();
   st.onboarded = true;
@@ -5503,11 +5543,11 @@ function bind() {
   $('resetBtn').addEventListener('click', resetProgress);
   $('nextBtn').addEventListener('click', onNext);
   $('retryBtn').addEventListener('click', onRetry);
-  $('bonusSheetOk').addEventListener('click', () => { $('bonusSheet').hidden = true; });
-  $('bonusSheet').addEventListener('click', (e) => { if (e.target === e.currentTarget && performance.now() - app.sheetAt > 500) $('bonusSheet').hidden = true; });
+  $('bonusSheetOk').addEventListener('click', closeBonusSheet);
+  $('bonusSheet').addEventListener('click', (e) => { if (e.target === e.currentTarget && performance.now() - app.sheetAt > 500) closeBonusSheet(); });
   $('guideNext').addEventListener('click', guideNext);
   $('guideSkip').addEventListener('click', () => closeGuide(false));
-  $('guideSettings').addEventListener('click', () => { $('guide').hidden = true; openHelp(); });
+  $('guideSettings').addEventListener('click', () => { guideGone(); openHelp(); });
   let swipeX = null; // swiping the guide turns its pages
   $('guide').addEventListener('pointerdown', (e) => { swipeX = e.clientX; });
   $('guide').addEventListener('pointerup', (e) => {
@@ -5522,7 +5562,7 @@ function bind() {
     if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
     if (e.key === 'r' || e.key === 'R') doReroll('key');
     if (e.key === 'h' || e.key === 'H') onHint();
-    if (e.key === 'Escape') { $('help').hidden = true; $('bonusSheet').hidden = true; if (app.guide && app.guide.mode === 'help') $('guide').hidden = true; if (!app.busy) { clearPath(); render(); } }
+    if (e.key === 'Escape') { $('help').hidden = true; if (!$('bonusSheet').hidden) closeBonusSheet(); if (app.guide && app.guide.mode === 'help') $('guide').hidden = true; if (!app.busy) { clearPath(); render(); } }
   });
   const refit = () => { fitBoard(); };
   window.addEventListener('resize', refit);

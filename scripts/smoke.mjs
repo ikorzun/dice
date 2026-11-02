@@ -76,6 +76,18 @@ for (const vp of viewports) {
     await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-0-guide-${n}.png` });
   }
   await page.click('#guideNext'); // LET'S ROLL: the tutorial on the board
+  // the ×2 card is dealt face down and turns over by itself (owner, 02.11.2026); a kind never seen brings
+  // its sheet a second later, and the bonus stays off
+  await page.waitForTimeout(80);
+  if (!(await page.$eval('#board .cell[data-index="8"]', (e) => e.classList.contains('face-down')))) note(vp, 'the ×2 card is not dealt face down');
+  await page.waitForTimeout(300);
+  const turning = await page.$eval('#board .cell[data-index="8"]', (e) => ({ cls: e.className, anim: getComputedStyle(e).animationName }));
+  if (/face-down/.test(turning.cls) || turning.anim !== 'cardFlip') note(vp, `the ×2 card did not turn over by itself: ${JSON.stringify(turning)}`);
+  await page.waitForFunction(() => !document.getElementById('bonusSheet').hidden, null, { timeout: 3000 }).catch(() => {});
+  const sheet = await page.evaluate(() => ({ open: !document.getElementById('bonusSheet').hidden, name: document.getElementById('bonusSheetName').textContent, off: window.__diceSnake.state().game.off[8] }));
+  if (!sheet.open || !/ANY HAND/.test(sheet.name) || !sheet.off) note(vp, `bonus sheet: ${JSON.stringify(sheet)}`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-0-bonus-sheet.png` });
+  await page.click('#bonusSheetOk');
   await page.waitForTimeout(150);
   let a = await auto();
   if (a.mode !== 'auto') note(vp, `mode on screen: ${a.mode}`);
@@ -146,21 +158,8 @@ for (const vp of viewports) {
   if (a.held.some(Boolean)) note(vp, `holds not cleared by the reroll: ${a.held}`);
   if (a.rerollsLeft !== 2 || a.cells[8] !== 'bonus') note(vp, `reroll: left=${a.rerollsLeft}, cell 8=${a.cells[8]}`);
   if ((await text('#rerollBtn')) !== 'REROLL•2') note(vp, `reroll label after one reroll: ${await text('#rerollBtn')}`);
-  // bonuses are cards (owner, 02.11.2026): an unseen kind lies face down; the first tap turns it over and
-  // switches nothing, a second later its sheet rises; then the tutorial asks to switch the ×2 on
+  // bonus cards start off: the tutorial asks to switch the ×2 on, then to play
   if (!a.off[8]) note(vp, 'the ×2 does not start switched off');
-  if (!(await page.$eval('#board .cell[data-index="8"]', (e) => e.classList.contains('face-down')))) note(vp, 'the unseen ×2 card is not face down');
-  if (!/TURN IT OVER/.test(await text('#coachText'))) note(vp, `tutorial does not ask to turn the card over: "${await text('#coachText')}"`);
-  await tap(page, 8);
-  await page.waitForTimeout(150);
-  const turning = await page.$eval('#board .cell[data-index="8"]', (e) => ({ cls: e.className, anim: getComputedStyle(e).animationName }));
-  if (/face-down/.test(turning.cls) || turning.anim !== 'cardFlip' || !(await auto()).off[8]) note(vp, `turning the card over: ${JSON.stringify(turning)}`);
-  if (!(await page.$eval('#bonusSheet', (el) => el.hidden))) note(vp, 'the sheet rose before the card had turned');
-  await page.waitForTimeout(1100);
-  const sheet = await page.evaluate(() => ({ open: !document.getElementById('bonusSheet').hidden, name: document.getElementById('bonusSheetName').textContent }));
-  if (!sheet.open || !/ANY HAND/.test(sheet.name)) note(vp, `bonus sheet: ${JSON.stringify(sheet)}`);
-  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-3b-bonus-sheet.png` });
-  await page.click('#bonusSheetOk');
   if (!/SWITCH IT ON/.test(await text('#coachText'))) note(vp, `tutorial does not ask to switch the ×2 on: "${await text('#coachText')}"`);
   await tap(page, 8);
   if ((await auto()).off[8]) note(vp, 'tapping the turned card did not switch it on');
@@ -234,8 +233,17 @@ for (const vp of viewports) {
   a = await auto();
   if ((await text('#levelText')) !== '2/25') note(vp, `level text on level 2: ${await text('#levelText')}`);
   if (a.cells.filter((t) => t === 'die').length < 6) note(vp, `level 2 has ${a.cells.filter((t) => t === 'die').length} dice`);
-  const intro = await page.$eval('#toast', (t) => (t.hidden ? '' : t.textContent));
-  if (!/NEW CARD/.test(intro)) note(vp, `level 2 does not introduce its new card, toast="${intro}"`);
+  // level 2: its cards are dealt face down and turn over one by one, 2 s apart; each new kind's sheet follows
+  const dealt = await page.$$eval('#board .cell.bonus', (els) => els.map((e) => e.classList.contains('face-down')));
+  if (!dealt.length || dealt.some((d) => !d)) note(vp, `level 2 cards not dealt face down: ${dealt}`);
+  for (let n = 0; n < 2 && dealt.length; n++) {
+    const got = await page.waitForFunction(() => !document.getElementById('bonusSheet').hidden, null, { timeout: 4500 }).then(() => true, () => false);
+    if (!got) break;
+    await page.click('#bonusSheetOk');
+  }
+  await page.waitForTimeout(400);
+  const turned = await page.$$eval('#board .cell.bonus', (els) => els.filter((e) => e.classList.contains('face-down')).length);
+  if (turned) note(vp, `${turned} level 2 card(s) still face down after the deal`);
   const invisible = await page.$$eval('#board .cell.die', (els) => els.filter((e) => e.classList.contains('bank-pop') || Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
   if (invisible.length) note(vp, `dice invisible after a new level: [${invisible}]`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-8-level2.png` });
