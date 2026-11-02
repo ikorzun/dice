@@ -1521,9 +1521,9 @@ async function doReroll(source) {
         dice: r.rolled.map((i) => ({ index: i, from: g.faces[i], value: st.game.faces[i] })),
         colors: lookColors(),
         rng: createRng(`${st.game.level.seed}/throw/${st.game.stats.rerollsUsed}/${st.game.attempt}`),
-        // the board is drawn with the new faces (and the new hand's red dots) under the landed canvas,
-        // which then fades out over it
-        onLanded: () => { if (stillCurrent(st, modeId)) render(); },
+        // the dice come back with their new faces under the landed canvas, which then fades out over them
+        // (hidden until here, or they blink: owner, 02.11.2026)
+        onLanded: () => { r.rolled.forEach((i) => els.cells[i].classList.remove('hidden3d')); if (stillCurrent(st, modeId)) render(); },
       });
     } catch {
       rolled3d = false;
@@ -1640,7 +1640,7 @@ async function attemptBank(path, source) {
       dice: r.refilled.map((i) => ({ index: i, from: g.faces[i], value: st.game.faces[i] })),
       colors: lookColors(),
       rng: createRng(`${st.game.level.seed}/play/${st.game.hands.length}/${st.game.attempt}`),
-      onLanded: () => { if (stillCurrent(st, modeId)) render(); },
+      onLanded: () => { r.refilled.forEach((i) => els.cells[i].classList.remove('hidden3d')); if (stillCurrent(st, modeId)) render(); },
     }).catch(() => false);
     r.refilled.forEach((i) => els.cells[i].classList.remove('hidden3d'));
     if (st.game.phase === 'playing') {
@@ -1896,7 +1896,7 @@ async function guideRollLoop(token) {
       dice: next.map((value, index) => ({ index, from: faces[index], value })),
       colors: lookColors(),
       rng,
-      onLanded: () => dice.forEach((d, k) => d.style.setProperty('--f', `var(--face-${next[k]})`)),
+      onLanded: () => dice.forEach((d, k) => { d.style.setProperty('--f', `var(--face-${next[k]})`); d.classList.remove('hidden3d'); }), // under the fading canvas
     }).catch(() => false);
     dice.forEach((d) => d.classList.remove('hidden3d'));
     if (!ok) break;
