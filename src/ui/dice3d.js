@@ -9,7 +9,7 @@
 // straight above it (viewport + scissor over one canvas laid over the board). three.js loads lazily
 // from the CDN; when it is unavailable the caller keeps the CSS dice and their tumble.
 
-import { landingQuaternion, tumblePlan, tumblePose, qAxisAngle, qMul, ROLL } from './dice3d-math.js';
+import { landingQuaternion, tumblePlan, tumblePose, qAxisAngle, qMul, ROLL, dimpleNormals } from './dice3d-math.js';
 import { DIE_PIPS, decodePart } from './dice-model.js';
 
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -47,11 +47,11 @@ let THREE = null;      // the module once loaded, false when loading failed
 let loading = null;
 let geometries = null; // { body, pips } built once
 let kit = null;        // one renderer, scene and die for every roll: shaders compile once
-let matcapUrl = null;  // a matcap for the dice body (a try-on, ?matcap=name); null: the lit standard material
+let matcapUrls = null; // matcaps for the dice body and the pips ({ body, pips }); null: the lit material
 
-// Shade the dice body with a matcap image (call before loadDice3D): the image's colours are the light,
-// the die colour (white, lime when held) tints it.
-export function useMatcap(url) { matcapUrl = url; }
+// Shade the dice with matcap images (call before loadDice3D): the body's image is tinted by the die
+// colour (white, lime when held); the pips' dark image is their colour as it is (they are pressed in).
+export function useMatcap(body, pips = null) { matcapUrls = { body, pips }; }
 
 export function loadDice3D() {
   if (THREE !== null) return Promise.resolve(THREE);
@@ -59,9 +59,12 @@ export function loadDice3D() {
   loading = import(/* webpackIgnore: true */ THREE_URL)
     .then(async (module) => {
       THREE = module;
-      const matcap = matcapUrl ? await new THREE.TextureLoader().loadAsync(matcapUrl).catch(() => null) : null;
-      if (matcap) matcap.colorSpace = THREE.SRGBColorSpace;
-      prepare(matcap);
+      const load = async (url) => {
+        const tex = url ? await new THREE.TextureLoader().loadAsync(url).catch(() => null) : null;
+        if (tex) tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+      };
+      prepare(matcapUrls ? { body: await load(matcapUrls.body), pips: await load(matcapUrls.pips) } : {});
       return THREE;
     })
     .catch(() => { THREE = false; return THREE; });
@@ -104,10 +107,12 @@ function modelGeometries() {
     tris = split;
   }
   const flat = new Float32Array(tris.flat());
-  roundOnto(flat, ROUND_R + 0.002);
+  const normals = new Float32Array(flat.length);
+  roundOnto(flat, ROUND_R + 0.002, normals);
+  dimpleNormals(flat, normals); // pressed in: shaded like a bowl under a matcap
   const pips = new THREE.BufferGeometry();
   pips.setAttribute('position', new THREE.BufferAttribute(flat, 3));
-  pips.computeVertexNormals();
+  pips.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
   geometries = { body, pips };
   return geometries;
 }
@@ -126,7 +131,7 @@ function silhouette() {
 
 // Built once after three.js loads, and its shaders compiled right away, so no roll ever waits for
 // the GPU (a fresh renderer per roll stalled the first frame by ~0.4 s).
-function prepare(matcap = null) {
+function prepare(matcaps = {}) {
   const canvas = document.createElement('canvas');
   canvas.className = 'dice3d';
   let renderer;
@@ -144,9 +149,10 @@ function prepare(matcap = null) {
   key.position.set(-2, 6, -3);
   scene.add(key);
   const geo = modelGeometries();
-  const bodyMat = matcap ? new THREE.MeshMatcapMaterial({ matcap }) : new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0 });
+  const bodyMat = matcaps.body ? new THREE.MeshMatcapMaterial({ matcap: matcaps.body }) : new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0 });
   // Unlit pips: the light would grey them, and the DOM die (and the reference) has them flat black.
-  const pipMat = new THREE.MeshBasicMaterial();
+  const pipMat = matcaps.pips ? new THREE.MeshMatcapMaterial({ matcap: matcaps.pips }) : new THREE.MeshBasicMaterial();
+  pipMat.userData.ink = !matcaps.pips; // flat: the look's pip colour; a matcap carries its own
   const model = new THREE.Group();
   model.add(new THREE.Mesh(geo.body, bodyMat), new THREE.Mesh(geo.pips, pipMat));
   scene.add(model);
@@ -177,7 +183,7 @@ export async function rollDice3D({ board, cells, dice, colors, rng, onLanded }) 
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   renderer.setSize(width, height, false);
   bodyMat.color.set(colors.die);
-  pipMat.color.set(colors.pip);
+  pipMat.color.set(pipMat.userData.ink ? colors.pip : '#ffffff');
 
   // the cascade: a shuffled order, not a row
   const order = dice.slice();
@@ -270,7 +276,7 @@ export function renderFaces({ colors, px = 384 }) {
   out.height = px;
   const ctx = out.getContext('2d');
   const faces = {};
-  pipMat.color.set(colors.pip);
+  pipMat.color.set(pipMat.userData.ink ? colors.pip : '#ffffff');
   for (const [body, die] of [['', colors.die], ['k', colors.held || colors.die]]) {
     bodyMat.color.set(die);
     for (let v = 0; v <= 6; v++) { // 0: the blank face a bonus die wears

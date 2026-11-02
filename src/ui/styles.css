@@ -45,6 +45,7 @@
   --matcap-toon: url("../../assets/matcaps/toon.webp");
   --matcap-ivory: url("../../assets/matcaps/ivory.webp");
   --matcap-clay: url("../../assets/matcaps/clay.webp");
+  --matcap-pip: url("../../assets/matcaps/pip.webp"); /* the pressed-in pips: dark enamel */
   --img-refund-trigger: url("../../assets/ui/bonuses/refund-trigger.webp"); /* 24 frames, 512 px */
   color-scheme: dark;
 }

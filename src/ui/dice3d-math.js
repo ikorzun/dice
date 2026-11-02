@@ -85,6 +85,47 @@ function pipCentres() {
   });
 }
 
+// The pips as dimples for the light (owner, 02.11.2026: they are pressed into the die): each pip vertex's
+// normal leans toward its pip's centre like the wall of a shallow bowl, `slope` at the rim, so under a
+// matcap the wall facing the light shines and the other falls in shade. `positions` and `normals` are flat
+// xyz arrays (the pips on the rounded die and the surface normals there); normals are rewritten in place.
+// Returns the number of pips found.
+export function dimpleNormals(positions, normals, slope = 0.9) {
+  const count = positions.length / 3;
+  const clusters = [];
+  const of = new Int32Array(count);
+  const at = (a, v) => [a[3 * v], a[3 * v + 1], a[3 * v + 2]];
+  for (let v = 0; v < count; v++) {
+    const p = at(positions, v);
+    let k = clusters.findIndex((c) => Math.hypot(c.s[0] / c.n - p[0], c.s[1] / c.n - p[1], c.s[2] / c.n - p[2]) < 0.25);
+    if (k < 0) { k = clusters.length; clusters.push({ s: [0, 0, 0], n: 0, r: 0 }); }
+    for (let a = 0; a < 3; a++) clusters[k].s[a] += p[a];
+    clusters[k].n++;
+    of[v] = k;
+  }
+  // a vertex's offset from its pip's centre, in the surface's tangent plane
+  const offset = (v) => {
+    const c = clusters[of[v]];
+    const p = at(positions, v);
+    const n = at(normals, v);
+    const d = p.map((x, a) => x - c.s[a] / c.n);
+    const dn = d[0] * n[0] + d[1] * n[1] + d[2] * n[2];
+    return { d: d.map((x, a) => x - dn * n[a]), n };
+  };
+  for (let v = 0; v < count; v++) {
+    const { d } = offset(v);
+    clusters[of[v]].r = Math.max(clusters[of[v]].r, Math.hypot(d[0], d[1], d[2]));
+  }
+  for (let v = 0; v < count; v++) {
+    const { d, n } = offset(v);
+    const r = clusters[of[v]].r || 1;
+    const t = n.map((x, a) => x - (slope * d[a]) / r);
+    const l = Math.hypot(t[0], t[1], t[2]) || 1;
+    for (let a = 0; a < 3; a++) normals[3 * v + a] = t[a] / l;
+  }
+  return clusters.length;
+}
+
 // The DOM grid cell (1..9) a point of the up face falls in, seen from above.
 export const gridCell = ([x, , z]) => (Math.round(z / 0.42) + 1) * 3 + Math.round(x / 0.42) + 1 + 1;
 

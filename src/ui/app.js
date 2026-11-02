@@ -1867,17 +1867,21 @@ function bind() {
   }
 }
 
-// A matcap try-on for the dice (owner, 02.11.2026): ?matcap=porcelain|toon|ivory|clay. The image comes
-// through a CSS variable, so the build inlines it like the rest of the art.
+// The dice wear the ivory matcap and their pressed-in pips a dark enamel one (owner, 02.11.2026: ivory,
+// a little less yellow); ?matcap=porcelain|toon|clay tries another body, ?matcap=none the lit material.
+// The images come through CSS variables, so the build inlines them like the rest of the art.
 function tryMatcap() {
-  const name = new URLSearchParams(location.search).get('matcap');
-  if (!name || !/^[a-z]+$/.test(name)) return;
-  const probe = document.createElement('i');
-  probe.style.backgroundImage = `var(--matcap-${name})`;
-  document.body.appendChild(probe);
-  const m = /url\("?(.*?)"?\)$/.exec(getComputedStyle(probe).backgroundImage);
-  probe.remove();
-  if (m) useMatcap(m[1]);
+  const name = new URLSearchParams(location.search).get('matcap') || 'ivory';
+  if (name === 'none' || !/^[a-z]+$/.test(name)) return;
+  const url = (v) => {
+    const probe = document.createElement('i');
+    probe.style.backgroundImage = `var(--matcap-${v})`;
+    document.body.appendChild(probe);
+    const m = /url\("?(.*?)"?\)$/.exec(getComputedStyle(probe).backgroundImage);
+    probe.remove();
+    return m ? m[1] : null;
+  };
+  if (url(name)) useMatcap(url(name), url('pip'));
 }
 
 function init() {

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  dimpleNormals,
   landingQuaternion, tumbleTheta, tumblePlan, tumblePose, rotateVector, gridCell, qAxisAngle, qMul, FACE_AXES, DOM_PIPS, ROLL,
 } from '../src/ui/dice3d-math.js';
 import { MODEL_FACE_VALUES, DIE_BODY, DIE_PIPS, decodePart } from '../src/ui/dice-model.js';
@@ -72,4 +73,25 @@ test('the generated die model decodes into in-range triangle lists within the un
     assert.ok(indices.every((i) => i < positions.length / 3));
     assert.ok(positions.every((c) => Math.abs(c) <= 1.01));
   }
+});
+
+test('dimple normals: 21 pips, each normal leans toward its pip centre (a pressed-in bowl)', () => {
+  const { positions } = decodePart(DIE_PIPS);
+  const pos = Float32Array.from(positions);
+  const normals = new Float32Array(pos.length);
+  for (let v = 0; v < pos.length / 3; v++) {
+    const a = [0, 1, 2].reduce((m, k) => (Math.abs(pos[3 * v + k]) > Math.abs(pos[3 * v + m]) ? k : m), 0);
+    normals[3 * v + a] = Math.sign(pos[3 * v + a]); // a flat face's normal
+  }
+  const flat = Float32Array.from(normals);
+  assert.equal(dimpleNormals(pos, normals), 21);
+  let leaning = 0;
+  let total = 0;
+  for (let v = 0; v < pos.length / 3; v++) {
+    const n = [0, 1, 2].map((k) => normals[3 * v + k]);
+    assert.ok(Math.abs(Math.hypot(...n) - 1) < 1e-5);
+    const tilt = [0, 1, 2].map((k) => n[k] - flat[3 * v + k]);
+    if (Math.hypot(...tilt) > 1e-3) { total++; if (n[0] * flat[3 * v] + n[1] * flat[3 * v + 1] + n[2] * flat[3 * v + 2] < 1) leaning++; }
+  }
+  assert.ok(total > 0 && leaning === total);
 });
