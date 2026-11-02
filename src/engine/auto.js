@@ -3,7 +3,8 @@
 // bonus starts off); the player holds dice, rerolls the rest (three rerolls per level, shared by
 // the hands) or plays it.
 // Playing burns the hand, every unheld die and the bonuses the hand used: burnt dice are
-// replaced, a used bonus leaves a hole. Held dice outside the hand stay, still held.
+// replaced, a used bonus leaves a hole. Held dice outside the hand stay, no longer held (owner,
+// 01.11.2026: no die stays selected after a hand).
 // A level ends as soon as the score reaches the target (owner, 01.11.2026), otherwise after its
 // three hands. Pure state transitions, same action shape as poker.js.
 
@@ -156,13 +157,12 @@ export function playHand(state, drawDie) {
   const help = need > 1.6 ? 2 : need > 1.25 ? 1 : 0;
   const favored = help ? largestGroupFace(diceCells(state).filter((i) => !burned.includes(i)).map((i) => state.faces[i])) : null;
   const faces = state.faces.slice();
-  const held = state.held.slice();
+  const held = state.held.map(() => false); // the dice that stay keep their faces, not their holds
   for (const i of burned) {
     const coin = favored ? drawDie() : 0; // a die as the coin: copy on 1 (help 1) or 1–2 (help 2)
     const f = drawDie();
     if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`drawDie returned ${f}`);
     faces[i] = favored && coin <= help ? favored : f;
-    held[i] = false;
   }
   hand.help = favored ? help : 0;
   const cells = state.cells.slice();

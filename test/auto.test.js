@@ -166,7 +166,7 @@ test('the held hand is the best hand among the held dice only', () => {
   assert.equal(currentHand(g).category, 'straight'); // the board's best hand (2-6, 160) is another one
 });
 
-test('playing burns the hand and every unheld die; held dice outside the hand stay held; the used bonus leaves a hole', () => {
+test('playing burns the hand and every unheld die; held dice outside the hand stay, no longer held; the used bonus leaves a hole', () => {
   let g = on(createAutoGame(level(L1, F, 10000)), 8);
   g = toggleHold(g, 7).state; // the 1 at the bottom is not in the straight
   g = toggleHold(g, 4).state; // the 3 is in the straight: held, but played, so it burns
@@ -179,7 +179,7 @@ test('playing burns the hand and every unheld die; held dice outside the hand st
   assert.deepEqual(r.holes, [8]);
   const s = r.state;
   assert.equal(s.faces[7], 1);
-  assert.equal(s.held[7], true);
+  assert.equal(s.held[7], false); // it stayed, but nothing stays selected after a hand
   assert.equal(s.held[4], false);
   assert.equal(s.cells[8].type, 'hole');
   assert.equal(s.faces[8], null);

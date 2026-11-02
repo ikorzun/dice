@@ -198,7 +198,8 @@ for (const vp of viewports) {
   if (await page.$eval('#app', (el) => el.classList.contains('bonus-show'))) note(vp, 'SKIP did not close the bonus screen');
   if (b.hands !== 1 || b.handsLeft !== 2 || (b.score >= b.target) !== (b.phase === 'won')) note(vp, `first hand: hands=${b.hands} left=${b.handsLeft} phase=${b.phase}`);
   if (b.cells[8] !== 'hole') note(vp, `the ×2 did not leave a hole (cell 8=${b.cells[8]})`);
-  if (keep2 >= 0 && (!b.held[keep2] || b.faces[keep2] !== a.faces[keep2])) note(vp, 'held die outside the hand did not survive the hand');
+  if (keep2 >= 0 && b.phase === 'playing' && b.faces[keep2] !== a.faces[keep2]) note(vp, 'held die outside the hand did not survive the hand');
+  if (b.held.some(Boolean)) note(vp, `dice still selected after the hand: ${b.held}`);
   if (b.phase === 'playing' && (Number(await text('#score')) !== b.score || (await text('#playBtn')) !== 'PLAY•2')) note(vp, `after the hand: TOTAL ${await text('#score')} (score ${b.score}), ${await text('#playBtn')}`);
   const hidden = await page.$$eval('#board .cell.die', (els) => els.filter((e) => Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
   if (hidden.length) note(vp, `dice invisible after the hand: [${hidden}]`);
