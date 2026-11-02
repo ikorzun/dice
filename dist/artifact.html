@@ -292,15 +292,17 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell .art { position: absolute; display: none; background: center / 100% 100% no-repeat; pointer-events: none; }
 /* The face (owner, 02.11.2026): the bonus's character peeks over the bottom edge, big, holding on to it;
    the multiplier on a badge in the corner (none for the joker) */
-.cell.bonus .art { display: block; left: 9.26%; top: 3.7%; width: 79.63%; height: 79.63%; background: var(--peek) center bottom / contain no-repeat; } /* 86 px at 10, 4 */
+.cell.bonus .art { display: block; left: 9.26%; top: 3.7%; width: 79.63%; height: 79.63%; background: var(--peek) center bottom / contain no-repeat; transform: translateY(var(--drop, 0%)); } /* 86 px at 10, 4 */
 .cell.bonus .art.live { background: none; } /* a puppet draws the character (puppets.js) */
 .cell.bonus .art canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; } /* laid like the drawing it replaces */
-.cell.bonus.kind-x2_any { --peek: var(--peek-x2_any); }
+/* The edge each character holds on to sits where the bug's does, on the arch's bottom (owner, 02.11.2026: no gap
+   under the knight, the pair, the skull and the bird): --drop moves the picture down by its own height's share */
+.cell.bonus.kind-x2_any { --peek: var(--peek-x2_any); --drop: 6.7%; }
 .cell.bonus.kind-x3_straight { --peek: var(--peek-x3_straight); }
-.cell.bonus.kind-x3_pairs { --peek: var(--peek-x3_pairs); }
+.cell.bonus.kind-x3_pairs { --peek: var(--peek-x3_pairs); --drop: 4.69%; }
 .cell.bonus.kind-x3_trips { --peek: var(--peek-x3_trips); }
-.cell.bonus.kind-joker { --peek: var(--peek-joker); }
-.cell.bonus.kind-refund { --peek: var(--peek-refund); }
+.cell.bonus.kind-joker { --peek: var(--peek-joker); --drop: 5.34%; }
+.cell.bonus.kind-refund { --peek: var(--peek-refund); --drop: 6.8%; }
 
 /* steps(24, jump-none) from 0% to 100% lands on every frame of a 24-frame strip (the refund bird's action) */
 @keyframes strip { from { background-position: 0% 0; } to { background-position: 100% 0; } }
