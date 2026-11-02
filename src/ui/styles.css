@@ -71,6 +71,31 @@
   --rig-knight-pupilR: url("../../assets/ui/bonuses/rig/knight-pupilR.webp");
   --rig-knight-flower: url("../../assets/ui/bonuses/rig/knight-flower.webp");
   --rig-knight-gear: url("../../assets/ui/bonuses/rig/knight-gear.webp");
+  --rig-bug-antL: url("../../assets/ui/bonuses/rig/bug-antL.webp");
+  --rig-bug-antM: url("../../assets/ui/bonuses/rig/bug-antM.webp");
+  --rig-bug-antR: url("../../assets/ui/bonuses/rig/bug-antR.webp");
+  --rig-bug-head: url("../../assets/ui/bonuses/rig/bug-head.webp");
+  --rig-bug-pupilL: url("../../assets/ui/bonuses/rig/bug-pupilL.webp");
+  --rig-bug-pupilR: url("../../assets/ui/bonuses/rig/bug-pupilR.webp");
+  --rig-bug-gear: url("../../assets/ui/bonuses/rig/bug-gear.webp");
+  --rig-pair-tall: url("../../assets/ui/bonuses/rig/pair-tall.webp");
+  --rig-pair-kid: url("../../assets/ui/bonuses/rig/pair-kid.webp");
+  --rig-pair-kidL: url("../../assets/ui/bonuses/rig/pair-kidL.webp");
+  --rig-pair-kidR: url("../../assets/ui/bonuses/rig/pair-kidR.webp");
+  --rig-pair-gear: url("../../assets/ui/bonuses/rig/pair-gear.webp");
+  --rig-trio-top: url("../../assets/ui/bonuses/rig/trio-top.webp");
+  --rig-trio-mid: url("../../assets/ui/bonuses/rig/trio-mid.webp");
+  --rig-trio-bot: url("../../assets/ui/bonuses/rig/trio-bot.webp");
+  --rig-trio-gear: url("../../assets/ui/bonuses/rig/trio-gear.webp");
+  --rig-joker-head: url("../../assets/ui/bonuses/rig/joker-head.webp");
+  --rig-joker-star: url("../../assets/ui/bonuses/rig/joker-star.webp");
+  --rig-joker-iris: url("../../assets/ui/bonuses/rig/joker-iris.webp");
+  --rig-joker-gear: url("../../assets/ui/bonuses/rig/joker-gear.webp");
+  --rig-bird-crest: url("../../assets/ui/bonuses/rig/bird-crest.webp");
+  --rig-bird-head: url("../../assets/ui/bonuses/rig/bird-head.webp");
+  --rig-bird-earring: url("../../assets/ui/bonuses/rig/bird-earring.webp");
+  --rig-bird-glint: url("../../assets/ui/bonuses/rig/bird-glint.webp");
+  --rig-bird-gear: url("../../assets/ui/bonuses/rig/bird-gear.webp");
   /* sound effects (scripts/audio.py), read by cssUrl in app.js so the build inlines them */
   --sfx-roll: url("../../assets/sfx/roll.mp3");
   --sfx-hold: url("../../assets/sfx/hold.mp3");
@@ -265,7 +290,7 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
    the multiplier on a badge in the corner (none for the joker) */
 .cell.bonus .art { display: block; left: 9.26%; top: 3.7%; width: 79.63%; height: 79.63%; background: var(--peek) center bottom / contain no-repeat; } /* 86 px at 10, 4 */
 .cell.bonus .art.live { background: none; } /* a puppet draws the character (puppets.js) */
-.cell.bonus .art canvas { position: absolute; left: 0; bottom: 0; width: 100%; aspect-ratio: 997 / 814; } /* the picture's frame, laid like the drawing it replaces */
+.cell.bonus .art canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; } /* laid like the drawing it replaces */
 .cell.bonus.kind-x2_any { --peek: var(--peek-x2_any); }
 .cell.bonus.kind-x3_straight { --peek: var(--peek-x3_straight); }
 .cell.bonus.kind-x3_pairs { --peek: var(--peek-x3_pairs); }
