@@ -30,7 +30,7 @@ import {
 import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from '../engine/levels.js';
 import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
 import { generateAdaptiveLevel, skillFrom, skillSample, recipeById, ADAPT3_VERSION } from '../engine/adapt3.js';
-import { loadDice3D, rollDice3D, renderFaces, dice3dStatus } from './dice3d.js';
+import { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } from './dice3d.js';
 import { createFire } from './fire.js';
 
 const APP_VERSION = '0.2.0';
@@ -1867,7 +1867,21 @@ function bind() {
   }
 }
 
+// A matcap try-on for the dice (owner, 02.11.2026): ?matcap=porcelain|toon|ivory|clay. The image comes
+// through a CSS variable, so the build inlines it like the rest of the art.
+function tryMatcap() {
+  const name = new URLSearchParams(location.search).get('matcap');
+  if (!name || !/^[a-z]+$/.test(name)) return;
+  const probe = document.createElement('i');
+  probe.style.backgroundImage = `var(--matcap-${name})`;
+  document.body.appendChild(probe);
+  const m = /url\("?(.*?)"?\)$/.exec(getComputedStyle(probe).backgroundImage);
+  probe.remove();
+  if (m) useMatcap(m[1]);
+}
+
 function init() {
+  tryMatcap();
   for (const id of ['app', 'board', 'boardWrap', 'preview', 'playBtn', 'rerollBtn', 'skipBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast', 'bones', 'bonesLabel', 'handStat', 'multSticker', 'bonusHero']) els[id] = $(id);
   els.tabs = Array.from(document.querySelectorAll('.tab'));
   els.controls = document.querySelector('.controls');

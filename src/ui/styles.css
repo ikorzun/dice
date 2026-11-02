@@ -41,6 +41,10 @@
   --peek-refund: url("../../assets/ui/bonuses/peek-refund.webp");
   --img-joker: url("../../assets/ui/bonuses/joker.webp"); /* the joker skull (art/bonuses/out/at) */
   --img-title: url("../../assets/ui/title.webp"); /* DICE TWICE title art, art/title */
+  --matcap-porcelain: url("../../assets/matcaps/porcelain.webp"); /* dice matcaps to try on (?matcap=), art/matcaps */
+  --matcap-toon: url("../../assets/matcaps/toon.webp");
+  --matcap-ivory: url("../../assets/matcaps/ivory.webp");
+  --matcap-clay: url("../../assets/matcaps/clay.webp");
   --img-refund-trigger: url("../../assets/ui/bonuses/refund-trigger.webp"); /* 24 frames, 512 px */
   color-scheme: dark;
 }

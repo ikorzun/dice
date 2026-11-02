@@ -47,12 +47,23 @@ let THREE = null;      // the module once loaded, false when loading failed
 let loading = null;
 let geometries = null; // { body, pips } built once
 let kit = null;        // one renderer, scene and die for every roll: shaders compile once
+let matcapUrl = null;  // a matcap for the dice body (a try-on, ?matcap=name); null: the lit standard material
+
+// Shade the dice body with a matcap image (call before loadDice3D): the image's colours are the light,
+// the die colour (white, lime when held) tints it.
+export function useMatcap(url) { matcapUrl = url; }
 
 export function loadDice3D() {
   if (THREE !== null) return Promise.resolve(THREE);
   if (loading) return loading;
   loading = import(/* webpackIgnore: true */ THREE_URL)
-    .then((module) => { THREE = module; prepare(); return THREE; })
+    .then(async (module) => {
+      THREE = module;
+      const matcap = matcapUrl ? await new THREE.TextureLoader().loadAsync(matcapUrl).catch(() => null) : null;
+      if (matcap) matcap.colorSpace = THREE.SRGBColorSpace;
+      prepare(matcap);
+      return THREE;
+    })
     .catch(() => { THREE = false; return THREE; });
   return loading;
 }
@@ -115,7 +126,7 @@ function silhouette() {
 
 // Built once after three.js loads, and its shaders compiled right away, so no roll ever waits for
 // the GPU (a fresh renderer per roll stalled the first frame by ~0.4 s).
-function prepare() {
+function prepare(matcap = null) {
   const canvas = document.createElement('canvas');
   canvas.className = 'dice3d';
   let renderer;
@@ -133,7 +144,7 @@ function prepare() {
   key.position.set(-2, 6, -3);
   scene.add(key);
   const geo = modelGeometries();
-  const bodyMat = new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0 });
+  const bodyMat = matcap ? new THREE.MeshMatcapMaterial({ matcap }) : new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0 });
   // Unlit pips: the light would grey them, and the DOM die (and the reference) has them flat black.
   const pipMat = new THREE.MeshBasicMaterial();
   const model = new THREE.Group();

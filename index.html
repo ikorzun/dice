@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>
+  // GitHub Pages lets a browser keep each file for 10 minutes, so right after a deploy a phone could mix
+  // this page with old styles and scripts. Players there get the single-file build (dist/), which can't.
+  if (/\.github\.io$/.test(location.hostname) && !/\/dist\//.test(location.pathname)) location.replace(`dist/${location.search}${location.hash}`);
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#000000">
 <title>Dice Twice</title>
