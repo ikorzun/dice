@@ -317,6 +317,7 @@ const app = {
   modes: { snake4: freshModeState(MODES.snake4), poker5: freshModeState(MODES.poker5), auto: freshModeState(MODES.auto) },
   autoHand: null, // best hand on the Auto Hand board, computed once per render
   fire: null, // the shader fire over the board (fire.js), made on the first strong hand
+  sheetAt: 0, // when the bonus sheet opened (its opening finger must not close it)
   busy: false,
   path: [],
   tapPath: [],
@@ -352,8 +353,7 @@ function setDice3D(on) {
 function applyRenderedFaces() {
   if (app.busy) return; // a roll owns the 3D canvas; the next call redraws
   const faces = app.dice3d && dice3dStatus() === 'ready' ? renderFaces({ colors: lookColors() }) : null;
-  els.board.classList.toggle('rendered', !!faces);
-  // keys: value, then k for the held body ('3', '3k')
+  // the baked faces (styles.css) show until then; keys: value, then k for the held body ('3', '3k')
   if (faces) for (const [key, url] of Object.entries(faces)) els.board.style.setProperty(`--face-${key[0]}${key.endsWith('k') ? '-held' : ''}`, `url(${url})`);
 }
 
@@ -1297,6 +1297,7 @@ const BONUS_WHAT = {
 // A bottom sheet with the bonus die, its name and what it does (owner, 01.11.2026).
 function showBonusSheet(kind) {
   S().tips[`sheet:${kind}`] = true;
+  app.sheetAt = performance.now(); // the finger that opened it lifts over the backdrop: that is not a close
   $('bonusSheetTile').innerHTML = guideTile(kind, true);
   $('bonusSheetName').textContent = `${BONUS_KINDS[kind].symbol} ${BONUS_KINDS[kind].label}`;
   $('bonusSheetWhat').textContent = BONUS_WHAT[kind];
@@ -1578,7 +1579,18 @@ function extendPath(path, cell) {
   return false;
 }
 
+// A gesture left open (its release never came) is dropped by the next first finger: it must never block taps.
+function dropGesture() {
+  const gs = app.gesture;
+  if (!gs) return;
+  clearTimeout(gs.longTimer);
+  els.cells[gs.startCell].classList.remove('pressed');
+  try { els.board.releasePointerCapture(gs.id); } catch { /* already released */ }
+  app.gesture = null;
+}
+
 function onPointerDown(e) {
+  if (app.gesture && e.isPrimary) dropGesture(); // a new first finger: nothing else is down
   if (app.busy || app.gesture) return;
   if (e.button != null && e.button !== 0) return;
   cacheRects();
@@ -1591,7 +1603,7 @@ function onPointerDown(e) {
   if (M().id === 'auto' && c && c.type === 'bonus') {
     gs.longTimer = setTimeout(() => {
       if (app.gesture !== gs || gs.mode !== 'pending') return;
-      gs.mode = 'long'; // the release opens nothing and switches nothing
+      dropGesture(); // the gesture ends here: the sheet takes the finger, its release switches nothing
       haptic(12);
       showBonusSheet(c.kind);
     }, LONG_PRESS_MS);
@@ -1657,21 +1669,11 @@ function onPointerCancel(e) {
 // pips). The Bible opens the same pages without the title, with every bonus and a link to the settings.
 const GUIDE_COMBOS = [['pair', [6, 6]], ['two_pairs', [2, 2, 6, 6]], ['three_kind', [3, 3, 3]], ['full_house', [2, 2, 5, 5, 5]], ['four_kind', [4, 4, 4, 4]], ['straight', [1, 2, 3, 4, 5]], ['five_kind', [5, 5, 5, 5, 5]]];
 const GUIDE_BONUSES = { x2_any: 'ANY HAND', x3_straight: 'STRAIGHT', x3_pairs: 'PAIR, TWO PAIRS', x3_trips: 'TRIPS, FULL HOUSE', joker: 'ANY FACE', refund: 'A REROLL BACK' };
-const PIPS = { 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
-// a flat die for the guide until the 3D faces are rendered
-const flatFace = (v, held) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="3" y="3" width="94" height="94" rx="24" fill="${held ? '#d4ff82' : '#fff'}"/>${PIPS[v].map((k) => `<circle cx="${24 + (k % 3) * 26}" cy="${24 + Math.floor(k / 3) * 26}" r="9"/>`).join('')}</svg>`)}")`;
-const guideDie = (v, held) => `<i class="gdie" style="--f: var(--gface-${v}${held ? '-held' : ''})"></i>`;
+const guideDie = (v, held) => `<i class="gdie" style="--f: var(--face-${v}${held ? '-held' : ''})"></i>`; // the baked faces
 const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="art"></span><span class="x2">${BONUS_KINDS[kind].symbol}</span><span class="tag"></span></span>`;
 
 function openGuide(mode) {
   const guide = $('guide');
-  for (let v = 1; v <= 6; v++) {
-    for (const held of [false, true]) {
-      const key = `face-${v}${held ? '-held' : ''}`;
-      guide.style.setProperty(`--g${key}`, els.board.style.getPropertyValue(`--${key}`) || flatFace(v, held));
-    }
-  }
-  for (const key of ['--face-0', '--face-0-held']) guide.style.setProperty(key, els.board.style.getPropertyValue(key) || 'initial'); // the bonus dice
   $('combos').innerHTML = GUIDE_COMBOS.map(([cat, dice]) => `<li><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}</b><em>×${AUTO_MULT[cat]}</em></li>`).join('');
   $('holdPic').innerHTML = `<span class="grp"><span>${[6, 6, 6].map((v) => guideDie(v, true)).join('')}</span><small>TAP = HOLD</small></span><span class="grp roll"><span>${[2, 4].map((v) => guideDie(v)).join('')}</span><small>REROLL</small></span>`;
   const help = mode === 'help';
@@ -1810,7 +1812,7 @@ function bind() {
   board.addEventListener('pointermove', onPointerMove);
   board.addEventListener('pointerup', onPointerUp);
   board.addEventListener('pointercancel', onPointerCancel);
-  board.addEventListener('lostpointercapture', (e) => { if (app.gesture && app.gesture.mode === 'path') onPointerCancel(e); });
+  board.addEventListener('lostpointercapture', (e) => { if (app.gesture && app.gesture.id === e.pointerId) onPointerCancel(e); });
   board.addEventListener('contextmenu', (e) => e.preventDefault());
   board.addEventListener('keydown', (e) => {
     const cell = e.target.closest && e.target.closest('.cell');
@@ -1837,7 +1839,7 @@ function bind() {
   $('nextBtn').addEventListener('click', onNext);
   $('retryBtn').addEventListener('click', onRetry);
   $('bonusSheetOk').addEventListener('click', () => { $('bonusSheet').hidden = true; });
-  $('bonusSheet').addEventListener('click', (e) => { if (e.target === e.currentTarget) $('bonusSheet').hidden = true; });
+  $('bonusSheet').addEventListener('click', (e) => { if (e.target === e.currentTarget && performance.now() - app.sheetAt > 500) $('bonusSheet').hidden = true; });
   $('guideNext').addEventListener('click', guideNext);
   $('guideSkip').addEventListener('click', () => closeGuide(false));
   $('guideSettings').addEventListener('click', () => { $('guide').hidden = true; openHelp(); });
