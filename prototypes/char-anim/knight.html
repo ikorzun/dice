@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Knight storyboard</title>
+<style>
+  @font-face { font-family: "Basteleur"; src: url("../../assets/fonts/Basteleur-Bold.otf") format("opentype"); font-weight: 700; }
+  :root { --bg: #000; --fg: #fff; --muted: #8a8a8a; --hold: #d4ff82; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 14px/1.35 system-ui, sans-serif; }
+  h1 { margin: 0 0 4px; font: 700 26px/1.1 "Basteleur", system-ui; }
+  h2 { margin: 18px 0 8px; font: 700 18px/1.1 "Basteleur", system-ui; }
+  h2 small { color: var(--muted); font: 13px system-ui; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; }
+  figure { margin: 0; width: 120px; }
+  figcaption { margin-top: 4px; color: var(--muted); font-size: 12px; }
+  figcaption b { color: var(--fg); }
+  .card { position: relative; width: 100%; aspect-ratio: 1; border-radius: 23.55%; background: #ffeedb; border: 1px solid rgba(255, 255, 255, .32); }
+  .card .arch { position: absolute; left: 4.63%; top: 8.33%; width: 90.74%; height: 69.44%; background: url("../../assets/ui/card-arch.svg") center / 100% 100% no-repeat; }
+  .card .art { position: absolute; left: 9.26%; top: 3.7%; width: 79.63%; height: 79.63%; }
+  .card canvas { position: absolute; left: 0; bottom: 0; width: 100%; aspect-ratio: 997 / 814; }
+  .card .tag { position: absolute; left: 0; right: 0; bottom: 4.63%; text-align: center; color: #000; font: 700 13px/1 "Basteleur", system-ui; }
+  .live { width: 260px; }
+  .live .tag { font-size: 28px; }
+  button { margin: 10px 8px 0 0; height: 40px; padding: 0 16px; border: 0; border-radius: 40px; background: #ffea3a; color: #000; font: 700 15px "Basteleur", system-ui; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>×2 ANY HAND · рыцарь</h1>
+<p style="color: var(--muted); margin: 0">Раскадровка из рига игры (docs/ANIM-STORYBOARDS.md §1): кадры при 24 к/с, на экране — 60 к/с.</p>
+<div class="row" style="margin-top: 12px; align-items: flex-end">
+  <div class="card live" id="live"><span class="arch"></span><span class="art"><canvas></canvas></span><span class="tag">ANY HAND</span></div>
+  <div><button data-ev="blink">Моргнуть</button><button data-ev="glance">Взгляд</button><button data-ev="duck">Нырок</button></div>
+</div>
+<div id="boards"></div>
+<script type="module">
+import { createPuppet } from '../../src/ui/rig.js';
+import { CHARACTERS } from '../../src/ui/puppets.js';
+
+const C = CHARACTERS.x2_any;
+const images = Object.fromEntries(await Promise.all(C.parts.map((p) => new Promise((ok) => {
+  const im = new Image();
+  im.onload = () => ok([p.name, im]);
+  im.src = `../../assets/ui/bonuses/rig/knight-${p.name}.webp`;
+}))));
+const size = (canvas, w) => { canvas.width = w; canvas.height = Math.round((w * C.view[3]) / C.view[2]); };
+
+// A puppet run from rest with the given events, stepped at 120 Hz (the spring needs small steps); `at(t)` draws t.
+function stepped(canvas, on) {
+  const puppet = createPuppet(canvas, C, images, (t) => C.pose(t, on));
+  let t = 0;
+  return (until) => { do { t = Math.min(until, t + 1 / 120); puppet.draw(t); } while (t < until - 1e-9); };
+}
+
+// The storyboard: each movement's key frames, numbered at 24 fps, with the principle at work.
+const START = 1; // the event starts a second in: the breath and the spring are already going
+const BOARDS = [
+  ['A. Дыхание', 'основа, 60 кадров по кругу', null, [[1, 'покой'], [15, 'вдох'], [30, 'вытянут'], [45, 'выдох']]],
+  ['B. Моргание', '5 кадров', 'blink', [[1, 'открыт'], [2, 'сжимается'], [3, 'держит'], [4, 'перелёт'], [5, 'покой']]],
+  ['C. Взгляд', '30 кадров', 'glance', [[1, 'покой'], [4, 'упреждение'], [7, 'удар, 3 кадра'], [14, 'движ. фиксация'], [20, 'конец фиксации'], [25, 'возврат'], [30, 'покой']]],
+  ['D. Нырок и выглядывание', '36 кадров', 'duck', [[1, 'покой'], [6, 'упреждение'], [9, 'нырок'], [12, 'приплющен'], [14, 'внизу, глаза'], [17, 'выпрыг'], [19, 'вытянут'], [22, 'перелёт'], [26, 'доводка'], [36, 'покой']]],
+];
+const boards = document.getElementById('boards');
+for (const [title, sub, ev, keys] of BOARDS) {
+  boards.insertAdjacentHTML('beforeend', `<h2>${title} <small>${sub}</small></h2><div class="row"></div>`);
+  const row = boards.lastElementChild;
+  for (const [f, what] of keys) {
+    row.insertAdjacentHTML('beforeend', `<figure><div class="card"><span class="arch"></span><span class="art"><canvas></canvas></span><span class="tag">ANY HAND</span></div><figcaption><b>кадр ${f}</b> · ${what}</figcaption></figure>`);
+    const canvas = row.lastElementChild.querySelector('canvas');
+    size(canvas, 192);
+    const on = ev ? { [ev]: { t0: START, dir: 1 } } : {};
+    stepped(canvas, on)(ev ? START + (f - 1) / 24 : (f - 1) / 24);
+  }
+}
+
+// The live card: breath always, events on the buttons.
+const live = document.querySelector('#live canvas');
+size(live, 520);
+const on = {};
+const puppet = createPuppet(live, C, images, (t) => C.pose(t, on));
+const t0 = performance.now();
+const loop = (now) => {
+  const t = (now - t0) / 1000;
+  for (const [name, [, , len]] of Object.entries(C.events)) if (on[name] && t - on[name].t0 > len) delete on[name];
+  puppet.draw(t);
+  requestAnimationFrame(loop);
+};
+requestAnimationFrame(loop);
+document.querySelectorAll('button[data-ev]').forEach((b) => b.addEventListener('click', () => {
+  on[b.dataset.ev] = { t0: (performance.now() - t0) / 1000, dir: Math.random() < 0.5 ? -1 : 1 };
+}));
+
+// A clip for the owner's phone: a scripted sequence on the card, rendered frame by frame (window.clip(fps) -> data URLs).
+const arch = await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.src = '../../assets/ui/card-arch.svg'; });
+window.clip = (fps = 60) => {
+  const canvas = document.createElement('canvas');
+  size(canvas, 510); // the art box of a 640 px card
+  const card = document.createElement('canvas');
+  card.width = card.height = 640;
+  const cx = card.getContext('2d');
+  const paint = () => {
+    cx.clearRect(0, 0, 640, 640);
+    cx.fillStyle = '#ffeedb';
+    cx.beginPath();
+    cx.roundRect(0, 0, 640, 640, 151);
+    cx.fill();
+    cx.drawImage(arch, 0.0463 * 640, 0.0833 * 640, 0.9074 * 640, 0.6944 * 640);
+    cx.drawImage(canvas, 0.0926 * 640, 0.037 * 640 + 0.7963 * 640 - canvas.height);
+    cx.fillStyle = '#000';
+    cx.font = '700 60px Basteleur';
+    cx.textAlign = 'center';
+    cx.fillText('ANY HAND', 320, 640 - 0.0463 * 640 - 8);
+  };
+  const plan = [['glance', 0.8, 1], ['blink', 2.4], ['glance', 3.2, -1], ['duck', 4.8], ['blink', 6.9]];
+  const evOn = {};
+  const p = createPuppet(canvas, C, images, (t) => C.pose(t, evOn));
+  const frames = [];
+  for (let t = 0, k = 0; t <= 8; k++, t = k / 120) {
+    for (const [name, at, dir = 1] of plan) if (Math.abs(t - at) < 1e-6 || (t > at && !evOn[name] && t - at < 1 / 120)) evOn[name] = { t0: at, dir };
+    for (const [name, [, , len]] of Object.entries(C.events)) if (evOn[name] && t - evOn[name].t0 > len) delete evOn[name];
+    p.draw(t);
+    if (k % (120 / fps) === 0) { paint(); frames.push(card.toDataURL('image/png')); }
+  }
+  return frames;
+};
+window.ready = true;
+</script>
+</body>
+</html>

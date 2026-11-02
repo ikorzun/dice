@@ -26,6 +26,7 @@ import {
   playHand as autoPlayHand, currentHand as autoCurrentHand, hintFor as autoHintFor, markHintUsed as autoMarkHintUsed,
   diceCells as autoDiceCells, canReroll as autoCanReroll, snapshotGame as autoSnapshot, restoreGame as autoRestore,
   isDie as autoIsDie, heldCount as autoHeldCount, rerollTargets as autoRerollTargets, heldHand as autoHeldHand,
+  carryOver as autoCarryOver, BANK,
 } from '../engine/auto.js';
 import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from '../engine/levels.js';
 import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
@@ -33,6 +34,7 @@ import { generateAdaptiveLevel, skillFrom, skillSample, recipeById, ADAPT3_VERSI
 import { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } from './dice3d.js';
 import { createFire } from './fire.js';
 import { SOUNDS, setupSound, setSound, sfx } from './sound.js';
+import { setupPuppets, animateArt } from './puppets.js';
 
 const APP_VERSION = '0.2.0';
 const STORAGE_KEY = 'dice-snake.v2';
@@ -261,24 +263,25 @@ const MODES = {
     defaultSettings: { settingsVersion: 1, maxHolds: null, scoreTable: 'pips', autoBonusOnFinalHand: false, pathMode: false, hands: 3, rerolls: 3 },
     gameConfig: (st) => ({ hands: st.hands, rerolls: st.rerolls }),
     // the next layout follows how this run's levels went (hidden from the player)
-    generate: ({ runSeed, levelIndex, tier, settings, history }) => generateAdaptiveLevel({ runSeed, levelIndex, tier, history, config: MODES.auto.gameConfig(settings) }),
+    generate: ({ runSeed, levelIndex, tier, settings, history, bank }) => generateAdaptiveLevel({ runSeed, levelIndex, tier, history, bank, config: MODES.auto.gameConfig(settings) }),
     scoringHtml: '<strong>Matching dice score their sum × a multiplier that grows with rarity.</strong> Pair × 2, two pairs × 3, three of a kind × 4, full house × 5, four of a kind × 6, straight × 8, five of a kind × 8. Bonus dice add up: ×2 and ×3 together make ×4.',
     difficultyText: 'Adaptive, hidden from the player: the target rises slowly by level; the next layout is picked from this run\'s scores so a level is won about 3 times in 4; far behind, some new dice copy the dice you hold.',
-    summary: (g) => ({ recipe: g.level.recipe, ratio: g.level.recipe ? skillSample(recipeById(g.level.recipe), g.score, g.hands.length) : null, skill: g.level.skill, predictedWin: g.level.predictedWin, help: g.hands.map((h) => h.help || 0) }),
+    summary: (g) => ({ recipe: g.level.recipe, ratio: g.level.recipe ? skillSample(recipeById(g.level.recipe), g.score, g.hands.length, g.level.bankLift || 1) : null, skill: g.level.skill, predictedWin: g.level.predictedWin, help: g.hands.map((h) => h.help || 0) }),
     idleCopy: (g) => `Hand ${g.hands.length + 1}/${g.hands.length + g.handsLeft} · hold to keep · reroll or play`,
     solverLine: (level) => `Best opening hand before any reroll: ${CATEGORY5_LABELS[level.openingCategory] || ''} ${level.openingBest}`,
     help: {
       lead: 'Hold what you want to keep: every die you do not hold burns when you play. Bonus dice wait on the board, switched off, until you switch one on for a hand that fits it.',
       rules: [
-        'Dice, bonus dice and blocks on a 3×3 board. Positions do not matter: PLAY scores the best poker hand among all the dice; BONES shows its points, the board does not mark its dice.',
+        'Dice, bonus dice and blocks on a 3×3 board. Positions do not matter: PLAY scores the best poker hand among all the dice, or the one you pick: when the dice you hold make a combination, the best of them plays. The counter shows the hand and its points; the board does not mark its dice.',
         'PLAY HAND scores it. The dice of the hand and every die you did not hold burn and are replaced; held dice outside the hand stay.',
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
         'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back). They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus leaves a hole.',
         'Reach the target and the level ends at once; a level has three hands at most.',
+        'Bonuses you did not play on a won level go to the bank above the board (three places, the rest burn) and wait for the next levels of the run: tap one to switch it on like a card on the board.',
       ],
       scoreTitle: 'SCORING · THE HAND IS THE DICE OF THE COMBINATION',
       scoreRows: () => {
-        const examples = { five_kind: [5, 5, 5, 5, 5], four_kind: [4, 4, 4, 4], straight: [1, 2, 3, 4, 5], full_house: [2, 2, 5, 5, 5], three_kind: [3, 3, 3], two_pairs: [2, 2, 6, 6], pair: [6, 6] };
+        const examples = { five_kind: [5, 5, 5, 5, 5], four_kind: [4, 4, 4, 4], straight: [1, 2, 3, 4, 5], full_house: [2, 2, 5, 5, 5], three_kind: [3, 3, 3], small_straight: [1, 2, 3, 4], two_pairs: [2, 2, 6, 6], pair: [6, 6] };
         return Object.entries(examples).map(([cat, ex]) => ({
           label: CATEGORY5_LABELS[cat], example: ex, points: `sum × ${AUTO_MULT[cat]} = ${ex.reduce((s, f) => s + f, 0) * AUTO_MULT[cat]}`, odds: null,
         }));
@@ -311,6 +314,7 @@ function freshModeState(mode) {
     pendingTier: null,
     allHeldToastShown: false,
     tips: {}, // one-time Auto Hand tips already shown (new bonus kinds, saving a bonus)
+    bank: [], // Auto Hand: the bonus kinds kept from won levels for the next ones (owner, 02.11.2026)
   };
 }
 
@@ -413,6 +417,7 @@ function serializeMode(st, engine) {
     coach: st.coach,
     pendingTier: st.pendingTier,
     tips: st.tips,
+    bank: st.bank,
     game: st.game ? engine.snapshot(st.game) : null,
     log: st.log.slice(-LOG_LIMIT),
     levels: st.levels.slice(-200),
@@ -446,6 +451,7 @@ function hydrateMode(id, saved) {
   st.levels = Array.isArray(saved.levels) ? saved.levels : [];
   st.pendingTier = Number.isInteger(saved.pendingTier) ? saved.pendingTier : null;
   st.tips = saved.tips && typeof saved.tips === 'object' ? saved.tips : {};
+  st.bank = Array.isArray(saved.bank) ? saved.bank.filter((k) => BONUS_KINDS[k]).slice(0, 3) : [];
   if (saved.game) {
     try {
       st.game = mode.engine.restore(saved.game);
@@ -494,11 +500,15 @@ function startGame(level, attempt) {
   render();
   persist();
   autoTips();
+  if (st.game.bank && st.game.bank.length && attempt === 1 && !st.tips.bank) { // the first time the bank fills
+    st.tips.bank = true;
+    toast('BONUSES KEPT FROM THE LAST LEVEL · TAP ONE ABOVE THE BOARD TO USE IT', 'hint', 3600);
+  }
 }
 
 function newLevel() {
   const st = S();
-  const level = M().generate({ runSeed: st.runSeed, levelIndex: st.levelIndex, tier: st.tier, settings: st.settings, history: st.levels });
+  const level = M().generate({ runSeed: st.runSeed, levelIndex: st.levelIndex, tier: st.tier, settings: st.settings, history: st.levels, bank: st.bank });
   startGame(level, 1);
 }
 
@@ -508,6 +518,7 @@ function finishLevel() {
   const mode = M();
   const won = g.phase === 'won';
   if (won) sfx('win'); // only a real win is celebrated (digest §1, rule 27); a missed target stays quiet
+  if (won && mode.id === 'auto') st.bank = autoCarryOver(g); // the unplayed bonuses wait for the next level
   const now = Date.now();
   const summary = {
     mode: mode.id, levelIndex: g.level.levelIndex, seed: g.level.seed, tier: g.level.tier, target: g.level.target, score: g.score, won, attempt: g.attempt,
@@ -588,6 +599,7 @@ function onNext() {
     logEvent('run_end', { runSeed: st.runSeed });
     st.runSeed = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     st.levelIndex = 1;
+    st.bank = []; // the bank lives for one run
   }
   newLevel();
 }
@@ -867,6 +879,8 @@ function renderCell(i) {
   const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'hole-new', 'on-fire', 'flip'].filter((c) => cell.classList.contains(c));
   cell.className = ['cell', ...transient].join(' ');
   cell.querySelector('.x2').textContent = '×2';
+  const special = M().id === 'auto' && g.cells && g.cells[i];
+  animateArt(cell.querySelector('.art'), special && special.type === 'bonus' ? special.kind : null); // a living character
   if (M().id === 'auto' && !engine.isOrdinary(g, i)) {
     renderAutoSpecial(g, i, cell, tag);
     return;
@@ -901,10 +915,21 @@ function renderCell(i) {
   if (app.hintCells && app.hintCells.includes(i)) cell.classList.add('hint');
   if (app.coachTargets && app.coachTargets.includes(i) && k < 0) cell.classList.add('hint');
   if (k < 0 && app.safeNext && app.safeNext.includes(i)) cell.classList.add('safe-next');
-  // Auto Hand does not mark the dice of its hand (owner, 01.11.2026): finding it is the game
+  // Auto Hand does not mark the dice of its hand (owner, 01.11.2026): finding it is the game. It marks
+  // every die PLAY would burn (the hand's and each unheld one) once the player is keeping dice: a hold, or a
+  // reroll in this hand, which clears the holds (owner, 02.11.2026: so a die worth keeping gets held again)
+  if (burnsOnPlay(g, i)) cell.classList.add('burns');
   cell.style.setProperty('--die-img', `var(--face-${g.faces[i]}${g.held[i] ? '-held' : ''})`); // the rendered die, when 3D is on
   cell.style.setProperty('--die-plain', `var(--face-${g.faces[i]})`); // a burning die is not lime (owner, 01.11.2026)
   cell.setAttribute('aria-label', `Die ${g.faces[i]}${g.held[i] ? ', held' : ''}${sealed ? ', fixed' : ''}`);
+}
+
+const handKey = (g) => `${g.level.seed}/${g.attempt}/${g.hands.length}`;
+function burnsOnPlay(g, i) {
+  const h = app.autoHand;
+  if (M().id !== 'auto' || !h || g.phase !== 'playing' || app.busy) return false;
+  if (!g.held.some(Boolean) && app.rolledFor !== handKey(g)) return false;
+  return !g.held[i] || h.cells.includes(i);
 }
 
 // Auto Hand: bonus dice (a character or a ×3 label; red once on), blocks and the holes used bonuses leave.
@@ -1086,11 +1111,38 @@ function render() {
   coachRender();
   for (let i = 0; i < 9; i++) renderCell(i);
   renderHud();
+  renderBank();
   if (M().id === 'auto') renderCounter();
   renderControls();
   renderPath();
   renderPreview();
   renderHeldFire();
+}
+
+// The bonus bank above the board (owner, 02.11.2026): the bonuses this level started with from earlier
+// won levels, not played yet; a tap switches one on or off like a card on the board. Cards new to the row
+// slide in.
+function renderBank() {
+  const box = $('bank');
+  const g = S().game;
+  const bank = M().id === 'auto' && g && g.bank ? g.bank : [];
+  const h = app.autoHand;
+  const shown = new Set();
+  bank.forEach((b, k) => {
+    if (b.used) return;
+    shown.add(String(k));
+    let el = box.querySelector(`.cell[data-k="${k}"]`);
+    if (!el || el.dataset.kind !== b.kind) {
+      el?.remove();
+      box.insertAdjacentHTML('beforeend', guideTile(b.kind, false).replace('<span class="cell ', `<span role="button" tabindex="0" data-k="${k}" data-kind="${b.kind}" class="new cell `));
+      el = box.lastElementChild;
+    }
+    el.classList.toggle('on', !b.off);
+    el.classList.toggle('off', b.off);
+    el.classList.toggle('armed', !!h && h.bonusCells.includes(BANK + k));
+    el.setAttribute('aria-label', `${BONUS_KINDS[b.kind].symbol} ${BONUS_KINDS[b.kind].label} from the bank, ${b.off ? 'off, tap to switch on' : 'on'}`);
+  });
+  for (const el of [...box.children]) if (!shown.has(el.dataset.k)) el.remove();
 }
 
 // A strong hand burns as soon as the player holds it (owner, 01.11.2026): the held dice of a four of a
@@ -1294,7 +1346,7 @@ function armBonus(source, cell) {
   if (!r.ok) { toast(r.message, 'bad'); return; }
   st.game = r.state;
   haptic(10);
-  sfx(st.game.off && st.game.off[cell] ? 'off' : 'on');
+  sfx((cell >= BANK ? st.game.bank[cell - BANK].off : st.game.off && st.game.off[cell]) ? 'off' : 'on');
   logEvent('bonus', { armed: r.armed, off: r.off, cell, source });
   render();
   persist();
@@ -1385,6 +1437,7 @@ function showBonusSheet(kind) {
   S().tips[`sheet:${kind}`] = true;
   app.sheetAt = performance.now(); // the finger that opened it lifts over the backdrop: that is not a close
   $('bonusSheetTile').innerHTML = guideTile(kind, true);
+  animateTiles($('bonusSheetTile'));
   $('bonusSheetName').textContent = BONUS_KINDS[kind].label; // the multiplier is on the card's sticker
   $('bonusSheetWhat').textContent = BONUS_WHAT[kind];
   $('bonusSheet').hidden = false;
@@ -1444,6 +1497,7 @@ async function doReroll(source) {
   const r = E().reroll(g, () => st.rerollRng.die());
   if (!r.ok) { toast(r.message, 'bad'); return; }
   st.game = r.state;
+  app.rolledFor = handKey(st.game);
   logEvent('reroll', { source, rolled: r.rolled, held: [0, 1, 2, 3, 4, 5, 6, 7, 8].filter((i) => g.held[i]), left: st.game.rerollsLeft });
   persist(); // the spent reroll and the new faces survive a reload during the animation
   app.busy = true;
@@ -1543,12 +1597,14 @@ async function attemptBank(path, source) {
     showReveal(hand, { remaining: g.level.target - g.score });
   }
   // Auto Hand also burns the bonus dice the hand used (they pop with it) and every unheld die
-  // outside the hand (those fade out); the other modes pop only the hand.
-  const popped = r.holes ? [...hand.cells, ...r.holes] : hand.cells;
-  const faded = r.burned ? r.burned.filter((i) => !hand.cells.includes(i)) : [];
+  // outside the hand (those fade out); the other modes pop only the hand. With the 3D dice the burnt
+  // dice are thrown anew in place like a reroll (owner, 02.11.2026): only the used cards pop.
+  const throw3d = mode.id === 'auto' && mode.refill && r.refilled && r.refilled.length > 0 && app.dice3d && !reduceMotion && dice3dStatus() === 'ready';
+  const popped = throw3d ? r.holes || [] : r.holes ? [...hand.cells, ...r.holes] : hand.cells;
+  const faded = throw3d ? [] : r.burned ? r.burned.filter((i) => !hand.cells.includes(i)) : [];
   popped.forEach((i) => els.cells[i].classList.add('bank-pop'));
   faded.forEach((i) => els.cells[i].classList.add('burn'));
-  sfx('burn');
+  if (!throw3d) sfx('burn');
   renderHud();
   if (mode.id === 'auto' && !bonusScreen) countUp($('target'), remaining(g.score, g), remaining(st.game.score, g), 250);
   renderControls();
@@ -1564,7 +1620,25 @@ async function attemptBank(path, source) {
   popped.forEach((i) => els.cells[i].classList.remove('bank-pop'));
   faded.forEach((i) => els.cells[i].classList.remove('burn'));
   if (!stillCurrent(st, modeId)) { app.busy = false; return; }
-  if (mode.refill && r.refilled && r.refilled.length) {
+  if (throw3d) {
+    r.refilled.forEach((i) => els.cells[i].classList.add('hidden3d'));
+    render(); // the new board under the throw, drawn from the old faces until each die turns
+    if (r.holes && r.holes.length) flashCells(r.holes, 'hole-new', 700);
+    sfx('roll');
+    await rollDice3D({
+      board: els.board,
+      cells: els.cells,
+      dice: r.refilled.map((i) => ({ index: i, from: g.faces[i], value: st.game.faces[i] })),
+      colors: lookColors(),
+      rng: createRng(`${st.game.level.seed}/play/${st.game.hands.length}/${st.game.attempt}`),
+      onLanded: () => { if (stillCurrent(st, modeId)) render(); },
+    }).catch(() => false);
+    r.refilled.forEach((i) => els.cells[i].classList.remove('hidden3d'));
+    if (st.game.phase === 'playing') {
+      const stays = E().remainingCells(st.game).filter((i) => !r.refilled.includes(i));
+      flashCells(stays, 'stays', 700);
+    }
+  } else if (mode.refill && r.refilled && r.refilled.length) {
     render();
     if (r.holes && r.holes.length) flashCells(r.holes, 'hole-new', 700);
     r.refilled.forEach((i, k) => {
@@ -1757,13 +1831,14 @@ function onPointerCancel(e) {
 }
 
 // ---------- first screen, guide, settings / data ----------
-// The title (DICE TWICE, owner 01.11.2026) and three short pages, combinations first (owner): a line
+// The title (DICEFOOL, owner 02.11.2026; DICE TWICE before) and three short pages, combinations first (owner): a line
 // of words next to a picture of the game on each (digest §3: no wall of text before play, dice drawn as
 // pips). The Bible opens the same pages without the title, with every bonus and a link to the settings.
-const GUIDE_COMBOS = [['pair', [6, 6]], ['two_pairs', [2, 2, 6, 6]], ['three_kind', [3, 3, 3]], ['full_house', [2, 2, 5, 5, 5]], ['four_kind', [4, 4, 4, 4]], ['straight', [1, 2, 3, 4, 5]], ['five_kind', [5, 5, 5, 5, 5]]];
+const GUIDE_COMBOS = [['pair', [6, 6]], ['two_pairs', [2, 2, 6, 6]], ['small_straight', [1, 2, 3, 4]], ['three_kind', [3, 3, 3]], ['full_house', [2, 2, 5, 5, 5]], ['four_kind', [4, 4, 4, 4]], ['straight', [1, 2, 3, 4, 5]], ['five_kind', [5, 5, 5, 5, 5]]];
 const GUIDE_BONUSES = { x2_any: 'ANY HAND', x3_straight: 'STRAIGHT', x3_pairs: 'PAIR, TWO PAIRS', x3_trips: 'TRIPS, FULL HOUSE', joker: 'ANY FACE', refund: 'A REROLL BACK' };
 const guideDie = (v, held) => `<i class="gdie" style="--f: var(--face-${v}${held ? '-held' : ''})"></i>`; // the baked faces
-const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="arch"></span><span class="art"></span><span class="tag">${cardLabel(kind)}</span><span class="x2">${cardSticker(kind)}</span></span>`; // a card face up
+const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="arch"></span><span class="art" data-kind="${kind}"></span><span class="tag">${cardLabel(kind)}</span><span class="x2">${cardSticker(kind)}</span></span>`; // a card face up
+const animateTiles = (root) => root.querySelectorAll('.art[data-kind]').forEach((art) => animateArt(art, art.dataset.kind)); // their characters live too
 
 function openGuide(mode) {
   const guide = $('guide');
@@ -1773,6 +1848,7 @@ function openGuide(mode) {
   $('bonusPic').innerHTML = help
     ? `<ul class="bonus-list">${Object.keys(GUIDE_BONUSES).map((k) => `<li>${guideTile(k, false)}<small>${GUIDE_BONUSES[k]}</small></li>`).join('')}</ul>`
     : `<span class="tap">${guideTile('x2_any', false)}</span><span class="goal"><small>THRESHOLD</small><b>340</b><small>IN 3 HANDS</small></span>`;
+  animateTiles($('bonusPic'));
   $('bonusNote').textContent = help ? 'TAP TO SWITCH ON · THEY ADD UP' : '25 LEVELS IN A RUN';
   app.guide = { mode, page: help ? 1 : 0 };
   guide.classList.toggle('help', help);
@@ -1969,6 +2045,10 @@ function bind() {
   $('lookBtn').addEventListener('click', cycleLook);
   $('optLook').addEventListener('change', () => setLook($('optLook').value));
   $('optDice3d').addEventListener('change', () => setDice3D($('optDice3d').checked));
+  $('bank').addEventListener('click', (e) => {
+    const card = e.target.closest('.cell[data-k]');
+    if (card) armBonus('bank', BANK + Number(card.dataset.k));
+  });
   $('optSound').addEventListener('change', () => {
     setSound($('optSound').checked);
     try { localStorage.setItem(SOUND_KEY, $('optSound').checked ? '1' : '0'); } catch { /* ignore */ }
@@ -2052,6 +2132,7 @@ function init() {
   $('optSound').checked = soundOn;
   const sounds = Object.fromEntries(SOUNDS.map((n) => [n, cssUrl(`--sfx-${n}`)]));
   setupSound((n) => sounds[n], soundOn);
+  setupPuppets((character, part) => cssUrl(`--rig-${character}-${part}`));
   let d3 = true;
   try { d3 = localStorage.getItem(DICE3D_KEY) !== '0'; } catch { /* ignore */ }
   app.dice3d = d3;

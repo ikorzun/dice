@@ -27,6 +27,8 @@ const MODULES = [
   'src/ui/dice3d.js',
   'src/ui/fire.js',
   'src/ui/sound.js',
+  'src/ui/rig.js',
+  'src/ui/puppets.js',
   'src/ui/app.js',
 ];
 

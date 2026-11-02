@@ -53,10 +53,30 @@ export function percentileOf(recipe, score) {
 // the median), so one lucky hand is not blown up and an early win is not cut short. Greedy win rate
 // (docs/simulation3-adaptive.md, aim 75 %): score alone 85 %, the pace 64 %, a full typical hand 71 %,
 // 0.75 of one 74 %.
-export function skillSample(recipe, score, hands = 3) {
+export function skillSample(recipe, score, hands = 3, lift = 1) {
   const median = recipe.greedy[RECIPE_QUANTILES.indexOf(0.5)];
-  return (score + (0.75 * Math.max(0, 3 - hands) * median) / 3) / median;
+  return (score / lift + (0.75 * Math.max(0, 3 - hands) * median) / 3) / median; // the bank's part is not skill
 }
+
+// The bank's lift (owner, 02.11.2026: bonuses carried over): a banked bonus is a bonus that takes no cell,
+// as if a block of a layout became it, so its lift is the greedy median of `<d>d<b-1>x:A+B` over `<d>d<b>x:A`,
+// averaged over the recipes that have both. Banked bonuses add up like those on the board.
+const BANK_LIFT = (() => {
+  const median = (r) => r.greedy[RECIPE_QUANTILES.indexOf(0.5)];
+  const sums = {};
+  for (const r of RECIPES3) {
+    if (r.blocks < 1 || r.kinds.length > 1) continue;
+    for (const b of RECIPES3) {
+      if (b.dice !== r.dice || b.blocks !== r.blocks - 1 || b.kinds.length !== r.kinds.length + 1) continue;
+      const extra = [...b.kinds];
+      for (const k of r.kinds) extra.splice(extra.indexOf(k), 1);
+      if (extra.length !== 1 || r.kinds.some((k) => !b.kinds.includes(k))) continue;
+      (sums[extra[0]] ||= []).push(median(b) / median(r));
+    }
+  }
+  return Object.fromEntries(Object.entries(sums).map(([k, v]) => [k, v.reduce((s, x) => s + x, 0) / v.length]));
+})();
+export const bankLift = (kinds = []) => 1 + kinds.reduce((s, k) => s + Math.max(0, (BANK_LIFT[k] ?? 1) - 1), 0);
 
 // Skill after the finished auto levels of the run, oldest first. Entries carry `ratio` (the score
 // sample) and, once adaptive, `won` and `predictedWin`: wins above or below the prediction nudge
@@ -76,8 +96,8 @@ export function skillFrom(history = []) {
 
 // Averaged over a spread of the skill: a person's form varies from level to level more than the
 // bot's does, and a point estimate would over-promise near the top of the curve.
-export function winChance(recipe, target, skill) {
-  const k = Math.max(0.05, skill);
+export function winChance(recipe, target, skill, lift = 1) {
+  const k = Math.max(0.05, skill) * lift;
   return ADAPT3.form.reduce((s, m) => s + 1 - percentileOf(recipe, target / (k * m)), 0) / ADAPT3.form.length;
 }
 
@@ -92,10 +112,10 @@ export function candidates(levelIndex) {
 
 // The recipe closest to the aim; near-ties (within 0.04) are drawn by `rng` for variety, and the
 // previous level's recipe is avoided when another one is as close.
-export function chooseRecipe({ levelIndex, skill, previousId = null, rng }) {
-  if (levelIndex <= 1) return { recipe: recipeById(ADAPT3.firstRecipe), chance: winChance(recipeById(ADAPT3.firstRecipe), targetFor(1), skill) };
+export function chooseRecipe({ levelIndex, skill, previousId = null, rng, lift = 1 }) {
+  if (levelIndex <= 1) return { recipe: recipeById(ADAPT3.firstRecipe), chance: winChance(recipeById(ADAPT3.firstRecipe), targetFor(1), skill, lift) };
   const target = targetFor(levelIndex);
-  const scored = candidates(levelIndex).map((recipe) => ({ recipe, chance: winChance(recipe, target, skill) }));
+  const scored = candidates(levelIndex).map((recipe) => ({ recipe, chance: winChance(recipe, target, skill, lift) }));
   const gap = (s) => Math.abs(s.chance - ADAPT3.aim);
   const best = Math.min(...scored.map(gap));
   let near = scored.filter((s) => gap(s) <= best + 0.04);
@@ -103,12 +123,13 @@ export function chooseRecipe({ levelIndex, skill, previousId = null, rng }) {
   return near[rng.int(near.length)];
 }
 
-export function generateAdaptiveLevel({ runSeed, levelIndex, tier = 1, history = [], config = {} }) {
+export function generateAdaptiveLevel({ runSeed, levelIndex, tier = 1, history = [], config = {}, bank = [] }) {
   const seed = `${runSeed}/A${levelIndex}/adaptive`;
   const rng = createRng(seed);
   const skill = skillFrom(history);
   const previous = [...history].reverse().find((h) => h.mode === 'auto' && h.recipe);
-  const { recipe, chance } = chooseRecipe({ levelIndex, skill, previousId: previous ? previous.recipe : null, rng });
+  const lift = bankLift(bank);
+  const { recipe, chance } = chooseRecipe({ levelIndex, skill, previousId: previous ? previous.recipe : null, rng, lift });
   const layout = levelIndex <= 1 ? firstLayout() : placeLayout(shuffledCells(rng), recipe.kinds, recipe.blocks);
   const faces = layout.map((c) => (c.type === 'die' ? rng.die() : null));
   const level = {
@@ -125,6 +146,8 @@ export function generateAdaptiveLevel({ runSeed, levelIndex, tier = 1, history =
     recipe: recipe.id,
     skill,
     predictedWin: chance,
+    bank: bank.slice(), // the bonuses carried over, kinds (a retry starts with them again)
+    bankLift: lift,
     typicalHand: Math.round(recipe.greedy[RECIPE_QUANTILES.indexOf(0.5)] / 3), // help in trouble compares the need per hand with this
     generatorVersion: ADAPT3_VERSION,
   };

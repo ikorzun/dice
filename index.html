@@ -9,7 +9,7 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#000000">
-<title>Dice Twice</title>
+<title>Dicefool</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Cinzel:wght@600;800&family=Uncial+Antiqua&family=Pirata+One&family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap">
@@ -26,6 +26,7 @@
   </nav>
   <header class="hud">
     <div class="stat" id="levelHud"><span class="label">LEVEL</span><span class="value level-text">1/25</span></div>
+    <div class="bank" id="bank" aria-label="Bonus bank: bonuses kept from earlier levels"></div>
     <button class="book" id="helpBtn" type="button" aria-label="How to play"><i></i>Bible</button>
   </header>
   <div class="preview" id="preview" aria-live="polite" hidden></div>
@@ -86,7 +87,7 @@
     <button class="guide-skip" id="guideSkip" type="button">SKIP</button>
   </div>
   <div class="guide-page guide-title" data-page="0">
-    <h1 class="game-name" id="gameName">DICE <span>TWICE</span></h1>
+    <h1 class="game-name" id="gameName">DICE<span>FOOL</span></h1>
     <div class="title-art" role="img" aria-label="A skeleton knight, a grinning skull and a bird around two dice showing six"></div>
   </div>
   <div class="guide-page" data-page="1">

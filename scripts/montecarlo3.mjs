@@ -15,7 +15,7 @@ const NT = Number(args.tierLevels ?? 300);
 const SEED = String(args.seed ?? '20261031');
 const SPREAD = 8; // tier t plays level indices t … t+7: forced new kinds while ≤ 5, random kinds after
 const GOAL = { 1: 0.75, 2: 0.6625, 3: 0.575, 4: 0.4875, 5: 0.4 }; // greedy win rate per tier (owner, 31.10)
-const CATS = ['pair', 'two_pairs', 'three_kind', 'full_house', 'straight', 'four_kind', 'five_kind'];
+const CATS = ['pair', 'two_pairs', 'small_straight', 'three_kind', 'full_house', 'straight', 'four_kind', 'five_kind'];
 const KINDS = ['x2_any', 'x3_straight', 'x3_pairs', 'x3_trips', 'joker'];
 const lines = [];
 const out = (s = '') => { lines.push(s); console.log(s); };
@@ -28,8 +28,8 @@ const f1 = (x) => x.toFixed(1);
 // (printed in section G), so aiming at any category has the same first-order EV (fair odds);
 // K = 52.7 sets the mean best hand of a fresh 8-die board to the pips table's.
 const CATEGORY_FIRST = Object.freeze({
-  base: { pair: 53, two_pairs: 53, three_kind: 55, full_house: 56, straight: 85, four_kind: 89, five_kind: 229 },
-  mult: { pair: 1, two_pairs: 1, three_kind: 1, full_house: 1, straight: 1, four_kind: 1, five_kind: 1 },
+  base: { pair: 53, two_pairs: 53, small_straight: 66, three_kind: 55, full_house: 56, straight: 85, four_kind: 89, five_kind: 229 },
+  mult: { pair: 1, two_pairs: 1, small_straight: 1, three_kind: 1, full_house: 1, straight: 1, four_kind: 1, five_kind: 1 },
 });
 const EXPERIMENTS = [
   { axis: '—', name: 'rules: bonuses add up, straight ×8', hand: null },
@@ -83,6 +83,7 @@ function categoryOdds(n) {
   const has = {
     pair: (c) => c.some((x) => x >= 2),
     two_pairs: (c) => c.filter((x) => x >= 2).length >= 2,
+    small_straight: (c) => [0, 1, 2].some((lo) => [0, 1, 2, 3].every((d) => c[lo + d] > 0)),
     three_kind: (c) => c.some((x) => x >= 3),
     full_house: (c) => c.some((x, a) => x >= 3 && c.some((y, b) => b !== a && y >= 2)),
     straight: (c) => [0, 1].some((lo) => [0, 1, 2, 3, 4].every((d) => c[lo + d] > 0)),

@@ -103,9 +103,11 @@ export function pipCentres(view = 1) {
 }
 
 // Every pip as a flat disc on its face (`rings` × `segments` triangles, fine enough to follow the rounded
-// edge once wrapped), with, per vertex, the tilt that makes it a dimple: its offset from the pip's centre
-// over the radius × `slope`, to subtract from the surface normal so the far wall catches the light.
-export function pipMesh(view = 1, { rings = 6, segments = 36, slope = 0.9 } = {}) {
+// edge once wrapped), with, per vertex, the tilt that makes it a dimple, to subtract from the surface normal.
+// The dimple is a round pit (owner, 02.11.2026: the shine must follow the dent's shape): its wall leans as on
+// a sphere, flat in the middle and steep at the rim (`rim`: the sine of the wall's slope there, 72°), so the
+// pit mirrors the whole matcap and its shine curves round along the rim.
+export function pipMesh(view = 1, { rings = 10, segments = 36, rim = 0.95 } = {}) {
   const pos = [];
   const tilt = [];
   const centres = pipCentres(view);
@@ -121,7 +123,8 @@ export function pipMesh(view = 1, { rings = 6, segments = 36, slope = 0.9 } = {}
         const d = [0, 0, 0];
         d[b] = (r * ring * Math.cos(t)) / rings;
         d[c] = (r * ring * Math.sin(t)) / rings;
-        return [p.map((v, i) => v + d[i]), d.map((v) => (slope * v) / r)];
+        const sin = (rim * ring) / rings;
+        return [p.map((v, i) => v + d[i]), d.map((v) => (rim * v) / r / Math.sqrt(1 - sin * sin))];
       };
       const push = (v0, v1, v2) => (out ? [v0, v1, v2] : [v0, v2, v1]).forEach(([p, d]) => { pos.push(...p); tilt.push(...d); });
       for (let k = 0; k < segments; k++) {

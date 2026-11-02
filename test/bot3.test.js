@@ -5,7 +5,7 @@ import { generateAutoLevel } from '../src/engine/levels3.js';
 import { createAutoGame, currentHand, playHand, diceCells } from '../src/engine/auto.js';
 import { createRng } from '../src/engine/rng.js';
 
-const SIZE = { pair: 2, two_pairs: 4, three_kind: 3, four_kind: 4, full_house: 5, straight: 5, five_kind: 5 };
+const SIZE = { pair: 2, two_pairs: 4, small_straight: 4, three_kind: 3, four_kind: 4, full_house: 5, straight: 5, five_kind: 5 };
 const levelsFor = (tier, n) => Array.from({ length: n }, (_, i) => generateAutoLevel({ runSeed: `bot3/t${tier}/r${i}`, levelIndex: tier + (i % 8), tier }));
 
 test('auto bots play legal levels: up to three hands (the target ends it), hands of the right size, used bonuses become holes', () => {
@@ -73,6 +73,6 @@ test('exact hold EVs reproduce the 8-dice enumeration of RESEARCH-BALATRO §5.2 
   assert.equal(expectedBest([6, 6], 6, pips).toFixed(1), '123.2');
   assert.equal(expectedBest([2, 3, 4, 5], 4, pips).toFixed(1), '94.1');
   assert.equal(expectedBest([2, 3, 4, 5], 4, { hand: { straightMult: 8 } }).toFixed(1), '135.1');
-  assert.equal(expectedBest([3, 4, 5, 6], 4, { hand: { straightMult: 10 } }).toFixed(1), '150.0');
+  assert.equal(expectedBest([3, 4, 5, 6], 4, { hand: { straightMult: 10 } }).toFixed(1), '150.2'); // 150.0 there, before the small straight
   assert.equal(expectedBest([2, 3, 4, 5], 4).toFixed(1), '135.1'); // the rules now: straight ×8
 });

@@ -90,17 +90,18 @@ test('help in trouble: refills may copy the largest held group when far behind; 
   const layout = Array.from({ length: 9 }, () => ({ type: 'die' }));
   const faces = [6, 6, 1, 2, 3, 3, 5, 4, 4];
   const level = { seed: 'h', levelIndex: 9, tier: 1, layout, faces, target: 5000, hands: 3, rerolls: 3, typicalHand: 100 };
-  // the best hand is the straight 2-3-4-5-6; the held pair of 4s stays and is the favoured face
+  // the best hand is the straight 2-3-4-5-6 with the other 4; the held 4 stays and is the favoured face
+  // (one die: a held pair would be a combination, and the player's hand)
   let g = createAutoGame(level);
-  g = toggleHold(toggleHold(g, 7).state, 8).state;
+  g = toggleHold(g, 7).state;
   const r = playHand(g, seq([1]));
   assert.equal(r.hand.help, 2);
   assert.ok(r.burned.every((i) => r.state.faces[i] === 4)); // every coin came up 1, so every refill copied the 4
   const r2 = playHand(createAutoGame(level), seq([1]));
   assert.equal(r2.hand.help, 0); // nothing held: nothing to aim at
   const { typicalHand, ...tierLevel } = level;
-  assert.equal(playHand(toggleHold(toggleHold(createAutoGame(tierLevel), 7).state, 8).state, seq([1])).hand.help, 0);
-  const easy = playHand(toggleHold(toggleHold(createAutoGame({ ...level, target: 100 }), 7).state, 8).state, seq([1]));
+  assert.equal(playHand(toggleHold(createAutoGame(tierLevel), 7).state, seq([1])).hand.help, 0);
+  const easy = playHand(toggleHold(createAutoGame({ ...level, target: 100 }), 7).state, seq([1]));
   assert.equal(easy.hand.help, 0); // not behind
   assert.ok(diceCells(easy.state).length === 9);
 });

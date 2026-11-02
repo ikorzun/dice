@@ -65,7 +65,7 @@ for (const vp of viewports) {
   // the first visit: the title, then three pages, combinations first; no page scrolls
   if (!(await page.$eval('#guide', (el) => !el.hidden))) note(vp, 'the first screen is not shown on the first visit');
   const name = await page.$eval('#gameName', (e) => e.textContent.replace(/\s+/g, ' ').trim());
-  if (name !== 'DICE TWICE') note(vp, `title: ${name}`);
+  if (name !== 'DICEFOOL') note(vp, `title: ${name}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-0-title.png` });
   for (let n = 1; n <= 3; n++) {
     await page.click('#guideNext');

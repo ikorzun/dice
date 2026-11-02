@@ -19,6 +19,7 @@ const SEGMENTS = 32;   // per cube edge: ~8 steps across each rounded band, smoo
 const CAM_DIST = 9;    // camera height above the die centre, in half-sides
 const BLEED = 1.5;     // viewport side ÷ die side: room for the corners of a tumbling die
 const FADE_MS = 100;   // the landed canvas fades out over the DOM die
+const PIP_SHINE = '#737373'; // the pips' metal shine at about half its matcap (owner, 02.11.2026: too aggressive)
 // Lift of the cell (a tumbling cube already looks bigger, so it rises only 6%): crouch, rise, fall
 // onto the board by the edge touch and stay down; one short squash as the face snaps flat.
 const LIFT = [
@@ -95,6 +96,10 @@ function modelGeometries() {
   // follow the curve near the edges, pressed in: their normals lean like a bowl's under the matcap.
   const { positions: flat, dimple } = pipMesh(silhouette() * (CAM_DIST - 1));
   const normals = new Float32Array(flat.length);
+  const axis = new Float32Array(flat.length); // each pip's face, from the flat disc before it is wrapped
+  for (let i = 0; i < flat.length; i += 3) {
+    for (let k = 0; k < 3; k++) axis[i + k] = Math.abs(flat[i + k]) > 0.999 ? Math.sign(flat[i + k]) : 0;
+  }
   roundOnto(flat, ROUND_R + 0.002, normals);
   const surf = normals.slice(); // the surface's own normal, for hidePeeking
   for (let i = 0; i < normals.length; i += 3) {
@@ -106,6 +111,7 @@ function modelGeometries() {
   pips.setAttribute('position', new THREE.BufferAttribute(flat, 3));
   pips.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
   pips.setAttribute('surf', new THREE.BufferAttribute(surf, 3));
+  pips.setAttribute('faceAxis', new THREE.BufferAttribute(axis, 3));
   geometries = { body, pips };
   return geometries;
 }
@@ -123,17 +129,18 @@ function silhouette() {
 }
 
 // The mockup's pips run onto the rounded band, so a side face's pips peek over the edge of the face on top
-// and dent its outline (owner, 02.11.2026: no dents). A pip fades out where its surface turns more than
-// ~50° from the eye: a face on top keeps all of its pips (their outer parts lean ~30° at most).
+// and dent its outline (owner, 02.11.2026: no dents). Where a pip lies on the band (its surface off its
+// face's), it fades out once that surface turns more than ~50° from the eye: a face on top keeps all of its
+// pips (their outer parts lean ~30° at most), and a pip on a flat face never fades, however the die turns.
 function hidePeeking(mat) {
   mat.transparent = true;
   mat.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec3 surf;\nvarying vec3 vSurf;\nvarying vec3 vEye;')
-      .replace('#include <project_vertex>', '#include <project_vertex>\nvSurf = normalMatrix * surf;\nvEye = -mvPosition.xyz;');
+      .replace('#include <common>', '#include <common>\nattribute vec3 surf;\nattribute vec3 faceAxis;\nvarying vec3 vSurf;\nvarying vec3 vEye;\nvarying float vBand;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvSurf = normalMatrix * surf;\nvEye = -mvPosition.xyz;\nvBand = 1.0 - dot(surf, faceAxis);');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vSurf;\nvarying vec3 vEye;')
-      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.a *= smoothstep(0.5, 0.65, dot(normalize(vSurf), normalize(vEye)));');
+      .replace('#include <common>', '#include <common>\nvarying vec3 vSurf;\nvarying vec3 vEye;\nvarying float vBand;')
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.a *= mix(1.0, smoothstep(0.5, 0.65, dot(normalize(vSurf), normalize(vEye))), smoothstep(0.002, 0.02, vBand));');
   };
 }
 
@@ -192,7 +199,7 @@ export async function rollDice3D({ board, cells, dice, colors, rng, onLanded }) 
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   renderer.setSize(width, height, false);
   bodyMat.color.set(colors.die);
-  pipMat.color.set(pipMat.userData.ink ? colors.pip : '#ffffff');
+  pipMat.color.set(pipMat.userData.ink ? colors.pip : PIP_SHINE);
 
   // the cascade: a shuffled order, not a row
   const order = dice.slice();
@@ -285,7 +292,7 @@ export function renderFaces({ colors, px = 384 }) {
   out.height = px;
   const ctx = out.getContext('2d');
   const faces = {};
-  pipMat.color.set(pipMat.userData.ink ? colors.pip : '#ffffff');
+  pipMat.color.set(pipMat.userData.ink ? colors.pip : PIP_SHINE);
   for (const [body, die] of [['', colors.die], ['k', colors.held || colors.die]]) {
     bodyMat.color.set(die);
     for (let v = 0; v <= 6; v++) { // 0: the blank face a bonus die wears

@@ -6,7 +6,9 @@
 // replaced, a used bonus leaves a hole. Held dice outside the hand stay, no longer held (owner,
 // 01.11.2026: no die stays selected after a hand).
 // A level ends as soon as the score reaches the target (owner, 01.11.2026), otherwise after its
-// three hands. Pure state transitions, same action shape as poker.js.
+// three hands. The bank (owner, 02.11.2026): bonuses not played on a won level wait in a bank of three
+// for the next levels (`level.bank`, kinds); a banked bonus is cell BANK + k, switched on and used like a
+// card on the board, and gone once played. Pure state transitions, same action shape as poker.js.
 
 import { bestHand, BONUS_KINDS } from './hands.js';
 
@@ -17,6 +19,8 @@ export const AUTO_DEFAULT_CONFIG = Object.freeze({
 });
 
 const reject = (code, message) => ({ ok: false, code, message });
+export const BANK = 100;    // the first banked bonus's cell number (the board's are 0–8)
+export const BANK_SIZE = 3; // places in the bank (owner, 02.11.2026); the rest burn
 
 // Face of the largest group (ties: the higher face), or null without dice.
 function largestGroupFace(faces) {
@@ -49,6 +53,10 @@ export function createAutoGame(level, configOverrides = {}, attempt = 1) {
     faces: level.faces.slice(),
     held: new Array(9).fill(false),
     off: cells.map((c) => c.type === 'bonus'), // bonuses start off; the player switches them on
+    bank: (level.bank || []).map((kind) => {
+      if (!BONUS_KINDS[kind]) throw new Error(`unknown bonus kind ${kind} in the bank`);
+      return { kind, off: true, used: false };
+    }),
     rerollsLeft: level.rerolls ?? config.rerolls,
     handsLeft: level.hands ?? config.hands,
     hands: [],
@@ -60,6 +68,14 @@ export function createAutoGame(level, configOverrides = {}, attempt = 1) {
 
 export const isDie = (state, i) => state.cells[i].type === 'die';
 export const isBonus = (state, i) => state.cells[i].type === 'bonus';
+const banked = (state, i) => (i >= BANK ? state.bank[i - BANK] : null);
+export const bonusKind = (state, i) => (i >= BANK ? state.bank[i - BANK].kind : state.cells[i].kind);
+// The bonuses switched on: the board's and the bank's, as bestHand takes them.
+function onBonuses(state) {
+  const board = state.cells.map((c, i) => i).filter((i) => isBonus(state, i) && !state.off[i]).map((i) => ({ cell: i, kind: state.cells[i].kind }));
+  const bank = state.bank.map((b, k) => ({ cell: BANK + k, kind: b.kind, b })).filter(({ b }) => !b.off && !b.used).map(({ cell, kind }) => ({ cell, kind }));
+  return [...board, ...bank];
+}
 export const diceCells = (state) => state.cells.map((c, i) => i).filter((i) => isDie(state, i));
 
 export function heldCount(state) {
@@ -85,7 +101,12 @@ export function toggleHold(state, i) {
 // Switches a bonus die on (it joins the hand when it fits) or back off (kept for a later hand).
 export function toggleBonus(state, i) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
-  if (!Number.isInteger(i) || !isBonus(state, i)) return reject('NOT_BONUS', 'Tap a bonus die to switch it');
+  const b = Number.isInteger(i) ? banked(state, i) : null;
+  if (b && !b.used) {
+    const bank = state.bank.map((x, k) => (k === i - BANK ? { ...x, off: !x.off } : x));
+    return { ok: true, off: bank[i - BANK].off, state: { ...state, bank, stats: bump(state, 'bonusToggles') } };
+  }
+  if (!Number.isInteger(i) || i >= BANK || !isBonus(state, i)) return reject('NOT_BONUS', 'Tap a bonus die to switch it');
   const off = state.off.slice();
   off[i] = !off[i];
   return { ok: true, off: off[i], state: { ...state, off, stats: bump(state, 'bonusToggles') } };
@@ -106,13 +127,14 @@ export function reroll(state, rollDie) {
   }
   const held = state.held.map(() => false);
   const off = state.cells.map((c, i) => (isBonus(state, i) ? true : state.off[i]));
-  return { ok: true, rolled: targets, state: { ...state, faces, held, off, rerollsLeft: state.rerollsLeft - 1, stats: bump(state, 'rerollsUsed') } };
+  const bank = state.bank.map((b) => ({ ...b, off: true }));
+  return { ok: true, rolled: targets, state: { ...state, faces, held, off, bank, rerollsLeft: state.rerollsLeft - 1, stats: bump(state, 'rerollsUsed') } };
 }
 
 // The best hand on the board with every bonus that is on, or null.
-export function currentHand(state) {
+export function boardHand(state) {
   const dice = diceCells(state).map((i) => ({ cell: i, face: state.faces[i], held: state.held[i] }));
-  const bonuses = state.cells.map((c, i) => i).filter((i) => isBonus(state, i) && !state.off[i]).map((i) => ({ cell: i, kind: state.cells[i].kind }));
+  const bonuses = onBonuses(state);
   return bestHand(dice, bonuses, state.config.handOptions ?? undefined);
 }
 
@@ -120,8 +142,14 @@ export function currentHand(state) {
 // one on fire as soon as the player holds it (owner, 01.11.2026).
 export function heldHand(state) {
   const dice = diceCells(state).filter((i) => state.held[i]).map((i) => ({ cell: i, face: state.faces[i], held: true }));
-  const bonuses = state.cells.map((c, i) => i).filter((i) => isBonus(state, i) && !state.off[i]).map((i) => ({ cell: i, kind: state.cells[i].kind }));
+  const bonuses = onBonuses(state);
   return dice.length ? bestHand(dice, bonuses, state.config.handOptions ?? undefined) : null;
+}
+
+// The hand PLAY scores (owner, 02.11.2026): the best on the board, unless the player picks another by
+// tapping its dice: when the held dice make a combination, the best of them plays.
+export function currentHand(state) {
+  return heldHand(state) || boardHand(state);
 }
 
 export function playHand(state, drawDie) {
@@ -138,7 +166,7 @@ export function playHand(state, drawDie) {
     jokerCells: best.jokerCells,
     jokerFaces: best.jokerFaces,
     bonusCells: best.bonusCells,
-    bonuses: used.map((i) => state.cells[i].kind),
+    bonuses: used.map((i) => bonusKind(state, i)),
     category: best.category,
     label: best.label,
     points: best.points,
@@ -167,33 +195,41 @@ export function playHand(state, drawDie) {
   hand.help = favored ? help : 0;
   const cells = state.cells.slice();
   const off = state.off.slice();
-  for (const i of used) {
+  const holes = used.filter((i) => i < BANK);
+  for (const i of holes) {
     cells[i] = { type: 'hole' };
     off[i] = false;
   }
+  const bank = state.bank.map((b, k) => (used.includes(BANK + k) ? { ...b, off: false, used: true } : b)); // a played one is gone
   const phase = score >= state.level.target ? 'won' : handsLeft > 0 ? 'playing' : 'lost';
   // a refund bonus in the hand gives rerolls back
-  hand.refund = used.reduce((n, i) => n + (BONUS_KINDS[state.cells[i].kind].refund || 0), 0);
+  hand.refund = used.reduce((n, i) => n + (BONUS_KINDS[bonusKind(state, i)].refund || 0), 0);
   const rerollsLeft = state.rerollsLeft + hand.refund;
   return {
     ok: true,
     hand,
     burned,
     refilled: burned,
-    holes: used,
-    state: { ...state, cells, faces, held, off, hands: [...state.hands, hand], score, handsLeft, rerollsLeft, phase },
+    holes,
+    state: { ...state, cells, faces, held, off, bank, hands: [...state.hands, hand], score, handsLeft, rerollsLeft, phase },
   };
 }
 
 export function hintFor(state) {
   if (state.phase !== 'playing') return null;
-  const best = currentHand(state);
+  const best = boardHand(state); // the hint shows the best, whatever the player holds
   if (!best) return null;
   return { cells: best.cells, hand: best, useBonus: false, projected: state.score + best.total };
 }
 
 export function markHintUsed(state) {
   return { ...state, stats: bump(state, 'hintsUsed') };
+}
+
+// The bank after a won level: the banked bonuses not played, then the board's in board order, three at most.
+export function carryOver(state) {
+  const board = state.cells.filter((c) => c.type === 'bonus').map((c) => c.kind);
+  return [...state.bank.filter((b) => !b.used).map((b) => b.kind), ...board].slice(0, BANK_SIZE);
 }
 
 export function snapshotGame(state) {
@@ -205,6 +241,7 @@ export function snapshotGame(state) {
     faces: state.faces,
     held: state.held,
     off: state.off,
+    bank: state.bank,
     rerollsLeft: state.rerollsLeft,
     handsLeft: state.handsLeft,
     hands: state.hands,
@@ -222,6 +259,7 @@ export function restoreGame(snapshot) {
     faces: snapshot.faces.slice(),
     held: snapshot.held.slice(),
     off: snapshot.off.slice(),
+    bank: (snapshot.bank || base.bank).map((b) => ({ ...b })),
     rerollsLeft: snapshot.rerollsLeft,
     handsLeft: snapshot.handsLeft,
     hands: snapshot.hands.slice(),

@@ -4,7 +4,7 @@
 // only on the multiset of faces and the kinds of the bonuses that are on, so the greedy bot
 // scores a board by its face counts and memoizes; its lookahead is exact, not sampled.
 
-import { createAutoGame, toggleHold, toggleBonus, reroll, currentHand, playHand, diceCells, isBonus } from './auto.js';
+import { createAutoGame, toggleHold, toggleBonus, reroll, currentHand, boardHand, playHand, diceCells, isBonus } from './auto.js';
 import { bestHand, BONUS_KINDS } from './hands.js';
 
 // Release unwanted holds first, then hold the rest (same shape as bot5.setHolds).
@@ -152,7 +152,8 @@ export function playGreedyBot3(level, { rng, config = {}, hand = null, margin = 
       game = r.state;
     }
     game = setBonuses(game, policy);
-    if (keep) game = setHolds(game, keep); // hold the keepers again: unheld dice burn on play
+    // hold the keepers again (unheld dice burn on play) with the best hand's dice, so the best plays
+    if (keep) game = setHolds(game, new Set([...keep, ...boardHand(game).cells]));
     if (!last && currentHand(game).total >= strong) game = setBonuses(game, () => true);
     game = play(game, rng);
   }

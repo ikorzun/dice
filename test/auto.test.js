@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { classifyExact, bestHand } from '../src/engine/hands.js';
 import {
-  createAutoGame, toggleHold, toggleBonus, reroll, currentHand, heldHand, playHand, hintFor, canReroll,
-  rerollTargets, snapshotGame, restoreGame, diceCells,
+  createAutoGame, toggleHold, toggleBonus, reroll, currentHand, boardHand, heldHand, playHand, hintFor, canReroll,
+  rerollTargets, snapshotGame, restoreGame, diceCells, carryOver, BANK,
 } from '../src/engine/auto.js';
 import { generateAutoLevel, TIERS3, MIN_DICE3, BONUS_UNLOCKS } from '../src/engine/levels3.js';
 
@@ -27,6 +27,9 @@ test('classifyExact accepts only sets where every die is part of the combination
   assert.equal(classifyExact([5, 3, 1, 2, 4]), 'straight');
   assert.equal(classifyExact([2, 3, 4, 5, 6]), 'straight');
   assert.equal(classifyExact([1, 2, 3, 4, 6]), null);
+  assert.equal(classifyExact([4, 2, 3, 1]), 'small_straight');
+  assert.equal(classifyExact([3, 6, 4, 5]), 'small_straight');
+  assert.equal(classifyExact([1, 2, 3, 5]), null);
   assert.equal(classifyExact([6, 6, 6, 1, 2]), null);
 });
 
@@ -37,8 +40,13 @@ test('the best hand ignores positions and burns only the dice of the combination
   assert.deepEqual(h.cells, [0, 2, 3, 5, 7]);
   assert.equal(h.points, 140);
   assert.equal(h.total, 140);
-  // 1 2 3 4 6 is no straight: the pair of 6s at opposite corners is the hand
-  const pair = bestHand(dice([6, 1, 2, 6, 4, 3]));
+  // 1 2 3 4 6 is no straight, but 1 2 3 4 is a small straight (10 × 3 = 30): it beats the pair of 6s (24)
+  const run = bestHand(dice([6, 1, 2, 6, 4, 3]));
+  assert.equal(run.category, 'small_straight');
+  assert.deepEqual(run.cells, [1, 2, 4, 5]);
+  assert.equal(run.points, 30);
+  // without a run of four the pair of 6s at opposite corners is the hand
+  const pair = bestHand(dice([6, 1, 2, 6, 5, 3]));
   assert.equal(pair.category, 'pair');
   assert.deepEqual(pair.cells, [0, 3]);
 });
@@ -163,7 +171,8 @@ test('the held hand is the best hand among the held dice only', () => {
   assert.equal(heldHand(g).category, 'three_kind');
   g = toggleHold(g, 3).state;
   assert.deepEqual([heldHand(g).category, heldHand(g).cells], ['four_kind', [0, 1, 2, 3]]);
-  assert.equal(currentHand(g).category, 'straight'); // the board's best hand (2-6, 160) is another one
+  assert.equal(boardHand(g).category, 'straight'); // the board's best hand (2-6, 160) is another one
+  assert.equal(currentHand(g).category, 'four_kind'); // but the player picked the four: it plays (owner, 02.11.2026)
 });
 
 test('playing burns the hand and every unheld die; held dice outside the hand stay, no longer held; the used bonus leaves a hole', () => {
@@ -225,7 +234,7 @@ test('a level ends as soon as the score reaches the target, otherwise after thre
 
 test('a board without a combination cannot be played', () => {
   const layout = [D, D, D, D, D, X, X, X, X];
-  const g = createAutoGame(level(layout, [1, 2, 3, 4, 6, null, null, null, null]));
+  const g = createAutoGame(level(layout, [1, 2, 4, 5, 6, null, null, null, null])); // no pair, no run of four
   assert.equal(currentHand(g), null);
   assert.equal(hintFor(g), null);
   assert.equal(playHand(g, seq([1])).code, 'NO_HAND');
@@ -279,4 +288,48 @@ test('levels: deterministic, at least six dice, level 1 has the ×2 in the corne
       }
     }
   }
+});
+
+test('the player picks the hand by holding its dice (owner, 02.11.2026); a held die alone keeps the best', () => {
+  // the board's best is the straight 2-6; holding the two 6s picks the pair of them instead
+  let g = createAutoGame(level([D, D, D, D, D, D, D, D, D], [6, 6, 1, 2, 3, 4, 5, 1, 1], 10000));
+  assert.equal(currentHand(g).category, 'straight');
+  g = toggleHold(toggleHold(g, 0).state, 1).state;
+  assert.deepEqual([currentHand(g).category, currentHand(g).cells], ['pair', [0, 1]]);
+  const r = playHand(g, seq([2]));
+  assert.equal(r.hand.category, 'pair');
+  assert.deepEqual(r.burned, [0, 1, 2, 3, 4, 5, 6, 7, 8]); // the pair, and every die not held
+  // one held die is no combination: the best on the board plays, and the held 1 outside it stays
+  const one = toggleHold(createAutoGame(level([D, D, D, D, D, D, D, D, D], [6, 6, 1, 2, 3, 4, 5, 1, 1], 10000)), 7).state;
+  assert.equal(currentHand(one).category, 'straight');
+  assert.ok(!playHand(one, seq([2])).burned.includes(7));
+});
+
+test('the bank (owner, 02.11.2026): a banked bonus switches on by tap, joins a hand it fits and is gone once played', () => {
+  let g = createAutoGame(level(L1, F, 10000, { bank: ['x2_any', 'x3_trips'] }));
+  const plain = currentHand(g).total; // the straight 2-6 = 20 × 8
+  assert.equal(g.bank.length, 2);
+  assert.ok(g.bank.every((b) => b.off && !b.used)); // banked bonuses start off too
+  g = toggleBonus(g, BANK).state;
+  assert.equal(currentHand(g).total, plain * 2);
+  assert.deepEqual(currentHand(g).bonusCells, [BANK]);
+  assert.equal(toggleBonus(g, BANK + 5).ok, false); // no such place
+  const rolled = reroll(g, seq([1])).state; // a reroll switches the bank off as well
+  assert.ok(rolled.bank.every((b) => b.off));
+  const r = playHand(g, seq([2]));
+  assert.deepEqual(r.hand.bonuses, ['x2_any']);
+  assert.deepEqual(r.holes, []); // a banked bonus leaves no hole on the board
+  assert.deepEqual(r.state.bank.map((b) => b.used), [true, false]);
+  assert.equal(toggleBonus(r.state, BANK).ok, false); // a played one cannot be switched again
+  const back = restoreGame(snapshotGame(r.state));
+  assert.deepEqual(back.bank, r.state.bank);
+});
+
+test('a won level carries the unplayed bonuses: the bank first, then the board in order, three at most', () => {
+  const lv = level([D, D, D, D, D, B('x3_pairs'), D, B('joker'), B('x2_any')], [6, 6, 6, 6, 1, null, 2, null, null], 10, { bank: ['x3_trips', 'refund'] });
+  let g = createAutoGame(lv);
+  g = toggleBonus(g, 8).state; // the ×2 joins the four of a kind and is used
+  const r = playHand(g, seq([3]));
+  assert.equal(r.state.phase, 'won');
+  assert.deepEqual(carryOver(r.state), ['x3_trips', 'refund', 'x3_pairs']); // the joker burns: no place left
 });

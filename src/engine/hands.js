@@ -32,6 +32,7 @@ export function classifyExact(faces) {
   if (n === 3 && shape === '3') return 'three_kind';
   if (n === 4 && shape === '4') return 'four_kind';
   if (n === 4 && shape === '22') return 'two_pairs';
+  if (n === 4 && shape === '1111' && Math.max(...faces) - Math.min(...faces) === 3) return 'small_straight'; // four in a row (owner, 02.11.2026: a rule of dice)
   if (n === 5 && shape === '5') return 'five_kind';
   if (n === 5 && shape === '32') return 'full_house';
   if (n === 5 && shape === '11111' && Math.max(...faces) - Math.min(...faces) === 4) return 'straight';
