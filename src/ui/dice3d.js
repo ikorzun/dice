@@ -15,10 +15,6 @@ const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module
 // The die is rounded like the owner's Figma mockup (26 px on a 110.4 px die, node 1296:657), in
 // half-sides: a rounded box replaces the model's own body (bevel 0.224); the pips are the mockup's too.
 const ROUND_R = (26 / 110.4) * 2;
-// The rounded band's normals lean toward their face's axis (each component to this power), so a face
-// reads flat to its rim like the mockup's while the outline keeps the mockup's corners (owner, 02.11.2026:
-// no bend at the top and bottom edges). 1: the true round.
-const FLAT_SHADE = 4;
 const SEGMENTS = 32;   // per cube edge: ~8 steps across each rounded band, smooth at 3× pixel ratio
 const CAM_DIST = 9;    // camera height above the die centre, in half-sides
 const BLEED = 1.5;     // viewport side ÷ die side: room for the corners of a tumbling die
@@ -95,17 +91,12 @@ function modelGeometries() {
   if (geometries) return geometries;
   const body = new THREE.BoxGeometry(2, 2, 2, SEGMENTS, SEGMENTS, SEGMENTS);
   roundOnto(body.attributes.position.array, ROUND_R, body.attributes.normal.array);
-  const n = body.attributes.normal.array;
-  for (let i = 0; i < n.length; i += 3) {
-    const m = [n[i], n[i + 1], n[i + 2]].map((v) => Math.sign(v) * Math.abs(v) ** FLAT_SHADE);
-    const l = Math.hypot(m[0], m[1], m[2]) || 1;
-    for (let k = 0; k < 3; k++) n[i + k] = m[k] / l;
-  }
   // The mockup's pips, sized as the camera sees the top face; flat discs 0.002 above each face that
   // follow the curve near the edges, pressed in: their normals lean like a bowl's under the matcap.
   const { positions: flat, dimple } = pipMesh(silhouette() * (CAM_DIST - 1));
   const normals = new Float32Array(flat.length);
   roundOnto(flat, ROUND_R + 0.002, normals);
+  const surf = normals.slice(); // the surface's own normal, for hidePeeking
   for (let i = 0; i < normals.length; i += 3) {
     const n = [normals[i] - dimple[i], normals[i + 1] - dimple[i + 1], normals[i + 2] - dimple[i + 2]];
     const l = Math.hypot(n[0], n[1], n[2]) || 1;
@@ -114,6 +105,7 @@ function modelGeometries() {
   const pips = new THREE.BufferGeometry();
   pips.setAttribute('position', new THREE.BufferAttribute(flat, 3));
   pips.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  pips.setAttribute('surf', new THREE.BufferAttribute(surf, 3));
   geometries = { body, pips };
   return geometries;
 }
@@ -128,6 +120,21 @@ function silhouette() {
     best = Math.max(best, (lim + ROUND_R * Math.sin(t)) / (CAM_DIST - lim - ROUND_R * Math.cos(t)));
   }
   return best;
+}
+
+// The mockup's pips run onto the rounded band, so a side face's pips peek over the edge of the face on top
+// and dent its outline (owner, 02.11.2026: no dents). A pip fades out where its surface turns more than
+// ~50° from the eye: a face on top keeps all of its pips (their outer parts lean ~30° at most).
+function hidePeeking(mat) {
+  mat.transparent = true;
+  mat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec3 surf;\nvarying vec3 vSurf;\nvarying vec3 vEye;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvSurf = normalMatrix * surf;\nvEye = -mvPosition.xyz;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vSurf;\nvarying vec3 vEye;')
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\ngl_FragColor.a *= smoothstep(0.5, 0.65, dot(normalize(vSurf), normalize(vEye)));');
+  };
 }
 
 // Built once after three.js loads, and its shaders compiled right away, so no roll ever waits for
@@ -154,6 +161,7 @@ function prepare(matcaps = {}) {
   // Unlit pips: the light would grey them, and the DOM die (and the reference) has them flat black.
   const pipMat = matcaps.pips ? new THREE.MeshMatcapMaterial({ matcap: matcaps.pips }) : new THREE.MeshBasicMaterial();
   pipMat.userData.ink = !matcaps.pips; // flat: the look's pip colour; a matcap carries its own
+  hidePeeking(pipMat);
   const model = new THREE.Group();
   model.add(new THREE.Mesh(geo.body, bodyMat), new THREE.Mesh(geo.pips, pipMat));
   scene.add(model);
