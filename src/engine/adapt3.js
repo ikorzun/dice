@@ -11,6 +11,8 @@ import { createRng } from './rng.js';
 import { RECIPES3, RECIPE_QUANTILES, RECIPES3_VERSION } from './recipes3.js';
 import { BONUS_UNLOCKS, unlockedKinds, firstLayout, shuffledCells, placeLayout } from './levels3.js';
 import { createAutoGame, currentHand } from './auto.js';
+import { UP_LIFT } from './uplift3.js';
+import { upLift } from './upgrades3.js';
 
 export const ADAPT3_VERSION = `adapt-1/${RECIPES3_VERSION}`;
 export const ADAPT3 = Object.freeze({
@@ -33,6 +35,11 @@ export function targetFor(levelIndex) {
   if (levelIndex <= EARLY_TARGETS.length) return EARLY_TARGETS[Math.max(1, levelIndex) - 1];
   return Math.min(460, 390 + 10 * (levelIndex - 6));
 }
+
+// The target a level asks for (owner, 02.11.2026: the targets grow with the upgrades): the ladder × the lift a
+// sensible upgrader has by then (UP_LIFT), to the nearest 10.
+export const expectedUpLift = (levelIndex) => UP_LIFT[Math.max(1, Math.min(levelIndex, UP_LIFT.length - 1))];
+export const levelTarget = (levelIndex) => Math.round((targetFor(levelIndex) * expectedUpLift(levelIndex)) / 10) * 10;
 
 export const recipeById = (id) => RECIPES3.find((r) => r.id === id) || null;
 
@@ -113,8 +120,8 @@ export function candidates(levelIndex) {
 // The recipe closest to the aim; near-ties (within 0.04) are drawn by `rng` for variety, and the
 // previous level's recipe is avoided when another one is as close.
 export function chooseRecipe({ levelIndex, skill, previousId = null, rng, lift = 1 }) {
-  if (levelIndex <= 1) return { recipe: recipeById(ADAPT3.firstRecipe), chance: winChance(recipeById(ADAPT3.firstRecipe), targetFor(1), skill, lift) };
-  const target = targetFor(levelIndex);
+  if (levelIndex <= 1) return { recipe: recipeById(ADAPT3.firstRecipe), chance: winChance(recipeById(ADAPT3.firstRecipe), levelTarget(1), skill, lift) };
+  const target = levelTarget(levelIndex);
   const scored = candidates(levelIndex).map((recipe) => ({ recipe, chance: winChance(recipe, target, skill, lift) }));
   const gap = (s) => Math.abs(s.chance - ADAPT3.aim);
   const best = Math.min(...scored.map(gap));
@@ -123,13 +130,16 @@ export function chooseRecipe({ levelIndex, skill, previousId = null, rng, lift =
   return near[rng.int(near.length)];
 }
 
-export function generateAdaptiveLevel({ runSeed, levelIndex, tier = 1, history = [], config = {}, bank = [] }) {
+export function generateAdaptiveLevel({ runSeed, levelIndex, tier = 1, history = [], config = {}, bank = [], ups = {} }) {
   const seed = `${runSeed}/A${levelIndex}/adaptive`;
   const rng = createRng(seed);
   const skill = skillFrom(history);
   const previous = [...history].reverse().find((h) => h.mode === 'auto' && h.recipe);
   const lift = bankLift(bank);
-  const { recipe, chance } = chooseRecipe({ levelIndex, skill, previousId: previous ? previous.recipe : null, rng, lift });
+  // the layout is chosen for the lift a sensible upgrader has by now, so a better pick of upgrades is the
+  // player's gain; the prediction and the samples use the player's own lift
+  const actual = upLift(ups);
+  const { recipe } = chooseRecipe({ levelIndex, skill, previousId: previous ? previous.recipe : null, rng, lift: lift * expectedUpLift(levelIndex) });
   const layout = levelIndex <= 1 ? firstLayout() : placeLayout(shuffledCells(rng), recipe.kinds, recipe.blocks);
   const faces = layout.map((c) => (c.type === 'die' ? rng.die() : null));
   const level = {
@@ -140,15 +150,17 @@ export function generateAdaptiveLevel({ runSeed, levelIndex, tier = 1, history =
     tier,
     layout,
     faces,
-    target: targetFor(levelIndex),
+    target: levelTarget(levelIndex),
     hands: config.hands,
     rerolls: config.rerolls,
     recipe: recipe.id,
     skill,
-    predictedWin: chance,
+    predictedWin: winChance(recipe, levelTarget(levelIndex), skill, lift * actual),
     bank: bank.slice(), // the bonuses carried over, kinds (a retry starts with them again)
     bankLift: lift,
-    typicalHand: Math.round(recipe.greedy[RECIPE_QUANTILES.indexOf(0.5)] / 3), // help in trouble compares the need per hand with this
+    ups: { ...ups }, // the run's upgrades of the combinations
+    upLift: actual,
+    typicalHand: Math.round((recipe.greedy[RECIPE_QUANTILES.indexOf(0.5)] / 3) * lift * actual), // help in trouble compares the need per hand with this
     generatorVersion: ADAPT3_VERSION,
   };
   const opening = currentHand(createAutoGame(level, config));

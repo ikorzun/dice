@@ -56,8 +56,9 @@ const better = (a, b) => {
 // 'add' (rules, owner 01.11.2026), 'multiply' (the first rule: ×2 · ×3 = ×6) or 'single' (only
 // the largest applicable bonus is used and burnt); the joker is not a multiplier and is never
 // affected. table { base, mult }: score = (category base + pip sum) × mult. straightMult:
-// multiplier of the straight (5 = the Poker 5 table).
-export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, straightMult = null } = {}) {
+// multiplier of the straight (5 = the Poker 5 table). ups { category: n }: the run's upgrades, +n to that
+// combination's multiplier (owner, 02.11.2026: after a won level the player picks one of three to upgrade).
+export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, straightMult = null, ups = null } = {}) {
   const jokers = bonuses.filter((b) => BONUS_KINDS[b.kind].wild).map((b) => b.cell);
   const mults = bonuses.filter((b) => !BONUS_KINDS[b.kind].wild);
   const multOf = straightMult ? { ...(table ? table.mult : AUTO_MULT), straight: straightMult } : table ? table.mult : AUTO_MULT;
@@ -77,7 +78,7 @@ export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, s
         const category = classifyExact(faces);
         if (!category) continue;
         const base = faces.reduce((s, f) => s + f, 0) + (table ? table.base[category] : 0);
-        const mult = multOf[category];
+        const mult = multOf[category] + ((ups && ups[category]) || 0);
         const fitting = mults.filter((b) => BONUS_KINDS[b.kind].fits(category));
         const applied = stacking === 'single' && fitting.length > 1 ? [fitting.reduce(largest)] : fitting;
         const bonusMult = stacking === 'add'

@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ADAPT3, targetFor, percentileOf, skillFrom, skillSample, winChance, candidates, generateAdaptiveLevel, recipeById,
+  ADAPT3, targetFor, levelTarget, expectedUpLift, percentileOf, skillFrom, skillSample, winChance, candidates, generateAdaptiveLevel, recipeById,
 } from '../src/engine/adapt3.js';
+import { upgradeOffer, sensiblePick, withUpgrade, upLift, UP_CATEGORIES } from '../src/engine/upgrades3.js';
 import { RECIPES3, RECIPE_QUANTILES } from '../src/engine/recipes3.js';
 import { BONUS_UNLOCKS } from '../src/engine/levels3.js';
 import { createAutoGame, toggleHold, playHand, diceCells } from '../src/engine/auto.js';
@@ -76,7 +77,8 @@ test('adaptive levels: level 1 is the fixed board, levels are deterministic, a s
   for (let s = 0; s < 20; s++) {
     const a = generateAdaptiveLevel({ runSeed: `r${s}`, levelIndex: 9, history: weak });
     assert.deepEqual(a, generateAdaptiveLevel({ runSeed: `r${s}`, levelIndex: 9, history: weak }));
-    assert.equal(a.target, targetFor(9));
+    assert.equal(a.target, levelTarget(9)); // the ladder grown by the lift a sensible upgrader has by level 9
+    assert.equal(a.target, Math.round((targetFor(9) * expectedUpLift(9)) / 10) * 10);
     assert.ok(a.layout.filter((c) => c.type === 'die').length >= 6);
     assert.ok(a.typicalHand > 0 && a.predictedWin > 0 && a.predictedWin < 1);
     createAutoGame(a);
@@ -112,13 +114,28 @@ test('a strong bot playing adaptive levels lands near the aimed win rate', () =>
   for (let run = 0; run < 12; run++) {
     const history = [];
     const rng = createRng(`aim${run}`);
+    let ups = {};
     for (let L = 1; L <= 16; L++) {
-      const level = generateAdaptiveLevel({ runSeed: `aim${run}`, levelIndex: L, history });
+      const level = generateAdaptiveLevel({ runSeed: `aim${run}`, levelIndex: L, history, ups });
       const res = playGreedyBot3(level, { rng });
-      history.push({ mode: 'auto', recipe: level.recipe, ratio: skillSample(recipeById(level.recipe), res.score), won: res.won, predictedWin: level.predictedWin });
+      history.push({ mode: 'auto', recipe: level.recipe, ratio: skillSample(recipeById(level.recipe), res.score, 3, level.upLift), won: res.won, predictedWin: level.predictedWin });
       if (L > 1) { wins += res.won ? 1 : 0; levels++; }
+      if (res.won) ups = withUpgrade(ups, sensiblePick(upgradeOffer(`aim${run}`, L))); // it upgrades sensibly
     }
   }
   const rate = wins / levels;
   assert.ok(rate > 0.6 && rate < 0.9, `greedy win rate ${rate}`);
 });
+
+test('upgrades (owner, 02.11.2026): three different combinations offered, seeded; +1 raises the multiplier and the lift', () => {
+  const offer = upgradeOffer('run-x', 4);
+  assert.equal(offer.length, 3);
+  assert.equal(new Set(offer).size, 3);
+  assert.ok(offer.every((c) => UP_CATEGORIES.includes(c)));
+  assert.deepEqual(upgradeOffer('run-x', 4), offer);
+  assert.ok(Math.abs(upLift({}) - 1) < 0.01); // no upgrades: the shares add up to one
+  assert.ok(upLift({ full_house: 1 }) > upLift({}));
+  assert.ok(sensiblePick(['pair', 'full_house', 'three_kind']) === 'full_house');
+  assert.ok(levelTarget(25) > levelTarget(10) && levelTarget(10) > levelTarget(2));
+});
+

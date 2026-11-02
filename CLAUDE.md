@@ -23,6 +23,7 @@ node scripts/montecarlo5.mjs --table=pips --out=docs/simulation5-pips.md   # Pok
 npm run sim3      # Auto Hand tiers, bots, experiments -> docs/simulation3-latest.md
 node scripts/recipes3.mjs --levels=400       # Auto Hand layout table -> src/engine/recipes3.js (generated)
 node scripts/adapt3-sim.mjs --runs=100 --out=docs/simulation3-adaptive.md  # adaptive levels check
+node scripts/upgrades3.mjs                   # combination upgrades: point shares + expected lift -> src/engine/uplift3.js (generated)
 node scripts/model-to-js.mjs                 # die model GLB -> src/ui/dice-model.js (generated)
 node scripts/bake-faces.mjs                  # die faces with their matcaps -> assets/dice/ (after any model, matcap or colour change)
 python3 scripts/audio.py sfx [name ...]      # sound effects via ElevenLabs (key in the macOS keychain) -> assets/sfx/

@@ -132,7 +132,7 @@ export function playGreedyBot3(level, { rng, config = {}, hand = null, margin = 
     let keep = null;
     while (game.rerollsLeft > 0) {
       game = setBonuses(game, policy);
-      const ctx = contextFor(onKinds(game), hand);
+      const ctx = contextFor(onKinds(game), game.level.ups ? { ...(hand || {}), ups: game.level.ups } : hand); // the run's upgrades too
       const cells = diceCells(game);
       const standing = currentHand(game).total;
       let bestMask = -1;

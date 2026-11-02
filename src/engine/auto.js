@@ -69,6 +69,8 @@ export function createAutoGame(level, configOverrides = {}, attempt = 1) {
 export const isDie = (state, i) => state.cells[i].type === 'die';
 export const isBonus = (state, i) => state.cells[i].type === 'bonus';
 const banked = (state, i) => (i >= BANK ? state.bank[i - BANK] : null);
+// The scoring options of a hand: the experiment's, with the run's upgrades of the combinations (`level.ups`).
+const handOptionsOf = (state) => (state.level.ups ? { ...(state.config.handOptions || {}), ups: state.level.ups } : state.config.handOptions ?? undefined);
 export const bonusKind = (state, i) => (i >= BANK ? state.bank[i - BANK].kind : state.cells[i].kind);
 // The bonuses switched on: the board's and the bank's, as bestHand takes them.
 function onBonuses(state) {
@@ -135,7 +137,7 @@ export function reroll(state, rollDie) {
 export function boardHand(state) {
   const dice = diceCells(state).map((i) => ({ cell: i, face: state.faces[i], held: state.held[i] }));
   const bonuses = onBonuses(state);
-  return bestHand(dice, bonuses, state.config.handOptions ?? undefined);
+  return bestHand(dice, bonuses, handOptionsOf(state));
 }
 
 // The best hand among the held dice alone (with the bonuses that are on), or null: the UI sets a strong
@@ -143,7 +145,7 @@ export function boardHand(state) {
 export function heldHand(state) {
   const dice = diceCells(state).filter((i) => state.held[i]).map((i) => ({ cell: i, face: state.faces[i], held: true }));
   const bonuses = onBonuses(state);
-  return dice.length ? bestHand(dice, bonuses, state.config.handOptions ?? undefined) : null;
+  return dice.length ? bestHand(dice, bonuses, handOptionsOf(state)) : null;
 }
 
 // The hand PLAY scores (owner, 02.11.2026): the best on the board, unless the player picks another by

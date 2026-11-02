@@ -333,3 +333,14 @@ test('a won level carries the unplayed bonuses: the bank first, then the board i
   assert.equal(r.state.phase, 'won');
   assert.deepEqual(carryOver(r.state), ['x3_trips', 'refund', 'x3_pairs']); // the joker burns: no place left
 });
+
+test('an upgrade raises its combination\'s multiplier by one (owner, 02.11.2026)', () => {
+  const faces = [6, 6, 1, 2, 5, 3, 1, 1, null];
+  const base = createAutoGame(level(L1, faces, 10000));
+  const cat = currentHand(base).category; // the full house 6 6 1 1 1: 15 × 5
+  const up = createAutoGame(level(L1, faces, 10000, { ups: { [cat]: 1 } }));
+  assert.equal(cat, 'full_house');
+  assert.equal(currentHand(up).formula, `${currentHand(base).base} × ${currentHand(base).mult + 1}`);
+  assert.equal(currentHand(up).total, currentHand(base).base * (currentHand(base).mult + 1));
+});
+

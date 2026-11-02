@@ -6,7 +6,8 @@
 // Usage: node scripts/adapt3-sim.mjs [--runs=60] [--levels=30] [--seed=adapt-1] [--out=path]
 import { writeFileSync } from 'node:fs';
 import { createRng } from '../src/engine/rng.js';
-import { generateAdaptiveLevel, skillSample, recipeById, ADAPT3, ADAPT3_VERSION, targetFor } from '../src/engine/adapt3.js';
+import { generateAdaptiveLevel, skillSample, recipeById, ADAPT3, ADAPT3_VERSION, levelTarget } from '../src/engine/adapt3.js';
+import { upgradeOffer, sensiblePick, withUpgrade } from '../src/engine/upgrades3.js';
 import { playNaiveBot3, playGreedyBot3 } from '../src/engine/bot3.js';
 import { createAutoGame, toggleBonus, playHand, isBonus } from '../src/engine/auto.js';
 
@@ -29,17 +30,18 @@ function playLazy(level, { rng }) {
   return { score: g.score, won: g.phase === 'won', state: g };
 }
 
-const PLAYERS = [['lazy (no rerolls)', playLazy], ['naive', playNaiveBot3], ['greedy', playGreedyBot3]];
+// Each player takes the sensible upgrade after a win (owner, 02.11.2026), but the last, which never upgrades.
+const PLAYERS = [['lazy (no rerolls)', playLazy, true], ['naive', playNaiveBot3, true], ['greedy', playGreedyBot3, true], ['greedy, no upgrades', playGreedyBot3, false]];
 const t0 = Date.now();
 out('# Auto Hand — adaptive generator check');
 out(`seed ${SEED} · ${RUNS} runs × ${LEVELS} levels per player · ${ADAPT3_VERSION} · aim ${pct(ADAPT3.aim)} · ${new Date().toISOString()}`);
 out();
-out(`Target ladder: ${[1, 2, 3, 5, 10, 15, 20, 30].map((l) => `L${l} ${targetFor(l)}`).join(' · ')}. Level 1 is fixed (8 dice + ×2); from level 2 the layout follows the player's skill.`);
+out(`Target ladder (grown with the expected upgrades): ${[1, 2, 3, 5, 10, 15, 20, 25].map((l) => `L${l} ${levelTarget(l)}`).join(' · ')}. Level 1 is fixed (8 dice + ×2); from level 2 the layout follows the player's skill.`);
 out();
 out('| Player | Win rate L2–10 | L11–20 | L21–30 | Mean predicted win | Final skill (mean) | Mean dice / blocks / bonuses | Hands with help | Win rate when helped |');
 out('|---|---|---|---|---|---|---|---|---|');
 const mixes = {};
-for (const [name, play] of PLAYERS) {
+for (const [name, play, upgrades] of PLAYERS) {
   const band = [[0, 0], [0, 0], [0, 0]];
   let predicted = 0;
   let levels = 0;
@@ -56,11 +58,13 @@ for (const [name, play] of PLAYERS) {
     const rng = createRng(`${SEED}/${name}/${r}`);
     const history = [];
     let skill = ADAPT3.startSkill;
+    let ups = {};
     for (let L = 1; L <= LEVELS; L++) {
-      const level = generateAdaptiveLevel({ runSeed: `${SEED}/${name}/${r}`, levelIndex: L, history, config: {} });
+      const level = generateAdaptiveLevel({ runSeed: `${SEED}/${name}/${r}`, levelIndex: L, history, config: {}, ups });
       const res = play(level, { rng });
       const recipe = recipeById(level.recipe);
-      history.push({ mode: 'auto', recipe: level.recipe, ratio: skillSample(recipe, res.score, res.state.hands.length), won: res.won, predictedWin: level.predictedWin });
+      history.push({ mode: 'auto', recipe: level.recipe, ratio: skillSample(recipe, res.score, res.state.hands.length, level.upLift), won: res.won, predictedWin: level.predictedWin });
+      if (upgrades && res.won) ups = withUpgrade(ups, sensiblePick(upgradeOffer(`${SEED}/${name}/${r}`, L)));
       skill = level.skill;
       if (L === 1) continue;
       const b = L <= 10 ? 0 : L <= 20 ? 1 : 2;

@@ -112,7 +112,7 @@ for (const vp of viewports) {
   if ((await text('#levelText')) !== '1/25') note(vp, `level text: ${await text('#levelText')}`);
   if (Number(await text('#target')) !== a.target) note(vp, 'THRESHOLD is not the target');
   if ((await text('#playBtn')) !== 'PLAY•3' || (await text('#rerollBtn')) !== 'REROLL•3') note(vp, `button labels: ${await text('#playBtn')} / ${await text('#rerollBtn')}`);
-  if (Number(await text('#bones')) !== a.hand.hand.total) note(vp, `the hand's value ${await text('#bones')} is not its total (${a.hand.hand.total})`);
+  if ((await text('#bones')) !== `${a.hand.hand.base}×${a.hand.hand.mult}`) note(vp, `the hand's value ${await text('#bones')} is not its sum × multiplier (${a.hand.hand.base}×${a.hand.hand.mult})`);
   if ((await text('#bonesLabel')) !== a.hand.hand.label) note(vp, `the label over BONES is ${await text('#bonesLabel')}, not the hand's name (${a.hand.hand.label})`);
   // under the dice: LEVEL · the hand · THRESHOLD (owner, 02.11.2026); no MULTIPLY or TOTAL column
   if (await page.$('#score') || await page.$('#multStat')) note(vp, 'a MULTIPLY or TOTAL column is back');
@@ -228,7 +228,13 @@ for (const vp of viewports) {
   if (!(await page.$eval('#coach', (el) => el.hidden))) note(vp, 'tutorial bar still visible after the level ended');
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-7-end.png` });
   console.log(`${vp.w}x${vp.h}: auto level finished with ${a.score}/${a.target} (${a.phase})`);
-  await page.click('#nextBtn');
+  if (a.phase === 'won') { // a won level offers three combinations to upgrade; the pick goes on (owner, 02.11.2026)
+    const offer = await page.$$eval('#upList .up', (els) => els.map((e) => e.dataset.cat));
+    if (offer.length !== 3 || !(await page.$eval('#nextBtn', (e) => e.hidden))) note(vp, `upgrade offer: ${offer}`);
+    await page.click('#upList .up');
+    const ups = await page.evaluate(() => window.__diceSnake.state().ups);
+    if (!ups || ups[offer[0]] !== 1) note(vp, `the pick did not upgrade ${offer[0]}: ${JSON.stringify(ups)}`);
+  } else await page.click('#nextBtn');
   await page.waitForTimeout(200);
   a = await auto();
   if ((await text('#levelText')) !== '2/25') note(vp, `level text on level 2: ${await text('#levelText')}`);

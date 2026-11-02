@@ -21,6 +21,8 @@ const MODULES = [
   'src/engine/levels5.js',
   'src/engine/levels3.js',
   'src/engine/recipes3.js',
+  'src/engine/uplift3.js',
+  'src/engine/upgrades3.js',
   'src/engine/adapt3.js',
   'src/ui/dice-model.js',
   'src/ui/dice3d-math.js',

@@ -1,18 +1,20 @@
 # Auto Hand — adaptive generator check
-seed adapt-1 · 100 runs × 30 levels per player · adapt-1/recipes-1/400 · aim 75.0% · 2026-11-02T18:38:36.313Z
+seed adapt-1 · 100 runs × 25 levels per player · adapt-1/recipes-1/400 · aim 75.0% · 2026-11-02T20:04:00.996Z
 
-Target ladder: L1 340 · L2 360 · L3 360 · L5 380 · L10 430 · L15 460 · L20 460 · L30 460. Level 1 is fixed (8 dice + ×2); from level 2 the layout follows the player's skill.
+Target ladder (grown with the expected upgrades): L1 340 · L2 370 · L3 380 · L5 430 · L10 560 · L15 680 · L20 760 · L25 840. Level 1 is fixed (8 dice + ×2); from level 2 the layout follows the player's skill.
 
 | Player | Win rate L2–10 | L11–20 | L21–30 | Mean predicted win | Final skill (mean) | Mean dice / blocks / bonuses | Hands with help | Win rate when helped |
 |---|---|---|---|---|---|---|---|---|
-| lazy (no rerolls) | 49.1% | 47.4% | 47.9% | 55.6% | 0.63 | 6.87 / 0.29 / 1.85 | 0.0% | — |
-| naive | 64.6% | 64.4% | 62.9% | 69.9% | 0.76 | 6.72 / 0.45 / 1.83 | 0.0% | — |
-| greedy | 73.6% | 74.3% | 73.5% | 74.9% | 1.01 | 6.45 / 0.85 / 1.71 | 1.4% | 12.8% |
+| lazy (no rerolls) | 48.4% | 39.7% | 35.6% | 42.7% | 0.69 | 6.83 / 0.32 / 1.85 | 0.0% | — |
+| naive | 65.1% | 63.8% | 62.2% | 66.2% | 0.83 | 6.67 / 0.52 / 1.81 | 0.0% | — |
+| greedy | 77.2% | 74.5% | 75.2% | 74.3% | 1.07 | 6.40 / 0.93 / 1.67 | 1.4% | 5.5% |
+| greedy, no upgrades | 61.0% | 28.8% | 9.4% | 33.6% | 0.97 | 6.42 / 0.89 / 1.68 | 7.4% | 3.1% |
 
 ## Layouts each player gets most (share of levels 2–30)
 
-- **lazy (no rerolls)**: 7d0x:x3_straight+x3_trips 32.2%, 7d0x:x2_any+x3_straight 9.4%, 7d0x:x3_straight+x3_pairs 6.7%, 7d0x:x3_straight+joker 4.7%, 6d1x:x3_straight+joker 3.9%, 6d1x:x2_any+x3_straight 3.8%, 7d0x:x3_straight+refund 3.8%, 7d1x:x3_straight 3.6%
-- **naive**: 7d0x:x3_straight+x3_trips 16.4%, 7d0x:x2_any+x3_straight 7.6%, 6d1x:x2_any+x3_straight 6.6%, 7d0x:x3_straight+x3_pairs 5.6%, 6d1x:x3_straight+refund 5.2%, 6d1x:x3_straight+joker 4.6%, 7d1x:x3_straight 4.2%, 7d0x:x3_straight+joker 3.8%
-- **greedy**: 6d1x:x2_any+x3_straight 9.6%, 6d1x:x3_straight+x3_pairs 8.1%, 6d1x:x3_straight+refund 6.7%, 6d2x:x3_straight 6.0%, 6d1x:x3_straight+x3_trips 4.9%, 6d2x:x3_trips 3.6%, 6d1x:x3_straight+joker 3.1%, 6d1x:x3_pairs+x3_trips 3.0%
+- **lazy (no rerolls)**: 7d0x:x3_straight+x3_trips 30.7%, 7d0x:x2_any+x3_straight 7.9%, 7d0x:x3_straight+x3_pairs 7.3%, 6d1x:x2_any+x3_straight 5.1%, 6d1x:x3_straight+joker 4.1%, 7d1x:x3_straight 4.0%, 7d0x:x3_straight+joker 4.0%, 7d0x:x3_straight+refund 4.0%
+- **naive**: 7d0x:x3_straight+x3_trips 13.4%, 6d1x:x2_any+x3_straight 7.9%, 7d0x:x2_any+x3_straight 5.7%, 6d1x:x3_straight+joker 5.7%, 6d1x:x3_straight+refund 5.2%, 7d0x:x3_straight+x3_pairs 5.0%, 6d1x:x3_straight+x3_pairs 4.3%, 7d1x:x3_straight 3.5%
+- **greedy**: 6d1x:x2_any+x3_straight 10.4%, 6d1x:x3_straight+x3_pairs 9.5%, 6d2x:x3_straight 7.3%, 6d1x:x3_straight+x3_trips 5.4%, 6d1x:x3_straight+refund 5.3%, 6d2x:x3_trips 4.2%, 6d1x:x2_any+refund 3.3%, 6d1x:x3_straight+joker 2.8%
+- **greedy, no upgrades**: 6d1x:x2_any+x3_straight 10.8%, 6d1x:x3_straight+x3_pairs 7.9%, 6d2x:x3_straight 7.2%, 6d1x:x3_straight+refund 6.3%, 6d1x:x3_straight+x3_trips 5.0%, 6d2x:x3_trips 3.8%, 6d1x:x3_pairs+x3_trips 3.1%, 6d1x:x3_straight+joker 3.0%
 
-Recipe ids: `<dice>d<blocks>x:<bonus kinds>`. Runtime: 4.4 s
+Recipe ids: `<dice>d<blocks>x:<bonus kinds>`. Runtime: 71.0 s
