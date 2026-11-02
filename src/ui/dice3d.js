@@ -9,13 +9,12 @@
 // straight above it (viewport + scissor over one canvas laid over the board). three.js loads lazily
 // from the CDN; when it is unavailable the caller keeps the CSS dice and their tumble.
 
-import { landingQuaternion, tumblePlan, tumblePose, qAxisAngle, qMul, ROLL, dimpleNormals } from './dice3d-math.js';
-import { DIE_PIPS, decodePart } from './dice-model.js';
+import { landingQuaternion, tumblePlan, tumblePose, qAxisAngle, qMul, ROLL, pipMesh } from './dice3d-math.js';
 
 const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-// The die is rounded like the owner's Figma mockup (32 px on a 125.67 px die), in half-sides: a
-// rounded box replaces the model's own body (bevel 0.224), and the model's pips are wrapped onto it.
-const ROUND_R = (32 / 125.667) * 2;
+// The die is rounded like the owner's Figma mockup (26 px on a 110.4 px die, node 1296:657), in
+// half-sides: a rounded box replaces the model's own body (bevel 0.224); the pips are the mockup's too.
+const ROUND_R = (26 / 110.4) * 2;
 const SEGMENTS = 32;   // per cube edge: ~8 steps across each rounded band, smooth at 3× pixel ratio
 const CAM_DIST = 9;    // camera height above the die centre, in half-sides
 const BLEED = 1.5;     // viewport side ÷ die side: room for the corners of a tumbling die
@@ -92,24 +91,16 @@ function modelGeometries() {
   if (geometries) return geometries;
   const body = new THREE.BoxGeometry(2, 2, 2, SEGMENTS, SEGMENTS, SEGMENTS);
   roundOnto(body.attributes.position.array, ROUND_R, body.attributes.normal.array);
-  // The model's pips are flat discs 0.002 above each face; near the edges they follow the curve.
-  // Each triangle is split in 16 first, or its long sides would cut under the rounded surface.
-  const { positions, indices } = decodePart(DIE_PIPS);
-  let tris = Array.from(indices, (i) => [positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]]);
-  for (let pass = 0; pass < 2; pass++) {
-    const split = [];
-    const mid = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2];
-    for (let t = 0; t < tris.length; t += 3) {
-      const [a, b, c] = [tris[t], tris[t + 1], tris[t + 2]];
-      const [ab, bc, ca] = [mid(a, b), mid(b, c), mid(c, a)];
-      split.push(a, ab, ca, ab, b, bc, ca, bc, c, ab, bc, ca);
-    }
-    tris = split;
-  }
-  const flat = new Float32Array(tris.flat());
+  // The mockup's pips, sized as the camera sees the top face; flat discs 0.002 above each face that
+  // follow the curve near the edges, pressed in: their normals lean like a bowl's under the matcap.
+  const { positions: flat, dimple } = pipMesh(silhouette() * (CAM_DIST - 1));
   const normals = new Float32Array(flat.length);
   roundOnto(flat, ROUND_R + 0.002, normals);
-  dimpleNormals(flat, normals); // pressed in: shaded like a bowl under a matcap
+  for (let i = 0; i < normals.length; i += 3) {
+    const n = [normals[i] - dimple[i], normals[i + 1] - dimple[i + 1], normals[i + 2] - dimple[i + 2]];
+    const l = Math.hypot(n[0], n[1], n[2]) || 1;
+    for (let k = 0; k < 3; k++) normals[i + k] = n[k] / l;
+  }
   const pips = new THREE.BufferGeometry();
   pips.setAttribute('position', new THREE.BufferAttribute(flat, 3));
   pips.setAttribute('normal', new THREE.BufferAttribute(normals, 3));

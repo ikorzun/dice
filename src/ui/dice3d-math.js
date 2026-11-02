@@ -4,7 +4,7 @@
 // its old face to its new one. World: y is up (the camera looks straight down), screen right is +x,
 // screen down is +z. Quaternions are plain { x, y, z, w }.
 
-import { MODEL_FACE_VALUES, DIE_PIPS, decodePart } from './dice-model.js';
+import { MODEL_FACE_VALUES } from './dice-model.js';
 
 // Local face axes, in the order MODEL_FACE_VALUES lists them: +x, -x, +y, -y, +z, -z.
 export const FACE_AXES = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
@@ -67,63 +67,73 @@ function quatFromBasis(X, Y, Z) {
   return { w: (m[3] - m[1]) / s, x: (m[2] + m[6]) / s, y: (m[5] + m[7]) / s, z: 0.25 * s };
 }
 
-// Pip centres of the model, per face (FACE_AXES order).
-function pipCentres() {
-  const { positions } = decodePart(DIE_PIPS);
-  return FACE_AXES.map((ax) => {
-    const a = ax.findIndex((v) => v !== 0);
-    const clusters = [];
-    for (let i = 0; i < positions.length; i += 3) {
-      const p = [positions[i], positions[i + 1], positions[i + 2]];
-      if (p[a] * ax[a] < 0.99) continue;
-      let c = clusters.find((q) => Math.hypot(q.s[0] / q.n - p[0], q.s[1] / q.n - p[1], q.s[2] / q.n - p[2]) < 0.25);
-      if (!c) { c = { s: [0, 0, 0], n: 0 }; clusters.push(c); }
-      for (let k = 0; k < 3; k++) c.s[k] += p[k];
-      c.n++;
-    }
-    return clusters.map((c) => c.s.map((v) => v / c.n));
+// The pips as the owner's mockup draws them (Figma 1296:657, 02.11.2026: a 110.4 px die, pips 24 px
+// across, the 1 28 px), as offsets in px from the face's centre (x right, y down); 55.2 px is a half-side.
+export const PIP_PX = Object.freeze({
+  1: [[0, 0]],
+  2: [[22.63, -22.63], [-22.63, 22.63]],
+  3: [[22.63, -22.63], [0, 0], [-22.63, 22.63]],
+  4: [[-22, -22], [22, -22], [-22, 22], [22, 22]],
+  5: [[-23, -23], [23, -23], [0, 0], [-23, 23], [23, 23]],
+  6: [[-22, -28], [22, -28], [-22, 0], [22, 0], [-22, 28], [22, 28]],
+});
+export const pipRadiusPx = (value) => (value === 1 ? 14 : 12);
+
+// A face's axis and its two in-plane axes.
+function faceFrame(ax) {
+  const a = ax.findIndex((v) => v !== 0);
+  const [b, c] = [0, 1, 2].filter((k) => k !== a);
+  return { a, b, c, s: ax[a] };
+}
+
+// Pip centres per face (FACE_AXES order), in half-sides on the flat face. `view` turns the mockup's px
+// into model units as the camera sees the top face (a top-face point looks a little bigger than its share
+// of the die, whose outline is its widest, lower rim).
+export function pipCentres(view = 1) {
+  return FACE_AXES.map((ax, f) => {
+    const { a, b, c, s } = faceFrame(ax);
+    return PIP_PX[MODEL_FACE_VALUES[f]].map(([x, y]) => {
+      const p = [0, 0, 0];
+      p[a] = s;
+      p[b] = (x / 55.2) * view;
+      p[c] = (y / 55.2) * view;
+      return p;
+    });
   });
 }
 
-// The pips as dimples for the light (owner, 02.11.2026: they are pressed into the die): each pip vertex's
-// normal leans toward its pip's centre like the wall of a shallow bowl, `slope` at the rim, so under a
-// matcap the wall facing the light shines and the other falls in shade. `positions` and `normals` are flat
-// xyz arrays (the pips on the rounded die and the surface normals there); normals are rewritten in place.
-// Returns the number of pips found.
-export function dimpleNormals(positions, normals, slope = 0.9) {
-  const count = positions.length / 3;
-  const clusters = [];
-  const of = new Int32Array(count);
-  const at = (a, v) => [a[3 * v], a[3 * v + 1], a[3 * v + 2]];
-  for (let v = 0; v < count; v++) {
-    const p = at(positions, v);
-    let k = clusters.findIndex((c) => Math.hypot(c.s[0] / c.n - p[0], c.s[1] / c.n - p[1], c.s[2] / c.n - p[2]) < 0.25);
-    if (k < 0) { k = clusters.length; clusters.push({ s: [0, 0, 0], n: 0, r: 0 }); }
-    for (let a = 0; a < 3; a++) clusters[k].s[a] += p[a];
-    clusters[k].n++;
-    of[v] = k;
-  }
-  // a vertex's offset from its pip's centre, in the surface's tangent plane
-  const offset = (v) => {
-    const c = clusters[of[v]];
-    const p = at(positions, v);
-    const n = at(normals, v);
-    const d = p.map((x, a) => x - c.s[a] / c.n);
-    const dn = d[0] * n[0] + d[1] * n[1] + d[2] * n[2];
-    return { d: d.map((x, a) => x - dn * n[a]), n };
-  };
-  for (let v = 0; v < count; v++) {
-    const { d } = offset(v);
-    clusters[of[v]].r = Math.max(clusters[of[v]].r, Math.hypot(d[0], d[1], d[2]));
-  }
-  for (let v = 0; v < count; v++) {
-    const { d, n } = offset(v);
-    const r = clusters[of[v]].r || 1;
-    const t = n.map((x, a) => x - (slope * d[a]) / r);
-    const l = Math.hypot(t[0], t[1], t[2]) || 1;
-    for (let a = 0; a < 3; a++) normals[3 * v + a] = t[a] / l;
-  }
-  return clusters.length;
+// Every pip as a flat disc on its face (`rings` × `segments` triangles, fine enough to follow the rounded
+// edge once wrapped), with, per vertex, the tilt that makes it a dimple: its offset from the pip's centre
+// over the radius × `slope`, to subtract from the surface normal so the far wall catches the light.
+export function pipMesh(view = 1, { rings = 6, segments = 36, slope = 0.9 } = {}) {
+  const pos = [];
+  const tilt = [];
+  const centres = pipCentres(view);
+  FACE_AXES.forEach((ax, f) => {
+    const { a, b, c, s } = faceFrame(ax);
+    const r = (pipRadiusPx(MODEL_FACE_VALUES[f]) / 55.2) * view;
+    // b × c is +a for x and z faces, -a for y faces: wind every triangle to face out of the die
+    const out = (a === 1 ? -1 : 1) * s > 0;
+    for (const centre of centres[f]) {
+      const at = (ring, k) => {
+        const t = (2 * Math.PI * k) / segments;
+        const p = centre.slice();
+        const d = [0, 0, 0];
+        d[b] = (r * ring * Math.cos(t)) / rings;
+        d[c] = (r * ring * Math.sin(t)) / rings;
+        return [p.map((v, i) => v + d[i]), d.map((v) => (slope * v) / r)];
+      };
+      const push = (v0, v1, v2) => (out ? [v0, v1, v2] : [v0, v2, v1]).forEach(([p, d]) => { pos.push(...p); tilt.push(...d); });
+      for (let k = 0; k < segments; k++) {
+        push(at(0, 0), at(1, k), at(1, k + 1));
+        for (let ring = 1; ring < rings; ring++) {
+          push(at(ring, k), at(ring + 1, k), at(ring + 1, k + 1));
+          push(at(ring, k), at(ring + 1, k + 1), at(ring, k + 1));
+        }
+      }
+    }
+  });
+  return { positions: new Float32Array(pos), dimple: new Float32Array(tilt) };
 }
 
 // The DOM grid cell (1..9) a point of the up face falls in, seen from above.

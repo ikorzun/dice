@@ -23,7 +23,7 @@
   --font-title: "Basteleur", "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
   --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --bg-layers: none; /* always pure black (owner, 02.11.2026), no gradient */
-  --die-radius: 25.5%;      /* 32 px on the mockup's 125.67 px die */
+  --die-radius: 23.55%;     /* 26 px on the mockup's 110.4 px die (Figma 1296:657) */
   --die-shadow: none;
   --frame: none;
   --panel-bg: #121212;
@@ -39,6 +39,8 @@
   --peek-x3_trips: url("../../assets/ui/bonuses/peek-x3-trips.webp");
   --peek-joker: url("../../assets/ui/bonuses/peek-joker.webp");
   --peek-refund: url("../../assets/ui/bonuses/peek-refund.webp");
+  --img-card-arch: url("../../assets/ui/card-arch.svg");   /* the bonus card's arch and back (Figma 1296:657) */
+  --img-card-back: url("../../assets/ui/card-back.webp");
   --img-joker: url("../../assets/ui/bonuses/joker.webp"); /* the joker skull (art/bonuses/out/at) */
   --img-title: url("../../assets/ui/title.webp"); /* DICE TWICE title art, art/title */
   /* the die faces with their matcaps, baked by scripts/bake-faces.mjs: the dice wear them from the first
@@ -196,10 +198,21 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 @keyframes refill { 0% { transform: translateY(-45%) scale(.55); opacity: 0; } 60% { transform: translateY(4%) scale(1.04); opacity: 1; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
 /* Auto Hand: a bonus die is a blank die like the others, its character or label on the face (owner,
    01.11.2026). Switched on, it turns lime like a held die and its character hops. Blocks are locks. */
-.cell.bonus { background: var(--face-0, var(--die)) center / 100% 100% no-repeat; color: var(--pip); display: flex; align-items: center; justify-content: center; overflow: hidden; transition: transform 110ms ease, box-shadow 110ms ease; }
+/* Bonus cards (owner, Figma 1296:657, 02.11.2026): a cream card, the bonus's character peeking over a
+   blue arch, its name and multiplier below; lime when switched on. Face down it shows the diamond back. A card
+   turns over in 2D (scaleX through 0, the back hidden at the half): no 3D layers for Safari to trip on. */
+.cell.bonus { background: #ffeedb; border: 1px solid rgba(255, 255, 255, .32); box-shadow: inset 0 0 8px rgba(255, 255, 255, .25); color: #000; display: block; overflow: hidden; transition: transform 110ms ease, box-shadow 110ms ease; }
 .cell.bonus.pressed { transform: scale(.95); }
-.cell.bonus.on { background: var(--face-0-held, var(--hold)) center / 100% 100% no-repeat; animation: bonusOn 360ms cubic-bezier(.2, .8, .3, 1.3); }
+.cell.bonus.on { background-color: var(--hold); animation: bonusOn 360ms cubic-bezier(.2, .8, .3, 1.3); }
 .cell.bonus.on .art { animation: artHop 420ms cubic-bezier(.2, .8, .3, 1.3); }
+.cell .arch, .cell .back { position: absolute; display: none; pointer-events: none; }
+.cell.bonus .arch { display: block; left: 5.45%; top: 7.27%; width: 89.09%; height: 68.18%; background: var(--img-card-arch) center / 100% 100% no-repeat; }
+.cell.bonus .back { inset: -1px; border: 1px solid #f7c685; border-radius: inherit; background: var(--img-card-back) center bottom / cover no-repeat; }
+.cell.bonus.face-down .back { display: block; }
+#board .cell.bonus.flip { animation: cardFlip 420ms ease-in-out var(--flip-delay, 0ms) both; } /* over the tutorial's pulse */
+#board .cell.bonus.flip .back { display: block; animation: cardBack 420ms step-end var(--flip-delay, 0ms) both; }
+@keyframes cardFlip { 50% { transform: scaleX(0); } }
+@keyframes cardBack { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 0; } }
 @keyframes bonusOn { 40% { transform: scale(1.07); } }
 @keyframes artHop { 35% { transform: translateY(-9%) scale(1.06, .95); } 70% { transform: translateY(2%) scale(.98, 1.03); } }
 .cell.bonus.used { border-color: var(--line-strong); color: var(--muted); box-shadow: none; animation: none; }
@@ -207,15 +220,14 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell .art { position: absolute; display: none; background: center / 100% 100% no-repeat; pointer-events: none; }
 /* The face (owner, 02.11.2026): the bonus's character peeks over the bottom edge, big, holding on to it;
    the multiplier on a badge in the corner (none for the joker) */
-.cell.bonus .art { display: block; left: 2%; right: 2%; top: 0; bottom: 0; background: var(--peek) center bottom / 100% auto no-repeat; transform-origin: 50% 100%; }
+.cell.bonus .art { display: block; left: 10%; top: 2.73%; width: 78.18%; height: 78.18%; background: var(--peek) center bottom / contain no-repeat; transform-origin: 50% 100%; }
 .cell.bonus.kind-x2_any { --peek: var(--peek-x2_any); }
 .cell.bonus.kind-x3_straight { --peek: var(--peek-x3_straight); }
 .cell.bonus.kind-x3_pairs { --peek: var(--peek-x3_pairs); }
 .cell.bonus.kind-x3_trips { --peek: var(--peek-x3_trips); }
 .cell.bonus.kind-joker { --peek: var(--peek-joker); }
 .cell.bonus.kind-refund { --peek: var(--peek-refund); }
-.cell.bonus .x2 { position: absolute; right: 5%; bottom: 5%; min-width: 36%; padding: 5% 7%; border-radius: 999px; background: var(--ink, #0d0b0f); color: var(--accent); font-size: calc(20px * var(--kb, 1)); text-align: center; }
-.cell.bonus.kind-joker .x2 { display: none; }
+
 /* steps(24, jump-none) from 0% to 100% lands on every frame of a 24-frame strip (the refund bird's action) */
 @keyframes strip { from { background-position: 0% 0; } to { background-position: 100% 0; } }
 /* Fire: the dice of a played four of a kind, five of a kind or straight burn (owner, 01.11.2026; never on
@@ -238,11 +250,11 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .face[data-value="5"] i:nth-child(1), .face[data-value="5"] i:nth-child(3), .face[data-value="5"] i:nth-child(5), .face[data-value="5"] i:nth-child(7), .face[data-value="5"] i:nth-child(9),
 .face[data-value="6"] i:nth-child(1), .face[data-value="6"] i:nth-child(3), .face[data-value="6"] i:nth-child(4), .face[data-value="6"] i:nth-child(6), .face[data-value="6"] i:nth-child(7), .face[data-value="6"] i:nth-child(9) { opacity: 1; }
 .cell .tag { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); font: 700 calc(11px * var(--kb, 1))/1 var(--font-display); letter-spacing: .16em; padding: calc(3px * var(--kb, 1)) calc(6px * var(--kb, 1)); border-radius: 4px; display: none; white-space: nowrap; }
-.cell.bonus .tag { display: block; bottom: 10%; color: var(--pip); }
+.cell.bonus .tag { display: block; bottom: 5.45%; padding: 0; color: #000; font-size: calc(13px * var(--kb, 1)); letter-spacing: -.03em; text-transform: uppercase; } /* name ×N: 12 px on the mockup's 110 px card */
 .cell.bonus .tag:empty { display: none; }
 .cell.bonus.used .tag { color: var(--muted); }
 .cell .x2 { display: none; font: 700 calc(40px * var(--kb, 1))/1 var(--font-display); letter-spacing: -.02em; }
-.cell.bonus .x2 { display: block; }
+
 .cell .order { position: absolute; top: 6%; right: 7%; width: 22px; height: 22px; border-radius: 50%; background: var(--path); color: #fff; font: 700 13px/22px var(--font-display); text-align: center; display: none; }
 .cell.in-path .order { display: block; }
 .cell.shake { animation: shake 320ms ease-in-out; }
@@ -471,21 +483,21 @@ body.wide .btn-play, body.wide .btn-dark { height: auto; width: 100%; font-size:
 .guide .cell, .sheet-up .cell { display: flex; flex: none; width: var(--tile-size, 30vmin); max-width: 140px; aspect-ratio: 1; }
 .bonus-pic .tap .cell { animation: tapOn 2.4s steps(1) infinite; }
 .bonus-pic .tap .cell .art { animation: tapHop 2.4s infinite; }
-@keyframes tapOn { 0% { background: var(--face-0, var(--die)) center / 100% 100% no-repeat; } 50% { background: var(--face-0-held, var(--hold)) center / 100% 100% no-repeat; } }
+@keyframes tapOn { 0% { background-color: #ffeedb; } 50% { background-color: var(--hold); } }
 @keyframes tapHop { 50% { transform: none; } 57% { transform: translateY(-9%) scale(1.06, .95); } 64% { transform: translateY(2%); } 70% { transform: none; } }
 .bonus-pic .goal { display: grid; gap: 4px; text-align: left; }
 .bonus-pic .goal small { font: 700 clamp(12px, 3.4vmin, 15px)/1 var(--font-display); color: var(--muted); }
 .bonus-pic .goal b { font: 700 clamp(44px, 13vmin, 64px)/1 var(--font-display); }
 .bonus-list { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(8px, 2vh, 16px) 10px; --tile-size: 22vmin; }
 .bonus-list li { display: grid; justify-items: center; gap: 6px; }
-.bonus-list .cell { max-width: 96px; }
+.bonus-list .cell { max-width: 96px; --kb: .78; }
 .bonus-list small { font: 700 clamp(11px, 3vmin, 14px)/1.1 var(--font-display); color: var(--muted); }
 
 /* The first tap on each bonus kind: a bottom sheet with the die, its name and what it does */
 .sheet-up { position: fixed; inset: 0; z-index: 30; display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, .55); animation: heroFade 200ms ease-out; }
 .sheet-card { width: min(100%, 520px); display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 14px 18px; padding: 22px 20px max(20px, env(safe-area-inset-bottom, 0px)); border-radius: 28px 28px 0 0; background: var(--tile); animation: sheetUp 260ms cubic-bezier(.2, .8, .3, 1); }
 @keyframes sheetUp { from { transform: translateY(100%); } }
-.sheet-tile { --tile-size: clamp(84px, 24vmin, 112px); }
+.sheet-tile { --tile-size: clamp(84px, 24vmin, 112px); --kb: .8; } /* the card's label fits the small card */
 .sheet-text h3 { margin: 0 0 6px; font: 700 clamp(22px, 6.4vmin, 30px)/1.05 var(--font-display); }
 .sheet-text p { margin: 0; font-size: 17px; line-height: 1.35; }
 .sheet-note { grid-column: 1 / -1; margin: 0; color: var(--muted); font: 700 13px/1.3 var(--font-display); }

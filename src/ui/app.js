@@ -748,7 +748,7 @@ function coachRender() {
     // bonus dice start off: first switch the one that fits on, then play
     index = 3;
     const b = autoIdleBonuses(g, hint.hand)[0];
-    text = `TAP ${BONUS_KINDS[g.cells[b].kind].symbol} TO SWITCH IT ON, THEN PLAY`;
+    text = cardSeen(g.cells[b].kind) ? `TAP ${BONUS_KINDS[g.cells[b].kind].symbol} TO SWITCH IT ON, THEN PLAY` : 'TAP THE CARD TO TURN IT OVER';
     targets = [b];
     ghostPath = [b];
   } else if (step === 'swipe') {
@@ -788,7 +788,7 @@ function buildBoard() {
     cell.dataset.index = String(i);
     cell.setAttribute('role', 'button');
     cell.tabIndex = 0;
-    cell.innerHTML = `<span class="art"></span><span class="face">${'<i></i>'.repeat(9)}</span><span class="x2">×2</span><span class="tag"></span><span class="order"></span>`;
+    cell.innerHTML = `<span class="arch"></span><span class="art"></span><span class="face">${'<i></i>'.repeat(9)}</span><span class="x2">×2</span><span class="tag"></span><span class="order"></span><span class="back"></span>`;
     board.appendChild(cell);
     els.cells.push(cell);
   }
@@ -859,7 +859,7 @@ function renderCell(i) {
   const order = cell.querySelector('.order');
   // Effect classes that are still mid-animation survive a re-render; 'bank-pop' is not among
   // them because it fills forwards (opacity 0) and must be dropped by the render after the bank.
-  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'hole-new', 'on-fire'].filter((c) => cell.classList.contains(c));
+  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'hole-new', 'on-fire', 'flip'].filter((c) => cell.classList.contains(c));
   cell.className = ['cell', ...transient].join(' ');
   cell.querySelector('.x2').textContent = '×2';
   if (M().id === 'auto' && !engine.isOrdinary(g, i)) {
@@ -926,9 +926,16 @@ function renderAutoSpecial(g, i, cell, tag) {
   else cell.classList.add('on');
   if (inHand) cell.classList.add('armed');
   if (app.coachTargets && app.coachTargets.includes(i)) cell.classList.add('hint');
-  cell.querySelector('.x2').textContent = kind.symbol;
-  // the character on the face says which bonus it is; the joker in the hand names its face
-  tag.textContent = joker >= 0 ? `= ${h.jokerFaces[joker]}` : '';
+  // a kind never seen lies face down until tapped; a seen one is dealt face down and turns over itself
+  const faceDown = !cardSeen(c.kind);
+  if (faceDown) cell.classList.add('face-down');
+  if (cell.dealtFor !== g.level || cell.dealtAt !== i) {
+    cell.dealtFor = g.level;
+    cell.dealtAt = i;
+    if (!faceDown) flipCard(cell, 250 + 90 * i);
+  }
+  // the card names its bonus and multiplier; the joker in the hand names its face
+  tag.textContent = joker >= 0 ? `JOKER = ${h.jokerFaces[joker]}` : cardLabel(c.kind);
   cell.setAttribute('aria-label', `${kind.symbol} ${kind.label} bonus, ${g.off[i] ? 'off, tap to switch on' : inHand ? 'on, in the hand' : 'on'}`);
 }
 
@@ -1130,7 +1137,8 @@ function autoTips() {
     st.tips[`new:${g.cells[fresh].kind}`] = true;
     // the ×2 of level 1 is taught by the board and the tutorial; later kinds get a line
     if (g.level.levelIndex > 1) {
-      toast(BONUS_INTRO[g.cells[fresh].kind], 'hint', 3200);
+      // a face-down card keeps its secret: the card and its sheet name it once it is turned over
+      toast(cardSeen(g.cells[fresh].kind) ? BONUS_INTRO[g.cells[fresh].kind] : 'NEW CARD: TAP IT TO TURN IT OVER', 'hint', 3200);
       flashCells([fresh], 'safe-hint', 1600);
     }
     persist();
@@ -1280,9 +1288,41 @@ function armBonus(source, cell) {
   logEvent('bonus', { armed: r.armed, off: r.off, cell, source });
   render();
   persist();
-  // the first tap on each kind explains it, at the moment the player reaches for it (digest §3)
-  const kind = M().id === 'auto' && g.cells[cell] && g.cells[cell].kind;
-  if (kind && !st.tips[`sheet:${kind}`]) showBonusSheet(kind);
+}
+
+// Bonus cards (owner, 02.11.2026). A kind is seen once a card of it was turned over (or, before cards, its
+// sheet was shown).
+const cardSeen = (kind) => !!(S().tips[`seen:${kind}`] || S().tips[`sheet:${kind}`]);
+const cardLabel = (kind) => (kind === 'joker' ? 'JOKER' : `${BONUS_KINDS[kind].label} ${BONUS_KINDS[kind].symbol}`);
+
+// Turns a card over (after `delay` ms): it shrinks to an edge on its back and opens on its face.
+function flipCard(cell, delay = 0) {
+  if (reduceMotion) return;
+  cell.style.setProperty('--flip-delay', `${delay}ms`);
+  cell.classList.remove('flip');
+  void cell.offsetWidth;
+  cell.classList.add('flip');
+  const done = (e) => {
+    if (e.animationName !== 'cardFlip') return;
+    cell.classList.remove('flip');
+    cell.removeEventListener('animationend', done);
+  };
+  cell.addEventListener('animationend', done);
+}
+
+// The first tap on a face-down card turns it (and every card of its kind) over; a second later its sheet
+// rises, at the moment the player reaches for it (digest §3). It switches nothing.
+function revealCard(i, { sheetAfter = 1000 } = {}) {
+  const st = S();
+  const kind = st.game.cells[i].kind;
+  st.tips[`seen:${kind}`] = true;
+  haptic(10);
+  logEvent('card', { kind, cell: i });
+  render();
+  st.game.cells.forEach((c, k) => { if (c.type === 'bonus' && c.kind === kind) flipCard(els.cells[k]); });
+  persist();
+  clearTimeout(app.sheetTimer);
+  app.sheetTimer = setTimeout(() => { if (st.game.cells[i].type === 'bonus') showBonusSheet(kind); }, sheetAfter);
 }
 
 const BONUS_WHAT = {
@@ -1313,6 +1353,7 @@ function onTap(i) {
   if (!engine.isOrdinary(g, i)) {
     if (M().id === 'auto' && g.cells[i].type !== 'bonus') return; // blocks and holes do nothing
     pressFeedback(i);
+    if (M().id === 'auto' && !cardSeen(g.cells[i].kind)) { revealCard(i); return; }
     armBonus('cell', i);
     return;
   }
@@ -1605,7 +1646,8 @@ function onPointerDown(e) {
       if (app.gesture !== gs || gs.mode !== 'pending') return;
       dropGesture(); // the gesture ends here: the sheet takes the finger, its release switches nothing
       haptic(12);
-      showBonusSheet(c.kind);
+      if (!cardSeen(c.kind)) revealCard(cell, { sheetAfter: 0 }); // a face-down card turns over with it
+      else showBonusSheet(c.kind);
     }, LONG_PRESS_MS);
   }
   if (canUseInPath(cell)) els.cells[cell].classList.add('pressed');
@@ -1670,7 +1712,7 @@ function onPointerCancel(e) {
 const GUIDE_COMBOS = [['pair', [6, 6]], ['two_pairs', [2, 2, 6, 6]], ['three_kind', [3, 3, 3]], ['full_house', [2, 2, 5, 5, 5]], ['four_kind', [4, 4, 4, 4]], ['straight', [1, 2, 3, 4, 5]], ['five_kind', [5, 5, 5, 5, 5]]];
 const GUIDE_BONUSES = { x2_any: 'ANY HAND', x3_straight: 'STRAIGHT', x3_pairs: 'PAIR, TWO PAIRS', x3_trips: 'TRIPS, FULL HOUSE', joker: 'ANY FACE', refund: 'A REROLL BACK' };
 const guideDie = (v, held) => `<i class="gdie" style="--f: var(--face-${v}${held ? '-held' : ''})"></i>`; // the baked faces
-const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="art"></span><span class="x2">${BONUS_KINDS[kind].symbol}</span><span class="tag"></span></span>`;
+const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="arch"></span><span class="art"></span><span class="tag">${cardLabel(kind)}</span></span>`; // a card face up
 
 function openGuide(mode) {
   const guide = $('guide');

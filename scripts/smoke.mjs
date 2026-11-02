@@ -146,17 +146,24 @@ for (const vp of viewports) {
   if (a.held.some(Boolean)) note(vp, `holds not cleared by the reroll: ${a.held}`);
   if (a.rerollsLeft !== 2 || a.cells[8] !== 'bonus') note(vp, `reroll: left=${a.rerollsLeft}, cell 8=${a.cells[8]}`);
   if ((await text('#rerollBtn')) !== 'REROLL•2') note(vp, `reroll label after one reroll: ${await text('#rerollBtn')}`);
-  // bonus dice start off: the tutorial asks to switch the ×2 on first, then to play
+  // bonuses are cards (owner, 02.11.2026): an unseen kind lies face down; the first tap turns it over and
+  // switches nothing, a second later its sheet rises; then the tutorial asks to switch the ×2 on
   if (!a.off[8]) note(vp, 'the ×2 does not start switched off');
-  if (!/SWITCH IT ON/.test(await text('#coachText'))) note(vp, `tutorial does not ask to switch the ×2 on: "${await text('#coachText')}"`);
+  if (!(await page.$eval('#board .cell[data-index="8"]', (e) => e.classList.contains('face-down')))) note(vp, 'the unseen ×2 card is not face down');
+  if (!/TURN IT OVER/.test(await text('#coachText'))) note(vp, `tutorial does not ask to turn the card over: "${await text('#coachText')}"`);
   await tap(page, 8);
-  if ((await auto()).off[8]) note(vp, 'tapping the bonus did not switch it on');
-  // the first tap on a kind raises its sheet, once
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(150);
+  const turning = await page.$eval('#board .cell[data-index="8"]', (e) => ({ cls: e.className, anim: getComputedStyle(e).animationName }));
+  if (/face-down/.test(turning.cls) || turning.anim !== 'cardFlip' || !(await auto()).off[8]) note(vp, `turning the card over: ${JSON.stringify(turning)}`);
+  if (!(await page.$eval('#bonusSheet', (el) => el.hidden))) note(vp, 'the sheet rose before the card had turned');
+  await page.waitForTimeout(1100);
   const sheet = await page.evaluate(() => ({ open: !document.getElementById('bonusSheet').hidden, name: document.getElementById('bonusSheetName').textContent }));
   if (!sheet.open || !/ANY HAND/.test(sheet.name)) note(vp, `bonus sheet: ${JSON.stringify(sheet)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-3b-bonus-sheet.png` });
   await page.click('#bonusSheetOk');
+  if (!/SWITCH IT ON/.test(await text('#coachText'))) note(vp, `tutorial does not ask to switch the ×2 on: "${await text('#coachText')}"`);
+  await tap(page, 8);
+  if ((await auto()).off[8]) note(vp, 'tapping the turned card did not switch it on');
   const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, sticker: document.getElementById('multSticker').textContent, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className }));
   if (!/\bon\b/.test(on.cell) || on.sticker !== 'x2' || on.shown === 'none' || !/\bon\b/.test(on.stat)) note(vp, `bonus on: ${JSON.stringify(on)}`);
   const playPulse = await page.$eval('#playBtn', (b) => b.classList.contains('pulse'));
@@ -228,7 +235,7 @@ for (const vp of viewports) {
   if ((await text('#levelText')) !== '2/25') note(vp, `level text on level 2: ${await text('#levelText')}`);
   if (a.cells.filter((t) => t === 'die').length < 6) note(vp, `level 2 has ${a.cells.filter((t) => t === 'die').length} dice`);
   const intro = await page.$eval('#toast', (t) => (t.hidden ? '' : t.textContent));
-  if (!/NEW BONUS/.test(intro)) note(vp, `level 2 does not introduce its new bonus, toast="${intro}"`);
+  if (!/NEW CARD/.test(intro)) note(vp, `level 2 does not introduce its new card, toast="${intro}"`);
   const invisible = await page.$$eval('#board .cell.die', (els) => els.filter((e) => e.classList.contains('bank-pop') || Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
   if (invisible.length) note(vp, `dice invisible after a new level: [${invisible}]`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-8-level2.png` });
