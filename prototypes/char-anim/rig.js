@@ -27,33 +27,61 @@ function local(p, pose) {
 
 const loadImage = (src) => new Promise((ok, fail) => { const im = new Image(); im.onload = () => ok(im); im.onerror = fail; im.src = src; });
 
-// def: { parts: [{ name, z, at, pivot, parent?, spring? }], swaps: [{ name, swapFor, at }] }
+// def: { parts: [{ name, z, at, pivot, parent?, spring? }], swaps: [{ name, swapFor, at }],
+// overlays: [{ name, overlayOf, at }] } — a swap replaces its part's drawing, an overlay is drawn over it
 export async function loadRig(dir, def) {
   const images = {};
-  await Promise.all([...def.parts, ...def.swaps].map(async (p) => { images[p.name] = await loadImage(`${dir}/${p.name}.webp`); }));
-  return { ...def, images, byName: Object.fromEntries(def.parts.map((p) => [p.name, p])) };
+  const extra = [...def.swaps, ...(def.overlays || [])];
+  await Promise.all([...def.parts, ...extra].map(async (p) => { images[p.name] = await loadImage(`${dir}/${p.name}.webp`); }));
+  return { ...def, images, at: Object.fromEntries(extra.map((p) => [p.name, p.at])), byName: Object.fromEntries(def.parts.map((p) => [p.name, p])) };
 }
 
 // A character on one canvas. An animation is a function of the time t (seconds since it started) that
 // returns { bones: { name: pose }, free?: { name: pose }, hide?: [name] }; `free` bones are posed in the
-// drawing's frame, unparented. `view` is the square of the drawing's frame the canvas shows.
-export function createPuppet(canvas, rig, { onTwos = false, view = { x: 0, y: 0, size: rig.size } } = {}) {
+// drawing's frame, unparented. A pose may swap the drawing (`swap`, cross-faded by `swapAlpha`) and lay
+// overlays on it (`overlays: [{ name, alpha }]`). `view` is the square of the drawing's frame shown.
+// `after: { part: (ctx, pose, rig) => {} }` draws over a part in its own frame (the bird's eyes).
+export function createPuppet(canvas, rig, { onTwos = false, view = { x: 0, y: 0, size: rig.size }, after = {} } = {}) {
   const ctx2d = canvas.getContext('2d');
   const springs = {};
   for (const p of rig.parts) if (p.spring) springs[p.name] = { off: 0, vel: 0, last: null, lastV: [0, 0], lastP: null };
   let anim = null;
   let start = 0;
   let lastT = null;
+  let shown = {}; // the bones as last drawn: a new animation blends from them
+  let from = null;
   const puppet = {
     onTwos,
-    play(fn, at = performance.now()) { anim = fn; start = at; },
+    // `blend` seconds to ease from the pose on screen into the new animation (no jump at the seam)
+    play(fn, at = performance.now(), { blend = 0.25 } = {}) {
+      from = anim ? { bones: shown, until: blend } : null;
+      anim = fn;
+      start = at;
+      lastT = null;
+    },
     draw(now) {
       if (!anim) return;
       let t = (now - start) / 1000;
       if (puppet.onTwos) t = Math.floor(t * 12) / 12; // held drawings, 12 a second
       const dt = lastT == null ? 1 / 60 : Math.min(0.05, Math.max(0, t - lastT));
       lastT = t;
-      const { bones = {}, free = {}, hide = [] } = anim(t);
+      const out = anim(t);
+      const { free = {}, hide = [] } = out;
+      let bones = out.bones || {};
+      if (from && t < from.until) {
+        const u = t / from.until;
+        const w = u * u * (3 - 2 * u);
+        const mixed = {};
+        for (const name of new Set([...Object.keys(bones), ...Object.keys(from.bones)])) {
+          const a = from.bones[name] || {};
+          const b = bones[name] || {};
+          const m = { ...b };
+          for (const [f, rest] of [['rot', 0], ['dx', 0], ['dy', 0], ['sx', 1], ['sy', 1]]) m[f] = (a[f] ?? rest) + ((b[f] ?? rest) - (a[f] ?? rest)) * w;
+          mixed[name] = m;
+        }
+        bones = mixed;
+      } else from = null;
+      shown = bones;
       const world = {};
       const order = [...rig.parts].sort((a, b) => depth(a) - depth(b));
       for (const p of order) {
@@ -89,11 +117,21 @@ export function createPuppet(canvas, rig, { onTwos = false, view = { x: 0, y: 0,
         if (hide.includes(p.name)) continue;
         const pose = free[p.name];
         const m = pose ? local(p, pose) : world[p.name];
-        const swap = (pose || bones[p.name] || {}).swap;
-        const img = swap ? rig.images[swap] : rig.images[p.name];
-        const at = swap ? rig.swaps.find((s) => s.name === swap).at : p.at;
+        const bp = pose || bones[p.name] || {};
         ctx2d.setTransform(m[0] * k, m[1] * k, m[2] * k, m[3] * k, m[4] * k + ox, m[5] * k + oy);
-        ctx2d.drawImage(img, at[0], at[1]);
+        const mix = bp.swap ? bp.swapAlpha ?? 1 : 0;
+        if (mix < 1) ctx2d.drawImage(rig.images[p.name], p.at[0], p.at[1]);
+        if (mix > 0) {
+          ctx2d.globalAlpha = mix;
+          ctx2d.drawImage(rig.images[bp.swap], rig.at[bp.swap][0], rig.at[bp.swap][1]);
+        }
+        if (after[p.name]) after[p.name](ctx2d, bp, rig);
+        for (const o of bp.overlays || []) {
+          if (o.alpha <= 0) continue;
+          ctx2d.globalAlpha = Math.min(1, o.alpha);
+          ctx2d.drawImage(rig.images[o.name], rig.at[o.name][0], rig.at[o.name][1]);
+        }
+        ctx2d.globalAlpha = 1;
       }
     },
   };

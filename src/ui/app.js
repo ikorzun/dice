@@ -927,9 +927,8 @@ function renderAutoSpecial(g, i, cell, tag) {
   if (inHand) cell.classList.add('armed');
   if (app.coachTargets && app.coachTargets.includes(i)) cell.classList.add('hint');
   cell.querySelector('.x2').textContent = kind.symbol;
-  // the characters (×2 skeleton, joker skull) need no label; the joker in the hand names its face
-  const art = c.kind === 'x2_any' || c.kind === 'joker' || c.kind === 'refund';
-  tag.textContent = joker >= 0 ? `= ${h.jokerFaces[joker]}` : art ? '' : kind.label;
+  // the character on the face says which bonus it is; the joker in the hand names its face
+  tag.textContent = joker >= 0 ? `= ${h.jokerFaces[joker]}` : '';
   cell.setAttribute('aria-label', `${kind.symbol} ${kind.label} bonus, ${g.off[i] ? 'off, tap to switch on' : inHand ? 'on, in the hand' : 'on'}`);
 }
 
@@ -942,22 +941,24 @@ function autoIdleBonuses(g, h) {
 function renderHud() {
   const st = S();
   const g = st.game;
-  if (!app.scoreAnim) $('score').textContent = String(g.score);
-  $('target').textContent = String(g.level.target);
-  $('levelText').textContent = `${g.level.levelIndex}/${RUN_LEVELS}`;
+  // THRESHOLD shows what the level still needs (owner, 02.11.2026): it counts down as hands score
+  if (!app.scoreAnim) $('target').textContent = String(remaining(g.score, g));
+  for (const el of document.querySelectorAll('.level-text')) el.textContent = `${g.level.levelIndex}/${RUN_LEVELS}`;
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
 }
 
-// BONES · MULTIPLY · TOTAL · THRESHOLD: the hand on the board before its bonus dice, the multiplier
-// of the bonus dice that are on and join it (red), the level score and the target (both kept by
-// renderHud).
+const remaining = (score, g) => Math.max(0, g.level.target - score);
+
+// LEVEL · HAND · THRESHOLD (owner, 02.11.2026): the hand PLAY will play, named, with its total (bonus
+// dice included) and, when a multiplying bonus that is on joins it, a ×N sticker on the number; LEVEL
+// and what the level still needs are kept by renderHud.
 function renderCounter() {
   const h = app.autoHand;
   const bonus = !!h && h.bonusMult > 1;
   els.bonesLabel.textContent = h ? h.label : 'BONES'; // the combination's name over its points (owner, 01.11.2026)
-  els.bones.textContent = String(h ? h.points : 0);
-  els.mult.textContent = bonus ? `x${h.bonusMult}` : '0';
-  els.multStat.classList.toggle('on', bonus);
+  els.bones.textContent = String(h ? h.total : 0);
+  if (bonus) els.multSticker.textContent = `x${h.bonusMult}`;
+  els.handStat.classList.toggle('on', bonus);
 }
 
 function renderControls() {
@@ -1149,18 +1150,19 @@ function flashCells(cells, cls, ms) {
   setTimeout(() => cells.forEach((i) => els.cells[i].classList.remove(cls)), ms);
 }
 
-// The score runs up to the new total once the reveal has shown every step (`delay`).
-function countUp(el, from, to, delay = 0, ms = 420) {
+// A number runs from `from` to `to` (up or down) once the reveal has shown every step (`delay`). With
+// `guard` renderHud leaves THRESHOLD alone meanwhile (the bank keeps the UI busy longer).
+function countUp(el, from, to, delay = 0, ms = 420, guard = true) {
   if (reduceMotion || from === to) { el.textContent = String(to); return; }
   el.textContent = String(from);
-  app.scoreAnim = true; // renderHud leaves the number alone meanwhile (the bank keeps the UI busy longer)
+  if (guard) app.scoreAnim = true;
   setTimeout(() => {
     const t0 = performance.now();
     const step = (now) => {
       const t = Math.min(1, (now - t0) / ms);
       el.textContent = String(Math.round(from + (to - from) * (1 - (1 - t) ** 3)));
       if (t < 1) requestAnimationFrame(step);
-      else app.scoreAnim = false;
+      else if (guard) app.scoreAnim = false;
     };
     requestAnimationFrame(step);
   }, delay);
@@ -1228,13 +1230,14 @@ function showReveal(hand, { remaining = Infinity } = {}) {
       haptic(14);
     }, 380);
   }
-  $('scoreStat').classList.remove('bump');
-  void $('scoreStat').offsetWidth;
-  $('scoreStat').classList.add('bump');
+  $('targetStat').classList.remove('bump');
+  void $('targetStat').offsetWidth;
+  $('targetStat').classList.add('bump');
 }
 
 // A hand played with a bonus (owner, 01.11.2026): the board blurs, the bonus character stands over
-// it, a ×N sticker covers MULTIPLY, the counter shows the hand while TOTAL runs up; SKIP or
+// it, the ×N sticker on the hand's number grows, the hand's points run up to its total, then THRESHOLD
+// counts down by it; SKIP or
 // BONUS_SCREEN_MS ends it (the refund bird plays its whole action). The ×3 kinds have no character
 // yet: the sticker alone.
 function showBonusScreen(hand, from, to) {
@@ -1242,12 +1245,12 @@ function showBonusScreen(hand, from, to) {
   els.bonusHero.className = `bonus-hero${art ? ` kind-${art}` : ''}`;
   els.multSticker.textContent = `x${hand.multiplier}`;
   els.bonesLabel.textContent = hand.label;
-  els.bones.textContent = String(hand.points);
-  els.mult.textContent = hand.multiplier > 1 ? `x${hand.multiplier}` : '0';
-  els.multStat.classList.toggle('on', hand.multiplier > 1);
+  countUp(els.bones, hand.points, hand.total, 430, 380, false); // after the sticker lands
+  els.handStat.classList.toggle('on', hand.multiplier > 1);
   els.app.classList.toggle('has-sticker', hand.multiplier > 1);
   els.app.classList.add('bonus-show');
-  countUp($('score'), from, to, 300);
+  const g = S().game;
+  countUp($('target'), remaining(from, g), remaining(to, g), 850);
   return new Promise((resolve) => {
     // the refund bird's strip can take a moment to decode: its time counts from the first frame
     const sprite = els.bonusHero.firstElementChild;
@@ -1455,7 +1458,7 @@ async function attemptBank(path, source) {
   popped.forEach((i) => els.cells[i].classList.add('bank-pop'));
   faded.forEach((i) => els.cells[i].classList.add('burn'));
   renderHud();
-  if (mode.id === 'auto' && !bonusScreen) countUp($('score'), g.score, st.game.score, hand.multiplier > 1 ? 380 : 0);
+  if (mode.id === 'auto' && !bonusScreen) countUp($('target'), remaining(g.score, g), remaining(st.game.score, g), 250);
   renderControls();
   if (hand.refund) { // the reroll the refund gave back lands on its button
     els.rerollBtn.classList.remove('bump');
@@ -1658,7 +1661,7 @@ const PIPS = { 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6,
 // a flat die for the guide until the 3D faces are rendered
 const flatFace = (v, held) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="3" y="3" width="94" height="94" rx="24" fill="${held ? '#d4ff82' : '#fff'}"/>${PIPS[v].map((k) => `<circle cx="${24 + (k % 3) * 26}" cy="${24 + Math.floor(k / 3) * 26}" r="9"/>`).join('')}</svg>`)}")`;
 const guideDie = (v, held) => `<i class="gdie" style="--f: var(--gface-${v}${held ? '-held' : ''})"></i>`;
-const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="art"></span><span class="x2">${BONUS_KINDS[kind].symbol}</span><span class="tag">${['x2_any', 'joker', 'refund'].includes(kind) ? '' : BONUS_KINDS[kind].label}</span></span>`;
+const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="art"></span><span class="x2">${BONUS_KINDS[kind].symbol}</span><span class="tag"></span></span>`;
 
 function openGuide(mode) {
   const guide = $('guide');
@@ -1865,7 +1868,7 @@ function bind() {
 }
 
 function init() {
-  for (const id of ['app', 'board', 'boardWrap', 'preview', 'playBtn', 'rerollBtn', 'skipBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast', 'bones', 'bonesLabel', 'mult', 'multStat', 'multSticker', 'bonusHero']) els[id] = $(id);
+  for (const id of ['app', 'board', 'boardWrap', 'preview', 'playBtn', 'rerollBtn', 'skipBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast', 'bones', 'bonesLabel', 'handStat', 'multSticker', 'bonusHero']) els[id] = $(id);
   els.tabs = Array.from(document.querySelectorAll('.tab'));
   els.controls = document.querySelector('.controls');
   // the snake modes share the scoring paragraphs written in index.html; Auto Hand brings its own

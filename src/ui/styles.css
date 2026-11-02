@@ -33,9 +33,14 @@
   --spark: var(--accent);
   /* the mockup's art, named once so the build inlines each file once */
   --img-x2: url("../../assets/ui/bonuses/x2-any.webp");   /* the skeleton knight (art/bonuses/out/at) */
+  --peek-x2_any: url("../../assets/ui/bonuses/peek-x2-any.webp"); /* the dice faces: each character peeks */
+  --peek-x3_straight: url("../../assets/ui/bonuses/peek-x3-straight.webp"); /* over the bottom edge */
+  --peek-x3_pairs: url("../../assets/ui/bonuses/peek-x3-pairs.webp");     /* (art/bonuses/out/face) */
+  --peek-x3_trips: url("../../assets/ui/bonuses/peek-x3-trips.webp");
+  --peek-joker: url("../../assets/ui/bonuses/peek-joker.webp");
+  --peek-refund: url("../../assets/ui/bonuses/peek-refund.webp");
   --img-joker: url("../../assets/ui/bonuses/joker.webp"); /* the joker skull (art/bonuses/out/at) */
   --img-title: url("../../assets/ui/title.webp"); /* DICE TWICE title art, art/title */
-  --img-refund-idle: url("../../assets/ui/bonuses/refund-idle.webp");       /* 24 frames, 384 px */
   --img-refund-trigger: url("../../assets/ui/bonuses/refund-trigger.webp"); /* 24 frames, 512 px */
   color-scheme: dark;
 }
@@ -82,25 +87,32 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .tab { height: 34px; border: 1px solid var(--line-strong); border-radius: 9px; background: transparent; color: var(--muted); font: 700 14px/1 var(--font-display); letter-spacing: .16em; }
 .tab.on { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 
-/* Header (LEVEL · rules) and counter (BONES · MULTIPLY · TOTAL · THRESHOLD): label 11 px, value 28 px */
+/* Header (rules; LEVEL on desktop) and counter (LEVEL on the phone · the hand · THRESHOLD left to score):
+   label 11 px, value 28 px */
 .hud, .counter { position: relative; display: flex; padding: 0 calc(12px * var(--k, 1)); }
 .hud { height: calc(56px * var(--k, 1)); }
 .counter { height: calc(45px * var(--k, 1)); justify-content: space-between; }
 .stat { flex: 1 0 0; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: calc(2px * var(--k, 1)); font-family: var(--font-display); font-weight: 700; text-transform: uppercase; white-space: nowrap; color: var(--fg); }
 .stat.mid { align-items: center; }
-.counter .stat:first-child { flex-grow: 1.6; } /* room for the combination's name over BONES */
+#handStat { flex-grow: 1.6; } /* room for the combination's name over its number */
+.hud #levelHud { display: none; } /* the phone shows LEVEL under the dice (owner, 02.11.2026) */
 .stat .label { font-size: calc(11px * var(--k, 1)); line-height: normal; opacity: .5; }
 #targetStat .label { opacity: .6; }
 .stat .value { font-size: calc(28px * var(--k, 1)); line-height: 1; font-variant-numeric: tabular-nums; }
-#multStat { position: relative; border-left: 1px solid rgba(0, 0, 0, .3); border-right: 1px solid rgba(0, 0, 0, .3); }
-#multStat.on .label { color: #ff5442; opacity: 1; }
+#handStat { border-left: 1px solid rgba(0, 0, 0, .3); border-right: 1px solid rgba(0, 0, 0, .3); }
+#handStat.on .label { color: #ff5442; opacity: 1; }
+/* a multiplying bonus that is on: its ×N sticker sits on the hand's number (the number stays readable) */
+#handStat .value { position: relative; }
+#multSticker { display: none; position: absolute; left: 100%; top: .12em; margin-left: .12em; z-index: 9; font-size: .72em; white-space: nowrap; pointer-events: none; transform: rotate(-10.24deg); }
+#handStat.on #multSticker { display: block; animation: stickerPop 260ms cubic-bezier(.2, .8, .3, 1.3) both; }
+@keyframes stickerPop { from { opacity: 0; transform: rotate(-10.24deg) scale(1.8); } }
 .book { flex: 1 0 0; min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: calc(8px * var(--k, 1)); height: 100%; border: 0; padding: 0; background: none; color: var(--fg); font: 700 calc(28px * var(--k, 1))/1 var(--font-display); white-space: nowrap; }
 .book i { flex: none; width: calc(36px * var(--k, 1)); height: calc(34.1209px * var(--k, 1)); background: url("../../assets/ui/book.svg") center / 100% 100% no-repeat; }
 .book:disabled { cursor: default; } /* blocked while a roll or a hand plays, but the header stays as drawn */
-#scoreStat.bump .value { animation: bump 380ms ease-out; }
+#targetStat.bump .value { animation: bump 380ms ease-out; }
 @keyframes bump { 0% { transform: scale(1); } 35% { transform: scale(1.2); color: var(--accent); } 100% { transform: scale(1); } }
-/* MULTIPLY with a bonus on, and the big ×N of the bonus screen (over MULTIPLY): white letters on a red sticker */
-.sticker, #multStat.on .value {
+/* The ×N of a bonus on the hand's number (bigger on the bonus screen): white letters on a red sticker */
+.sticker {
   color: #fff;
   text-shadow: .15em 0 0 #ff5442, -.15em 0 0 #ff5442, 0 .15em 0 #ff5442, 0 -.15em 0 #ff5442, .106em .106em 0 #ff5442, -.106em .106em 0 #ff5442, .106em -.106em 0 #ff5442, -.106em -.106em 0 #ff5442,
     .139em .057em 0 #ff5442, -.139em .057em 0 #ff5442, .139em -.057em 0 #ff5442, -.139em -.057em 0 #ff5442, .057em .139em 0 #ff5442, -.057em .139em 0 #ff5442, .057em -.139em 0 #ff5442, -.057em -.139em 0 #ff5442;
@@ -169,14 +181,18 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.bonus.used { border-color: var(--line-strong); color: var(--muted); box-shadow: none; animation: none; }
 .cell.bonus.safe-hint, .cell.bonus.hint { animation: armPulse 650ms ease-in-out infinite; }
 .cell .art { position: absolute; display: none; background: center / 100% 100% no-repeat; pointer-events: none; }
-.cell.bonus.kind-x2_any .art, .cell.bonus.kind-joker .art, .cell.bonus.kind-refund .art { display: block; }
-.cell.bonus.kind-x2_any .art { inset: 8%; background-image: var(--img-x2); }
-.cell.bonus.kind-joker .art { inset: 12%; background-image: var(--img-joker); }
-.cell.bonus.kind-x2_any .x2, .cell.bonus.kind-joker .x2, .cell.bonus.kind-refund .x2 { display: none; }
-/* REFUND, the pawnbroker bird: its idle loop on the tile, 24 frames at 12 fps (art/bonuses/anim/refund).
-   steps(24, jump-none) from 0% to 100% lands on every frame of a 24-frame strip and loops seamlessly. */
-.cell.bonus.kind-refund .art { inset: 0; background: var(--img-refund-idle) 0 0 / 2400% 100% no-repeat; animation: strip 2s steps(24, jump-none) infinite; }
-.cell.bonus.kind-refund.on .art { animation: strip 2s steps(24, jump-none) infinite, artHop 420ms cubic-bezier(.2, .8, .3, 1.3); }
+/* The face (owner, 02.11.2026): the bonus's character peeks over the bottom edge, big, holding on to it;
+   the multiplier on a badge in the corner (none for the joker) */
+.cell.bonus .art { display: block; left: 2%; right: 2%; top: 0; bottom: 0; background: var(--peek) center bottom / 100% auto no-repeat; transform-origin: 50% 100%; }
+.cell.bonus.kind-x2_any { --peek: var(--peek-x2_any); }
+.cell.bonus.kind-x3_straight { --peek: var(--peek-x3_straight); }
+.cell.bonus.kind-x3_pairs { --peek: var(--peek-x3_pairs); }
+.cell.bonus.kind-x3_trips { --peek: var(--peek-x3_trips); }
+.cell.bonus.kind-joker { --peek: var(--peek-joker); }
+.cell.bonus.kind-refund { --peek: var(--peek-refund); }
+.cell.bonus .x2 { position: absolute; right: 5%; bottom: 5%; min-width: 36%; padding: 5% 7%; border-radius: 999px; background: var(--ink, #0d0b0f); color: var(--accent); font-size: calc(20px * var(--kb, 1)); text-align: center; }
+.cell.bonus.kind-joker .x2 { display: none; }
+/* steps(24, jump-none) from 0% to 100% lands on every frame of a 24-frame strip (the refund bird's action) */
 @keyframes strip { from { background-position: 0% 0; } to { background-position: 100% 0; } }
 /* Fire: the dice of a played four of a kind, five of a kind or straight burn (owner, 01.11.2026; never on
    the board before PLAY). A shader in a canvas over the board (fire.js); without WebGL the dice glow. */
@@ -223,15 +239,14 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 @keyframes armPulse { 0%, 100% { box-shadow: inset 0 0 0 3px var(--gold), 0 0 14px rgba(255, 234, 58, .25); } 50% { box-shadow: inset 0 0 0 3px var(--gold), 0 0 28px rgba(255, 234, 58, .55); } }
 
 /* Bonus screen (a hand played with a bonus): the board blurs, the bonus character stands over it,
-   a ×N sticker covers MULTIPLY and SKIP replaces the buttons */
-.bonus-hero, .counter .sticker.big, #skipBtn { display: none; }
+   the ×N sticker on the hand's number grows and SKIP replaces the buttons */
+.bonus-hero, #skipBtn { display: none; }
 .app.bonus-show .board { filter: blur(3px); opacity: .2; }
 .app.bonus-show .counter .stat .label { opacity: 1; }
 .app.bonus-show #playBtn, .app.bonus-show #rerollBtn { display: none; }
 .app.bonus-show #skipBtn { display: block; }
 .app.bonus-show .bonus-hero.kind-x2_any, .app.bonus-show .bonus-hero.kind-joker, .app.bonus-show .bonus-hero.kind-refund { display: block; }
-.app.bonus-show.has-sticker .counter .sticker.big { display: block; }
-.app.bonus-show.has-sticker #mult { visibility: hidden; } /* the sticker says it; on desktop the value would peek out */
+.app.bonus-show.has-sticker #multSticker { display: block; font-size: 1.2em; top: -.12em; animation: stickerPop 260ms 160ms cubic-bezier(.2, .8, .3, 1.3) both; }
 .bonus-hero { position: absolute; z-index: 9; left: calc(50% - var(--board, 300px) / 2); top: 0; width: var(--board, 300px); height: var(--board, 300px); border-radius: 25.5%; overflow: hidden; pointer-events: none; animation: heroIn 320ms cubic-bezier(.2, .8, .3, 1.15) both; }
 .bonus-hero i { position: absolute; background: center / 100% 100% no-repeat; }
 .bonus-hero.kind-x2_any i { inset: 4%; background-image: var(--img-x2); }
@@ -243,9 +258,7 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 @keyframes heroFade { from { opacity: 0; } to { opacity: 1; } }
 #rerollBtn.bump { animation: btnBump 520ms cubic-bezier(.2, .8, .3, 1.3); }
 @keyframes btnBump { 0% { transform: scale(1); } 35% { transform: scale(1.08); background: var(--accent); color: #000; } 100% { transform: scale(1); } }
-.counter .sticker.big { position: absolute; left: 50%; top: 50%; z-index: 9; font: 700 calc(64px * var(--k, 1))/1 var(--font-display); text-transform: uppercase; white-space: nowrap; pointer-events: none; transform: translate(-50%, -40%) rotate(-10.24deg); animation: stickerIn 260ms 160ms cubic-bezier(.2, .8, .3, 1.3) both; }
 @keyframes heroIn { from { opacity: 0; transform: translateY(8%) scale(.7); } to { opacity: 1; transform: none; } }
-@keyframes stickerIn { from { opacity: 0; transform: translate(-50%, -40%) rotate(-10.24deg) scale(1.8); } to { opacity: 1; transform: translate(-50%, -40%) rotate(-10.24deg) scale(1); } }
 
 .path-layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 4; }
 .dice3d { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
@@ -372,15 +385,15 @@ body.wide .board-wrap { grid-area: board; }
 body.wide .coach { grid-area: coach; margin-bottom: calc(24px * var(--k, 1)); }
 body.wide .hud { grid-area: hud; align-items: flex-end; justify-content: space-between; padding: 0 calc(4.5px * var(--k, 1)) 0 calc(24px * var(--k, 1)); }
 body.wide .hud .stat { flex: none; width: calc(184.5px * var(--k, 1)); }
+body.wide .hud #levelHud { display: flex; }
+body.wide #levelStat { display: none; } /* desktop keeps LEVEL in its header, as in its mockup */
 body.wide .stat .value { font-size: calc(44px * var(--k, 1)); }
 body.wide .book { flex: none; height: auto; font-size: calc(36px * var(--k, 1)); }
 body.wide .counter { grid-area: counter; display: grid; grid-template-columns: 1fr 1fr; gap: calc(33px * var(--k, 1)); height: auto; margin-top: calc(24px * var(--k, 1)); padding: calc(24px * var(--k, 1)); background: var(--tile); border-radius: calc(24px * var(--k, 1)); }
 body.wide .counter .stat { align-items: flex-start; }
+body.wide #handStat { grid-area: 1 / 1; border: 0; }
 body.wide #targetStat { grid-area: 1 / 2; }
-body.wide #multStat { grid-area: 2 / 1; }
-body.wide #scoreStat { grid-area: 2 / 2; }
-body.wide #bones, body.wide #mult, body.wide #score { opacity: .6; }
-body.wide #multStat.on .value { opacity: 1; }
+body.wide #bones { opacity: .6; }
 body.wide .controls { grid-area: controls; flex-direction: column; gap: calc(24px * var(--k, 1)); min-height: 0; margin-top: calc(24px * var(--k, 1)); padding: 0; }
 body.wide .btn-play, body.wide .btn-dark { height: auto; width: 100%; font-size: calc(29px * var(--k, 1)); }
 

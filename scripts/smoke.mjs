@@ -100,9 +100,12 @@ for (const vp of viewports) {
   if ((await text('#levelText')) !== '1/25') note(vp, `level text: ${await text('#levelText')}`);
   if (Number(await text('#target')) !== a.target) note(vp, 'THRESHOLD is not the target');
   if ((await text('#playBtn')) !== 'PLAY•3' || (await text('#rerollBtn')) !== 'REROLL•3') note(vp, `button labels: ${await text('#playBtn')} / ${await text('#rerollBtn')}`);
-  if (Number(await text('#bones')) !== a.hand.hand.points) note(vp, `BONES ${await text('#bones')} is not the hand (${a.hand.hand.points})`);
+  if (Number(await text('#bones')) !== a.hand.hand.total) note(vp, `the hand's value ${await text('#bones')} is not its total (${a.hand.hand.total})`);
   if ((await text('#bonesLabel')) !== a.hand.hand.label) note(vp, `the label over BONES is ${await text('#bonesLabel')}, not the hand's name (${a.hand.hand.label})`);
-  if ((await text('#mult')) !== '0' || Number(await text('#score')) !== 0) note(vp, 'MULTIPLY / TOTAL do not start at 0');
+  // under the dice: LEVEL · the hand · THRESHOLD (owner, 02.11.2026); no MULTIPLY or TOTAL column
+  if (await page.$('#score') || await page.$('#multStat')) note(vp, 'a MULTIPLY or TOTAL column is back');
+  const order = await page.$$eval('.counter .stat', (els) => els.filter((e) => getComputedStyle(e).display !== 'none').map((e) => e.id));
+  if (order.join() !== (layout.wide ? 'handStat,targetStat' : 'levelStat,handStat,targetStat')) note(vp, `counter order: ${order}`);
   await page.waitForTimeout(1500);
   console.log(`${vp.w}x${vp.h}: 3D dice status ${await page.evaluate(() => window.__diceSnake.dice3d())}`);
 
@@ -154,8 +157,8 @@ for (const vp of viewports) {
   if (!sheet.open || !/ANY HAND/.test(sheet.name)) note(vp, `bonus sheet: ${JSON.stringify(sheet)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-3b-bonus-sheet.png` });
   await page.click('#bonusSheetOk');
-  const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, mult: document.getElementById('mult').textContent, stat: document.getElementById('multStat').className }));
-  if (!/\bon\b/.test(on.cell) || on.mult !== 'x2' || !/\bon\b/.test(on.stat)) note(vp, `bonus on: ${JSON.stringify(on)}`);
+  const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, sticker: document.getElementById('multSticker').textContent, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className }));
+  if (!/\bon\b/.test(on.cell) || on.sticker !== 'x2' || on.shown === 'none' || !/\bon\b/.test(on.stat)) note(vp, `bonus on: ${JSON.stringify(on)}`);
   const playPulse = await page.$eval('#playBtn', (b) => b.classList.contains('pulse'));
   if (!playPulse || !/PRESS PLAY/.test(await text('#coachText'))) note(vp, `tutorial play step: pulse=${playPulse}, "${await text('#coachText')}"`);
   // off again keeps it for later, on again uses it
@@ -200,7 +203,9 @@ for (const vp of viewports) {
   if (b.cells[8] !== 'hole') note(vp, `the ×2 did not leave a hole (cell 8=${b.cells[8]})`);
   if (keep2 >= 0 && b.phase === 'playing' && b.faces[keep2] !== a.faces[keep2]) note(vp, 'held die outside the hand did not survive the hand');
   if (b.held.some(Boolean)) note(vp, `dice still selected after the hand: ${b.held}`);
-  if (b.phase === 'playing' && (Number(await text('#score')) !== b.score || (await text('#playBtn')) !== 'PLAY•2')) note(vp, `after the hand: TOTAL ${await text('#score')} (score ${b.score}), ${await text('#playBtn')}`);
+  // THRESHOLD counts down to what the level still needs (owner, 02.11.2026)
+  await page.waitForTimeout(600);
+  if (b.phase === 'playing' && (Number(await text('#target')) !== b.target - b.score || (await text('#playBtn')) !== 'PLAY•2')) note(vp, `after the hand: THRESHOLD ${await text('#target')} (needs ${b.target - b.score}), ${await text('#playBtn')}`);
   const hidden = await page.$$eval('#board .cell.die', (els) => els.filter((e) => Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
   if (hidden.length) note(vp, `dice invisible after the hand: [${hidden}]`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-6-after-first.png` });

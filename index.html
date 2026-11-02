@@ -20,7 +20,7 @@
     <button class="tab" type="button" data-mode="auto" id="tabAuto">AUTO HAND</button>
   </nav>
   <header class="hud">
-    <div class="stat"><span class="label">LEVEL</span><span class="value" id="levelText">1/25</span></div>
+    <div class="stat" id="levelHud"><span class="label">LEVEL</span><span class="value level-text">1/25</span></div>
     <button class="book" id="helpBtn" type="button" aria-label="How to play"><i></i>Bible</button>
   </header>
   <div class="preview" id="preview" aria-live="polite" hidden></div>
@@ -34,9 +34,8 @@
     <div class="bonus-hero" id="bonusHero"><i></i></div>
   </section>
   <section class="counter" aria-live="polite">
-    <div class="stat"><span class="label" id="bonesLabel">BONES</span><span class="value" id="bones">0</span></div>
-    <div class="stat mid" id="multStat"><span class="label">MULTIPLY</span><span class="value" id="mult">0</span><span class="sticker big" id="multSticker">x2</span></div>
-    <div class="stat mid" id="scoreStat"><span class="label">TOTAL</span><span class="value" id="score">0</span></div>
+    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1/25</span></div>
+    <div class="stat mid" id="handStat"><span class="label" id="bonesLabel">BONES</span><span class="value"><span id="bones">0</span><span class="sticker" id="multSticker">x2</span></span></div>
     <div class="stat mid" id="targetStat"><span class="label">THRESHOLD</span><span class="value" id="target">0</span></div>
   </section>
   <section class="controls">
