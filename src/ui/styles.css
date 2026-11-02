@@ -64,7 +64,21 @@
   --matcap-toon: url("../../assets/matcaps/toon.webp");
   --matcap-ivory: url("../../assets/matcaps/ivory.webp");
   --matcap-clay: url("../../assets/matcaps/clay.webp");
-  --matcap-pip: url("../../assets/matcaps/pip.webp"); /* the pressed-in pips: dark enamel */
+  --matcap-pip: url("../../assets/matcaps/pip.webp"); /* the pressed-in pips: black metal */
+  /* sound effects (scripts/audio.py), read by cssUrl in app.js so the build inlines them */
+  --sfx-roll: url("../../assets/sfx/roll.mp3");
+  --sfx-hold: url("../../assets/sfx/hold.mp3");
+  --sfx-release: url("../../assets/sfx/release.mp3");
+  --sfx-flip: url("../../assets/sfx/flip.mp3");
+  --sfx-on: url("../../assets/sfx/on.mp3");
+  --sfx-off: url("../../assets/sfx/off.mp3");
+  --sfx-score: url("../../assets/sfx/score.mp3");
+  --sfx-fire: url("../../assets/sfx/fire.mp3");
+  --sfx-burn: url("../../assets/sfx/burn.mp3");
+  --sfx-drop: url("../../assets/sfx/drop.mp3");
+  --sfx-bonus: url("../../assets/sfx/bonus.mp3");
+  --sfx-refund: url("../../assets/sfx/refund.mp3");
+  --sfx-win: url("../../assets/sfx/win.mp3");
   --img-refund-trigger: url("../../assets/ui/bonuses/refund-trigger.webp"); /* 24 frames, 512 px */
   color-scheme: dark;
 }

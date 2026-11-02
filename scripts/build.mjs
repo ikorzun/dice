@@ -26,6 +26,7 @@ const MODULES = [
   'src/ui/dice3d-math.js',
   'src/ui/dice3d.js',
   'src/ui/fire.js',
+  'src/ui/sound.js',
   'src/ui/app.js',
 ];
 
@@ -77,7 +78,7 @@ const bundle = `(() => {\n'use strict';\n${MODULES.map(transform).join('\n')}\n}
 const html = readFileSync('index.html', 'utf8');
 // The files the stylesheet points at (font, bonus art, icons) become data URIs, so the built pages
 // stand alone wherever they are opened.
-const MIME = { '.otf': 'font/otf', '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
+const MIME = { '.mp3': 'audio/mpeg', '.otf': 'font/otf', '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
 const css = readFileSync('src/ui/styles.css', 'utf8')
   .replace(/url\("\.\.\/\.\.\/(assets\/[^"]+)"\)/g, (_, file) => `url("data:${MIME[extname(file)]};base64,${readFileSync(file).toString('base64')}")`);
 if (css.includes('url("../')) throw new Error('styles.css points at a file the build does not inline');

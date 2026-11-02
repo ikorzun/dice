@@ -25,6 +25,7 @@ node scripts/recipes3.mjs --levels=400       # Auto Hand layout table -> src/eng
 node scripts/adapt3-sim.mjs --runs=100 --out=docs/simulation3-adaptive.md  # adaptive levels check
 node scripts/model-to-js.mjs                 # die model GLB -> src/ui/dice-model.js (generated)
 node scripts/bake-faces.mjs                  # die faces with their matcaps -> assets/dice/ (after any model, matcap or colour change)
+python3 scripts/audio.py sfx [name ...]      # sound effects via ElevenLabs (key in the macOS keychain) -> assets/sfx/
 npm run serve     # python3 -m http.server 8080 -> http://localhost:8080/ (prototypes/dice-anim/ too)
 ```
 

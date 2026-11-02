@@ -32,11 +32,13 @@ import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
 import { generateAdaptiveLevel, skillFrom, skillSample, recipeById, ADAPT3_VERSION } from '../engine/adapt3.js';
 import { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } from './dice3d.js';
 import { createFire } from './fire.js';
+import { SOUNDS, setupSound, setSound, sfx } from './sound.js';
 
 const APP_VERSION = '0.2.0';
 const STORAGE_KEY = 'dice-snake.v2';
 const LOOK_KEY = 'dice-snake.look';
 const DICE3D_KEY = 'dice-snake.dice3d';
+const SOUND_KEY = 'dice-snake.sound';
 const LOOKS = [
   { id: 'modern', name: 'Modern · black' },
   { id: 'manuscript', name: 'Manuscript · parchment and ink' },
@@ -505,6 +507,7 @@ function finishLevel() {
   const g = st.game;
   const mode = M();
   const won = g.phase === 'won';
+  if (won) sfx('win'); // only a real win is celebrated (digest §1, rule 27); a missed target stays quiet
   const now = Date.now();
   const summary = {
     mode: mode.id, levelIndex: g.level.levelIndex, seed: g.level.seed, tier: g.level.tier, target: g.level.target, score: g.score, won, attempt: g.attempt,
@@ -1100,6 +1103,7 @@ function renderHeldFire() {
   const now = app.fire ? app.fire.burning() : [];
   if (cells.slice().sort().join() === now.slice().sort().join()) return;
   if (!cells.length) { app.fire.out(); return; }
+  if (!now.length) sfx('fire'); // a fresh blaze, not a die more on it
   app.fire = app.fire || createFire(els.board);
   app.fire.ignite(cells.map((i) => els.cells[i]));
 }
@@ -1208,6 +1212,7 @@ function sparkBurst(count, gold) {
 
 // `remaining` is what the level still needed before this hand (Auto Hand lights the fire when one hand covers it).
 function showReveal(hand, { remaining = Infinity } = {}) {
+  sfx('score');
   const r = $('reveal');
   const ptsEl = r.querySelector('.pts');
   const multEl = r.querySelector('.mult');
@@ -1259,6 +1264,8 @@ function showBonusScreen(hand, from, to) {
   els.handStat.classList.toggle('on', hand.multiplier > 1);
   els.app.classList.toggle('has-sticker', hand.multiplier > 1);
   els.app.classList.add('bonus-show');
+  sfx(hand.multiplier > 1 ? 'bonus' : 'refund'); // the refund alone multiplies nothing: its coin
+  if (hand.multiplier > 1 && art === 'refund') setTimeout(() => sfx('refund'), 500);
   const g = S().game;
   countUp($('target'), remaining(from, g), remaining(to, g), 850);
   return new Promise((resolve) => {
@@ -1287,6 +1294,7 @@ function armBonus(source, cell) {
   if (!r.ok) { toast(r.message, 'bad'); return; }
   st.game = r.state;
   haptic(10);
+  sfx(st.game.off && st.game.off[cell] ? 'off' : 'on');
   logEvent('bonus', { armed: r.armed, off: r.off, cell, source });
   render();
   persist();
@@ -1344,6 +1352,7 @@ function turnCard(i, { sheet = true } = {}) {
   st.tips[`seen:${c.kind}`] = true;
   renderCell(i);
   flipCard(cell);
+  sfx('flip');
   if (!first) return;
   logEvent('card', { kind: c.kind, cell: i });
   persist();
@@ -1401,6 +1410,7 @@ function onTap(i) {
   st.game = r.state;
   pressFeedback(i);
   haptic(r.held ? 12 : 6);
+  sfx(r.held ? 'hold' : 'release');
   logEvent('hold', { cell: i, held: r.held });
   render();
   persist();
@@ -1442,6 +1452,7 @@ async function doReroll(source) {
   app.hintCells = null;
   renderControls();
   haptic(8);
+  sfx('roll');
   let rolled3d = false;
   if (app.dice3d && !reduceMotion && dice3dStatus() === 'ready') {
     r.rolled.forEach((i) => els.cells[i].classList.add('hidden3d'));
@@ -1517,6 +1528,7 @@ async function attemptBank(path, source) {
   if (burning.length) {
     app.fire = app.fire || createFire(els.board);
     app.fire.ignite(burning.map((i) => els.cells[i]));
+    sfx('fire');
     await wait(T.fire);
     if (!stillCurrent(st, modeId)) { app.fire.out(); app.busy = false; return; }
   }
@@ -1536,6 +1548,7 @@ async function attemptBank(path, source) {
   const faded = r.burned ? r.burned.filter((i) => !hand.cells.includes(i)) : [];
   popped.forEach((i) => els.cells[i].classList.add('bank-pop'));
   faded.forEach((i) => els.cells[i].classList.add('burn'));
+  sfx('burn');
   renderHud();
   if (mode.id === 'auto' && !bonusScreen) countUp($('target'), remaining(g.score, g), remaining(st.game.score, g), 250);
   renderControls();
@@ -1559,6 +1572,7 @@ async function attemptBank(path, source) {
       c.style.setProperty('--delay', `${k * 60}ms`);
       c.classList.add('refill');
     });
+    sfx('drop');
     await wait(T.refill + 60 * r.refilled.length);
     r.refilled.forEach((i) => els.cells[i].classList.remove('refill'));
     if (st.game.phase === 'playing') {
@@ -1955,6 +1969,15 @@ function bind() {
   $('lookBtn').addEventListener('click', cycleLook);
   $('optLook').addEventListener('change', () => setLook($('optLook').value));
   $('optDice3d').addEventListener('change', () => setDice3D($('optDice3d').checked));
+  $('optSound').addEventListener('change', () => {
+    setSound($('optSound').checked);
+    try { localStorage.setItem(SOUND_KEY, $('optSound').checked ? '1' : '0'); } catch { /* ignore */ }
+  });
+  // every other button taps: the dice, cards, PLAY and REROLL have sounds of their own
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (b && !b.disabled && b !== els.playBtn && b !== els.rerollBtn) sfx('hold', { vol: 0.5, rate: 1.3 });
+  }, true);
   $('bonusStatus').addEventListener('click', () => armBonus('badge'));
   $('closeHelpBtn').addEventListener('click', () => { $('help').hidden = true; });
   for (const id of ['optHoldCap', 'optTable', 'optSmall', 'optEndOnTarget', 'optGold', 'optAutoBonus']) $(id).addEventListener('change', applySettings);
@@ -1993,20 +2016,24 @@ function bind() {
   }
 }
 
-// The dice wear the ivory matcap and their pressed-in pips a dark enamel one (owner, 02.11.2026: ivory,
+// A file the stylesheet names in a custom property, as an address the page can fetch: the build inlines it
+// like the rest of the art, and in development the browser resolves it against the stylesheet.
+function cssUrl(prop) {
+  const probe = document.createElement('i');
+  probe.hidden = true; // never shown, so never loaded as a picture
+  probe.style.backgroundImage = `var(${prop})`;
+  document.body.appendChild(probe);
+  const m = /url\("?(.*?)"?\)$/.exec(getComputedStyle(probe).backgroundImage);
+  probe.remove();
+  return m ? m[1] : null;
+}
+
+// The dice wear the ivory matcap and their pressed-in pips a black metal one (owner, 02.11.2026: ivory,
 // a little less yellow); ?matcap=porcelain|toon|clay tries another body, ?matcap=none the lit material.
-// The images come through CSS variables, so the build inlines them like the rest of the art.
 function tryMatcap() {
   const name = new URLSearchParams(location.search).get('matcap') || 'ivory';
   if (name === 'none' || !/^[a-z]+$/.test(name)) return;
-  const url = (v) => {
-    const probe = document.createElement('i');
-    probe.style.backgroundImage = `var(--matcap-${v})`;
-    document.body.appendChild(probe);
-    const m = /url\("?(.*?)"?\)$/.exec(getComputedStyle(probe).backgroundImage);
-    probe.remove();
-    return m ? m[1] : null;
-  };
+  const url = (v) => cssUrl(`--matcap-${v}`);
   if (url(name)) useMatcap(url(name), url('pip'));
 }
 
@@ -2020,6 +2047,11 @@ function init() {
   buildBoard();
   bind();
   setLook('modern'); // the mockup's black screen; the other looks have no switch any more
+  let soundOn = true;
+  try { soundOn = localStorage.getItem(SOUND_KEY) !== '0'; } catch { /* ignore */ }
+  $('optSound').checked = soundOn;
+  const sounds = Object.fromEntries(SOUNDS.map((n) => [n, cssUrl(`--sfx-${n}`)]));
+  setupSound((n) => sounds[n], soundOn);
   let d3 = true;
   try { d3 = localStorage.getItem(DICE3D_KEY) !== '0'; } catch { /* ignore */ }
   app.dice3d = d3;
