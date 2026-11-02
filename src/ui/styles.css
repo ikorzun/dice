@@ -40,6 +40,7 @@
   --peek-joker: url("../../assets/ui/bonuses/peek-joker.webp");
   --peek-refund: url("../../assets/ui/bonuses/peek-refund.webp");
   --img-card-arch: url("../../assets/ui/card-arch.svg");   /* the bonus card's arch and back (Figma 1296:657) */
+  --img-card-arch-purple: url("../../assets/ui/card-arch-purple.svg"); /* the purple card's arch (Figma 1296:650) */
   --img-card-back: url("../../assets/ui/card-back.webp");
   --img-joker: url("../../assets/ui/bonuses/joker.webp"); /* the joker skull (art/bonuses/out/at) */
   --img-title: url("../../assets/ui/title.webp"); /* DICE TWICE title art, art/title */
@@ -197,30 +198,35 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.refill { animation: refill 480ms cubic-bezier(.2, .9, .3, 1.2) var(--delay, 0ms) both; }
 @keyframes refill { 0% { transform: translateY(-45%) scale(.55); opacity: 0; } 60% { transform: translateY(4%) scale(1.04); opacity: 1; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
 /* Auto Hand: a bonus die is a blank die like the others, its character or label on the face (owner,
-   01.11.2026). Switched on, it turns lime like a held die and its character hops. Blocks are locks. */
+   01.11.2026). Switched on, it turns lime like a held die. Blocks are locks. */
 /* Bonus cards (owner, Figma 1296:657, 02.11.2026): a cream card, the bonus's character peeking over a
    blue arch, its name and multiplier below; lime when switched on. Face down it shows the diamond back. A card
    turns over in 2D (scaleX through 0, the back hidden at the half): no 3D layers for Safari to trip on. */
-.cell.bonus { background: #ffeedb; border: 1px solid rgba(255, 255, 255, .32); box-shadow: inset 0 0 8px rgba(255, 255, 255, .25); color: #000; display: block; overflow: hidden; transition: transform 110ms ease, box-shadow 110ms ease; }
+.cell.bonus { --card: #ffeedb; --card-ink: #000; --card-mult: #e22876; background: var(--card); border: 1px solid rgba(255, 255, 255, .32); box-shadow: inset 0 0 8px rgba(255, 255, 255, .25); color: var(--card-ink); display: block; transition: transform 110ms ease, box-shadow 110ms ease; }
+/* ×3 bonuses and the joker are purple cards with white names (owner, Figma 1296:650, 02.11.2026) */
+.cell.bonus.kind-x3_pairs, .cell.bonus.kind-x3_trips, .cell.bonus.kind-x3_straight, .cell.bonus.kind-joker { --card: #9c52e3; --card-ink: #fff; --card-mult: #9c52e3; --img-card-arch: var(--img-card-arch-purple); border-color: rgba(255, 255, 255, .13); }
 .cell.bonus.pressed { transform: scale(.95); }
-.cell.bonus.on { background-color: var(--hold); animation: bonusOn 360ms cubic-bezier(.2, .8, .3, 1.3); }
-.cell.bonus.on .art { animation: artHop 420ms cubic-bezier(.2, .8, .3, 1.3); }
+.cell.bonus.on { animation: bonusOn 360ms cubic-bezier(.2, .8, .3, 1.3); } /* only the card moves, never its picture (owner, 02.11.2026) */
+/* switched on: the card keeps its colour inside a lime ring 4 px wide (owner, 02.11.2026) */
+.cell.bonus.on::after, .bonus-pic .tap .cell::after { content: ''; position: absolute; z-index: 1; inset: -1px; border: max(4px, calc(4px * var(--kb, 1))) solid var(--hold); border-radius: inherit; pointer-events: none; }
 .cell .arch, .cell .back { position: absolute; display: none; pointer-events: none; }
-.cell.bonus .arch { display: block; left: 5.45%; top: 7.27%; width: 89.09%; height: 68.18%; background: var(--img-card-arch) center / 100% 100% no-repeat; }
+.cell.bonus .arch { display: block; left: 4.63%; top: 8.33%; width: 90.74%; height: 69.44%; background: var(--img-card-arch) center / 100% 100% no-repeat; } /* 98 × 75 px at 5, 9 inside the mockup's 110 px card */
 .cell.bonus .back { inset: -1px; border: 1px solid #f7c685; border-radius: inherit; background: var(--img-card-back) center bottom / cover no-repeat; }
 .cell.bonus.face-down .back { display: block; }
 #board .cell.bonus.flip { animation: cardFlip 420ms ease-in-out var(--flip-delay, 0ms) both; } /* over the tutorial's pulse */
 #board .cell.bonus.flip .back { display: block; animation: cardBack 420ms step-end var(--flip-delay, 0ms) both; }
 @keyframes cardFlip { 50% { transform: scaleX(0); } }
 @keyframes cardBack { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 0; } }
+.cell.bonus.face-down .x2 { display: none; } /* the sticker belongs to the face: it comes with it at the half turn */
+#board .cell.bonus.flip .x2 { animation: cardFront 420ms step-end var(--flip-delay, 0ms) both; }
+@keyframes cardFront { 0% { opacity: 0; } 50% { opacity: 1; } }
 @keyframes bonusOn { 40% { transform: scale(1.07); } }
-@keyframes artHop { 35% { transform: translateY(-9%) scale(1.06, .95); } 70% { transform: translateY(2%) scale(.98, 1.03); } }
 .cell.bonus.used { border-color: var(--line-strong); color: var(--muted); box-shadow: none; animation: none; }
 .cell.bonus.safe-hint, .cell.bonus.hint { animation: armPulse 650ms ease-in-out infinite; }
 .cell .art { position: absolute; display: none; background: center / 100% 100% no-repeat; pointer-events: none; }
 /* The face (owner, 02.11.2026): the bonus's character peeks over the bottom edge, big, holding on to it;
    the multiplier on a badge in the corner (none for the joker) */
-.cell.bonus .art { display: block; left: 10%; top: 2.73%; width: 78.18%; height: 78.18%; background: var(--peek) center bottom / contain no-repeat; transform-origin: 50% 100%; }
+.cell.bonus .art { display: block; left: 9.26%; top: 3.7%; width: 79.63%; height: 79.63%; background: var(--peek) center bottom / contain no-repeat; } /* 86 px at 10, 4 */
 .cell.bonus.kind-x2_any { --peek: var(--peek-x2_any); }
 .cell.bonus.kind-x3_straight { --peek: var(--peek-x3_straight); }
 .cell.bonus.kind-x3_pairs { --peek: var(--peek-x3_pairs); }
@@ -250,10 +256,15 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .face[data-value="5"] i:nth-child(1), .face[data-value="5"] i:nth-child(3), .face[data-value="5"] i:nth-child(5), .face[data-value="5"] i:nth-child(7), .face[data-value="5"] i:nth-child(9),
 .face[data-value="6"] i:nth-child(1), .face[data-value="6"] i:nth-child(3), .face[data-value="6"] i:nth-child(4), .face[data-value="6"] i:nth-child(6), .face[data-value="6"] i:nth-child(7), .face[data-value="6"] i:nth-child(9) { opacity: 1; }
 .cell .tag { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); font: 700 calc(11px * var(--kb, 1))/1 var(--font-display); letter-spacing: .16em; padding: calc(3px * var(--kb, 1)) calc(6px * var(--kb, 1)); border-radius: 4px; display: none; white-space: nowrap; }
-.cell.bonus .tag { display: block; bottom: 5.45%; padding: 0; color: #000; font-size: calc(13px * var(--kb, 1)); letter-spacing: -.03em; text-transform: uppercase; } /* name ×N: 12 px on the mockup's 110 px card */
+.cell.bonus .tag { display: block; bottom: 4.63%; padding: 0; color: var(--card-ink); font-size: calc(13px * var(--kb, 1)); letter-spacing: -.03em; text-transform: uppercase; } /* the name alone: 12 px on the mockup's 110 px card */
 .cell.bonus .tag:empty { display: none; }
 .cell.bonus.used .tag { color: var(--muted); }
 .cell .x2 { display: none; font: 700 calc(40px * var(--kb, 1))/1 var(--font-display); letter-spacing: -.02em; }
+/* The multiplier on a sticker over the card's top right corner (owner, Figma 1298:1530, 02.11.2026): always a
+   light disc, the sign in the card's colour (pink on a cream card); 24 px at 89, -5 with a 16 px number */
+.cell.bonus .x2 { position: absolute; z-index: 2; left: 82.41%; top: -4.63%; width: 22.22%; height: 22.22%; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #ffeedb; color: var(--card-mult); font-size: calc(17.4px * var(--kb, 1)); letter-spacing: -.04em; pointer-events: none; }
+.cell.bonus .x2 small { font: inherit; font-size: .875em; color: inherit; } /* the × 14 px, whatever list styles its <small> */
+.cell.bonus .x2:empty { display: none; }
 
 .cell .order { position: absolute; top: 6%; right: 7%; width: 22px; height: 22px; border-radius: 50%; background: var(--path); color: #fff; font: 700 13px/22px var(--font-display); text-align: center; display: none; }
 .cell.in-path .order { display: block; }
@@ -476,15 +487,16 @@ body.wide .btn-play, body.wide .btn-dark { height: auto; width: 100%; font-size:
 .hold-pic small { font: 700 clamp(13px, 3.6vmin, 16px)/1 var(--font-display); color: var(--hold); }
 .hold-pic .roll small { color: var(--fg); }
 .hold-pic .roll .gdie { animation: reroll 1.4s steps(1) infinite, wobble 1.4s ease-in-out infinite; }
+.hold-pic .roll > span { position: relative; } /* the 3D throw's canvas and shadows lie over these dice */
+.hold-pic .roll.three .gdie { animation: none; } /* the game's 3D throw (guideRolls) instead of the tumble */
+.gdie.hidden3d { visibility: hidden; }
 .hold-pic .roll .gdie + .gdie { animation-delay: -.7s; }
 @keyframes reroll { 0% { background-image: var(--face-2); } 25% { background-image: var(--face-5); } 50% { background-image: var(--face-3); } 75% { background-image: var(--face-6); } }
 @keyframes wobble { 0%, 100% { transform: none; } 20% { transform: translateY(-14%) rotate(-12deg); } 40% { transform: translateY(0) rotate(8deg); } 60% { transform: none; } }
 .bonus-pic { display: flex; align-items: center; justify-content: center; gap: clamp(18px, 6vmin, 32px); width: 100%; }
 .guide .cell, .sheet-up .cell { display: flex; flex: none; width: var(--tile-size, 30vmin); max-width: 140px; aspect-ratio: 1; }
-.bonus-pic .tap .cell { animation: tapOn 2.4s steps(1) infinite; }
-.bonus-pic .tap .cell .art { animation: tapHop 2.4s infinite; }
-@keyframes tapOn { 0% { background-color: #ffeedb; } 50% { background-color: var(--hold); } }
-@keyframes tapHop { 50% { transform: none; } 57% { transform: translateY(-9%) scale(1.06, .95); } 64% { transform: translateY(2%); } 70% { transform: none; } }
+.bonus-pic .tap .cell::after { animation: tapOn 2.4s steps(1) infinite; } /* the ring comes and goes, as a tap switches it */
+@keyframes tapOn { 0% { opacity: 0; } 50% { opacity: 1; } }
 .bonus-pic .goal { display: grid; gap: 4px; text-align: left; }
 .bonus-pic .goal small { font: 700 clamp(12px, 3.4vmin, 15px)/1 var(--font-display); color: var(--muted); }
 .bonus-pic .goal b { font: 700 clamp(44px, 13vmin, 64px)/1 var(--font-display); }

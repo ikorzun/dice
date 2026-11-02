@@ -15,6 +15,10 @@ const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module
 // The die is rounded like the owner's Figma mockup (26 px on a 110.4 px die, node 1296:657), in
 // half-sides: a rounded box replaces the model's own body (bevel 0.224); the pips are the mockup's too.
 const ROUND_R = (26 / 110.4) * 2;
+// The rounded band's normals lean toward their face's axis (each component to this power), so a face
+// reads flat to its rim like the mockup's while the outline keeps the mockup's corners (owner, 02.11.2026:
+// no bend at the top and bottom edges). 1: the true round.
+const FLAT_SHADE = 4;
 const SEGMENTS = 32;   // per cube edge: ~8 steps across each rounded band, smooth at 3× pixel ratio
 const CAM_DIST = 9;    // camera height above the die centre, in half-sides
 const BLEED = 1.5;     // viewport side ÷ die side: room for the corners of a tumbling die
@@ -91,6 +95,12 @@ function modelGeometries() {
   if (geometries) return geometries;
   const body = new THREE.BoxGeometry(2, 2, 2, SEGMENTS, SEGMENTS, SEGMENTS);
   roundOnto(body.attributes.position.array, ROUND_R, body.attributes.normal.array);
+  const n = body.attributes.normal.array;
+  for (let i = 0; i < n.length; i += 3) {
+    const m = [n[i], n[i + 1], n[i + 2]].map((v) => Math.sign(v) * Math.abs(v) ** FLAT_SHADE);
+    const l = Math.hypot(m[0], m[1], m[2]) || 1;
+    for (let k = 0; k < 3; k++) n[i + k] = m[k] / l;
+  }
   // The mockup's pips, sized as the camera sees the top face; flat discs 0.002 above each face that
   // follow the curve near the edges, pressed in: their normals lean like a bowl's under the matcap.
   const { positions: flat, dimple } = pipMesh(silhouette() * (CAM_DIST - 1));

@@ -935,8 +935,9 @@ function renderAutoSpecial(g, i, cell, tag) {
     dealCard(g, i);
   }
   if (cell.waiting) cell.classList.add('face-down');
-  // the card names its bonus and multiplier; the joker in the hand names its face
+  // the card names its bonus, its sticker the multiplier; the joker in the hand names its face
   tag.textContent = joker >= 0 ? `JOKER = ${h.jokerFaces[joker]}` : cardLabel(c.kind);
+  cell.querySelector('.x2').innerHTML = cardSticker(c.kind);
   cell.setAttribute('aria-label', `${kind.symbol} ${kind.label} bonus, ${g.off[i] ? 'off, tap to switch on' : inHand ? 'on, in the hand' : 'on'}`);
 }
 
@@ -1294,7 +1295,9 @@ function armBonus(source, cell) {
 // Bonus cards (owner, 02.11.2026). A kind is seen once a card of it was turned over (or, before cards, its
 // sheet was shown).
 const cardSeen = (kind) => !!(S().tips[`seen:${kind}`] || S().tips[`sheet:${kind}`]);
-const cardLabel = (kind) => (kind === 'joker' ? 'JOKER' : `${BONUS_KINDS[kind].label} ${BONUS_KINDS[kind].symbol}`);
+const cardLabel = (kind) => BONUS_KINDS[kind].label; // the name alone: the multiplier is on the sticker
+// The sticker's sign smaller than its number, as on the mockup (×3, +1); the joker has none.
+const cardSticker = (kind) => (kind === 'joker' ? '' : `<small>${BONUS_KINDS[kind].symbol[0]}</small>${BONUS_KINDS[kind].symbol.slice(1)}`);
 const DEAL_FIRST_MS = 250;  // the first card of a deal turns over this long after it lands
 const DEAL_NEXT_MS = 2000;  // each next card this long after the one before (owner, 02.11.2026)
 
@@ -1373,7 +1376,7 @@ function showBonusSheet(kind) {
   S().tips[`sheet:${kind}`] = true;
   app.sheetAt = performance.now(); // the finger that opened it lifts over the backdrop: that is not a close
   $('bonusSheetTile').innerHTML = guideTile(kind, true);
-  $('bonusSheetName').textContent = `${BONUS_KINDS[kind].symbol} ${BONUS_KINDS[kind].label}`;
+  $('bonusSheetName').textContent = BONUS_KINDS[kind].label; // the multiplier is on the card's sticker
   $('bonusSheetWhat').textContent = BONUS_WHAT[kind];
   $('bonusSheet').hidden = false;
   persist();
@@ -1746,7 +1749,7 @@ function onPointerCancel(e) {
 const GUIDE_COMBOS = [['pair', [6, 6]], ['two_pairs', [2, 2, 6, 6]], ['three_kind', [3, 3, 3]], ['full_house', [2, 2, 5, 5, 5]], ['four_kind', [4, 4, 4, 4]], ['straight', [1, 2, 3, 4, 5]], ['five_kind', [5, 5, 5, 5, 5]]];
 const GUIDE_BONUSES = { x2_any: 'ANY HAND', x3_straight: 'STRAIGHT', x3_pairs: 'PAIR, TWO PAIRS', x3_trips: 'TRIPS, FULL HOUSE', joker: 'ANY FACE', refund: 'A REROLL BACK' };
 const guideDie = (v, held) => `<i class="gdie" style="--f: var(--face-${v}${held ? '-held' : ''})"></i>`; // the baked faces
-const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="arch"></span><span class="art"></span><span class="tag">${cardLabel(kind)}</span></span>`; // a card face up
+const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="arch"></span><span class="art"></span><span class="tag">${cardLabel(kind)}</span><span class="x2">${cardSticker(kind)}</span></span>`; // a card face up
 
 function openGuide(mode) {
   const guide = $('guide');
@@ -1765,8 +1768,47 @@ function openGuide(mode) {
   guide.hidden = false;
 }
 
+// The guide's REROLL dice throw like the game's (owner, 02.11.2026): the same 3D roll, about every 2 s
+// while their page shows. The CSS tumble stays until three.js is there, and without it. A new loop waits
+// for the one before to end its throw: every throw draws on the one canvas.
+function guideRolls() {
+  const token = {};
+  app.guideRoll = token;
+  app.guideRolled = (app.guideRolled || Promise.resolve()).then(() => guideRollLoop(token)).catch(() => {});
+}
+
+async function guideRollLoop(token) {
+  if (app.guideRoll !== token) return;
+  const grp = $('holdPic').querySelector('.roll');
+  const box = grp && grp.firstElementChild;
+  if (!box || reduceMotion || !app.dice3d || !(await loadDice3D())) return;
+  const dice = [...box.querySelectorAll('.gdie')];
+  const rng = createRng(`guide/${Date.now()}`);
+  let faces = [2, 4];
+  const showing = () => app.guideRoll === token && !$('guide').hidden && app.guide.page === 2;
+  grp.classList.add('three');
+  while (showing()) {
+    const next = faces.map((f) => { let v = f; while (v === f) v = 1 + Math.floor(rng.next() * 6); return v; });
+    dice.forEach((d) => d.classList.add('hidden3d'));
+    const ok = await rollDice3D({
+      board: box,
+      cells: dice,
+      dice: next.map((value, index) => ({ index, from: faces[index], value })),
+      colors: lookColors(),
+      rng,
+      onLanded: () => dice.forEach((d, k) => d.style.setProperty('--f', `var(--face-${next[k]})`)),
+    }).catch(() => false);
+    dice.forEach((d) => d.classList.remove('hidden3d'));
+    if (!ok) break;
+    faces = next;
+    await wait(1400);
+  }
+  if (app.guideRoll === token) grp.classList.remove('three');
+}
+
 function showGuidePage(page) {
   app.guide.page = page;
+  if (page === 2) guideRolls();
   $('guide').querySelectorAll('.guide-page').forEach((el) => { el.hidden = Number(el.dataset.page) !== page; });
   $('guideDots').querySelectorAll('i').forEach((dot, k) => dot.classList.toggle('on', k === page - 1));
   $('guideDots').hidden = page === 0;
