@@ -1,263 +1,407 @@
-// Bonus characters alive on their cards (owner, 02.11.2026: "animate the bonuses, at least 24 frames a second,
-// by a storyboard after Disney's rules"; docs/ANIM-STORYBOARDS.md). A card's picture becomes a cutout puppet
-// (rig.js) drawn every display frame: a breath that never stops and events at random intervals, each timed in
-// 24 fps frames as on the storyboard. A tap moves only the card, never the picture. One animation loop for
-// every card; a card out of sight is skipped; with reduced motion the picture stands still.
-import { createPuppet, key } from './rig.js';
+// Bonus characters alive on their cards, the old-cartoon way (owner, 03.11.2026: «the animation inside the cards
+// trembles; another approach, after the joker: a storyboard like old Disney cartoons or Cuphead»; the joker approved
+// the same day, «the others the same way»; docs/ANIM-STORYBOARDS.md). A card's picture is a cutout puppet (rig.js)
+// shown as held drawings: 12 a second (24 fps on twos), in big poses to a beat of 90 bpm, 8 drawings a beat, and now
+// and then an act that starts on a beat and lasts whole beats, so the character comes back in step. Nothing moves
+// between drawings, so nothing shimmers. The canvas covers the card at the screen's full resolution, the parts
+// scaled once to it, and draws only when the drawing changes. A tap moves only the card. One loop for every card,
+// each a few drawings off the others; a card out of sight is skipped; with reduced motion the picture stands still.
+// Approach 1 (a breath and small events every display frame) is kept in prototypes/char-anim/approach1.js.
+import { createPuppet } from './rig.js';
 
-const F = (n) => n / 24; // a storyboard frame, in seconds
+const D = 12; // drawings a second
+const BEAT = 8; // drawings a beat: 90 bpm
+const row = (table, e) => table[Math.min(e, table.length - 1)];
+const mod = (n, m) => ((n % m) + m) % m;
 
-// ×2 ANY HAND: the skeleton knight (storyboard §1), cut by art/bonuses/anim/knight-rig/cut.py
-function knightPose(t, on) {
-  // A. breath, 60 frames: the head stretches up from the edge and back, keeping its volume
-  const u = (t % F(60)) / F(60);
-  const breath = 0.5 - 0.5 * Math.cos(2 * Math.PI * u);
-  let sy = 1 + 0.02 * breath;
-  let sx = 1 - 0.01 * breath;
-  let rot = 0;
-  let dy = 0;
-  let px = 0;
-  let py = 0;
-  let psy = 1;
-  if (on.glance) { // C. 30 frames: anticipation, a 3-frame dart, a moving hold, the way back past centre
-    const e = t - on.glance.t0;
-    const d = on.glance.dir;
-    px += key(e, [[0, 0], [F(4), -3 * d], [F(7), 16 * d, 'o'], [F(20), 15 * d, 'lin'], [F(29), -1.5 * d], [F(30), 0]]);
-    rot += key(e, [[0, 0], [F(4), -0.5 * d], [F(7), 2.5 * d, 'o'], [F(20), 2.2 * d, 'lin'], [F(30), 0]]);
-    dy += key(e, [[0, 0], [F(4), 0], [F(5.5), 4], [F(7), 0, 'o'], [F(30), 0]]); // the arc dips on its way
-  }
-  if (on.duck) { // D. 36 frames: up, duck behind the edge squashed, pop up stretched, settle
-    const e = t - on.duck.t0;
-    dy += key(e, [[0, 0], [F(6), 0], [F(12), 62, 'i'], [F(16), 58, 'lin'], [F(19), 0, 'o'], [F(24), 8], [F(30), 0], [F(36), 0]]);
-    const s = key(e, [[0, 1], [F(6), 1.03], [F(11), 0.97], [F(12), 0.92, 'o'], [F(16), 0.95], [F(18), 1.06, 'o'], [F(19), 1.06, 'lin'], [F(24), 0.98], [F(30), 1.01], [F(36), 1]]);
-    sy *= s;
-    sx *= 1 + (1 - s) * 0.6;
-    py += key(e, [[0, 0], [F(6), -10], [F(12), -4], [F(16), -4], [F(20), 0]]);
-    px += key(e, [[0, 0], [F(12), 0], [F(13), -12], [F(14.5), 12], [F(16), 0]]);
-  }
-  if (on.blink) psy = key(t - on.blink.t0, [[0, 1], [F(2), 0.1, 'i'], [F(3), 0.1, 'lin'], [F(4), 1.05, 'o'], [F(5), 1]]); // B
-  const pupil = { dx: px, dy: py, sy: psy };
-  return { head: { rot, dy, sx, sy }, pupilL: pupil, pupilR: pupil };
+// ×2 ANY HAND: the skeleton knight, a stiff guard on the march (storyboard §1).
+// [sy, sx, dy, lean°, pupils dx, pupils dy, tulip°]; the tulip hangs from its stem, + turns it down
+const KNIGHT_BEAT = [
+  [0.92, 1.05, 6, 0.5, 0, 4, 14], // 1 down on the beat: squashed, a stern look down; the tulip keeps falling
+  [0.98, 1.01, 2, 1.5, 0, 2, 8], // 2 push off
+  [1.07, 0.96, -8, 2.5, 6, -2, 2], // 3 rise: stretched, the eyes go along
+  [1.05, 0.97, -12, 3, 10, -6, -6], // 4 up: the tulip floats up as the head slows
+  [1.04, 0.98, -14, 3, 10, -6, -10], // 5 top
+  [1.04, 0.98, -13, 2.5, 10, -4, -12], // 6 hang
+  [1.06, 0.965, -6, 1.5, 4, 0, -8], // 7 fall: stretched by the speed
+  [1, 1, 0, 0.5, 0, 2, 2], // 8 about to land
+];
+// What was that? He ducks behind the edge, peeks left and right, and pops up.
+const KNIGHT_DUCK = [
+  [1.05, 0.97, -8, 0, 0, -8, -4], // 1 on the alert: stretched, eyes up
+  [0.9, 1.06, 40, 0, 0, -6, -14], // 2 ducks, squashed on the way; the tulip lags up
+  [0.95, 1.03, 170, 0, 0, -4, -18], // 3 down: only the helmet shows
+  [0.97, 1.02, 200, 0, 0, 0, 10], // 4 the tulip flops after him
+  [1, 1, 120, 0, -14, -4, 6], // 5 peeks over the edge: left
+  [1, 1, 120, 0, -14, -4, 2], // 6
+  [1, 1, 120, 0, 14, -4, 0], // 7 right
+  [1, 1, 120, 0, 14, -4, 0], // 8
+  [0.94, 1.04, 140, 0, 0, 0, 4], // 9 all clear: sinks to spring
+  [1.14, 0.92, -14, 0, 0, -8, 18], // 10 POP, stretched past the rest; the tulip whips down
+  [1.08, 0.95, -18, -1.5, 0, -6, 6], // 11
+  [1.04, 0.975, -14, -1, 0, -4, -8], // 12 the tulip springs up
+  [1.03, 0.985, -10, 0, 0, -2, -10], // 13
+  [1.04, 0.98, -6, 0, 0, 0, -4], // 14
+  [1.05, 0.97, -2, 0, 0, 2, 0], // 15 falling
+  [1, 1, 0, 0, 0, 2, 4], // 16 the next beat lands him
+];
+function knightPose(k, act) {
+  const side = act ? 1 : mod(k, 16) < 8 ? 1 : -1;
+  const [sy, sx, dy, lean, px, py, tulip] = act ? row(KNIGHT_DUCK, act.e) : KNIGHT_BEAT[mod(k, BEAT)];
+  const pupil = { dx: px * side, dy: py };
+  return { head: { sy, sx, dy, rot: lean * side }, pupilL: pupil, pupilR: pupil, flower: { rot: tulip } };
 }
 
-// A breath of `frames` (0 → 1 → 0, slow in and out) at the time t.
-const breath = (t, frames) => 0.5 - 0.5 * Math.cos((2 * Math.PI * (t % F(frames))) / F(frames));
-const blinkY = (on, t) => (on.blink ? key(t - on.blink.t0, [[0, 1], [F(2), 0.1, 'i'], [F(3), 0.1, 'lin'], [F(4), 1.05, 'o'], [F(5), 1]]) : 1);
-
-// ×3 STRAIGHT: the grumpy bug (storyboard §2). Its three feelers hang on springs and sway each on its own.
-function bugPose(t, on) {
-  const b = breath(t, 54);
-  let sy = 1 + 0.022 * b;
-  let sx = 1 - 0.011 * b;
-  let rot = 0;
-  let px = 0;
-  let psy = blinkY(on, t);
-  if (on.glance) { // 30 frames: anticipation, a 3-frame dart, a moving hold, back past centre
-    const e = t - on.glance.t0;
-    const d = on.glance.dir;
-    px += key(e, [[0, 0], [F(4), -2 * d], [F(7), 10 * d, 'o'], [F(20), 9 * d, 'lin'], [F(29), -1 * d], [F(30), 0]]);
-    rot += key(e, [[0, 0], [F(4), -0.5 * d], [F(7), 2 * d, 'o'], [F(20), 1.8 * d, 'lin'], [F(30), 0]]);
+// ×3 STRAIGHT: the grumpy bug keeps time with its staff (storyboard §2). Its feelers follow the head a drawing or
+// two late; + throws them down. [sy, sx, dy, lean°, pupils dy, staff dy, staff°]; the staff leans to the head with -
+const BUG_BEAT = [
+  [0.9, 1.07, 6, 0, 6, 12, 0], // 1 THUMP: the staff strikes the beat, the bug squashes, glaring down
+  [0.97, 1.02, 2, 1, 3, 6, -1], // 2
+  [1.08, 0.95, -10, 2, -2, 0, -2], // 3 rise: stretched; the staff comes up
+  [1.06, 0.965, -14, 2.5, -4, 0, -3], // 4
+  [1.05, 0.97, -15, 2.5, -4, 0, -3.5], // 5 top
+  [1.05, 0.97, -13, 2, -3, 0, -3], // 6
+  [1.07, 0.955, -6, 1, 0, 0, -2], // 7 fall; the staff swings to strike
+  [1, 1, 0, 0, 2, 0, 1], // 8
+];
+const WHIP = [12, 10, 6, -4, -10, -10, -8, 0]; // the feelers on the bounce: thrown down on the landing, up at the top
+// HMPH: it winds up, puffs up stiff with its feelers straight up, stamps the staff three times, shakes its head.
+// [sy, sx, dy, rot°, pupils scale, feelers°, staff dy, staff°]
+const BUG_HMPH = [
+  [0.88, 1.08, 8, 0, 0.6, 14, 0, -2], // 1 winds up: sinks, squints
+  [0.86, 1.09, 10, 0, 0.6, 16, 0, -6], // 2 lower; the staff swings back
+  [1.14, 0.92, -16, 0, 0.7, -14, 18, 2], // 3 HMPH! stiff, feelers up, the staff stamps
+  [1.12, 0.93, -18, 0, 0.7, -12, 2, -3], // 4
+  [1.12, 0.93, -18, 0, 0.7, -12, 18, 2], // 5 stamp
+  [1.11, 0.935, -17, 0, 0.7, -12, 2, -3], // 6
+  [1.12, 0.93, -18, 0, 0.7, -12, 18, 2], // 7 stamp
+  [1.1, 0.94, -16, 0, 0.75, -10, 8, 0], // 8
+  [1.06, 0.96, -12, -5, 0.8, 8, 0, 0], // 9 shakes its head: no
+  [1.06, 0.96, -12, 5, 0.8, -8, 0, 0], // 10
+  [1.05, 0.97, -10, -4, 0.85, 6, 0, 0], // 11
+  [1.05, 0.97, -10, 3, 0.9, -4, 0, 0], // 12
+  [1.03, 0.98, -6, 0, 1, 4, 0, 0], // 13 settles; the feelers overshoot
+  [1.02, 0.99, -4, 0, 1, -2, 0, 0], // 14
+  [1.04, 0.975, -2, 0, 1, 0, 0, -1], // 15 falling
+  [1, 1, 0, 0, 1, 0, 0, 0], // 16
+];
+function bugPose(k, act) {
+  const side = mod(k, 16) < 8 ? 1 : -1;
+  let head, pupil, staff, feel;
+  if (act) {
+    const [sy, sx, dy, rot, ps, , sd, sr] = row(BUG_HMPH, act.e);
+    head = { sy, sx, dy, rot };
+    pupil = { sx: ps, sy: ps };
+    staff = { dy: sd, rot: sr };
+    feel = (late) => row(BUG_HMPH, Math.max(0, act.e - late))[5];
+  } else {
+    const [sy, sx, dy, lean, py, sd, sr] = BUG_BEAT[mod(k, BEAT)];
+    head = { sy, sx, dy, rot: lean * side };
+    pupil = { dy: py };
+    staff = { dy: sd, rot: sr };
+    feel = (late) => WHIP[mod(k - late, BEAT)];
   }
-  if (on.huff) { // 32 frames: rises, a 4-frame squash (the hit), overshoots, settles; the feelers whip
-    const s = key(t - on.huff.t0, [[0, 1], [F(6), 1.04], [F(10), 0.9, 'i'], [F(14), 1.05, 'o'], [F(20), 0.98], [F(26), 1.01], [F(32), 1]]);
-    sy *= s;
-    sx *= 1 + (1 - s) * 0.7;
-    psy *= key(t - on.huff.t0, [[0, 1], [F(6), 1], [F(10), 0.8], [F(20), 0.85], [F(32), 1]]); // a scowl
-  }
-  const sway = (phase, deg) => ({ rot: deg * Math.sin(2 * Math.PI * (t / 2.6 + phase)) });
   return {
-    head: { rot, sx, sy },
-    pupilL: { dx: px, sy: psy },
-    pupilR: { dx: px, sy: psy },
-    antL: sway(0, 2.5),
-    antM: sway(0.33, 3),
-    antR: sway(0.66, 2.5),
+    head, pupilL: pupil, pupilR: pupil, staff,
+    antL: { rot: -feel(1) }, antM: { rot: 0.8 * feel(2) }, antR: { rot: feel(1) }, // each turns down its own way
+    legs: { sy: !act && mod(k, BEAT) === 0 ? 0.97 : 1 },
   };
 }
 
-// ×3 PAIRS: the tall one, slow and bored, and the little one, quick and keen (storyboard §3)
-function pairPose(t, on) {
-  const slow = breath(t, 84);
-  let tallSy = 1 + 0.015 * slow;
-  let tallDy = 0;
-  const tallRot = 1.2 * Math.sin((2 * Math.PI * t) / 5);
-  if (on.sigh) { // 48 frames: a long breath in, a slow sink out, back
-    const e = t - on.sigh.t0;
-    tallSy *= key(e, [[0, 1], [F(12), 1.04], [F(36), 0.96, 'o'], [F(48), 1]]);
-    tallDy += key(e, [[0, 0], [F(12), 0], [F(36), 10, 'o'], [F(48), 0]]);
+// ×3 PAIRS: the little one hops on every beat, the tall one sways at half the pace, bored (storyboard §3).
+// little [sy, sx, dy, lean°, pupils dx, pupils dy]: it leans to the tall one on the first beat, away on the second
+const KID_BEAT = [
+  [0.86, 1.09, 6, 0, 0, 4], // 1 lands squashed
+  [0.95, 1.03, 2, 0, 0, 2], // 2
+  [1.12, 0.93, -10, -1.5, 0, -4], // 3 up, stretched
+  [1.07, 0.96, -15, -2.5, -4, -6], // 4
+  [1.05, 0.97, -16, -2.5, -4, -6], // 5 top
+  [1.05, 0.97, -14, -2, -4, -4], // 6
+  [1.1, 0.94, -6, -1, 0, 0], // 7 fall
+  [1, 1, 0, 0, 0, 2], // 8
+];
+// tall [sy, sx, dy, lean°] over both beats: it slumps on each, sways once, and holds at each end of the sway
+const TALL_BEAT = [
+  [0.97, 1.02, 5, -1], [0.97, 1.02, 5, -1], [0.99, 1.005, 2, -2], [0.99, 1.005, 2, -2],
+  [1, 1, 0, -2.5], [1, 1, 0, -2.5], [1, 1, 0, -2.5], [0.99, 1.005, 2, -1.5],
+  [0.97, 1.02, 5, 0], [0.97, 1.02, 5, 0], [0.99, 1.005, 2, 1], [0.99, 1.005, 2, 1],
+  [1, 1, 0, 1.5], [1, 1, 0, 1.5], [1, 1, 0, 1.5], [0.99, 1.005, 2, 0.5],
+];
+// The leap: the little one crouches and leaps; the tall one sinks out of sight, unimpressed, while the little one
+// looks for him; he comes back up. [little: sy, sx, dy, lean°, pupils dx, pupils dy], [tall: dy, sy]
+const PAIR_LEAP = [
+  [[0.88, 1.08, 8, 0, 0, 6], [5, 0.97]], // 1 crouch
+  [[0.82, 1.12, 12, 0, 0, 6], [4, 0.98]], // 2 deeper
+  [[1.18, 0.9, -16, 0, 0, -10], [0, 1]], // 3 LEAP
+  [[1.12, 0.93, -18, 0, 0, -10], [10, 1]], // 4
+  [[1.06, 0.97, -16, 0, 0, -8], [40, 1]], // 5 the tall one starts to sink
+  [[1.1, 0.94, -8, 0, 0, -4], [110, 1]], // 6
+  [[0.86, 1.09, 6, 0, 0, 4], [200, 1]], // 7 the little one lands
+  [[0.98, 1.01, 0, 0, -6, 0], [280, 1]], // 8 the tall one is gone but for his hair and eyelids
+  [[1, 1, 0, -3, -10, 0], [300, 1]], // 9 where did he go?
+  [[1, 1, 0, -4, -10, 2], [300, 1]], // 10
+  [[1, 1, 0, -4, -10, 2], [300, 1]], // 11
+  [[1, 1, 0, -2, -6, 0], [220, 1]], // 12 he rises
+  [[1, 1, 0, 0, 0, 0], [110, 1.02]], // 13
+  [[1, 1, 0, 0, 0, 0], [20, 1.04]], // 14
+  [[1.04, 0.98, -4, 0, 0, 0], [-4, 1.03]], // 15
+  [[1, 1, 0, 0, 0, 2], [0, 1]], // 16
+];
+function pairPose(k, act) {
+  const side = mod(k, 16) < 8 ? 1 : -1;
+  let kid, pupil, tall;
+  if (act) {
+    const [[sy, sx, dy, lean, px, py], [tdy, tsy]] = row(PAIR_LEAP, act.e);
+    kid = { sy, sx, dy, rot: lean };
+    pupil = { dx: px, dy: py };
+    tall = { dy: tdy, sy: tsy, sx: 2 - tsy };
+  } else {
+    const [sy, sx, dy, lean, px, py] = KID_BEAT[mod(k, BEAT)];
+    kid = { sy, sx, dy, rot: lean * side };
+    pupil = { dx: px * side, dy: py };
+    const [tsy, tsx, tdy, tlean] = TALL_BEAT[mod(k, 16)];
+    tall = { sy: tsy, sx: tsx, dy: tdy, rot: tlean };
   }
-  const quick = breath(t, 30);
-  let kidSy = 1 + 0.025 * quick;
-  let kidSx = 1 - 0.012 * quick;
-  if (on.hop) { // 24 frames: crouch (squash), spring up (stretch), land (squash), settle
-    const s = key(t - on.hop.t0, [[0, 1], [F(4), 0.9, 'o'], [F(8), 1.1, 'o'], [F(12), 0.95], [F(16), 1.02], [F(24), 1]]);
-    kidSy *= s;
-    kidSx *= 1 + (1 - s) * 0.7;
-  }
-  let px = 0;
-  if (on.glance) { // 20 frames: the pupils dart in and back (they sit on the eyes' outer line: never past it)
-    const e = t - on.glance.t0;
-    px = key(e, [[0, 0], [F(3), 8, 'o'], [F(14), 7, 'lin'], [F(20), 0]]);
-  }
-  const pupil = { dx: px, sy: blinkY(on, t) };
-  return { tall: { rot: tallRot, sy: tallSy, sx: 2 - tallSy, dy: tallDy }, kid: { sx: kidSx, sy: kidSy }, kidL: pupil, kidR: pupil };
+  return { tall, kid, kidL: pupil, kidR: pupil };
 }
 
-// ×3 TRIPS: three heads stacked in a cloak (storyboard §4). The bottom one sways; the middle and the top hang
-// on springs above it, so each follows a moment later and overshoots (the hat most).
-function trioPose(t, on) {
-  const b = breath(t, 60);
-  let rot = 1.5 * Math.sin((2 * Math.PI * t) / 3);
-  if (on.teeter) { // 40 frames: leans back (anticipation), tips over, rights itself with an overshoot
-    rot += key(t - on.teeter.t0, [[0, 0], [F(6), -2 * on.teeter.dir], [F(14), 4 * on.teeter.dir, 'o'], [F(26), -1 * on.teeter.dir], [F(40), 0]]);
+// ×3 TRIPS: three heads in one coat, a wobbly tower (storyboard §4). The beat goes up the stack: the bottom one on
+// the beat, the middle one a drawing later, the top one two later, each leaning further.
+// [sy, sx, dy, lean°] of the bottom one
+const TRIO_BEAT = [
+  [0.9, 1.07, 6, 0.5], // 1 down on the beat
+  [0.97, 1.02, 2, 1.5], // 2
+  [1.07, 0.95, -8, 2.5], // 3 up
+  [1.05, 0.97, -11, 3], // 4
+  [1.04, 0.975, -12, 3], // 5 top
+  [1.04, 0.975, -10, 2.5], // 6
+  [1.06, 0.96, -5, 1.5], // 7 fall
+  [1, 1, 0, 0.5], // 8
+];
+// The teeter: it leans back, tips over with the top one lagging, nearly loses it, steps back and rights itself past
+// the middle. [bottom°, middle°, top° as seen, bottom sy, dy]
+const TRIO_TEETER = [
+  [-2, -2.5, -3, 0.95, 4], // 1 leans back
+  [-3, -4, -5, 0.94, 5], // 2
+  [2, 0, -3, 1.04, -6], // 3 tips: the bottom goes first
+  [4, 4, 1, 1.05, -8], // 4
+  [5, 8, 7, 1.04, -8], // 5
+  [6, 11, 13, 1.03, -8], // 6 the top one nearly falls off
+  [6, 12, 16, 1.03, -8], // 7
+  [5.5, 11, 15, 1.03, -8], // 8
+  [3, 8, 14, 1.02, -6], // 9 the bottom one steps back under it
+  [0, 3, 8, 1, -4], // 10
+  [-3, -2, 0, 0.98, -2], // 11 past the middle
+  [-4, -4, -5, 0.97, 0], // 12
+  [-2, -3, -5, 0.98, 0], // 13
+  [0, -1, -2, 1, 0], // 14
+  [1, 1, 1, 1.02, -2], // 15
+  [0, 0, 0, 1, 0], // 16
+];
+function trioPose(k, act) {
+  if (act) {
+    const [b, m, t, sy, dy] = row(TRIO_TEETER, act.e).map((v, i) => (i < 3 ? v * act.dir : v));
+    return { bot: { rot: b, sy, sx: 2 - sy, dy }, mid: { rot: m - b }, top: { rot: t - m } };
   }
-  return { bot: { rot, sy: 1 + 0.015 * b, sx: 1 - 0.008 * b }, mid: { sy: 1 + 0.012 * breath(t + F(6), 60) }, top: {} };
-}
-
-// ★ JOKER: the skull with a star in its eye (storyboard §5)
-function jokerPose(t, on) {
-  const b = breath(t, 56);
-  let sy = 1 + 0.02 * b;
-  let rot = 0;
-  let dy = 0;
-  let star = 1;
-  let starRot = 0;
-  let ix = 0;
-  let iy = 0;
-  const twinkle = (e) => {
-    star *= key(e, [[0, 1], [F(3), 1.35, 'o'], [F(8), 0.9], [F(12), 1]]);
-    starRot += key(e, [[0, 0], [F(3), 20, 'o'], [F(12), 0]]);
+  const at = (late) => { // the bottom one's pose `late` drawings ago, with the lean of its beat
+    const j = k - late;
+    const [sy, sx, dy, lean] = TRIO_BEAT[mod(j, BEAT)];
+    return { sy, sx, dy, lean: lean * (mod(j, 16) < 8 ? 1 : -1) };
   };
-  if (on.twinkle) twinkle(t - on.twinkle.t0);
-  if (on.glance) { // 30 frames: the purple eye rolls up and aside
-    const e = t - on.glance.t0;
-    const d = on.glance.dir;
-    ix = key(e, [[0, 0], [F(5), 10 * d, 'o'], [F(22), 9 * d, 'lin'], [F(30), 0]]);
-    iy = key(e, [[0, 0], [F(5), -5, 'o'], [F(22), -4, 'lin'], [F(30), 0]]);
-    rot += key(e, [[0, 0], [F(6), 2 * d, 'o'], [F(22), 1.8 * d, 'lin'], [F(30), 0]]);
-  }
-  if (on.cackle) { // 30 frames: three quick bobs, squashed at each low, the star going off with them
-    const e = t - on.cackle.t0;
-    const bob = key(e, [[0, 0], [F(4), 1], [F(8), 0], [F(12), 1], [F(16), 0], [F(20), 1], [F(26), 0], [F(30), 0]]);
-    dy += 8 * bob;
-    sy *= 1 - 0.04 * bob;
-    rot += 1.5 * Math.sin((2 * Math.PI * e) / F(8));
-    twinkle(e);
-  }
-  return { head: { rot, dy, sy, sx: 2 - sy }, star: { sx: star, sy: star, rot: starRot }, iris: { dx: ix, dy: iy } };
+  const [b, m, t] = [at(0), at(1), at(2)];
+  return {
+    bot: { sy: b.sy, sx: b.sx, dy: b.dy, rot: b.lean },
+    mid: { sy: m.sy / b.sy, sx: m.sx / b.sx, rot: 1.3 * m.lean - b.lean }, // as seen: its own squash and lean, late
+    top: { sy: t.sy / m.sy, sx: t.sx / m.sx, rot: 1.7 * t.lean - 1.3 * m.lean },
+  };
 }
 
-// +1 REFUND: the pawnbroker bird (storyboard §6). Its crest and its coin earring hang on springs.
-function birdPose(t, on) {
-  const b = breath(t, 64);
-  let rot = 0;
-  let dy = 0;
-  if (on.lean) { // 40 frames: a twitch the other way, a lean toward the coin, a suspicious moving hold, back
-    rot += key(t - on.lean.t0, [[0, 0], [F(6), 1], [F(14), -3.5, 'o'], [F(28), -3.2, 'lin'], [F(40), 0]]);
+// ★ JOKER: the skull with a star in its eye (storyboard §5), the whole skull with a jaw on a hinge.
+// [sy, sx, dy, lean°, jaw°, star scale, star°]; lean > 0 tips the top to the right, jaw < 0 opens it
+const SKULL_BEAT = [
+  [0.9, 1.07, 8, 0.5, 0, 1.35, 15], // 1 down: squashed on the beat, the jaw clacks shut, the star goes off
+  [0.97, 1.02, 2, 1.5, -2, 1.18, 8], // 2 push off
+  [1.08, 0.95, -12, 3, -6, 1.06, 3], // 3 rise: stretched
+  [1.05, 0.97, -20, 4, -8, 1, 0], // 4 up
+  [1.04, 0.975, -22, 4.2, -8, 1, 0], // 5 top
+  [1.035, 0.98, -21, 4, -7, 1, 0], // 6 hang
+  [1.06, 0.96, -10, 2.5, -4, 1, 0], // 7 fall: stretched by the speed
+  [1, 1, 0, 1, -1, 1, 0], // 8 about to land
+];
+// The cackle: it sinks, pops up laughing with the jaw flapping, wheezes and falls back into the beat.
+// [sy, sx, dy, rot°, jaw°, star scale, star°, eye dy]
+const SKULL_CACKLE = [
+  [0.88, 1.08, 14, -3, 0, 1, 0, -6], // 1 sinks, squashed, a sly look up
+  [0.86, 1.09, 18, -4, 0, 1, 0, -7], // 2 lower still
+  [1.12, 0.93, -58, 6, -10, 1.4, 30, -8], // 3 HA! up, the jaw wide open
+  [1.06, 0.96, -46, 5, -1, 1.2, 40, -8], // 4 clack
+  [1.1, 0.94, -56, 6, -10, 1.35, 55, -8], // 5 HA
+  [1.05, 0.965, -44, 5, -1, 1.15, 62, -8], // 6 clack
+  [1.1, 0.94, -54, 6, -10, 1.3, 75, -8], // 7 HA
+  [1.05, 0.965, -42, 5, -1, 1.1, 80, -8], // 8 clack
+  [1.09, 0.945, -50, 5.5, -9, 1.25, 90, -8], // 9 HA
+  [1.04, 0.97, -38, 4.5, -1, 1.05, 90, -7], // 10 clack
+  [1.06, 0.96, -30, 4, -6, 1, 90, -6], // 11 hee
+  [1.03, 0.98, -22, 3, -1, 1, 90, -4], // 12
+  [1.04, 0.975, -16, 2, -4, 1, 90, -2], // 13 hee
+  [1.02, 0.99, -8, 1, -1, 1, 90, 0], // 14 settling
+  [1.05, 0.97, -4, 0.5, 0, 1, 90, 0], // 15 falling, stretched
+  [1, 1, 0, 0, 0, 1, 90, 0], // 16 the next beat lands it (a four-point star a quarter turn on looks the same)
+];
+function skullPose(k, act) {
+  if (act) {
+    const [sy, sx, dy, rot, jaw, star, turn, iy] = row(SKULL_CACKLE, act.e);
+    const grip = act.e >= 2 && act.e <= 10 ? (act.e % 2 ? 0.97 : 0.93) : 1; // the fingers squeeze the edge on each HA
+    return { head: { sy, sx, dy, rot }, jaw: { rot: jaw }, star: { sx: star, sy: star, rot: turn }, iris: { dy: iy }, handL: { sy: grip }, handR: { sy: grip } };
   }
-  if (on.nod) { // 20 frames: a nod down and a little overshoot up
-    dy += key(t - on.nod.t0, [[0, 0], [F(5), 7, 'o'], [F(11), -1.5], [F(20), 0]]);
-  }
-  let g = 0.85;
-  let gr = 0;
-  if (on.glint) { // 16 frames: the coin's sparkle flares and settles
-    const e = t - on.glint.t0;
-    g = key(e, [[0, 0.85], [F(4), 1.3, 'o'], [F(10), 0.75], [F(16), 0.85]]);
-    gr = key(e, [[0, 0], [F(4), 45, 'o'], [F(16), 90]]);
-  }
-  return { head: { rot, dy, sy: 1 + 0.018 * b, sx: 1 - 0.009 * b }, glint: { sx: g, sy: g, rot: gr } };
+  const j = mod(k, 16);
+  const side = j < 8 ? 1 : -1;
+  const [sy, sx, dy, lean, jaw, star, turn] = SKULL_BEAT[j % 8];
+  const press = j % 8 === 0 ? 0.94 : j % 8 === 1 ? 0.97 : 1; // the hand on the leaning side takes the weight
+  const lift = j % 8 === 0 ? 1.03 : 1;
+  return {
+    head: { sy, sx, dy, rot: lean * side },
+    jaw: { rot: jaw },
+    star: { sx: star, sy: star, rot: turn * side },
+    iris: { dx: j % 8 >= 2 && j % 8 <= 6 ? 6 * side : 0, dy: j % 8 >= 3 && j % 8 <= 5 ? -5 : 0 },
+    handL: { sy: side < 0 ? press : lift },
+    handR: { sy: side > 0 ? press : lift },
+  };
 }
 
-export const CHARACTERS = { // by bonus kind (exported for prototypes/char-anim/puppets.html)
+// +1 REFUND: the pawnbroker bird bobs like a pigeon (storyboard §6): its head thrusts toward its beak on the beat
+// and draws back, the crest and the earring flying the other way; the coin's sparkle flares on every other beat.
+// [sy, sx, dx, dy, rot°, crest°, earring°]; crest < 0 droops it, earring < 0 swings it back.
+const BIRD_BEAT = [
+  [0.94, 1.04, 16, 6, 2, -10, -14], // 1 thrust on the beat, squashed
+  [0.97, 1.02, 14, 4, 1.5, -6, -8], // 2
+  [1.03, 0.985, 6, 0, 0.5, 4, 6], // 3 draws back, stretched
+  [1.04, 0.98, -2, 0, -0.5, 8, 12], // 4
+  [1.04, 0.98, -6, 0, -1, 8, 12], // 5 back
+  [1.03, 0.985, -6, 0, -1, 4, 6], // 6
+  [1, 1, -2, 0, 0, -2, -2], // 7
+  [0.98, 1.01, 6, 2, 1, -4, -6], // 8 about to thrust
+];
+const GLINT = [[1.35, 45], [1.2, 60], [1.05, 75]]; // [scale, °] after the beat; then at rest a quarter turn on
+// The count: it leans to its coin and nods over it three times, the sparkle flaring with each, then lifts its
+// beak, smug. [sy, sx, dx, dy, rot°, crest°, earring°, sparkle scale, sparkle°]
+const BIRD_COUNT = [
+  [1.02, 0.99, -10, 2, -1, 6, 8, 1, 90], // 1 leans to the coin
+  [1.03, 0.985, -16, 2, -1.5, 8, 12, 1, 90], // 2
+  [0.92, 1.05, -18, 10, 2, -10, -16, 1.4, 120], // 3 one
+  [1.02, 0.99, -16, 2, -1, 6, 10, 1.05, 135], // 4
+  [0.92, 1.05, -18, 10, 2, -10, -16, 1.4, 165], // 5 two
+  [1.02, 0.99, -16, 2, -1, 6, 10, 1.05, 180], // 6
+  [0.92, 1.05, -18, 10, 2, -10, -16, 1.45, 210], // 7 three
+  [1.02, 0.99, -16, 2, -1, 6, 10, 1.05, 225], // 8
+  [1.06, 0.97, -6, 2, -3, 12, 14, 1, 240], // 9 the beak goes up: smug
+  [1.07, 0.965, 0, 2, -4, 6, 4, 1, 270], // 10
+  [1.07, 0.965, 0, 2, -4, 2, -4, 1, 270], // 11
+  [1.06, 0.97, 0, 2, -3.5, 0, -6, 1, 270], // 12
+  [1.04, 0.98, 0, 1, -2.5, -2, -2, 1, 270], // 13
+  [1.02, 0.99, 0, 0, -1, 0, 2, 1, 270], // 14
+  [1, 1, 0, 0, 0, 0, 0, 1, 270], // 15
+  [0.98, 1.01, 6, 2, 1, -4, -6, 1, 270], // 16 about to thrust
+];
+function birdPose(k, act) {
+  const [sy, sx, dx, dy, rot, crest, earring, g, gr] = act
+    ? row(BIRD_COUNT, act.e)
+    : [...BIRD_BEAT[mod(k, BEAT)], ...(GLINT[mod(k, 16)] || [1, 90])];
+  return { head: { sy, sx, dx, dy, rot }, crest: { rot: crest }, earring: { rot: earring }, glint: { sx: g, sy: g, rot: gr } };
+}
+
+// By bonus kind. frame: the card picture's frame in the 1024 px drawing, laid like the picture it replaces (contain,
+// centre bottom in .art, moved by its --drop); edge: where the card's edge cuts the `clip` parts. Parts back to
+// front, cut by art/bonuses/anim/cartoon-fix.py (half size in assets/ui/bonuses/cartoon/). acts: { name: [table,
+// shortest and longest seconds between] }; pose(k, act) gives the bones of drawing k, or of the act's drawing act.e.
+export const CHARACTERS = {
   x2_any: {
     name: 'knight',
-    view: [14, 210, 997, 814], // the card picture's frame in the 1024 px drawing
+    frame: [14, 210, 997, 814],
     edge: 884,
     parts: [
-      { name: 'head', at: [148, 206], size: [767, 711], pivot: [512, 884], clip: true },
-      { name: 'pupilL', at: [364, 672], size: [90, 102], pivot: [411, 720], parent: 'head', clip: true },
-      { name: 'pupilR', at: [571, 668], size: [88, 106], pivot: [613, 720], parent: 'head', clip: true },
-      { name: 'flower', at: [752, 272], size: [203, 234], pivot: [812, 303], parent: 'head', spring: { k: 60, c: 4, inertia: 1.2, swayX: 0.9, swayY: 0.6 } },
-      { name: 'gear', at: [10, 574], size: [1005, 353], pivot: [512, 884] },
+      { name: 'head', at: [152, 210], size: [759, 715], pivot: [512, 884], clip: true },
+      { name: 'pupilL', at: [368, 676], size: [82, 94], pivot: [411, 720], parent: 'head', clip: true },
+      { name: 'pupilR', at: [574, 672], size: [81, 98], pivot: [613, 720], parent: 'head', clip: true },
+      { name: 'flower', at: [756, 276], size: [195, 226], pivot: [812, 303], parent: 'head' },
+      { name: 'gear', at: [14, 578], size: [997, 345], pivot: [512, 884] },
     ],
-    // event: [shortest, longest] seconds between, and its length; the `big` ones never overlap
-    events: { blink: [3, 6, F(5)], glance: [5, 9, F(30)], duck: [10, 15, F(36)] },
-    big: ['glance', 'duck'],
+    acts: { duck: [KNIGHT_DUCK, 9, 14] },
     pose: knightPose,
   },
   x3_straight: {
     name: 'bug',
-    view: [24, 16, 1000, 1008],
+    frame: [24, 16, 1000, 1008],
     edge: 950,
     parts: [
-      { name: 'antL', at: [20, 245], size: [341, 300], pivot: [350, 465], parent: 'head', spring: { k: 50, c: 3.5, inertia: 1.1, swayX: 0.8, swayY: 0.5 } },
-      { name: 'antM', at: [369, 13], size: [266, 447], pivot: [428, 452], parent: 'head', spring: { k: 45, c: 3, inertia: 1.2, swayX: 0.9, swayY: 0.6 } },
-      { name: 'antR', at: [507, 148], size: [292, 285], pivot: [522, 428], parent: 'head', spring: { k: 55, c: 3.5, inertia: 1, swayX: 0.8, swayY: 0.5 } },
-      { name: 'head', at: [187, 331], size: [640, 652], pivot: [450, 950], clip: true },
-      { name: 'pupilL', at: [342, 816], size: [46, 64], pivot: [364, 848], parent: 'head', clip: true },
-      { name: 'pupilR', at: [611, 760], size: [46, 66], pivot: [633, 792], parent: 'head', clip: true },
-      { name: 'gear', at: [25, 104], size: [999, 907], pivot: [512, 950] },
+      { name: 'head', at: [190, 356], size: [633, 635], pivot: [450, 950], clip: true },
+      { name: 'antL', at: [24, 248], size: [339, 293], pivot: [350, 465], parent: 'head' },
+      { name: 'antM', at: [372, 16], size: [259, 445], pivot: [428, 452], parent: 'head' },
+      { name: 'antR', at: [506, 152], size: [289, 282], pivot: [522, 428], parent: 'head' },
+      { name: 'pupilL', at: [346, 820], size: [38, 56], pivot: [364, 848], parent: 'head', clip: true },
+      { name: 'pupilR', at: [614, 764], size: [39, 58], pivot: [633, 792], parent: 'head', clip: true },
+      { name: 'legs', at: [28, 598], size: [969, 409], pivot: [512, 950] },
+      { name: 'staff', at: [752, 108], size: [272, 883], pivot: [810, 770], clip: true },
     ],
-    events: { blink: [3, 6, F(5)], glance: [5, 9, F(30)], huff: [9, 14, F(32)] },
-    big: ['glance', 'huff'],
+    acts: { hmph: [BUG_HMPH, 8, 13] },
     pose: bugPose,
   },
   x3_pairs: {
     name: 'pair',
-    view: [25, 226, 989, 798],
+    frame: [25, 226, 989, 798],
     edge: 905,
     parts: [
-      { name: 'tall', at: [21, 222], size: [629, 716], pivot: [300, 905], clip: true },
-      { name: 'kid', at: [531, 470], size: [487, 503], pivot: [780, 905], clip: true },
-      { name: 'kidL', at: [648, 683], size: [40, 62], pivot: [670, 716], parent: 'kid', clip: true },
-      { name: 'kidR', at: [822, 723], size: [35, 61], pivot: [842, 752], parent: 'kid', clip: true },
-      { name: 'gear', at: [21, 793], size: [982, 191], pivot: [512, 905] },
+      { name: 'tall', at: [24, 226], size: [622, 720], pivot: [300, 905], clip: true },
+      { name: 'kid', at: [536, 474], size: [478, 472], pivot: [780, 905], clip: true },
+      { name: 'kidL', at: [652, 686], size: [32, 55], pivot: [670, 716], parent: 'kid', clip: true },
+      { name: 'kidR', at: [826, 726], size: [27, 54], pivot: [842, 752], parent: 'kid', clip: true },
+      { name: 'gear', at: [24, 796], size: [975, 184], pivot: [512, 905] },
     ],
-    events: { blink: [2.5, 5, F(5)], glance: [3, 6, F(20)], hop: [4, 8, F(24)], sigh: [8, 14, F(48)] },
-    big: [],
+    acts: { leap: [PAIR_LEAP, 7, 12] },
     pose: pairPose,
   },
   x3_trips: {
     name: 'trio',
-    view: [37, 7, 950, 1017],
+    frame: [37, 7, 950, 1017],
     edge: 958,
     parts: [
-      { name: 'top', at: [120, 2], size: [681, 621], pivot: [540, 560], parent: 'mid', spring: { k: 30, c: 2.5, inertia: 1.2, swayX: 0.8, swayY: 0.3 } },
-      { name: 'mid', at: [309, 476], size: [433, 387], pivot: [540, 790], parent: 'bot', spring: { k: 40, c: 3, inertia: 1, swayX: 0.6, swayY: 0.2 } },
-      { name: 'bot', at: [285, 677], size: [523, 314], pivot: [560, 958], clip: true },
-      { name: 'gear', at: [33, 472], size: [958, 531], pivot: [512, 958] },
+      { name: 'top', at: [124, 6], size: [673, 613], pivot: [540, 560], parent: 'mid' },
+      { name: 'mid', at: [312, 480], size: [426, 379], pivot: [540, 790], parent: 'bot' },
+      { name: 'bot', at: [288, 680], size: [516, 319], pivot: [560, 958], clip: true },
+      { name: 'gear', at: [36, 476], size: [951, 523], pivot: [512, 958] },
     ],
-    events: { teeter: [6, 11, F(40)] },
-    big: [],
+    acts: { teeter: [TRIO_TEETER, 7, 12] },
     pose: trioPose,
   },
   joker: {
-    name: 'joker',
-    view: [18, 156, 986, 868],
-    edge: 899,
+    name: 'skull',
+    frame: [18, 60, 986, 868], // the peeking picture's, 96 px higher: the whole skull was drawn in under it
+    edge: 803,
     parts: [
-      { name: 'head', at: [14, 150], size: [928, 782], pivot: [520, 899], clip: true },
-      { name: 'star', at: [344, 456], size: [121, 135], pivot: [405, 515], parent: 'head' },
-      { name: 'iris', at: [614, 582], size: [212, 120], pivot: [720, 640], parent: 'head' },
-      { name: 'gear', at: [17, 766], size: [991, 178], pivot: [512, 899] },
+      { name: 'cavity', at: [364, 662], size: [518, 240], pivot: [520, 803], parent: 'head', clip: true },
+      { name: 'jaw', at: [362, 688], size: [538, 238], pivot: [870, 650], parent: 'head', clip: true },
+      { name: 'head', at: [16, 56], size: [923, 711], pivot: [520, 803], clip: true },
+      { name: 'star', at: [346, 362], size: [117, 131], pivot: [404, 428], parent: 'head' },
+      { name: 'iris', at: [616, 488], size: [207, 116], pivot: [720, 546], parent: 'head' },
+      { name: 'handL', at: [16, 670], size: [450, 178], pivot: [200, 803] },
+      { name: 'handR', at: [678, 674], size: [330, 170], pivot: [840, 803] },
     ],
-    events: { twinkle: [1.5, 3, F(12)], glance: [5, 9, F(30)], cackle: [8, 12, F(30)] },
-    big: ['glance', 'cackle'],
-    pose: jokerPose,
+    acts: { cackle: [SKULL_CACKLE, 8, 12] },
+    pose: skullPose,
   },
   refund: {
     name: 'bird',
-    view: [0, 224, 1011, 800],
+    frame: [0, 224, 1011, 800],
     edge: 881,
     parts: [
-      { name: 'crest', at: [19, 317], size: [359, 254], pivot: [355, 430], parent: 'head', spring: { k: 45, c: 3, inertia: 1.3, swayX: 0.9, swayY: 0.5 } },
-      { name: 'head', at: [160, 220], size: [855, 752], pivot: [560, 881] },
-      { name: 'earring', at: [403, 414], size: [117, 142], pivot: [455, 418], parent: 'head', spring: { k: 70, c: 2.5, inertia: 1.6, swayX: 1.2, swayY: 0.8 } },
-      { name: 'glint', at: [215, 677], size: [111, 128], pivot: [268, 742] },
-      { name: 'gear', at: [0, 538], size: [1009, 457], pivot: [512, 881] },
+      { name: 'crest', at: [22, 320], size: [352, 247], pivot: [355, 430], parent: 'head' },
+      { name: 'head', at: [180, 224], size: [818, 698], pivot: [560, 881], clip: true },
+      { name: 'beak', at: [640, 780], size: [371, 182], pivot: [560, 881], parent: 'head' }, // over the edge, uncut
+      { name: 'earring', at: [406, 418], size: [110, 134], pivot: [455, 418], parent: 'head' },
+      { name: 'gear', at: [0, 542], size: [1005, 449], pivot: [512, 881] },
+      { name: 'glint', at: [218, 680], size: [104, 121], pivot: [268, 742] },
     ],
-    events: { glint: [2, 4, F(16)], nod: [5, 9, F(20)], lean: [7, 11, F(40)] },
-    big: ['nod', 'lean'],
+    acts: { count: [BIRD_COUNT, 8, 12] },
     pose: birdPose,
   },
 };
@@ -283,51 +427,125 @@ function load(kind) {
   return images[kind];
 }
 
+// The parts scaled once to the size they are drawn at (device px a drawing unit), halving first: no engine's
+// default filter aliases them.
+export function prescale(imgs, parts, scale) {
+  const out = {};
+  for (const p of parts) {
+    let src = imgs[p.name];
+    let w = src.naturalWidth || src.width;
+    let h = src.naturalHeight || src.height;
+    const tw = Math.max(1, Math.round(p.size[0] * scale));
+    const th = Math.max(1, Math.round(p.size[1] * scale));
+    while (w / 2 >= tw) {
+      const c = document.createElement('canvas');
+      c.width = Math.round(w / 2);
+      c.height = Math.round(h / 2);
+      const x = c.getContext('2d');
+      x.imageSmoothingQuality = 'high';
+      x.drawImage(src, 0, 0, c.width, c.height);
+      src = c;
+      w = c.width;
+      h = c.height;
+    }
+    const c = document.createElement('canvas');
+    c.width = tw;
+    c.height = th;
+    const x = c.getContext('2d');
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(src, 0, 0, tw, th);
+    out[p.name] = c;
+  }
+  return out;
+}
+
+// The drawing's place on a card w × h px whose picture box (.art) is at left, top, aw × ah, moved down by drop px:
+// the view in drawing units that the whole card shows, and px a unit.
+export function cardView(c, { w, h, left, top, aw, ah, drop }) {
+  const [fx, fy, fw, fh] = c.frame;
+  const s = Math.min(aw / fw, ah / fh);
+  const ox = left + (aw - fw * s) / 2;
+  const oy = top + drop + ah - fh * s;
+  return { view: [fx - ox / s, fy - oy / s, w / s, h / s], s };
+}
+
 // Gives the picture in `art` (a card's .art) its puppet, or takes it away (kind without one, or null).
 export function animateArt(art, kind) {
   if (!art || art.dataset.puppet === (kind || '')) return;
   art.querySelector('canvas')?.remove();
   art.classList.remove('live');
-  art.dataset.puppet = kind || '';
   const c = CHARACTERS[kind];
-  if (!c || !urlOf(c.name, c.parts[0].name)) return;
+  const ready = Boolean(c && urlOf(c.name, c.parts[0].name));
+  art.dataset.puppet = ready ? kind : ''; // no parts to reach yet (the stylesheet still loading): the next call tries again
+  if (!ready) return;
   const canvas = document.createElement('canvas');
   load(kind).then((imgs) => {
     if (art.dataset.puppet !== kind) return; // the card changed while the parts loaded
     art.append(canvas);
     art.classList.add('live');
-    const p = { canvas, c, puppet: createPuppet(canvas, c, imgs, (t) => c.pose(t, p.on)), on: {}, next: {}, start: performance.now() / 1000 - Math.random() * 2.5 };
-    for (const [name, [lo, hi]] of Object.entries(c.events)) p.next[name] = lo / 2 + Math.random() * hi; // the first ones sooner
-    live.add(p);
+    live.add({ art, canvas, c, imgs, phase: 2 * Math.floor(Math.random() * 4), act: null, next: null, drawn: null, size: '' });
     if (!raf) raf = requestAnimationFrame(frame);
   }).catch(() => {}); // parts that fail to load leave the drawn picture
 }
 
-function tick(p, t) {
-  for (const [name, [lo, hi, len]] of Object.entries(p.c.events)) {
-    if (p.on[name] && t - p.on[name].t0 > len) delete p.on[name];
-    if (t < p.next[name]) continue;
-    if (p.c.big.includes(name) && p.c.big.some((b) => p.on[b])) { p.next[name] = t + 1; continue; } // one big event at a time
-    p.on[name] = { t0: t, dir: Math.random() < 0.5 ? -1 : 1 };
-    p.next[name] = t + lo + Math.random() * (hi - lo);
+// Lays a character's canvas over the whole card of its .art (layout sizes: a tap's scale is not layout) at the
+// screen's full resolution and gives it its puppet; pose(k) gives the bones of drawing k.
+export function layPuppet(art, canvas, c, imgs, pose) {
+  const card = art.offsetParent;
+  const dpr = devicePixelRatio || 1;
+  const w = card.clientWidth;
+  const h = card.clientHeight;
+  const t = getComputedStyle(art).transform;
+  const drop = t && t !== 'none' ? new DOMMatrixReadOnly(t).m42 : 0;
+  const { view, s } = cardView(c, { w, h, left: art.offsetLeft, top: art.offsetTop, aw: art.offsetWidth, ah: art.offsetHeight, drop });
+  Object.assign(canvas.style, { left: `${-art.offsetLeft}px`, top: `${-art.offsetTop - drop}px`, width: `${w}px`, height: `${h}px` });
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  const puppet = createPuppet(canvas, { ...c, view }, prescale(imgs, c.parts, (canvas.width / w) * s), pose);
+  canvas.getContext('2d').imageSmoothingQuality = 'high';
+  return puppet;
+}
+
+// Lays the card's canvas anew when the card's size or the screen's resolution changed. True when it did.
+function fit(p) {
+  const card = p.art.offsetParent;
+  if (!card) return false;
+  const size = `${card.clientWidth}x${card.clientHeight}@${devicePixelRatio || 1}`;
+  if (size === p.size) return false;
+  p.size = size;
+  p.puppet = layPuppet(p.art, p.canvas, p.c, p.imgs, (k) => (still ? {} : p.c.pose(k, p.act))); // still: the picture as drawn
+  return true;
+}
+
+// The card's acts: one starts on a beat once its wait is over, and ends after its last drawing.
+function cue(p, k) {
+  if (p.act && k - p.act.k0 >= p.c.acts[p.act.name][0].length) p.act = null;
+  const names = Object.keys(p.c.acts);
+  if (p.next == null) { // the first wait is shorter
+    const [, lo, hi] = p.c.acts[names[0]];
+    p.next = k + Math.round((lo / 2 + (Math.random() * hi) / 2) * D);
   }
-  p.puppet.draw(t);
+  if (p.act || k < p.next || mod(k, BEAT) !== 0) return;
+  const name = names[Math.floor(Math.random() * names.length)];
+  const [, lo, hi] = p.c.acts[name];
+  p.act = { name, k0: k, e: 0, dir: Math.random() < 0.5 ? -1 : 1 };
+  p.next = k + p.c.acts[name][0].length + Math.round((lo + Math.random() * (hi - lo)) * D);
 }
 
 function frame(now) {
   raf = 0;
+  const d = Math.floor((now / 1000) * D);
   for (const p of live) {
-    const { canvas } = p;
-    if (!canvas.isConnected) { live.delete(p); continue; }
-    const r = canvas.getBoundingClientRect();
+    if (!p.canvas.isConnected) { live.delete(p); continue; }
+    const r = p.canvas.getBoundingClientRect();
     if (!r.width || r.bottom < 0 || r.top > innerHeight) continue; // hidden or out of sight
-    const w = Math.round(r.width * Math.min(2, devicePixelRatio || 1));
-    if (canvas.width !== w) {
-      canvas.width = w;
-      canvas.height = Math.round((w * p.c.view[3]) / p.c.view[2]);
-    }
-    tick(p, still ? 0 : now / 1000 - p.start);
-    p.drawn = true;
+    if (fit(p)) p.drawn = null;
+    const k = still ? 0 : d + p.phase;
+    if (!still) cue(p, k);
+    if (p.act) p.act.e = k - p.act.k0;
+    if (k === p.drawn) continue; // the drawing is held
+    p.drawn = k;
+    p.puppet.draw(k);
   }
-  if (live.size && (!still || [...live].some((p) => !p.drawn))) raf = requestAnimationFrame(frame); // still: each drawn once
+  if (live.size && (!still || [...live].some((p) => p.drawn == null))) raf = requestAnimationFrame(frame); // still: each drawn once
 }

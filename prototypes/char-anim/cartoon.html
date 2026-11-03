@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cartoon bonuses</title>
+<link rel="stylesheet" href="../../src/ui/styles.css">
+<style>
+  html, body { height: auto; overflow: auto; }
+  body { padding: 16px; background: #000; user-select: text; -webkit-user-select: text; }
+  h1 { margin: 0 0 6px; font: 700 22px/1.1 var(--font-display); }
+  p { margin: 0 0 14px; color: #8a8a8a; max-width: 680px; }
+  .grid { display: grid; grid-template-columns: repeat(3, max-content); gap: var(--gap, 22px) 18px; align-items: end; }
+  .grid.wide { grid-template-columns: repeat(6, max-content); }
+  figure { margin: 0; }
+  figcaption { margin-top: 8px; color: #8a8a8a; font-size: 13px; }
+  .cell { display: block; width: var(--w); height: var(--w); }
+  button { margin: 8px 6px 0 0; height: 30px; padding: 0 12px; border: 0; border-radius: 30px; background: #bbf350; color: #000; font: 700 13px var(--font-display); }
+  body.clip { padding: 0; }
+  body.clip h1, body.clip p, body.clip figcaption, body.clip button { display: none; }
+</style>
+</head>
+<body>
+<h1>Бонусы как в старых мультфильмах</h1>
+<p>Каждый рисунок держится два кадра из 24 (12 рисунков в секунду), позы крупные, все шестеро живут под счёт 90 ударов в минуту, каждая карта на пару рисунков сдвинута. Номер начинается на долю и длится целые доли. Те же стили и тот же код, что в игре (src/ui/puppets.js).</p>
+<div class="grid" id="cards"></div>
+<script type="module">
+import { CHARACTERS, layPuppet } from '../../src/ui/puppets.js';
+
+const params = new URLSearchParams(location.search);
+const W = Number(params.get('w') || 112); // the card's CSS width (phone: 112)
+const KINDS = (params.get('kinds') || 'x2_any,x3_straight,x3_pairs,x3_trips,joker,refund').split(',');
+const LABEL = { x2_any: 'ANY HAND', x3_straight: 'STRAIGHT', x3_pairs: 'PAIRS', x3_trips: 'TRIPS', joker: 'JOKER', refund: 'REFUND' };
+const STICKER = { x2_any: '<small>×</small>2', x3_straight: '<small>×</small>3', x3_pairs: '<small>×</small>3', x3_trips: '<small>×</small>3', joker: '', refund: '<small>+</small>1' };
+const NAMES = { x2_any: 'рыцарь', x3_straight: 'жук', x3_pairs: 'парочка', x3_trips: 'троица', joker: 'джокер', refund: 'птица' };
+if (params.has('clip')) document.body.classList.add('clip');
+if (params.has('wide')) document.getElementById('cards').classList.add('wide');
+document.documentElement.style.setProperty('--gap', params.get('gap') || '22px');
+const D = 12;
+
+const load = (c) => Promise.all(c.parts.map((p) => new Promise((ok) => {
+  const im = new Image();
+  im.onload = () => ok([p.name, im]);
+  im.src = `../../assets/ui/bonuses/cartoon/${c.name}-${p.name}.webp`;
+}))).then(Object.fromEntries);
+
+const cards = [];
+for (const [i, kind] of KINDS.entries()) {
+  const c = CHARACTERS[kind];
+  const fig = document.createElement('figure');
+  fig.innerHTML = `<span class="cell bonus kind-${kind}" style="--w:${W}px; --kb:${W / 110.4}"><span class="arch"></span><span class="art"></span><span class="tag">${LABEL[kind]}</span><span class="x2">${STICKER[kind]}</span></span>`
+    + `<figcaption>${NAMES[kind]} ${Object.keys(c.acts).map((a) => `<button data-act="${a}">${a}</button>`).join('')}</figcaption>`;
+  document.getElementById('cards').append(fig);
+  const art = fig.querySelector('.art');
+  const canvas = document.createElement('canvas');
+  art.append(canvas);
+  art.classList.add('live');
+  const card = { kind, c, act: null, phase: params.has('unison') ? 0 : 2 * (i % 4) };
+  card.puppet = layPuppet(art, canvas, c, await load(c), (k) => c.pose(k, card.act));
+  for (const b of fig.querySelectorAll('[data-act]')) b.addEventListener('click', () => { card.want = b.dataset.act; });
+  cards.push(card);
+}
+
+// One clock for every card: drawing k of a card is the page's drawing plus its phase; an act starts on its beat.
+let playing = true;
+const t0 = performance.now();
+function drawAt(t, schedule = null) {
+  const d = Math.floor(t * D + 1e-6);
+  for (const card of cards) {
+    const k = d + card.phase;
+    if (schedule) { // for a clip: [kind, act, seconds] — the act starts on the card's first beat from then
+      card.act = null;
+      for (const [kind, name, at] of schedule) {
+        if (kind !== card.kind) continue;
+        let k0 = Math.ceil(at * D) + card.phase;
+        k0 += (8 - (k0 % 8)) % 8;
+        if (k >= k0 && k - k0 < card.c.acts[name][0].length) card.act = { name, k0, e: k - k0, dir: 1 };
+      }
+    } else {
+      if (card.act && k - card.act.k0 >= card.c.acts[card.act.name][0].length) card.act = null;
+      if (card.want && !card.act && k % 8 === 0) { card.act = { name: card.want, k0: k, e: 0, dir: Math.random() < 0.5 ? -1 : 1 }; card.want = null; }
+      if (card.act) card.act.e = k - card.act.k0;
+    }
+    if (k !== card.drawn || schedule) { card.drawn = k; card.puppet.draw(k); }
+  }
+}
+const loop = () => { if (!playing) return; drawAt((performance.now() - t0) / 1000); requestAnimationFrame(loop); };
+requestAnimationFrame(loop);
+window.frameAt = (t, schedule = []) => { playing = false; drawAt(t, schedule); };
+window.ready = true;
+</script>
+</body>
+</html>

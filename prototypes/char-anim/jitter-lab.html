@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Joker jitter lab</title>
+<style>
+  :root { --bg: #000; --fg: #fff; --muted: #8a8a8a; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 13px/1.35 system-ui, sans-serif; }
+  .row { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+  figure { margin: 0; }
+  figcaption { margin-top: 6px; color: var(--muted); max-width: 140px; }
+  figcaption b { color: var(--fg); }
+  /* the game's joker card (styles.css .cell.bonus, .arch, .art; puppets.html colours) */
+  .card { position: relative; width: var(--w, 112px); aspect-ratio: 1; box-sizing: border-box; border-radius: 23.55%; background: #9c52e3; border: 1px solid rgba(255, 255, 255, .32); box-shadow: inset 0 0 8px rgba(255, 255, 255, .25); }
+  .card .arch { position: absolute; left: 4.63%; top: 8.33%; width: 90.74%; height: 69.44%; background: url("../../assets/ui/card-arch-purple.svg") center / 100% 100% no-repeat; }
+  .card .art { position: absolute; left: 9.26%; top: 3.7%; width: 79.63%; height: 79.63%; transform: translateY(5.34%); }
+  .card .art canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+</style>
+</head>
+<body>
+<div class="row" id="cards"></div>
+<script type="module">
+// Why the card pictures tremble, measured on the joker (owner, 03.11.2026), and two remedies side by side:
+// A — today's game: puppets.js draws every display frame, canvas capped at 2× the CSS size;
+// B — the same motion held on twos (12 drawings a second), full device resolution, parts pre-scaled;
+// C — B with old-cartoon poses: a bob to the beat, squash and stretch, the star going off on the beat.
+import { createPuppet } from '../../src/ui/rig.js';
+import { CHARACTERS } from './approach1.js';
+
+const C = CHARACTERS.joker;
+const F = (n) => n / 24;
+const params = new URLSearchParams(location.search);
+const W = Number(params.get('w') || 112); // the card's CSS width (phone: 112)
+document.documentElement.style.setProperty('--w', `${W}px`);
+
+const raw = Object.fromEntries(await Promise.all(C.parts.map((p) => new Promise((ok) => {
+  const im = new Image();
+  im.onload = () => ok([p.name, im]);
+  im.src = `../../assets/ui/bonuses/rig/joker-${p.name}.webp`;
+}))));
+
+// A part image scaled once to the size it is drawn at, by halving steps (no aliasing at any engine's default filter).
+async function prescaled(scale) {
+  const out = {};
+  for (const p of C.parts) {
+    let src = raw[p.name];
+    let w = src.naturalWidth;
+    let h = src.naturalHeight;
+    const tw = Math.max(1, Math.round(p.size[0] * scale));
+    const th = Math.max(1, Math.round(p.size[1] * scale));
+    while (w / 2 >= tw * 1.0001) {
+      const c = document.createElement('canvas');
+      c.width = Math.round(w / 2); c.height = Math.round(h / 2);
+      const x = c.getContext('2d');
+      x.imageSmoothingQuality = 'high';
+      x.drawImage(src, 0, 0, c.width, c.height);
+      src = c; w = c.width; h = c.height;
+    }
+    const c = document.createElement('canvas');
+    c.width = tw; c.height = th;
+    const x = c.getContext('2d');
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(src, 0, 0, tw, th);
+    out[p.name] = c;
+  }
+  return out;
+}
+
+// C: the bob, 24 frames to a cycle (two beats at 120 bpm), drawn on twos: twelve drawings.
+// [sy, sx, dy, rot] of the skull about the middle of the edge; the star pops on each beat.
+const BOB = [
+  [0.92, 1.06, 6, 0],      // 1 down: squashed on the beat
+  [1.0, 1.0, 0, -1],       // 2 push off
+  [1.07, 0.955, -8, -2.5], // 3 up: stretched
+  [1.04, 0.975, -12, -3],  // 4 top
+  [1.03, 0.98, -12, -3],   // 5 hang
+  [1.05, 0.965, -5, -2],   // 6 fall
+];
+const STAR = [[1.32, 14], [1.15, 6], [1.04, 2], [1, 0], [1, 0], [1, 0]];
+function bobPose(d) {
+  const half = d % 6;
+  const side = d < 6 ? 1 : -1; // the second beat leans the other way
+  const [sy, sx, dy, rot] = BOB[half];
+  const [s, r] = STAR[half];
+  return {
+    head: { sy, sx, dy, rot: rot * side },
+    star: { sx: s, sy: s, rot: r * side },
+    iris: { dy: half >= 2 && half <= 4 ? -6 : half === 0 ? 3 : 0 },
+    gear: { sy: half === 0 ? 0.965 : 1 },
+  };
+}
+
+function card(label) {
+  const fig = document.createElement('figure');
+  fig.innerHTML = `<div class="card"><span class="arch"></span><span class="art"><canvas></canvas></span></div><figcaption>${label}</figcaption>`;
+  document.getElementById('cards').append(fig);
+  return fig.querySelector('canvas');
+}
+
+const dpr = devicePixelRatio || 1;
+const cards = [];
+{ // A: as puppets.js frame() does it
+  const canvas = card('<b>A</b> сейчас в игре');
+  const me = { id: 'A', canvas, on: {} };
+  const puppet = createPuppet(canvas, C, raw, (t) => C.pose(t, me.on));
+  cards.push(Object.assign(me, { draw(t) {
+    const r = canvas.getBoundingClientRect();
+    const w = Math.round(r.width * Math.min(2, dpr));
+    if (canvas.width !== w) { canvas.width = w; canvas.height = Math.round((w * C.view[3]) / C.view[2]); }
+    puppet.draw(t);
+  } }));
+}
+for (const [id, label, pose] of [
+  ['B', '<b>B</b> то же движение, на двойках, полное разрешение', (t, me) => C.pose(Math.floor(t * 12) / 12, me.on)],
+  ['C', '<b>C</b> на двойках, позы как в старых мультфильмах', (t) => bobPose(Math.floor(t * 12) % 12)],
+]) {
+  const canvas = card(label);
+  const r = canvas.getBoundingClientRect();
+  canvas.width = Math.round(r.width * dpr);
+  canvas.height = Math.round((canvas.width * C.view[3]) / C.view[2]);
+  const imgs = await prescaled(canvas.width / C.view[2]);
+  // the parts were pre-scaled: draw them at their size in the drawing's frame
+  const me = { id, canvas, on: {} };
+  const puppet = createPuppet(canvas, C, imgs, (t) => pose(t, me));
+  canvas.getContext('2d').imageSmoothingQuality = 'high';
+  let drawing = null;
+  cards.push(Object.assign(me, { draw(t) {
+    const d = Math.floor(t * 12); // a new drawing every second frame at 24 fps; held in between
+    if (d === drawing) return;
+    drawing = d;
+    puppet.draw(t);
+  } }));
+}
+
+window.lab = {
+  cards,
+  renderAt(t) { for (const c of cards) c.draw(t); },
+  // Consecutive display frames of every canvas: how many pixels change, how many flip back and forth (shimmer),
+  // and whether the canvas was reallocated.
+  // tap: the card pulses like a tap on it (styles.css bonusOn, scale 1.07) all along; events: the game's random events.
+  async measure(n = 90, { tap = false, events = false } = {}) {
+    playing = false; // one clock: the measurement draws every frame itself
+    for (const c of cards) c.on = {};
+    if (tap) for (const c of cards) c.canvas.closest('.card').animate([{ transform: 'scale(1)' }, { transform: 'scale(1.07)' }, { transform: 'scale(1)' }], { duration: 360, iterations: Infinity });
+    const t0 = performance.now();
+    const stats = Object.fromEntries(cards.map((c) => [c.id, { changed: 0, jumps: 0, flips: 0, drawings: 0, widths: new Set(), px: c.canvas.width * c.canvas.height, bitmap: `${c.canvas.width}×${c.canvas.height}`, box: '' }]));
+    const prev = {};
+    const delta = {};
+    for (let k = 0; k < n; k++) {
+      await new Promise((ok) => requestAnimationFrame(ok));
+      const t = (performance.now() - t0) / 1000 + 3;
+      if (events) for (const c of cards) { // every event of the joker in turn, as the game fires them
+        const e = Math.floor((t - 3) / 1.2) % 3;
+        const name = ['twinkle', 'glance', 'cackle'][e];
+        if (!c.on[name] || t - c.on[name].t0 > 1.2) c.on = { [name]: { t0: 3 + Math.floor((t - 3) / 1.2) * 1.2, dir: 1 } };
+      }
+      lab.renderAt(t);
+      for (const c of cards) {
+        const s = stats[c.id];
+        const r = c.canvas.getBoundingClientRect();
+        s.box = `${(r.width * dpr).toFixed(1)}×${(r.width * dpr * C.view[3] / C.view[2]).toFixed(1)}`;
+        s.widths.add(c.canvas.width);
+        const img = c.canvas.getContext('2d').getImageData(0, 0, c.canvas.width, c.canvas.height).data;
+        const p = prev[c.id];
+        if (!p || p.length !== img.length) { prev[c.id] = img; continue; }
+        const d = new Int16Array(img.length / 4);
+        let changed = 0;
+        let jumps = 0;
+        for (let i = 0, j = 0; i < img.length; i += 4, j++) {
+          // premultiplied luma, so a pixel fading in counts like one changing colour
+          const v = ((img[i] * 0.3 + img[i + 1] * 0.59 + img[i + 2] * 0.11) * img[i + 3]) / 255 + img[i + 3] * 0.25;
+          const u = ((p[i] * 0.3 + p[i + 1] * 0.59 + p[i + 2] * 0.11) * p[i + 3]) / 255 + p[i + 3] * 0.25;
+          d[j] = Math.round(v - u);
+          if (Math.abs(d[j]) > 4) changed++;
+          if (Math.abs(d[j]) > 64) jumps++;
+        }
+        if (!changed) continue; // a held drawing: compare the next new one with this one
+        // a reversal: a pixel that moved one way in the last change of picture and back in this one
+        const dp = delta[c.id];
+        if (dp) for (let j = 0; j < d.length; j++) if (Math.abs(d[j]) > 8 && Math.abs(dp[j]) > 8 && Math.sign(d[j]) !== Math.sign(dp[j])) s.flips++;
+        delta[c.id] = d;
+        prev[c.id] = img;
+        s.changed += changed;
+        s.jumps += jumps;
+        s.drawings++;
+      }
+    }
+    const secs = (performance.now() - t0) / 1000;
+    if (tap) for (const c of cards) c.canvas.closest('.card').getAnimations().forEach((a) => a.cancel());
+    playing = true;
+    requestAnimationFrame(loop);
+    return Object.fromEntries(Object.entries(stats).map(([id, s]) => [id, {
+      bitmap: s.bitmap, box: s.box, sizes: s.widths.size,
+      picturesPerSecond: Math.round(s.drawings / secs), changedPerPicture: Math.round(s.changed / Math.max(1, s.drawings)),
+      reversalsPerSecond: Math.round(s.flips / secs),
+    }]));
+  },
+};
+let playing = true;
+const loop = (now) => { if (playing) { lab.renderAt(now / 1000); requestAnimationFrame(loop); } };
+requestAnimationFrame(loop);
+window.lab.stop = () => { playing = false; };
+window.ready = true;
+</script>
+</body>
+</html>

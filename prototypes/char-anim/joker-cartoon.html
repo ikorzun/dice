@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Joker cartoon</title>
+<style>
+  @font-face { font-family: "Basteleur"; src: url("../../assets/fonts/Basteleur-Bold.otf") format("opentype"); font-weight: 700; }
+  :root { --bg: #000; --fg: #fff; --muted: #8a8a8a; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 13px/1.35 system-ui, sans-serif; }
+  h1 { margin: 0 0 6px; font: 700 22px/1.1 "Basteleur", system-ui; }
+  p { margin: 0 0 12px; color: var(--muted); max-width: 640px; }
+  .row { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
+  figure { margin: 0; }
+  figcaption { margin-top: 6px; color: var(--muted); }
+  figcaption b { color: var(--fg); }
+  /* the game's joker card: the arch, and the character over its bottom edge (styles.css .cell.bonus) */
+  .card { position: relative; width: var(--w); aspect-ratio: 1; box-sizing: border-box; border-radius: 23.55%; background: #9c52e3; border: 1px solid rgba(255, 255, 255, .32); box-shadow: inset 0 0 8px rgba(255, 255, 255, .25); }
+  .card .arch { position: absolute; left: 4.63%; top: 8.33%; width: 90.74%; height: 69.44%; background: url("../../assets/ui/card-arch-purple.svg") center / 100% 100% no-repeat; }
+  .card canvas { position: absolute; }
+  button { margin: 12px 8px 0 0; height: 36px; padding: 0 14px; border: 0; border-radius: 36px; background: #bbf350; color: #000; font: 700 14px "Basteleur", system-ui; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>★ JOKER · как в старых мультфильмах</h1>
+<p>Рисунок держится два кадра из 24 (12 рисунков в секунду), позы крупные: череп подпрыгивает в такт, сплющиваясь на долю, щёлкает челюстью и хохочет. Слева — как сейчас в игре.</p>
+<div class="row" id="cards"></div>
+<div id="buttons"></div>
+<script type="module">
+import { createPuppet, key } from '../../src/ui/rig.js';
+import { CHARACTERS } from './approach1.js';
+
+const params = new URLSearchParams(location.search);
+const sizes = (params.get('w') || '112,240').split(',').map(Number);
+const dpr = devicePixelRatio || 1;
+
+// ---- the new joker: the whole skull cut by art/bonuses/anim/joker2-rig/cut.py (coordinates in its 1024 px drawing)
+const rig = await fetch('../../art/bonuses/anim/joker2-rig/rig.json').then((r) => r.json());
+const EDGE = rig.edge;
+const PIVOT = [520, EDGE]; // the skull squashes and leans on the middle of the edge
+const NEW = {
+  view: [-60, -96, 1130, 944], // room round the skull for the squash, the stretch and the laugh; the fingers' bottom below
+  edge: EDGE,
+  parts: [
+    { name: 'cavity', pivot: PIVOT, parent: 'head', clip: true },
+    { name: 'jaw', pivot: rig.hinge, parent: 'head', clip: true },
+    { name: 'head', pivot: PIVOT, clip: true },
+    { name: 'star', pivot: [404, 428], parent: 'head' },
+    { name: 'iris', pivot: [720, 546], parent: 'head' },
+    { name: 'handL', pivot: [200, EDGE] },
+    { name: 'handR', pivot: [840, EDGE] },
+  ].map((p) => ({ ...p, at: rig.parts[p.name].at, size: rig.parts[p.name].size })),
+};
+const newImages = Object.fromEntries(await Promise.all(NEW.parts.map((p) => new Promise((ok) => {
+  const im = new Image();
+  im.onload = () => ok([p.name, im]);
+  im.src = `../../art/bonuses/anim/joker2-rig/parts/${p.name}.webp`;
+}))));
+
+// ---- the storyboard (docs/ANIM-STORYBOARDS.md §5): 24 fps, every drawing held two frames (12 drawings a second)
+const D = 12; // drawings a second
+// A. The bounce, always: two beats of 8 drawings (16 frames, 90 bpm), leaning one way, then the other.
+// [sy, sx, dy, lean°, jaw°, star scale, star turn°]; lean > 0 tips the top to the right; jaw < 0 opens it
+const BEAT = [
+  [0.9, 1.07, 8, 0.5, 0, 1.35, 15],     // 1 down: squashed on the beat, the jaw clacks shut, the star goes off
+  [0.97, 1.02, 2, 1.5, -2, 1.18, 8],    // 2 push off
+  [1.08, 0.95, -12, 3, -6, 1.06, 3],    // 3 rise: stretched
+  [1.05, 0.97, -20, 4, -8, 1, 0],       // 4 up
+  [1.04, 0.975, -22, 4.2, -8, 1, 0],    // 5 top
+  [1.035, 0.98, -21, 4, -7, 1, 0],      // 6 hang: a moving hold
+  [1.06, 0.96, -10, 2.5, -4, 1, 0],     // 7 fall: stretched by the speed
+  [1, 1, 0, 1, -1, 1, 0],               // 8 about to land
+];
+function bounce(d) {
+  const k = d % 16;
+  const side = k < 8 ? 1 : -1;
+  const [sy, sx, dy, lean, jaw, star, turn] = BEAT[k % 8];
+  const press = k % 8 === 0 ? 0.94 : k % 8 === 1 ? 0.97 : 1; // the hand on the leaning side takes the weight
+  const lift = k % 8 === 0 ? 1.03 : 1;
+  return {
+    head: { sy, sx, dy, rot: lean * side },
+    jaw: { rot: jaw },
+    star: { sx: star, sy: star, rot: turn * side },
+    iris: { dx: k % 8 >= 2 && k % 8 <= 6 ? 6 * side : 0, dy: k % 8 >= 3 && k % 8 <= 5 ? -5 : 0 },
+    handL: { sy: side < 0 ? press : lift },
+    handR: { sy: side > 0 ? press : lift },
+  };
+}
+// B. The cackle, now and then: it sinks (anticipation), pops up laughing with the jaw flapping, wheezes, lands.
+// [sy, sx, dy, rot°, jaw°, star scale, star turn°, iris dy]
+const CACKLE = [
+  [0.88, 1.08, 14, -3, 0, 1, 0, -6],       // 1 sinks, squashed, a sly look up
+  [0.86, 1.09, 18, -4, 0, 1, 0, -7],       // 2 lower still
+  [1.12, 0.93, -58, 6, -10, 1.4, 30, -8],  // 3 HA! up, the jaw wide open
+  [1.06, 0.96, -46, 5, -1, 1.2, 40, -8],   // 4 clack
+  [1.1, 0.94, -56, 6, -10, 1.35, 55, -8],  // 5 HA
+  [1.05, 0.965, -44, 5, -1, 1.15, 62, -8], // 6 clack
+  [1.1, 0.94, -54, 6, -10, 1.3, 75, -8],   // 7 HA
+  [1.05, 0.965, -42, 5, -1, 1.1, 80, -8],  // 8 clack
+  [1.09, 0.945, -50, 5.5, -9, 1.25, 90, -8], // 9 HA
+  [1.04, 0.97, -38, 4.5, -1, 1.05, 90, -7],  // 10 clack
+  [1.06, 0.96, -34, 4, -6, 1, 90, -6],     // 11 hee
+  [1.03, 0.98, -28, 3.5, -1, 1, 90, -5],   // 12
+  [1.05, 0.97, -24, 3, -5, 1, 90, -4],     // 13 hee
+  [1.02, 0.99, -16, 2, -1, 1, 90, -2],     // 14 settling
+  [1, 1, -6, 1, 0, 1, 90, 0],              // 15
+  [0.92, 1.06, 8, 0, 0, 1.2, 90, 0],       // 16 lands squashed
+  [1.02, 0.99, -2, 0, 0, 1.05, 90, 0],     // 17
+  [1, 1, 0, 0, 0, 1, 90, 0],               // 18 back to the bounce
+];
+function cackle(e) {
+  const [sy, sx, dy, rot, jaw, star, turn, iy] = CACKLE[e];
+  const grip = e >= 2 && e <= 10 ? (e % 2 ? 0.97 : 0.93) : 1; // the fingers squeeze the edge with each HA
+  return { head: { sy, sx, dy, rot }, jaw: { rot: jaw }, star: { sx: star, sy: star, rot: turn }, iris: { dy: iy }, handL: { sy: grip }, handR: { sy: grip } };
+}
+const EVENTS = { cackle: { len: CACKLE.length, pose: cackle } };
+// the pose of drawing d (12 a second) with an event that started at drawing d0
+function pose(d, ev) {
+  if (ev && d - ev.d0 >= 0 && d - ev.d0 < EVENTS[ev.name].len) return EVENTS[ev.name].pose(d - ev.d0);
+  return bounce(d);
+}
+
+// A part image scaled once to the size it is drawn at, by halving steps.
+function prescale(images, parts, scale) {
+  const out = {};
+  for (const p of parts) {
+    let src = images[p.name];
+    let w = src.naturalWidth || src.width;
+    let h = src.naturalHeight || src.height;
+    const tw = Math.max(1, Math.round(p.size[0] * scale));
+    const th = Math.max(1, Math.round(p.size[1] * scale));
+    while (w / 2 >= tw) {
+      const c = document.createElement('canvas');
+      c.width = Math.round(w / 2); c.height = Math.round(h / 2);
+      const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, c.width, c.height);
+      src = c; w = c.width; h = c.height;
+    }
+    const c = document.createElement('canvas');
+    c.width = tw; c.height = th;
+    const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, tw, th);
+    out[p.name] = c;
+  }
+  return out;
+}
+
+// Places a character's canvas on the card so that its edge lies on the arch's bottom, like the game's pictures.
+// The drawing's x 18..1004 spans the art box (left 9.26 %, 79.63 % of the card) at any view. `cap`: the bitmap's
+// resolution (the game's pictures today: at most 2×, stretched on a 3× screen).
+function place(canvas, def, W, cap = dpr) {
+  const k = (0.7963 * W) / 986;
+  canvas.style.left = `${0.0926 * W - (18 - def.view[0]) * k}px`;
+  canvas.style.width = `${def.view[2] * k}px`;
+  canvas.style.height = `${def.view[3] * k}px`;
+  canvas.style.top = `${0.7777 * W - (def.edge - def.view[1]) * k}px`;
+  canvas.width = Math.round(def.view[2] * k * cap);
+  canvas.height = Math.round(def.view[3] * k * cap);
+}
+
+const cards = [];
+const add = (label, W) => {
+  const fig = document.createElement('figure');
+  fig.innerHTML = `<div class="card" style="--w:${W}px"><span class="arch"></span><canvas></canvas></div><figcaption>${label}</figcaption>`;
+  document.getElementById('cards').append(fig);
+  return fig.querySelector('canvas');
+};
+// the game's joker today, for comparison (its own picture and pose, every display frame)
+const OLD = CHARACTERS.joker;
+const oldImages = Object.fromEntries(await Promise.all(OLD.parts.map((p) => new Promise((ok) => {
+  const im = new Image();
+  im.onload = () => ok([p.name, im]);
+  im.src = `../../assets/ui/bonuses/rig/joker-${p.name}.webp`;
+}))));
+for (const W of sizes) {
+  const oc = add(`<b>сейчас</b> · ${W}px`, W);
+  place(oc, OLD, W, Math.min(2, dpr)); // as puppets.js draws it
+  const on = {};
+  const op = createPuppet(oc, OLD, oldImages, (t) => OLD.pose(t, on));
+  cards.push({ old: true, on, draw: (t) => op.draw(t) });
+  const nc = add(`<b>новый</b> · ${W}px`, W);
+  place(nc, NEW, W);
+  const imgs = prescale(newImages, NEW.parts, nc.width / NEW.view[2]);
+  let ev = null;
+  let drawn = null;
+  const np = createPuppet(nc, NEW, imgs, (t) => pose(Math.floor(t * D + 1e-6), ev));
+  nc.getContext('2d').imageSmoothingQuality = 'high';
+  cards.push({ old: false, draw(t) { const d = Math.floor(t * D + 1e-6); if (d !== drawn) { drawn = d; np.draw(t); } }, fire(name, t) { ev = { name, d0: Math.floor(t * D + 1e-6) + 1 }; }, reset() { drawn = null; ev = null; } });
+}
+
+let t0 = performance.now();
+let playing = true;
+const now = () => (performance.now() - t0) / 1000;
+const loop = () => { if (!playing) return; const t = now(); for (const c of cards) { if (c.old) for (const [n, [, , len]] of Object.entries(OLD.events)) if (c.on[n] && t - c.on[n].t0 > len) delete c.on[n]; c.draw(t); } requestAnimationFrame(loop); };
+requestAnimationFrame(loop);
+document.getElementById('buttons').innerHTML = '<button data-ev="cackle">хохот</button>';
+document.querySelector('[data-ev="cackle"]').addEventListener('click', () => {
+  const t = now();
+  for (const c of cards) if (c.old) c.on.cackle = { t0: t, dir: 1 }; else c.fire('cackle', t);
+});
+
+// Frames for a clip: every card at time t (seconds), events at the given times; the page stops its own loop.
+window.frameAt = (t, events = []) => {
+  playing = false;
+  for (const c of cards) {
+    if (c.old) {
+      for (const k of Object.keys(c.on)) delete c.on[k];
+      for (const [name, at] of events) if (t >= at && t - at <= OLD.events[name][2]) c.on[name] = { t0: at, dir: 1 };
+    } else {
+      c.reset();
+      for (const [name, at] of events) if (t >= at) c.fire(name, at - 1 / D);
+    }
+    c.draw(t);
+  }
+};
+window.ready = true;
+</script>
+</body>
+</html>
