@@ -118,7 +118,7 @@ test('a strong bot playing adaptive levels lands near the aimed win rate', () =>
     for (let L = 1; L <= 16; L++) {
       const level = generateAdaptiveLevel({ runSeed: `aim${run}`, levelIndex: L, history, ups });
       const res = playGreedyBot3(level, { rng });
-      history.push({ mode: 'auto', recipe: level.recipe, ratio: skillSample(recipeById(level.recipe), res.score, 3, level.upLift), won: res.won, predictedWin: level.predictedWin });
+      history.push({ mode: 'auto', recipe: level.recipe, ratio: skillSample(recipeById(level.recipe), res.score, res.state.hands.length, level.upLift), won: res.won, predictedWin: level.predictedWin }); // as the game counts it
       if (L > 1) { wins += res.won ? 1 : 0; levels++; }
       if (res.won) ups = withUpgrade(ups, sensiblePick(upgradeOffer(`aim${run}`, L))); // it upgrades sensibly
     }

@@ -27,7 +27,7 @@
   <header class="hud">
     <div class="stat" id="levelHud"><span class="label">LEVEL</span><span class="value level-text">1/25</span></div>
     <div class="bank" id="bank" aria-label="Bonus bank: bonuses kept from earlier levels"></div>
-    <button class="book" id="helpBtn" type="button" aria-label="How to play"><i></i>Bible</button>
+    <button class="book" id="helpBtn" type="button" aria-label="How to play"><i></i>How</button>
   </header>
   <div class="preview" id="preview" aria-live="polite" hidden></div>
   <div class="coach" id="coach" hidden>
@@ -37,12 +37,12 @@
   </div>
   <section class="board-wrap" id="boardWrap">
     <div class="board rendered" id="board" aria-label="3 by 3 dice board"></div>
-    <div class="bonus-hero" id="bonusHero"><i></i></div>
   </section>
   <section class="counter" aria-live="polite">
     <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1/25</span></div>
-    <div class="stat mid" id="handStat"><span class="label" id="bonesLabel">BONES</span><span class="value"><span id="bones">0</span><span class="sticker" id="multSticker">x2</span></span></div>
+    <div class="stat mid" id="handStat"><span class="label" id="bonesLabel">BONES</span><span class="value"><span id="bones">0</span><span class="sticker" id="multSticker"></span><span id="handTotal">0</span></span></div>
     <div class="stat mid" id="targetStat"><span class="label">THRESHOLD</span><span class="value" id="target">0</span></div>
+    <div class="hand-row" id="handRow"><span class="gdice" id="handDice"></span><span class="hand-name"><b id="handName"></b><em id="handMult"></em></span></div>
   </section>
   <section class="controls">
     <div class="status" hidden>
@@ -51,7 +51,6 @@
     </div>
     <button class="btn-play" id="playBtn" type="button">PLAY•3</button>
     <button class="btn-dark" id="rerollBtn" type="button">REROLL•3</button>
-    <button class="btn-dark" id="skipBtn" type="button">SKIP</button>
     <button class="btn-secondary" id="bankLastBtn" type="button" hidden>BANK LAST 4</button>
     <div class="tapbar" id="tapbar" hidden>
       <button class="btn-secondary" id="undoBtn" type="button">UNDO</button>
@@ -122,7 +121,7 @@
       <h3 id="bonusSheetName"></h3>
       <p id="bonusSheetWhat"></p>
     </div>
-    <p class="sheet-note">ON FOR ONE THROW · USED, IT LEAVES A HOLE · BONUSES ADD UP</p>
+    <p class="sheet-note">ON FOR ONE THROW · USED, A NEW DIE TAKES ITS PLACE · BONUSES ADD UP</p>
     <button class="btn-play" id="bonusSheetOk" type="button">GOT IT</button>
   </div>
 </section>

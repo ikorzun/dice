@@ -3,12 +3,15 @@
 // bonus starts off); the player holds dice, rerolls the rest (three rerolls per level, shared by
 // the hands) or plays it.
 // Playing burns the hand, every unheld die and the bonuses the hand used: burnt dice are
-// replaced, a used bonus leaves a hole. Held dice outside the hand stay, no longer held (owner,
-// 01.11.2026: no die stays selected after a hand).
+// replaced. Held dice outside the hand stay, no longer held (owner, 01.11.2026: no die stays selected
+// after a hand).
 // A level ends as soon as the score reaches the target (owner, 01.11.2026), otherwise after its
 // three hands. The bank (owner, 02.11.2026): bonuses not played on a won level wait in a bank of three
 // for the next levels (`level.bank`, kinds); a banked bonus is cell BANK + k, switched on and used like a
-// card on the board, and gone once played. Pure state transitions, same action shape as poker.js.
+// card on the board, and gone once played. No empty cells (owner, 03.11.2026, option B): at a level's
+// start the banked cards take the locked cells, in bank and board order (cell `fromBank: k`, the entry
+// `placed`); a played card's cell takes the first banked card still waiting, else a new die. A 'hole'
+// remains only in games saved before. Pure state transitions, same action shape as poker.js.
 
 import { bestHand, BONUS_KINDS } from './hands.js';
 
@@ -21,6 +24,7 @@ export const AUTO_DEFAULT_CONFIG = Object.freeze({
 const reject = (code, message) => ({ ok: false, code, message });
 export const BANK = 100;    // the first banked bonus's cell number (the board's are 0–8)
 export const BANK_SIZE = 3; // places in the bank (owner, 02.11.2026); the rest burn
+const waiting = (b) => !b.used && !b.placed; // a banked card still above the board
 
 // Face of the largest group (ties: the higher face), or null without dice.
 function largestGroupFace(faces) {
@@ -44,6 +48,17 @@ export function createAutoGame(level, configOverrides = {}, attempt = 1) {
     if (c.type === 'bonus' && !BONUS_KINDS[c.kind]) throw new Error(`unknown bonus kind ${c.kind}`);
     if (!['die', 'bonus', 'block', 'hole'].includes(c.type)) throw new Error(`unknown cell type ${c.type}`);
   });
+  const bank = (level.bank || []).map((kind) => {
+    if (!BONUS_KINDS[kind]) throw new Error(`unknown bonus kind ${kind} in the bank`);
+    return { kind, off: true, used: false, placed: false };
+  });
+  // the banked cards take the locked cells first; the rest wait above the board
+  const locks = cells.map((c, i) => i).filter((i) => cells[i].type === 'block');
+  bank.forEach((b, k) => {
+    if (!locks.length) return;
+    cells[locks.shift()] = { type: 'bonus', kind: b.kind, fromBank: k };
+    b.placed = true;
+  });
   return {
     mode: 'auto',
     level,
@@ -53,10 +68,7 @@ export function createAutoGame(level, configOverrides = {}, attempt = 1) {
     faces: level.faces.slice(),
     held: new Array(9).fill(false),
     off: cells.map((c) => c.type === 'bonus'), // bonuses start off; the player switches them on
-    bank: (level.bank || []).map((kind) => {
-      if (!BONUS_KINDS[kind]) throw new Error(`unknown bonus kind ${kind} in the bank`);
-      return { kind, off: true, used: false };
-    }),
+    bank,
     rerollsLeft: level.rerolls ?? config.rerolls,
     handsLeft: level.hands ?? config.hands,
     hands: [],
@@ -75,7 +87,7 @@ export const bonusKind = (state, i) => (i >= BANK ? state.bank[i - BANK].kind : 
 // The bonuses switched on: the board's and the bank's, as bestHand takes them.
 function onBonuses(state) {
   const board = state.cells.map((c, i) => i).filter((i) => isBonus(state, i) && !state.off[i]).map((i) => ({ cell: i, kind: state.cells[i].kind }));
-  const bank = state.bank.map((b, k) => ({ cell: BANK + k, kind: b.kind, b })).filter(({ b }) => !b.off && !b.used).map(({ cell, kind }) => ({ cell, kind }));
+  const bank = state.bank.map((b, k) => ({ cell: BANK + k, kind: b.kind, b })).filter(({ b }) => !b.off && waiting(b)).map(({ cell, kind }) => ({ cell, kind }));
   return [...board, ...bank];
 }
 export const diceCells = (state) => state.cells.map((c, i) => i).filter((i) => isDie(state, i));
@@ -104,7 +116,7 @@ export function toggleHold(state, i) {
 export function toggleBonus(state, i) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   const b = Number.isInteger(i) ? banked(state, i) : null;
-  if (b && !b.used) {
+  if (b && waiting(b)) {
     const bank = state.bank.map((x, k) => (k === i - BANK ? { ...x, off: !x.off } : x));
     return { ok: true, off: bank[i - BANK].off, state: { ...state, bank, stats: bump(state, 'bonusToggles') } };
   }
@@ -188,21 +200,34 @@ export function playHand(state, drawDie) {
   const favored = help ? largestGroupFace(diceCells(state).filter((i) => !burned.includes(i)).map((i) => state.faces[i])) : null;
   const faces = state.faces.slice();
   const held = state.held.map(() => false); // the dice that stay keep their faces, not their holds
-  for (const i of burned) {
+  const cells = state.cells.slice();
+  const off = state.off.slice();
+  const bank = state.bank.map((b, k) => (used.includes(BANK + k) ? { ...b, off: false, used: true } : b)); // a played one is gone
+  // a played card's cell takes the first banked card still waiting, else a new die (owner, 03.11.2026)
+  const spent = used.filter((i) => i < BANK);
+  const placed = [];
+  const fresh = [];
+  for (const i of spent) {
+    const k = bank.findIndex(waiting);
+    if (k >= 0) {
+      bank[k] = { ...bank[k], placed: true };
+      cells[i] = { type: 'bonus', kind: bank[k].kind, fromBank: k };
+      off[i] = true;
+      placed.push({ cell: i, from: k });
+    } else {
+      cells[i] = { type: 'die' };
+      off[i] = false;
+      fresh.push(i);
+    }
+  }
+  const refilled = [...burned, ...fresh];
+  for (const i of refilled) {
     const coin = favored ? drawDie() : 0; // a die as the coin: copy on 1 (help 1) or 1–2 (help 2)
     const f = drawDie();
     if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`drawDie returned ${f}`);
     faces[i] = favored && coin <= help ? favored : f;
   }
   hand.help = favored ? help : 0;
-  const cells = state.cells.slice();
-  const off = state.off.slice();
-  const holes = used.filter((i) => i < BANK);
-  for (const i of holes) {
-    cells[i] = { type: 'hole' };
-    off[i] = false;
-  }
-  const bank = state.bank.map((b, k) => (used.includes(BANK + k) ? { ...b, off: false, used: true } : b)); // a played one is gone
   const phase = score >= state.level.target ? 'won' : handsLeft > 0 ? 'playing' : 'lost';
   // a refund bonus in the hand gives rerolls back
   hand.refund = used.reduce((n, i) => n + (BONUS_KINDS[bonusKind(state, i)].refund || 0), 0);
@@ -211,8 +236,9 @@ export function playHand(state, drawDie) {
     ok: true,
     hand,
     burned,
-    refilled: burned,
-    holes,
+    refilled,
+    spent,
+    placed,
     state: { ...state, cells, faces, held, off, bank, hands: [...state.hands, hand], score, handsLeft, rerollsLeft, phase },
   };
 }
@@ -228,10 +254,11 @@ export function markHintUsed(state) {
   return { ...state, stats: bump(state, 'hintsUsed') };
 }
 
-// The bank after a won level: the banked bonuses not played, then the board's in board order, three at most.
+// The bank after a won level: the banked bonuses still waiting, then the board's in board order (those that came
+// from the bank among them), three at most.
 export function carryOver(state) {
   const board = state.cells.filter((c) => c.type === 'bonus').map((c) => c.kind);
-  return [...state.bank.filter((b) => !b.used).map((b) => b.kind), ...board].slice(0, BANK_SIZE);
+  return [...state.bank.filter(waiting).map((b) => b.kind), ...board].slice(0, BANK_SIZE);
 }
 
 export function snapshotGame(state) {

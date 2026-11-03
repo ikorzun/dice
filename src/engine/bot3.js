@@ -52,13 +52,13 @@ export function playNaiveBot3(level, { rng, config = {} } = {}) {
   return result(game);
 }
 
-// Face counts as a base-9 number (at most eight dice, so a count never carries): adding two
-// keys adds the multisets.
-const FACE_KEY = [0, 1, 9, 81, 729, 6561, 59049];
+// Face counts as a base-10 number (at most nine dice: a played card makes way for a new die, owner
+// 03.11.2026; a count never carries): adding two keys adds the multisets.
+const FACE_KEY = [0, 1, 10, 100, 1000, 10000, 100000];
 const fact = (n) => (n < 2 ? 1 : n * fact(n - 1));
 
 // Every multiset of k rerolled dice with its probability.
-const OUTCOMES = Array.from({ length: 9 }, (_, k) => {
+const OUTCOMES = Array.from({ length: 10 }, (_, k) => {
   const list = [];
   const walk = (face, left, key, weight) => {
     if (face === 6) { list.push({ key: key + left * FACE_KEY[6], p: weight / fact(left) / 6 ** k }); return; }

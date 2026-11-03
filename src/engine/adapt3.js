@@ -16,7 +16,7 @@ import { upLift } from './upgrades3.js';
 
 export const ADAPT3_VERSION = `adapt-1/${RECIPES3_VERSION}`;
 export const ADAPT3 = Object.freeze({
-  aim: 0.75,        // predicted win chance the next layout aims at
+  aim: 0.73,        // predicted win chance the next layout aims at (0.75 until 03.11.2026: with a new die for every played card the greedy bot won 78 % there)
   startSkill: 0.85, // a new player: a little above the naive bot (its scores ≈ 0.79 of the greedy median)
   alpha: 0.4,       // weight of the latest level in the skill average
   form: Object.freeze([0.9, 1, 1.1]), // skill multipliers the win chance is averaged over
@@ -56,13 +56,14 @@ export function percentileOf(recipe, score) {
 }
 
 // A finished level's skill sample: its score over the greedy median of its recipe (three hands). A level
-// won early stops at the target: each hand it did not play counts as 0.75 of a typical one (a third of
-// the median), so one lucky hand is not blown up and an early win is not cut short. Greedy win rate
-// (docs/simulation3-adaptive.md, aim 75 %): score alone 85 %, the pace 64 %, a full typical hand 71 %,
-// 0.75 of one 74 %.
+// won early stops at the target: each hand it did not play counts as a typical one (a third of the median),
+// so one lucky hand is not blown up and an early win is not cut short. Greedy win rate when a played card
+// left a hole (docs/simulation3-adaptive.md, aim 75 %): score alone 85 %, the pace 64 %, a full typical
+// hand 71 %, 0.75 of one 74 %; since a new die takes its cell (03.11.2026) the later hands are stronger and
+// 0.75 of one let the bot win 81 %.
 export function skillSample(recipe, score, hands = 3, lift = 1) {
   const median = recipe.greedy[RECIPE_QUANTILES.indexOf(0.5)];
-  return (score / lift + (0.75 * Math.max(0, 3 - hands) * median) / 3) / median; // the bank's part is not skill
+  return (score / lift + (Math.max(0, 3 - hands) * median) / 3) / median; // the bank's part is not skill
 }
 
 // The bank's lift (owner, 02.11.2026: bonuses carried over): a banked bonus is a bonus that takes no cell,

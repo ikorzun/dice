@@ -175,7 +175,7 @@ test('the held hand is the best hand among the held dice only', () => {
   assert.equal(currentHand(g).category, 'four_kind'); // but the player picked the four: it plays (owner, 02.11.2026)
 });
 
-test('playing burns the hand and every unheld die; held dice outside the hand stay, no longer held; the used bonus leaves a hole', () => {
+test('playing burns the hand and every unheld die; held dice outside the hand stay, no longer held; a new die takes the used card\'s cell', () => {
   let g = on(createAutoGame(level(L1, F, 10000)), 8);
   g = toggleHold(g, 7).state; // the 1 at the bottom is not in the straight
   g = toggleHold(g, 4).state; // the 3 is in the straight: held, but played, so it burns
@@ -185,19 +185,22 @@ test('playing burns the hand and every unheld die; held dice outside the hand st
   assert.deepEqual(r.hand.bonuses, ['x2_any']);
   assert.equal(r.hand.total, 320);
   assert.deepEqual(r.burned, [0, 1, 2, 3, 4, 5, 6]); // the straight + the unheld 6 and 1
-  assert.deepEqual(r.holes, [8]);
+  assert.deepEqual(r.spent, [8]);
+  assert.deepEqual(r.placed, []); // nothing waits in the bank: a new die
+  assert.deepEqual(r.refilled, [0, 1, 2, 3, 4, 5, 6, 8]);
   const s = r.state;
   assert.equal(s.faces[7], 1);
   assert.equal(s.held[7], false); // it stayed, but nothing stays selected after a hand
   assert.equal(s.held[4], false);
-  assert.equal(s.cells[8].type, 'hole');
-  assert.equal(s.faces[8], null);
+  assert.equal(s.cells[8].type, 'die');
+  assert.equal(s.faces[8], 2);
+  assert.equal(s.off[8], false);
   assert.equal(s.score, 320);
   assert.equal(s.handsLeft, 2);
   assert.equal(s.phase, 'playing');
 });
 
-test('a refund bonus joins any hand without multiplying it, gives a reroll back and leaves a hole', () => {
+test('a refund bonus joins any hand without multiplying it, gives a reroll back and makes way for a new die', () => {
   const layout = [...L1.slice(0, 8), B('refund')];
   let g = createAutoGame(level(layout, F));
   g = reroll(g, seq([1, 2, 3, 4, 5, 6, 1, 2])).state; // spend one of the three rerolls
@@ -211,9 +214,9 @@ test('a refund bonus joins any hand without multiplying it, gives a reroll back 
   const r = playHand(g, seq([2]));
   assert.deepEqual(r.hand.bonuses, ['refund']);
   assert.equal(r.hand.refund, 1);
-  assert.deepEqual(r.holes, [8]);
+  assert.deepEqual(r.spent, [8]);
   assert.equal(r.state.rerollsLeft, 3);
-  assert.equal(r.state.cells[8].type, 'hole');
+  assert.equal(r.state.cells[8].type, 'die');
   // switched off it stays on the board and the rerolls do not change
   const kept = playHand(createAutoGame(level(layout, F)), seq([2]));
   assert.equal(kept.hand.refund, 0);
@@ -318,20 +321,52 @@ test('the bank (owner, 02.11.2026): a banked bonus switches on by tap, joins a h
   assert.ok(rolled.bank.every((b) => b.off));
   const r = playHand(g, seq([2]));
   assert.deepEqual(r.hand.bonuses, ['x2_any']);
-  assert.deepEqual(r.holes, []); // a banked bonus leaves no hole on the board
+  assert.deepEqual(r.spent, []); // a card played from the bank frees no cell on the board
   assert.deepEqual(r.state.bank.map((b) => b.used), [true, false]);
   assert.equal(toggleBonus(r.state, BANK).ok, false); // a played one cannot be switched again
   const back = restoreGame(snapshotGame(r.state));
   assert.deepEqual(back.bank, r.state.bank);
 });
 
-test('a won level carries the unplayed bonuses: the bank first, then the board in order, three at most', () => {
+test('a won level carries the unplayed bonuses: the bank still waiting first, then the board in order, three at most', () => {
   const lv = level([D, D, D, D, D, B('x3_pairs'), D, B('joker'), B('x2_any')], [6, 6, 6, 6, 1, null, 2, null, null], 10, { bank: ['x3_trips', 'refund'] });
   let g = createAutoGame(lv);
   g = toggleBonus(g, 8).state; // the ×2 joins the four of a kind and is used
   const r = playHand(g, seq([3]));
   assert.equal(r.state.phase, 'won');
-  assert.deepEqual(carryOver(r.state), ['x3_trips', 'refund', 'x3_pairs']); // the joker burns: no place left
+  assert.deepEqual(r.placed, [{ cell: 8, from: 0 }]); // the first banked card took the ×2's cell
+  assert.deepEqual(carryOver(r.state), ['refund', 'x3_pairs', 'joker']); // the ×3 TRIPS on cell 8 is fourth: it burns
+});
+
+test('no empty cells (owner, 03.11.2026): banked cards take the locks at the start; a played card makes way for the next', () => {
+  const X2 = { type: 'block' };
+  const lv = level([D, D, X2, D, D, D, X2, D, B('x2_any')], [6, 6, null, 6, 1, 2, null, 3, null], 10000, { bank: ['x3_pairs', 'joker', 'x3_trips'] });
+  let g = createAutoGame(lv);
+  // the locks at cells 2 and 6 take the first two banked cards, in order; the third waits above the board
+  assert.deepEqual(g.cells[2], { type: 'bonus', kind: 'x3_pairs', fromBank: 0 });
+  assert.deepEqual(g.cells[6], { type: 'bonus', kind: 'joker', fromBank: 1 });
+  assert.deepEqual(g.bank.map((b) => b.placed), [true, true, false]);
+  assert.equal(g.off[2] && g.off[6], true); // they start off like every card
+  assert.equal(toggleBonus(g, BANK).ok, false); // a placed one is switched on the board, not in the bank
+  assert.equal(toggleBonus(g, BANK + 2).ok, true); // the waiting one still can be
+  assert.deepEqual(restoreGame(snapshotGame(g)).cells, g.cells);
+  // the ×2 is played: the waiting ×3 TRIPS takes its cell; the next card played gets a new die
+  g = toggleBonus(g, 8).state;
+  const r = playHand(g, seq([4]));
+  assert.deepEqual(r.spent, [8]);
+  assert.deepEqual(r.placed, [{ cell: 8, from: 2 }]);
+  assert.deepEqual(r.state.cells[8], { type: 'bonus', kind: 'x3_trips', fromBank: 2 });
+  assert.equal(r.state.off[8], true);
+  assert.equal(r.state.faces[8], null);
+  let s = toggleBonus(r.state, 2).state; // the ×3 PAIRS joins a pair of 4s
+  const r2 = playHand(s, seq([4]));
+  if (r2.hand.bonuses.includes('x3_pairs')) {
+    assert.deepEqual(r2.placed, []);
+    assert.equal(r2.state.cells[2].type, 'die');
+    assert.ok(r2.refilled.includes(2));
+  }
+  // the board never shows a hole
+  assert.ok([r.state, r2.state].every((st) => st.cells.every((c) => c.type !== 'hole')));
 });
 
 test('an upgrade raises its combination\'s multiplier by one (owner, 02.11.2026)', () => {

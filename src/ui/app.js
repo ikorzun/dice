@@ -26,7 +26,7 @@ import {
   playHand as autoPlayHand, currentHand as autoCurrentHand, hintFor as autoHintFor, markHintUsed as autoMarkHintUsed,
   diceCells as autoDiceCells, canReroll as autoCanReroll, snapshotGame as autoSnapshot, restoreGame as autoRestore,
   isDie as autoIsDie, heldCount as autoHeldCount, rerollTargets as autoRerollTargets, heldHand as autoHeldHand,
-  carryOver as autoCarryOver, BANK,
+  carryOver as autoCarryOver, BANK, BANK_SIZE,
 } from '../engine/auto.js';
 import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from '../engine/levels.js';
 import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
@@ -55,8 +55,6 @@ const CORE_INSET = 0.18; // path hit region = central 64% of a cell (no corner c
 const LOG_LIMIT = 4000;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const RUN_LEVELS = 25; // an Auto Hand run (owner, 01.11.2026): LEVEL n/25, then a new run
-const BONUS_SCREEN_MS = 1600; // the bonus screen stays this long unless SKIP is pressed
-const REFUND_SCREEN_MS = 2300; // the refund bird's action is 2 s (24 frames at 12 fps), then a beat
 const FIRE_HANDS = new Set(['four_kind', 'five_kind', 'straight']); // ×6 and ×8: their dice burn when played
 
 const reduceMotion = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -276,9 +274,9 @@ const MODES = {
         'Dice, bonus dice and blocks on a 3×3 board. Positions do not matter: PLAY scores the best poker hand among all the dice, or the one you pick: when the dice you hold make a combination, the best of them plays. The counter shows the hand and its points; the board does not mark its dice.',
         'PLAY HAND scores it. The dice of the hand and every die you did not hold burn and are replaced; held dice outside the hand stay.',
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
-        'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back). They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus leaves a hole.',
+        'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back). They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus makes way for a new die, or for a bonus waiting above the board.',
         'Reach the target and the level ends at once; a level has three hands at most.',
-        'Bonuses you did not play on a won level go to the bank above the board (three places, the rest burn) and wait for the next levels of the run: tap one to switch it on like a card on the board.',
+        'Bonuses you did not play on a won level are kept for the next level of the run (three at most, the rest burn): they break its locks and take those cells, the rest wait above the board. Tap one there to switch it on like a card on the board.',
       ],
       scoreTitle: 'SCORING · THE HAND IS THE DICE OF THE COMBINATION',
       scoreRows: () => {
@@ -328,6 +326,7 @@ const app = {
   sheetAt: 0, // when the bonus sheet opened (its opening finger must not close it)
   sheetQueue: [], // kinds whose sheet waits for the open one to close
   afterGuide: [], // card deals waiting for the guide to uncover the board
+  launching: new Set(), // bank places whose card is about to fly to the board (flyFromBank)
   busy: false,
   path: [],
   tapPath: [],
@@ -488,7 +487,14 @@ function startGame(level, attempt) {
   st.firstHandAt = null;
   st.pendingTier = null;
   st.allHeldToastShown = false;
-  for (const c of els.cells) c.classList.remove('bank-pop', 'burn', 'gone', 'rolling', 'refill', 'pressed', 'shake', 'safe-hint', 'stays');
+  for (const c of els.cells) {
+    c.classList.remove('bank-pop', 'burn', 'gone', 'rolling', 'refill', 'pressed', 'shake', 'safe-hint', 'stays', 'arriving', 'locked', 'landed', 'unlocked');
+    c.flight = null; // a card still on its way to the last level's board
+  }
+  // the cards kept from the last level fly from the bank onto the locks they break (owner, 03.11.2026)
+  const arrivals = st.game.cells ? st.game.cells.map((c, i) => [i, c]).filter(([, c]) => c.type === 'bonus' && c.fromBank != null) : [];
+  app.launching = new Set(arrivals.map(([, c]) => c.fromBank));
+  for (const [i] of arrivals) els.cells[i].classList.add('arriving', 'locked');
   app.path = [];
   app.tapPath = [];
   clearTimeout(app.hintTimer);
@@ -504,9 +510,11 @@ function startGame(level, attempt) {
   render();
   persist();
   autoTips();
+  arrivals.forEach(([i, c], n) => flyFromBank(i, c.fromBank, { delay: 380 + 160 * n, lock: true })); // once the row has slid in
   if (st.game.bank && st.game.bank.length && attempt === 1 && !st.tips.bank) { // the first time the bank fills
     st.tips.bank = true;
-    toast('BONUSES KEPT FROM THE LAST LEVEL · TAP ONE ABOVE THE BOARD TO USE IT', 'hint', 3600);
+    const waiting = st.game.bank.length - arrivals.length;
+    toast(arrivals.length ? `KEPT BONUSES TAKE THE LOCKS${waiting ? ' · THE REST WAIT ABOVE' : ''}` : 'KEPT BONUSES WAIT ABOVE · TAP ONE TO USE IT', 'hint', 3600);
   }
 }
 
@@ -853,8 +861,8 @@ function buildBoard() {
 // the window allows, and every size in styles.css is a multiple of it, so the rows keep the
 // mockup's proportions at any size. On the phone the tutorial line, when it shows, takes its height
 // first; on desktop it sits above the panel.
-const MOCKUP = Object.freeze({ width: 393, rows: 616, board: 385 });
-const DESKTOP = Object.freeze({ width: 1112 + 2 * 84, height: 580.5 + 2 * 84, board: 589.5 });
+const MOCKUP = Object.freeze({ width: 393, rows: 597, board: 360 }); // Figma 1285:1244: 64 + 16 + 360 + 16 + 45 + 16 + 80
+const DESKTOP = Object.freeze({ width: 1134 + 2 * 73, height: 546 + 2 * 73, board: 546 }); // Figma 1287:1641: 546 + 42 + 546, 73 px round
 function fitBoard() {
   const col = getComputedStyle(els.app);
   const width = document.documentElement.clientWidth - parseFloat(col.paddingLeft) - parseFloat(col.paddingRight);
@@ -891,7 +899,7 @@ function renderCell(i) {
   const order = cell.querySelector('.order');
   // Effect classes that are still mid-animation survive a re-render; 'bank-pop' is not among
   // them because it fills forwards (opacity 0) and must be dropped by the render after the bank.
-  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'hole-new', 'on-fire', 'flip', 'hidden3d', 'gone'].filter((c) => cell.classList.contains(c));
+  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'arriving', 'locked', 'landed', 'unlocked', 'on-fire', 'flip', 'hidden3d', 'gone'].filter((c) => cell.classList.contains(c));
   cell.className = ['cell', ...transient].join(' ');
   cell.querySelector('.x2').textContent = '×2';
   const special = M().id === 'auto' && g.cells && g.cells[i];
@@ -937,7 +945,8 @@ function renderCell(i) {
   cell.setAttribute('aria-label', `Die ${g.faces[i]}${g.held[i] ? ', held' : ''}${sealed ? ', fixed' : ''}`);
 }
 
-// Auto Hand: bonus dice (a character or a ×3 label; red once on), blocks and the holes used bonuses leave.
+// Auto Hand: bonus dice (a character or a ×3 label; red once on), blocks, and the holes of saves from before
+// 03.11.2026 (a used bonus now makes way for a new die or a banked card).
 function renderAutoSpecial(g, i, cell, tag) {
   const c = g.cells[i];
   if (c.type === 'block') {
@@ -961,11 +970,17 @@ function renderAutoSpecial(g, i, cell, tag) {
   else cell.classList.add('on');
   if (inHand) cell.classList.add('armed');
   if (app.coachTargets && app.coachTargets.includes(i)) cell.classList.add('hint');
-  // every card is dealt face down and turns over by itself, one after another (dealCard)
+  // every card of a layout is dealt face down and turns over by itself, one after another (dealCard); a card
+  // from the bank is known already and comes face up
   if (cell.dealtFor !== g.level || cell.dealtAt !== i) {
     cell.dealtFor = g.level;
     cell.dealtAt = i;
-    dealCard(g, i);
+    if (c.fromBank == null) dealCard(g, i);
+    else {
+      clearTimeout(cell.dealTimer);
+      cell.deal = null;
+      cell.waiting = false;
+    }
   }
   if (cell.waiting) cell.classList.add('face-down');
   // the card names its bonus, its sticker the multiplier; the joker in the hand names its face
@@ -998,10 +1013,17 @@ function renderCounter() {
   const h = app.autoHand;
   const bonus = !!h && h.bonusMult > 1;
   els.bonesLabel.textContent = h ? h.label : 'BONES'; // the combination's name over its points (owner, 01.11.2026)
-  // the sum of its dice × the combination's multiplier; a bonus on its sticker (owner, 02.11.2026)
-  els.bones.innerHTML = h ? `${h.base}<small>×${h.mult}</small>` : '0';
-  if (bonus) els.multSticker.textContent = `x${h.bonusMult}`;
+  // the sum of its dice × the combination's multiplier (owner, 02.11.2026); with a bonus on, the whole
+  // multiplier on a lime sticker (Figma 1308:3041: 12 ×6 for a ×3 combination and a ×2 bonus)
+  els.bones.innerHTML = h ? `${h.base}<small><i>×</i>${h.mult}</small>` : '0';
+  if (bonus) els.multSticker.innerHTML = `<small>×</small>${h.mult * h.bonusMult}`;
   els.handStat.classList.toggle('on', bonus);
+  // the desktop (Figma 1287:1641): the hand's total, and below the numbers its dice, its name and its whole multiplier
+  $('handTotal').textContent = String(h ? h.total : 0);
+  $('handDice').innerHTML = h ? h.faces.slice().sort((x, y) => x - y).map((v) => guideDie(v)).join('') : '';
+  $('handName').textContent = h ? h.label : '';
+  $('handMult').textContent = h ? `MULTI ×${h.mult * h.bonusMult}` : '';
+  $('handRow').classList.toggle('on', bonus);
 }
 
 function renderControls() {
@@ -1029,12 +1051,13 @@ function renderControls() {
   els.playBtn.hidden = !auto;
   if (auto) {
     els.playBtn.disabled = app.busy || !playing || !app.autoHand;
-    els.playBtn.textContent = `PLAY•${g.handsLeft}`;
+    els.playBtn.innerHTML = `PLAY<span class="dot">•</span><span class="cnt">${g.handsLeft}</span>`; // the desktop sets the count below
   }
   els.pathModeBtn.hidden = auto;
   els.rerollBtn.disabled = app.busy || !engine.canReroll(g);
   const n = engine.rerollCount(g);
-  els.rerollBtn.textContent = auto ? `REROLL•${g.rerollsLeft}` : g.rerollsLeft > 0 ? (n > 0 ? `REROLL ${n}` : 'REROLL · ALL HELD') : 'NO REROLLS LEFT';
+  if (auto) els.rerollBtn.innerHTML = `REROLL<span class="dot">•</span><span class="cnt">${g.rerollsLeft}</span>`;
+  else els.rerollBtn.textContent = g.rerollsLeft > 0 ? (n > 0 ? `REROLL ${n}` : 'REROLL · ALL HELD') : 'NO REROLLS LEFT';
   els.bankLastBtn.hidden = !(playing && mode.id === 'snake4' && g.hands.length === 1);
   els.bankLastBtn.disabled = app.busy;
   els.tapbar.hidden = !st.settings.pathMode || !playing || auto;
@@ -1126,29 +1149,91 @@ function render() {
 }
 
 // The bonus bank above the board (owner, 02.11.2026): the bonuses this level started with from earlier
-// won levels, not played yet; a tap switches one on or off like a card on the board. Cards new to the row
-// slide in.
+// won levels that wait above the board; a tap switches one on or off like a card on the board. Place k holds
+// card k until it is played or flies to the board (owner, 03.11.2026), then a + (Figma 1308:3047). Cards new
+// to the row slide in.
 function renderBank() {
   const box = $('bank');
   const g = S().game;
   const bank = M().id === 'auto' && g && g.bank ? g.bank : [];
   const h = app.autoHand;
-  const shown = new Set();
-  bank.forEach((b, k) => {
-    if (b.used) return;
-    shown.add(String(k));
-    let el = box.querySelector(`.cell[data-k="${k}"]`);
-    if (!el || el.dataset.kind !== b.kind) {
-      el?.remove();
-      box.insertAdjacentHTML('beforeend', guideTile(b.kind, false).replace('<span class="cell ', `<span role="button" tabindex="0" data-k="${k}" data-kind="${b.kind}" class="new cell `));
-      el = box.lastElementChild;
+  const places = M().id === 'auto' ? BANK_SIZE : 0;
+  for (let k = 0; k < places; k++) {
+    const b = bank[k];
+    const old = box.children[k];
+    let el = old;
+    if (b && !b.used && (!b.placed || app.launching.has(k))) {
+      if (!el || el.dataset.kind !== b.kind) {
+        el = document.createElement('template');
+        el.innerHTML = guideTile(b.kind, false).replace('<span class="cell ', `<span role="button" tabindex="0" data-k="${k}" data-kind="${b.kind}" class="new cell `);
+        el = el.content.firstElementChild;
+      }
+      el.classList.toggle('on', !b.off);
+      el.classList.toggle('off', b.off);
+      el.classList.toggle('armed', !!h && h.bonusCells.includes(BANK + k));
+      el.setAttribute('aria-label', `${BONUS_KINDS[b.kind].symbol} ${BONUS_KINDS[b.kind].label} from the bank, ${b.off ? 'off, tap to switch on' : 'on'}`);
+    } else if (!el || !el.classList.contains('slot')) {
+      el = document.createElement('span');
+      el.className = 'slot';
+      el.setAttribute('aria-hidden', 'true');
     }
-    el.classList.toggle('on', !b.off);
-    el.classList.toggle('off', b.off);
-    el.classList.toggle('armed', !!h && h.bonusCells.includes(BANK + k));
-    el.setAttribute('aria-label', `${BONUS_KINDS[b.kind].symbol} ${BONUS_KINDS[b.kind].label} from the bank, ${b.off ? 'off, tap to switch on' : 'on'}`);
-  });
-  for (const el of [...box.children]) if (!shown.has(el.dataset.k)) el.remove();
+    if (el === old) continue;
+    if (old) old.replaceWith(el);
+    else box.append(el);
+  }
+  while (box.children.length > places) box.lastElementChild.remove();
+}
+
+// A card from the bank flies to the board (owner, 03.11.2026: no empty cells): at a level's start onto a lock,
+// which breaks under it, or into the cell of a card just played. The cell shows its lock (or nothing) until
+// the card lands face up.
+function flyFromBank(i, k, { delay = 0, lock = false } = {}) {
+  const cell = els.cells[i];
+  const flight = {};
+  cell.flight = flight;
+  cell.classList.add('arriving');
+  cell.classList.toggle('locked', lock);
+  const land = () => {
+    if (cell.flight !== flight) return; // a new level came first
+    cell.flight = null;
+    app.launching.delete(k);
+    cell.classList.remove('arriving', 'locked');
+    renderBank();
+    if (reduceMotion) return;
+    cell.classList.remove('landed');
+    void cell.offsetWidth;
+    cell.classList.add('landed', ...(lock ? ['unlocked'] : []));
+    setTimeout(() => cell.classList.remove('landed', 'unlocked'), 480);
+    sfx('flip');
+  };
+  if (reduceMotion) { land(); return; }
+  setTimeout(() => {
+    if (cell.flight !== flight) return;
+    const from = $('bank').children[k];
+    if (!from || !from.classList.contains('cell')) { land(); return; }
+    const a = from.getBoundingClientRect();
+    const b = cell.getBoundingClientRect();
+    const fly = document.createElement('div');
+    fly.className = 'bank bank-fly';
+    fly.setAttribute('aria-hidden', 'true');
+    fly.innerHTML = guideTile(from.dataset.kind, false);
+    Object.assign(fly.style, { left: `${a.left}px`, top: `${a.top}px` });
+    els.app.append(fly); // inside the app, for its scale (--k)
+    app.launching.delete(k);
+    renderBank(); // its place empties as it takes off
+    const dx = b.left + b.width / 2 - (a.left + a.width / 2);
+    const dy = b.top + b.height / 2 - (a.top + a.height / 2);
+    const s = b.width / a.width;
+    const up = Math.min(120, 0.35 * Math.hypot(dx, dy)); // an arc, higher for a longer flight
+    fly.animate([
+      { transform: 'translate(0, 0) scale(1) rotate(0)' },
+      { transform: `translate(${dx * 0.5}px, ${dy * 0.5 - up}px) scale(${(1 + s) * 0.62}) rotate(-7deg)`, offset: 0.5 },
+      { transform: `translate(${dx}px, ${dy}px) scale(${s}) rotate(0)` },
+    ], { duration: 520, easing: 'cubic-bezier(.4, 0, .3, 1)' }).onfinish = () => {
+      fly.remove();
+      land();
+    };
+  }, delay);
 }
 
 // A strong hand burns as soon as the player holds it (owner, 01.11.2026): the held dice of a four of a
@@ -1270,7 +1355,6 @@ function sparkBurst(count, gold) {
 
 // `remaining` is what the level still needed before this hand (Auto Hand lights the fire when one hand covers it).
 function showReveal(hand, { remaining = Infinity } = {}) {
-  sfx('score');
   const r = $('reveal');
   const ptsEl = r.querySelector('.pts');
   const multEl = r.querySelector('.mult');
@@ -1281,6 +1365,7 @@ function showReveal(hand, { remaining = Infinity } = {}) {
   // Auto Hand builds the total in visible steps: the combination first, then the bonus dice hit.
   const auto = M().id === 'auto';
   const staged = auto && hand.multiplier > 1 && !reduceMotion;
+  sfx(hand.multiplier > 1 && !staged ? 'bonus' : 'score'); // a staged bonus sounds when it hits
   const fire = auto && remaining > 0 && hand.total >= remaining;
   ptsEl.textContent = `+${staged ? hand.points : hand.total}`;
   multEl.textContent = staged ? base : full;
@@ -1301,46 +1386,12 @@ function showReveal(hand, { remaining = Infinity } = {}) {
       r.classList.add('hit');
       sparkBurst(sparks, true);
       haptic(14);
+      sfx('bonus');
     }, 380);
   }
   $('targetStat').classList.remove('bump');
   void $('targetStat').offsetWidth;
   $('targetStat').classList.add('bump');
-}
-
-// A hand played with a bonus (owner, 01.11.2026): the board blurs, the bonus character stands over
-// it, the ×N sticker on the hand's number grows, the hand's points run up to its total, then THRESHOLD
-// counts down by it; SKIP or
-// BONUS_SCREEN_MS ends it (the refund bird plays its whole action). The ×3 kinds have no character
-// yet: the sticker alone.
-function showBonusScreen(hand, from, to) {
-  const art = ['refund', 'x2_any', 'joker'].find((k) => hand.bonuses.includes(k));
-  els.bonusHero.className = `bonus-hero${art ? ` kind-${art}` : ''}`;
-  els.multSticker.textContent = `x${hand.multiplier}`;
-  els.bonesLabel.textContent = hand.label;
-  countUp(els.bones, hand.points, hand.total, 430, 380, false); // after the sticker lands
-  els.handStat.classList.toggle('on', hand.multiplier > 1);
-  els.app.classList.toggle('has-sticker', hand.multiplier > 1);
-  els.app.classList.add('bonus-show');
-  sfx(hand.multiplier > 1 ? 'bonus' : 'refund'); // the refund alone multiplies nothing: its coin
-  if (hand.multiplier > 1 && art === 'refund') setTimeout(() => sfx('refund'), 500);
-  const g = S().game;
-  countUp($('target'), remaining(from, g), remaining(to, g), 850);
-  return new Promise((resolve) => {
-    // the refund bird's strip can take a moment to decode: its time counts from the first frame
-    const sprite = els.bonusHero.firstElementChild;
-    const restart = () => { clearTimeout(timer); timer = setTimeout(done, REFUND_SCREEN_MS); };
-    const done = () => {
-      clearTimeout(timer);
-      els.skipBtn.removeEventListener('click', done);
-      sprite.removeEventListener('animationstart', restart);
-      els.app.classList.remove('bonus-show', 'has-sticker');
-      resolve();
-    };
-    let timer = setTimeout(done, art === 'refund' ? REFUND_SCREEN_MS + 1000 : BONUS_SCREEN_MS);
-    if (art === 'refund') sprite.addEventListener('animationstart', restart);
-    els.skipBtn.addEventListener('click', done);
-  });
 }
 
 // ---------- actions ----------
@@ -1386,7 +1437,7 @@ function flipCard(cell, delay = 0) {
 // from when the board shows (the first visit's guide covers it until it closes).
 function dealCard(g, i) {
   const cell = els.cells[i];
-  const order = g.cells.slice(0, i).filter((c) => c.type === 'bonus').length;
+  const order = g.cells.slice(0, i).filter((c) => c.type === 'bonus' && c.fromBank == null).length;
   clearTimeout(cell.dealTimer);
   cell.waiting = true;
   const deal = {};
@@ -1587,7 +1638,7 @@ async function attemptBank(path, source) {
   stopGhost();
   clearPath();
   haptic(hand.points >= 10 ? [14, 40, 18] : 12);
-  // A strong hand catches fire first (the combination), then the bonus screen or the count follows
+  // A strong hand catches fire first (the combination), then the count follows
   const burning = mode.id === 'auto' && FIRE_HANDS.has(hand.category) ? [...hand.cells, ...(hand.jokerCells || [])] : [];
   if (burning.length) {
     app.fire = app.fire || createFire(els.board);
@@ -1596,16 +1647,9 @@ async function attemptBank(path, source) {
     await wait(T.fire);
     if (!stillCurrent(st, modeId)) { app.fire.out(); app.busy = false; return; }
   }
-  // Auto Hand with a bonus: the bonus screen tells the result first over the old board, then the
-  // hand burns and the board refills as usual.
-  const bonusScreen = mode.id === 'auto' && hand.bonuses.length > 0;
-  if (bonusScreen) {
-    renderControls();
-    await showBonusScreen(hand, g.score, st.game.score);
-    if (!stillCurrent(st, modeId)) { if (burning.length) app.fire.out(); app.busy = false; return; }
-  } else {
-    showReveal(hand, { remaining: g.level.target - g.score });
-  }
+  // A hand with a bonus is counted on the board like any other: the combination, then the bonus's hit
+  // (owner, 03.11.2026: no full-screen bonus screen)
+  showReveal(hand, { remaining: g.level.target - g.score });
   // Auto Hand also burns the bonus dice the hand used (they pop with it) and every unheld die
   // outside the hand (those fade out); the other modes pop only the hand. With the 3D dice the burnt
   // dice are thrown anew in place like a reroll (owner, 02.11.2026): only the used cards pop.
@@ -1613,31 +1657,34 @@ async function attemptBank(path, source) {
   // level's summary opens (owner, 02.11.2026)
   const last = mode.id === 'auto' && st.game.phase !== 'playing';
   const throw3d = !last && mode.id === 'auto' && mode.refill && r.refilled && r.refilled.length > 0 && app.dice3d && !reduceMotion && dice3dStatus() === 'ready';
-  const popped = throw3d ? r.holes || [] : r.holes ? [...hand.cells, ...r.holes] : hand.cells;
+  const spent = r.spent || []; // the cards the hand used: a new die or a card from the bank takes each cell
+  const popped = throw3d ? spent : [...hand.cells, ...spent];
   const faded = throw3d ? [] : r.burned ? r.burned.filter((i) => !hand.cells.includes(i)) : [];
   popped.forEach((i) => els.cells[i].classList.add('bank-pop'));
   faded.forEach((i) => els.cells[i].classList.add('burn'));
   if (!throw3d) sfx('burn');
   renderHud();
-  if (mode.id === 'auto' && !bonusScreen) countUp($('target'), remaining(g.score, g), remaining(st.game.score, g), 250);
+  if (mode.id === 'auto') countUp($('target'), remaining(g.score, g), remaining(st.game.score, g), 250);
   renderControls();
-  if (hand.refund) { // the reroll the refund gave back lands on its button
+  if (hand.refund) { // the reroll the refund gave back lands on its button, with the bird's coin
     els.rerollBtn.classList.remove('bump');
     void els.rerollBtn.offsetWidth;
     els.rerollBtn.classList.add('bump');
+    sfx('refund');
   }
   renderPath();
   setPreview(`${hand.label} +${hand.total}`, 'good');
-  await wait(last && !bonusScreen ? Math.max(T.bank, T.reveal) : T.bank); // the last hand's count finishes first
+  await wait(last ? Math.max(T.bank, T.reveal) : T.bank); // the last hand's count finishes first
   if (burning.length) app.fire.out(); // the dice have burnt away: before they come back for the refill
-  if (last) r.burned.forEach((i) => els.cells[i].classList.add('gone')); // they stay away under the summary
+  if (last) [...r.burned, ...spent].forEach((i) => els.cells[i].classList.add('gone')); // they stay away under the summary
   popped.forEach((i) => els.cells[i].classList.remove('bank-pop'));
   faded.forEach((i) => els.cells[i].classList.remove('burn'));
   if (!stillCurrent(st, modeId)) { app.busy = false; return; }
   if (throw3d) {
     r.refilled.forEach((i) => els.cells[i].classList.add('hidden3d'));
+    for (const { cell, from } of r.placed) { app.launching.add(from); els.cells[cell].classList.add('arriving'); }
     render(); // the new board under the throw, drawn from the old faces until each die turns
-    if (r.holes && r.holes.length) flashCells(r.holes, 'hole-new', 700);
+    r.placed.forEach(({ cell, from }) => flyFromBank(cell, from));
     sfx('roll');
     await rollDice3D({
       board: els.board,
@@ -1652,9 +1699,10 @@ async function attemptBank(path, source) {
       const stays = E().remainingCells(st.game).filter((i) => !r.refilled.includes(i));
       flashCells(stays, 'stays', 700);
     }
-  } else if (!last && mode.refill && r.refilled && r.refilled.length) {
+  } else if (!last && mode.refill && r.refilled && (r.refilled.length || (r.placed && r.placed.length))) {
+    for (const { cell, from } of r.placed || []) { app.launching.add(from); els.cells[cell].classList.add('arriving'); }
     render();
-    if (r.holes && r.holes.length) flashCells(r.holes, 'hole-new', 700);
+    (r.placed || []).forEach(({ cell, from }) => flyFromBank(cell, from));
     r.refilled.forEach((i, k) => {
       const c = els.cells[i];
       c.style.setProperty('--delay', `${k * 60}ms`);
@@ -2142,7 +2190,7 @@ function tryMatcap() {
 
 function init() {
   tryMatcap();
-  for (const id of ['app', 'board', 'boardWrap', 'preview', 'playBtn', 'rerollBtn', 'skipBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast', 'bones', 'bonesLabel', 'handStat', 'multSticker', 'bonusHero']) els[id] = $(id);
+  for (const id of ['app', 'board', 'boardWrap', 'preview', 'playBtn', 'rerollBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast', 'bones', 'bonesLabel', 'handStat', 'multSticker']) els[id] = $(id);
   els.tabs = Array.from(document.querySelectorAll('.tab'));
   els.controls = document.querySelector('.controls');
   // the snake modes share the scoring paragraphs written in index.html; Auto Hand brings its own

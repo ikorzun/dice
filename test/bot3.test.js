@@ -8,7 +8,7 @@ import { createRng } from '../src/engine/rng.js';
 const SIZE = { pair: 2, two_pairs: 4, small_straight: 4, three_kind: 3, four_kind: 4, full_house: 5, straight: 5, five_kind: 5 };
 const levelsFor = (tier, n) => Array.from({ length: n }, (_, i) => generateAutoLevel({ runSeed: `bot3/t${tier}/r${i}`, levelIndex: tier + (i % 8), tier }));
 
-test('auto bots play legal levels: up to three hands (the target ends it), hands of the right size, used bonuses become holes', () => {
+test('auto bots play legal levels: up to three hands (the target ends it), hands of the right size, a used card makes way for a die', () => {
   for (let tier = 1; tier <= 5; tier++) {
     const rng = createRng(`bot3-legal-${tier}`);
     for (const [k, level] of levelsFor(tier, 6).entries()) {
@@ -21,7 +21,7 @@ test('auto bots play legal levels: up to three hands (the target ends it), hands
       assert.ok(st.rerollsLeft >= 0 && st.rerollsLeft <= 3);
       for (const h of st.hands) {
         assert.equal(h.cells.length + h.jokerCells.length, SIZE[h.category]);
-        for (const i of [...h.bonusCells, ...h.jokerCells]) assert.equal(st.cells[i].type, 'hole');
+        for (const i of [...h.bonusCells, ...h.jokerCells]) assert.equal(st.cells[i].type, 'die'); // the bots keep no bank
       }
       assert.ok(diceCells(st).length >= 6);
       assert.ok(diceCells(st).every((i) => Number.isInteger(st.faces[i]) && st.faces[i] >= 1 && st.faces[i] <= 6));

@@ -102,12 +102,12 @@ for (const vp of viewports) {
   if (layout.scrollW > layout.clientW) note(vp, `horizontal overflow ${layout.scrollW}>${layout.clientW}`);
   if (layout.controlsBottom > vp.h + 0.5) note(vp, `buttons below viewport (${layout.controlsBottom.toFixed(0)} > ${vp.h})`);
   if (layout.cell < 44) note(vp, `cell too small (${layout.cell.toFixed(0)}px)`);
-  // phone: rows under the board, PLAY and REROLL side by side; desktop: a panel level with the board,
-  // PLAY over REROLL (the two Figma layouts)
+  // phone: rows under the board; desktop: a panel level with the board (Figma 1287:1641); PLAY and REROLL side
+  // by side on both
   if (layout.wide !== (vp.w > vp.h)) note(vp, `layout ${layout.wide ? 'desktop' : 'phone'} on a ${vp.w}x${vp.h} window`);
   if (!layout.wide && Math.abs(layout.counterTop - layout.boardBottom - layout.play.height / 5) > 1) note(vp, `counter not 16/80 of a button under the board (${(layout.counterTop - layout.boardBottom).toFixed(1)})`);
   if (!layout.wide && (Math.abs(layout.play.width - layout.reroll.width) > 0.5 || Math.abs(layout.play.top - layout.reroll.top) > 0.5)) note(vp, 'PLAY and REROLL are not side by side');
-  if (layout.wide && (Math.abs(layout.panelTop - layout.boardTop) > 1 || Math.abs(layout.controlsBottom - layout.boardBottom) > 1.5 || Math.abs(layout.play.left - layout.reroll.left) > 0.5)) note(vp, 'desktop panel not level with the board, or PLAY not over REROLL');
+  if (layout.wide && (Math.abs(layout.panelTop - layout.boardTop) > 1 || Math.abs(layout.controlsBottom - layout.boardBottom) > 1.5 || Math.abs(layout.play.top - layout.reroll.top) > 0.5 || layout.play.right > layout.reroll.left)) note(vp, 'desktop panel not level with the board, or PLAY not beside REROLL');
   console.log(`${vp.w}x${vp.h}: board ${layout.board.toFixed(0)}px, cell ${layout.cell.toFixed(0)}px, buttons bottom ${layout.controlsBottom.toFixed(0)}`);
   if ((await text('#levelText')) !== '1/25') note(vp, `level text: ${await text('#levelText')}`);
   if (Number(await text('#target')) !== a.target) note(vp, 'THRESHOLD is not the target');
@@ -116,8 +116,9 @@ for (const vp of viewports) {
   if ((await text('#bonesLabel')) !== a.hand.hand.label) note(vp, `the label over BONES is ${await text('#bonesLabel')}, not the hand's name (${a.hand.hand.label})`);
   // under the dice: LEVEL · the hand · THRESHOLD (owner, 02.11.2026); no MULTIPLY or TOTAL column
   if (await page.$('#score') || await page.$('#multStat')) note(vp, 'a MULTIPLY or TOTAL column is back');
-  const order = await page.$$eval('.counter .stat', (els) => els.filter((e) => getComputedStyle(e).display !== 'none').map((e) => e.id));
-  if (order.join() !== (layout.wide ? 'handStat,targetStat' : 'levelStat,handStat,targetStat')) note(vp, `counter order: ${order}`);
+  // the desktop orders them the hand · THRESHOLD · LEVEL (Figma 1287:1641)
+  const shown = await page.$$eval('.counter .stat', (els) => els.filter((e) => getComputedStyle(e).display !== 'none').sort((x, y) => x.getBoundingClientRect().left - y.getBoundingClientRect().left).map((e) => e.id));
+  if (shown.join() !== (layout.wide ? 'handStat,targetStat,levelStat' : 'levelStat,handStat,targetStat')) note(vp, `counter order: ${shown}`);
   await page.waitForTimeout(1500);
   console.log(`${vp.w}x${vp.h}: 3D dice status ${await page.evaluate(() => window.__diceSnake.dice3d())}`);
 
@@ -132,9 +133,10 @@ for (const vp of viewports) {
   if (pipColors.length !== 1) note(vp, `dice pips differ in colour: ${pipColors}`);
   const pictures = await page.$$eval('#board .cell.die', (els) => els.map((e) => e.style.getPropertyValue('--die-img')));
   if (pictures.some((v) => /-hand/.test(v))) note(vp, `a die uses a hand picture: ${pictures}`);
-  // the whole screen scales with the window: k fits the mockup's 393 × 616 px of rows
+  // the whole screen scales with the window: k fits the mockup's 393 × 597 px of rows (Figma 1285:1244: a 360 px
+  // board on the phone; Figma 1287:1641: a 546 px board on the desktop)
   const k = await page.evaluate(() => parseFloat(getComputedStyle(document.getElementById('app')).getPropertyValue('--k')));
-  if (!(k > 0.4) || Math.abs(layout.board - 385 * k * (layout.wide ? 1.5 : 1)) > 1) note(vp, `board ${layout.board.toFixed(1)}px does not follow k=${k}`);
+  if (!(k > 0.4) || Math.abs(layout.board - (layout.wide ? 546 : 360) * k) > 1) note(vp, `board ${layout.board.toFixed(1)}px does not follow k=${k}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-1-start.png` });
   // dragging does not play a hand
   await swipe(page, a.hand.cells.slice(0, 3));
@@ -163,8 +165,10 @@ for (const vp of viewports) {
   if (!/SWITCH IT ON/.test(await text('#coachText'))) note(vp, `tutorial does not ask to switch the ×2 on: "${await text('#coachText')}"`);
   await tap(page, 8);
   if ((await auto()).off[8]) note(vp, 'tapping the turned card did not switch it on');
-  const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, sticker: document.getElementById('multSticker').textContent, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className }));
-  if (!/\bon\b/.test(on.cell) || on.sticker !== 'x2' || on.shown === 'none' || !/\bon\b/.test(on.stat)) note(vp, `bonus on: ${JSON.stringify(on)}`);
+  const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, sticker: document.getElementById('multSticker').textContent, whole: `×${window.__diceSnake.hint().hand.mult * window.__diceSnake.hint().hand.bonusMult}`, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className }));
+  // the whole multiplier: on the lime sticker on the phone, in the hand's row on the desktop
+  const multiplier = layout.wide ? (await text('#handMult')).replace('MULTI ', '') : on.sticker;
+  if (!/\bon\b/.test(on.cell) || multiplier !== on.whole || (!layout.wide && on.shown === 'none') || !/\bon\b/.test(on.stat)) note(vp, `bonus on: ${JSON.stringify({ ...on, multiplier })}`);
   const playPulse = await page.$eval('#playBtn', (b) => b.classList.contains('pulse'));
   if (!playPulse || !/PRESS PLAY/.test(await text('#coachText'))) note(vp, `tutorial play step: pulse=${playPulse}, "${await text('#coachText')}"`);
   // off again keeps it for later, on again uses it
@@ -196,17 +200,15 @@ for (const vp of viewports) {
   if (burning.join() !== shouldBurn.join()) note(vp, `fire on [${burning}] for a ${a.hand.hand.category} on [${shouldBurn}]`);
   const fireLayer = await page.evaluate(() => { const c = document.querySelector('.fire-layer'); return c ? getComputedStyle(c).display : 'none'; });
   if (strong && fireLayer !== 'block') note(vp, `the shader fire is not drawn (canvas ${fireLayer})`);
-  await page.waitForFunction(() => document.getElementById('app').classList.contains('bonus-show'), null, { timeout: 3000 }).catch(() => {});
-  await page.waitForTimeout(330);
-  const screen = await page.evaluate(() => ({ cls: document.getElementById('app').className, skip: getComputedStyle(document.getElementById('skipBtn')).display, play: getComputedStyle(document.getElementById('playBtn')).display, hero: getComputedStyle(document.getElementById('bonusHero')).display, sticker: document.getElementById('multSticker').textContent }));
-  if (!/bonus-show/.test(screen.cls) || screen.skip === 'none' || screen.play !== 'none' || screen.hero === 'none' || screen.sticker !== 'x2') note(vp, `bonus screen: ${JSON.stringify(screen)}`);
-  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-5-bonus-screen.png` });
-  await page.click('#skipBtn');
+  // no full-screen bonus screen (owner, 03.11.2026): the hand is counted on the board, the ×2 hits in a step
+  await page.waitForFunction(() => document.getElementById('reveal').classList.contains('hit'), null, { timeout: 4000 }).catch(() => {});
+  const count = await page.evaluate(() => ({ hit: document.getElementById('reveal').classList.contains('hit'), mult: document.querySelector('#reveal .mult').textContent, play: getComputedStyle(document.getElementById('playBtn')).display, board: getComputedStyle(document.getElementById('board')).filter }));
+  if (!count.hit || !/×2/.test(count.mult) || count.play === 'none' || count.board !== 'none') note(vp, `the bonus hand's count on the board: ${JSON.stringify(count)}`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-5-bonus-count.png` });
   await idle(page);
   const b = await auto();
-  if (await page.$eval('#app', (el) => el.classList.contains('bonus-show'))) note(vp, 'SKIP did not close the bonus screen');
   if (b.hands !== 1 || b.handsLeft !== 2 || (b.score >= b.target) !== (b.phase === 'won')) note(vp, `first hand: hands=${b.hands} left=${b.handsLeft} phase=${b.phase}`);
-  if (b.cells[8] !== 'hole') note(vp, `the ×2 did not leave a hole (cell 8=${b.cells[8]})`);
+  if (b.cells[8] !== 'die') note(vp, `a new die did not take the played ×2's cell (cell 8=${b.cells[8]})`);
   if (keep2 >= 0 && b.phase === 'playing' && b.faces[keep2] !== a.faces[keep2]) note(vp, 'held die outside the hand did not survive the hand');
   if (b.held.some(Boolean)) note(vp, `dice still selected after the hand: ${b.held}`);
   // THRESHOLD counts down to what the level still needs (owner, 02.11.2026)
