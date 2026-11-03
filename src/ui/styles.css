@@ -309,6 +309,7 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .cell.block { background: url("../../assets/ui/lock.svg") center / 100% 100% no-repeat; }
 /* Auto Hand play: unheld dice outside the hand fade out, a used bonus leaves a hole that flashes in */
 .cell.burn { animation: burn 420ms ease-in forwards; }
+.cell.gone { visibility: hidden; } /* burnt on the level's last hand: no new die comes */
 @keyframes burn { 0% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(10%) scale(.82); } }
 .cell.empty.hole-new { animation: holeIn 600ms ease-out; }
 @keyframes holeIn { 0% { border-color: var(--gold); box-shadow: 0 0 22px rgba(243, 197, 79, .55); transform: scale(1.08); } 100% { box-shadow: none; transform: scale(1); } }

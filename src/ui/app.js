@@ -488,7 +488,7 @@ function startGame(level, attempt) {
   st.firstHandAt = null;
   st.pendingTier = null;
   st.allHeldToastShown = false;
-  for (const c of els.cells) c.classList.remove('bank-pop', 'rolling', 'refill', 'pressed', 'shake', 'safe-hint', 'stays');
+  for (const c of els.cells) c.classList.remove('bank-pop', 'burn', 'gone', 'rolling', 'refill', 'pressed', 'shake', 'safe-hint', 'stays');
   app.path = [];
   app.tapPath = [];
   clearTimeout(app.hintTimer);
@@ -599,7 +599,8 @@ function showLevelEnd() {
   $('levelEnd').dataset.mode = app.modeId;
   clearTimeout(app.endTimer);
   const forMode = app.modeId;
-  app.endTimer = setTimeout(() => { if (app.modeId === forMode) $('levelEnd').hidden = false; }, T.endDelay);
+  // Auto Hand opens the summary at once: its last hand has already burnt away (owner, 02.11.2026)
+  app.endTimer = setTimeout(() => { if (app.modeId === forMode) $('levelEnd').hidden = false; }, mode.id === 'auto' ? 0 : T.endDelay);
 }
 
 function onNext() {
@@ -890,7 +891,7 @@ function renderCell(i) {
   const order = cell.querySelector('.order');
   // Effect classes that are still mid-animation survive a re-render; 'bank-pop' is not among
   // them because it fills forwards (opacity 0) and must be dropped by the render after the bank.
-  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'hole-new', 'on-fire', 'flip', 'hidden3d'].filter((c) => cell.classList.contains(c));
+  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'hole-new', 'on-fire', 'flip', 'hidden3d', 'gone'].filter((c) => cell.classList.contains(c));
   cell.className = ['cell', ...transient].join(' ');
   cell.querySelector('.x2').textContent = '×2';
   const special = M().id === 'auto' && g.cells && g.cells[i];
@@ -1608,7 +1609,10 @@ async function attemptBank(path, source) {
   // Auto Hand also burns the bonus dice the hand used (they pop with it) and every unheld die
   // outside the hand (those fade out); the other modes pop only the hand. With the 3D dice the burnt
   // dice are thrown anew in place like a reroll (owner, 02.11.2026): only the used cards pop.
-  const throw3d = mode.id === 'auto' && mode.refill && r.refilled && r.refilled.length > 0 && app.dice3d && !reduceMotion && dice3dStatus() === 'ready';
+  // The level's last hand (the target reached, or no hands left) brings no new dice: its dice burn away and the
+  // level's summary opens (owner, 02.11.2026)
+  const last = mode.id === 'auto' && st.game.phase !== 'playing';
+  const throw3d = !last && mode.id === 'auto' && mode.refill && r.refilled && r.refilled.length > 0 && app.dice3d && !reduceMotion && dice3dStatus() === 'ready';
   const popped = throw3d ? r.holes || [] : r.holes ? [...hand.cells, ...r.holes] : hand.cells;
   const faded = throw3d ? [] : r.burned ? r.burned.filter((i) => !hand.cells.includes(i)) : [];
   popped.forEach((i) => els.cells[i].classList.add('bank-pop'));
@@ -1624,8 +1628,9 @@ async function attemptBank(path, source) {
   }
   renderPath();
   setPreview(`${hand.label} +${hand.total}`, 'good');
-  await wait(T.bank);
+  await wait(last && !bonusScreen ? Math.max(T.bank, T.reveal) : T.bank); // the last hand's count finishes first
   if (burning.length) app.fire.out(); // the dice have burnt away: before they come back for the refill
+  if (last) r.burned.forEach((i) => els.cells[i].classList.add('gone')); // they stay away under the summary
   popped.forEach((i) => els.cells[i].classList.remove('bank-pop'));
   faded.forEach((i) => els.cells[i].classList.remove('burn'));
   if (!stillCurrent(st, modeId)) { app.busy = false; return; }
@@ -1647,7 +1652,7 @@ async function attemptBank(path, source) {
       const stays = E().remainingCells(st.game).filter((i) => !r.refilled.includes(i));
       flashCells(stays, 'stays', 700);
     }
-  } else if (mode.refill && r.refilled && r.refilled.length) {
+  } else if (!last && mode.refill && r.refilled && r.refilled.length) {
     render();
     if (r.holes && r.holes.length) flashCells(r.holes, 'hole-new', 700);
     r.refilled.forEach((i, k) => {
