@@ -1,16 +1,22 @@
 // Bonus characters alive on their cards, the old-cartoon way (owner, 03.11.2026: «the animation inside the cards
 // trembles; another approach, after the joker: a storyboard like old Disney cartoons or Cuphead»; the joker approved
 // the same day, «the others the same way»; docs/ANIM-STORYBOARDS.md). A card's picture is a cutout puppet (rig.js)
-// shown as held drawings: 12 a second (24 fps on twos), in big poses to a beat of 90 bpm, 8 drawings a beat, and now
-// and then an act that starts on a beat and lasts whole beats, so the character comes back in step. Nothing moves
-// between drawings, so nothing shimmers. The canvas covers the card at the screen's full resolution, the parts
-// scaled once to it, and draws only when the drawing changes. A tap moves only the card. One loop for every card,
-// each a few drawings off the others; a card out of sight is skipped; with reduced motion the picture stands still.
+// shown as held drawings: 12 a second (24 fps on twos), in big poses to a beat of 90 bpm, 8 drawings a beat. Nothing
+// moves between drawings, so nothing shimmers. The character rests, its picture as drawn, and now and then takes a
+// turn of two beats (owner, 03.11.2026: «the constant animation distracts; reasonable pauses and cycles»): its bounce,
+// every other time its act, then it lands and rests again. One card at a time, a pause between turns, and no turn
+// while the dice are thrown or counted or just after a tap. The canvas covers the card at the screen's full
+// resolution, the parts scaled once to it, and draws only when the drawing changes. A tap moves only the card. One
+// loop for every card; a card out of sight is skipped; with reduced motion the picture never leaves its rest.
 // Approach 1 (a breath and small events every display frame) is kept in prototypes/char-anim/approach1.js.
 import { createPuppet } from './rig.js';
 
 const D = 12; // drawings a second
 const BEAT = 8; // drawings a beat: 90 bpm
+const FIRST = [2, 5]; // seconds before a card's first turn
+const REST = [10, 16]; // seconds a card rests between its turns
+const GAP = 3; // seconds between one card's turn and any other's
+const CALM = 4; // seconds after a tap before a turn
 const row = (table, e) => table[Math.min(e, table.length - 1)];
 const mod = (n, m) => ((n % m) + m) % m;
 
@@ -312,8 +318,8 @@ function birdPose(k, act) {
 
 // By bonus kind. frame: the card picture's frame in the 1024 px drawing, laid like the picture it replaces (contain,
 // centre bottom in .art, moved by its --drop); edge: where the card's edge cuts the `clip` parts. Parts back to
-// front, cut by art/bonuses/anim/cartoon-fix.py (half size in assets/ui/bonuses/cartoon/). acts: { name: [table,
-// shortest and longest seconds between] }; pose(k, act) gives the bones of drawing k, or of the act's drawing act.e.
+// front, cut by art/bonuses/anim/cartoon-fix.py (half size in assets/ui/bonuses/cartoon/). acts: { name: table of
+// 16 drawings }; pose(k, act) gives the bones of the bounce's drawing k, or of the act's drawing act.e.
 export const CHARACTERS = {
   x2_any: {
     name: 'knight',
@@ -326,7 +332,7 @@ export const CHARACTERS = {
       { name: 'flower', at: [756, 276], size: [195, 226], pivot: [812, 303], parent: 'head' },
       { name: 'gear', at: [14, 578], size: [997, 345], pivot: [512, 884] },
     ],
-    acts: { duck: [KNIGHT_DUCK, 9, 14] },
+    acts: { duck: KNIGHT_DUCK },
     pose: knightPose,
   },
   x3_straight: {
@@ -343,7 +349,7 @@ export const CHARACTERS = {
       { name: 'legs', at: [28, 598], size: [969, 409], pivot: [512, 950] },
       { name: 'staff', at: [752, 108], size: [272, 883], pivot: [810, 770], clip: true },
     ],
-    acts: { hmph: [BUG_HMPH, 8, 13] },
+    acts: { hmph: BUG_HMPH },
     pose: bugPose,
   },
   x3_pairs: {
@@ -357,7 +363,7 @@ export const CHARACTERS = {
       { name: 'kidR', at: [826, 726], size: [27, 54], pivot: [842, 752], parent: 'kid', clip: true },
       { name: 'gear', at: [24, 796], size: [975, 184], pivot: [512, 905] },
     ],
-    acts: { leap: [PAIR_LEAP, 7, 12] },
+    acts: { leap: PAIR_LEAP },
     pose: pairPose,
   },
   x3_trips: {
@@ -370,7 +376,7 @@ export const CHARACTERS = {
       { name: 'bot', at: [288, 680], size: [516, 319], pivot: [560, 958], clip: true },
       { name: 'gear', at: [36, 476], size: [951, 523], pivot: [512, 958] },
     ],
-    acts: { teeter: [TRIO_TEETER, 7, 12] },
+    acts: { teeter: TRIO_TEETER },
     pose: trioPose,
   },
   joker: {
@@ -386,7 +392,7 @@ export const CHARACTERS = {
       { name: 'handL', at: [16, 670], size: [450, 178], pivot: [200, 803] },
       { name: 'handR', at: [678, 674], size: [330, 170], pivot: [840, 803] },
     ],
-    acts: { cackle: [SKULL_CACKLE, 8, 12] },
+    acts: { cackle: SKULL_CACKLE },
     pose: skullPose,
   },
   refund: {
@@ -401,7 +407,7 @@ export const CHARACTERS = {
       { name: 'gear', at: [0, 542], size: [1005, 449], pivot: [512, 881] },
       { name: 'glint', at: [218, 680], size: [104, 121], pivot: [268, 742] },
     ],
-    acts: { count: [BIRD_COUNT, 8, 12] },
+    acts: { count: BIRD_COUNT },
     pose: birdPose,
   },
 };
@@ -410,9 +416,32 @@ const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-m
 const live = new Set();
 const images = {};
 let urlOf = () => null;
+let busy = () => false; // the dice being thrown or counted
 let raf = 0;
+let calm = 0; // the drawing (on the page's count) before which no card starts a turn
+let lastTap = -Infinity;
+if (typeof addEventListener === 'function') {
+  for (const type of ['pointerdown', 'keydown']) addEventListener(type, () => { lastTap = performance.now(); }, { capture: true, passive: true });
+}
 
-export function setupPuppets(urls) { urlOf = urls; }
+export function setupPuppets(urls, isBusy) {
+  urlOf = urls;
+  if (isBusy) busy = isBusy;
+}
+
+// A turn from drawing turn.k0 (on a beat): two beats of the bounce, or the act turn.act; then it lands on the next
+// beat's squash, settles halfway and rests, the picture as drawn ({}: every part at rest).
+export const TURN = 2 * BEAT + 2;
+export function turnPose(c, turn, k) {
+  const e = k - turn.k0;
+  if (e < 0 || e >= TURN) return {};
+  if (e < 2 * BEAT) return c.pose(k, turn.act ? { name: turn.act, e, dir: turn.dir } : null);
+  const land = c.pose(turn.k0 + 2 * BEAT, null);
+  return e === 2 * BEAT ? land : toward(land, 0.5);
+}
+// A pose `f` of the way from rest.
+const toward = (bones, f) => Object.fromEntries(Object.entries(bones).map(([part, b]) => [part,
+  Object.fromEntries(Object.entries(b).map(([key, v]) => [key, key === 'sx' || key === 'sy' ? 1 + (v - 1) * f : v * f]))]));
 
 function load(kind) {
   const c = CHARACTERS[kind];
@@ -483,7 +512,7 @@ export function animateArt(art, kind) {
     if (art.dataset.puppet !== kind) return; // the card changed while the parts loaded
     art.append(canvas);
     art.classList.add('live');
-    live.add({ art, canvas, c, imgs, phase: 2 * Math.floor(Math.random() * 4), act: null, next: null, drawn: null, size: '' });
+    live.add({ art, canvas, c, imgs, phase: 2 * Math.floor(Math.random() * 4), turn: null, turns: 0, next: null, drawn: null, size: '' });
     if (!raf) raf = requestAnimationFrame(frame);
   }).catch(() => {}); // parts that fail to load leave the drawn picture
 }
@@ -513,38 +542,50 @@ function fit(p) {
   const size = `${card.clientWidth}x${card.clientHeight}@${devicePixelRatio || 1}`;
   if (size === p.size) return false;
   p.size = size;
-  p.puppet = layPuppet(p.art, p.canvas, p.c, p.imgs, (k) => (still ? {} : p.c.pose(k, p.act))); // still: the picture as drawn
+  p.puppet = layPuppet(p.art, p.canvas, p.c, p.imgs, (k) => (p.turn ? turnPose(p.c, p.turn, k) : {}));
   return true;
 }
 
-// The card's acts: one starts on a beat once its wait is over, and ends after its last drawing.
-function cue(p, k) {
-  if (p.act && k - p.act.k0 >= p.c.acts[p.act.name][0].length) p.act = null;
-  const names = Object.keys(p.c.acts);
-  if (p.next == null) { // the first wait is shorter
-    const [, lo, hi] = p.c.acts[names[0]];
-    p.next = k + Math.round((lo / 2 + (Math.random() * hi) / 2) * D);
+const wait = ([lo, hi]) => Math.round((lo + Math.random() * (hi - lo)) * D);
+
+// The card that has waited longest since its rest ended takes the next turn, on its beat, if no other card has
+// moved for GAP seconds, the dice are still and nothing was tapped for CALM seconds; every other turn is its act.
+function cue(seen, d, now) {
+  let up = null;
+  for (const p of seen) {
+    const k = d + p.phase;
+    if (p.next == null) p.next = k + wait(FIRST);
+    if (!p.turn && k >= p.next && (!up || p.next - p.phase < up.next - up.phase)) up = p;
   }
-  if (p.act || k < p.next || mod(k, BEAT) !== 0) return;
-  const name = names[Math.floor(Math.random() * names.length)];
-  const [, lo, hi] = p.c.acts[name];
-  p.act = { name, k0: k, e: 0, dir: Math.random() < 0.5 ? -1 : 1 };
-  p.next = k + p.c.acts[name][0].length + Math.round((lo + Math.random() * (hi - lo)) * D);
+  if (!up || d < calm || now - lastTap < CALM * 1000 || busy()) return;
+  const k = d + up.phase;
+  if (mod(k, BEAT)) return; // it waits for its beat
+  const acts = Object.keys(up.c.acts);
+  up.turn = { k0: k, act: up.turns++ % 2 ? acts[Math.floor(Math.random() * acts.length)] : null, dir: Math.random() < 0.5 ? -1 : 1 };
+  up.next = k + TURN + wait(REST);
+  calm = d + TURN + GAP * D;
 }
 
 function frame(now) {
   raf = 0;
   const d = Math.floor((now / 1000) * D);
+  const seen = [];
   for (const p of live) {
     if (!p.canvas.isConnected) { live.delete(p); continue; }
     const r = p.canvas.getBoundingClientRect();
     if (!r.width || r.bottom < 0 || r.top > innerHeight) continue; // hidden or out of sight
     if (fit(p)) p.drawn = null;
-    const k = still ? 0 : d + p.phase;
-    if (!still) cue(p, k);
-    if (p.act) p.act.e = k - p.act.k0;
-    if (k === p.drawn) continue; // the drawing is held
-    p.drawn = k;
+    if (p.turn && d + p.phase - p.turn.k0 >= TURN) p.turn = null;
+    seen.push(p);
+  }
+  const open = document.querySelectorAll('.overlay:not([hidden])'); // screens over the board: the later one on top,
+  const over = document.querySelector('.sheet-up:not([hidden])') || open[open.length - 1]; // the bonus sheet over all
+  if (!still) cue(over ? seen.filter((p) => over.contains(p.canvas)) : seen, d, now); // only its cards take turns
+  for (const p of seen) {
+    const k = d + p.phase;
+    const drawing = p.turn ? k : 'rest';
+    if (drawing === p.drawn) continue; // the drawing is held, or the card rests
+    p.drawn = drawing;
     p.puppet.draw(k);
   }
   if (live.size && (!still || [...live].some((p) => p.drawn == null))) raf = requestAnimationFrame(frame); // still: each drawn once

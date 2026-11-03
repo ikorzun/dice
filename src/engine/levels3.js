@@ -6,11 +6,11 @@
 
 import { createRng } from './rng.js';
 import { clampTier } from './levels.js';
-import { createAutoGame, currentHand } from './auto.js';
+import { createAutoGame, currentHand, MIN_DICE } from './auto.js';
 
 export const GENERATOR3_VERSION = 'auto-gen-1';
 export const BONUS_UNLOCKS = Object.freeze(['x2_any', 'x3_straight', 'x3_pairs', 'x3_trips', 'joker', 'refund']);
-export const MIN_DICE3 = 6;
+export const MIN_DICE3 = MIN_DICE;
 
 // Tier levels are the balance reference of the bots and scripts/montecarlo3.mjs; the game itself
 // plays adaptive levels (adapt3.js). Targets: the greedy bot of bot3.js wins ~75% at tier 1

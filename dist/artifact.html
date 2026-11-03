@@ -196,12 +196,15 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .hand-name em { font-style: normal; color: var(--accent); }
 .hand-row.on .hand-name em { color: var(--hold); } /* a bonus joins the hand */
 /* A won level's offer: three combinations, one to raise by +1 (owner, 02.11.2026) */
+/* The pick is the way on (owner, 03.11.2026: «RETRY confuses; show that NEXT is choosing the upgrade»): no RETRY on a
+   won level, the offer heads the way on and its combinations are the main buttons */
 .upgrades { margin: 14px 0 4px; }
-.up-head { margin: 0 0 10px; font: 700 15px/1.2 var(--font-display); color: var(--accent); text-align: center; }
+.up-head { margin: 0 0 4px; font: 700 22px/1.15 var(--font-display); color: var(--accent); text-align: center; text-wrap: balance; }
+.up-sub { margin: 0 0 12px; font: 500 13px/1.3 var(--font-display); color: var(--muted); text-align: center; }
 .up-list { display: grid; gap: 8px; }
-.up { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 18px; background: var(--tile); color: var(--fg); font: 700 18px/1 var(--font-display); text-align: left; cursor: pointer; }
+.up { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 8px 20px 8px 14px; border: 0; border-radius: 72px; background: var(--btn-primary-bg); color: var(--btn-primary-fg); font: 700 18px/1 var(--font-display); text-align: left; cursor: pointer; }
 .up .gdice { --gd: 22px; display: flex; gap: 3px; }
-.up em { font-style: normal; color: var(--accent); white-space: nowrap; }
+.up em { font-style: normal; color: inherit; white-space: nowrap; }
 .up:active { transform: scale(.97); }
 /* The bonus bank (owner, 02.11.2026): the bonuses kept from won levels, three places, as small cards of 64 px
    with their name and no sticker; an empty place shows a + (Figma 1308:3047) */
@@ -322,15 +325,12 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .fire-layer { position: absolute; display: none; pointer-events: none; z-index: 5; }
 body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 1)) calc(6px * var(--kb, 1)) rgba(255, 110, 20, .85); }
 .cell.block { background: url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjExMC40MDUiIGhlaWdodD0iMTEwLjQwNSIgdmlld0JveD0iMCAwIDExMC40MDUgMTEwLjQwNSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgaWQ9IkRpY2UiIGZpbHRlcj0idXJsKCNmaWx0ZXIwX2lfMF80OCkiPgo8cmVjdCB3aWR0aD0iMTEwLjQwNSIgaGVpZ2h0PSIxMTAuNDA1IiByeD0iMjYiIGZpbGw9ImJsYWNrIiBmaWxsLW9wYWNpdHk9IjAuMiIvPgo8cGF0aCBpZD0iUHJpbWFyeSIgZD0iTTU1LjIwMjQgMzcuMDQyOEM1OC41MTE4IDM3LjA0MjggNjEuMjAyNCAzOS43MzM0IDYxLjIwMjQgNDMuMDQyOFY0OS4wNDI4SDQ5LjIwMjRWNDMuMDQyOEM0OS4yMDI0IDM5LjczMzQgNTEuODkzIDM3LjA0MjggNTUuMjAyNCAzNy4wNDI4Wk00My4yMDI0IDQzLjA0MjhWNDkuMDQyOEMzNy44OTMgNDkuMDQyOCAzNy4yMDI0IDU2Ljg0MjggMzcuMjAyNCA2MC4xNTIyQzM3LjIwMjQgODUuNDA5IDczLjIwMjQgODYuMTE5MSA3My4yMDI0IDYwLjE1MjJDNzMuMjAyNCA1Ni44NDI4IDcyLjUxMTggNDkuMDQyOCA2Ny4yMDI0IDQ5LjA0MjhWNDMuMDQyOEM2Ny4yMDI0IDM2LjQxNDcgNjEuODMwNSAzMS4wNDI4IDU1LjIwMjQgMzEuMDQyOEM0OC41NzQzIDMxLjA0MjggNDMuMjAyNCAzNi40MTQ3IDQzLjIwMjQgNDMuMDQyOFpNNTcuNDUyNCA2MS43OTI4VjY1LjI5MjhDNTcuNDUyNCA2Ni41Mzk3IDU2LjQ0OTMgNjcuNTQyOCA1NS4yMDI0IDY3LjU0MjhDNTMuOTU1NSA2Ny41NDI4IDUyLjk1MjQgNjYuNTM5NyA1Mi45NTI0IDY1LjI5MjhWNjEuNzkyOEM1Mi45NTI0IDYwLjU0NTkgNTMuOTU1NSA1OS41NDI4IDU1LjIwMjQgNTkuNTQyOEM1Ni40NDkzIDU5LjU0MjggNTcuNDUyNCA2MC41NDU5IDU3LjQ1MjQgNjEuNzkyOFoiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuMDgiLz4KPC9nPgo8ZGVmcz4KPGZpbHRlciBpZD0iZmlsdGVyMF9pXzBfNDgiIHg9IjAiIHk9IjAiIHdpZHRoPSIxMTAuNDA1IiBoZWlnaHQ9IjExMC40MDUiIGZpbHRlclVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgY29sb3ItaW50ZXJwb2xhdGlvbi1maWx0ZXJzPSJzUkdCIj4KPGZlRmxvb2QgZmxvb2Qtb3BhY2l0eT0iMCIgcmVzdWx0PSJCYWNrZ3JvdW5kSW1hZ2VGaXgiLz4KPGZlQmxlbmQgbW9kZT0ibm9ybWFsIiBpbj0iU291cmNlR3JhcGhpYyIgaW4yPSJCYWNrZ3JvdW5kSW1hZ2VGaXgiIHJlc3VsdD0ic2hhcGUiLz4KPGZlQ29sb3JNYXRyaXggaW49IlNvdXJjZUFscGhhIiB0eXBlPSJtYXRyaXgiIHZhbHVlcz0iMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMTI3IDAiIHJlc3VsdD0iaGFyZEFscGhhIi8+CjxmZU9mZnNldC8+CjxmZUdhdXNzaWFuQmx1ciBzdGREZXZpYXRpb249IjQuODMyMDQiLz4KPGZlQ29tcG9zaXRlIGluMj0iaGFyZEFscGhhIiBvcGVyYXRvcj0iYXJpdGhtZXRpYyIgazI9Ii0xIiBrMz0iMSIvPgo8ZmVDb2xvck1hdHJpeCB0eXBlPSJtYXRyaXgiIHZhbHVlcz0iMCAwIDAgMCAwLjQwNzQ5NSAwIDAgMCAwIDAuNjEwNDg3IDAgMCAwIDAgMC43MjgwMDkgMCAwIDAgMC40IDAiLz4KPGZlQmxlbmQgbW9kZT0ibm9ybWFsIiBpbjI9InNoYXBlIiByZXN1bHQ9ImVmZmVjdDFfaW5uZXJTaGFkb3dfMF80OCIvPgo8L2ZpbHRlcj4KPC9kZWZzPgo8L3N2Zz4K") center / 100% 100% no-repeat; }
-/* A card from the bank on its way (owner, 03.11.2026: no empty cells): its cell keeps the lock it will break
-   (a level's start) or stays bare, then the card lands face up with a pop and the lock bursts */
+/* A card from the bank on its way (owner, 03.11.2026): on the first reroll into a die's cell, or into the cell of a
+   card just played; the cell stays bare, then the card lands face up with a pop */
 .cell.bonus.arriving { background: rgba(255, 255, 255, .08); border-color: transparent; box-shadow: none; animation: none; }
 .cell.bonus.arriving > *, .cell.bonus.arriving::after { visibility: hidden; }
-.cell.bonus.arriving.locked { background: url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjExMC40MDUiIGhlaWdodD0iMTEwLjQwNSIgdmlld0JveD0iMCAwIDExMC40MDUgMTEwLjQwNSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgaWQ9IkRpY2UiIGZpbHRlcj0idXJsKCNmaWx0ZXIwX2lfMF80OCkiPgo8cmVjdCB3aWR0aD0iMTEwLjQwNSIgaGVpZ2h0PSIxMTAuNDA1IiByeD0iMjYiIGZpbGw9ImJsYWNrIiBmaWxsLW9wYWNpdHk9IjAuMiIvPgo8cGF0aCBpZD0iUHJpbWFyeSIgZD0iTTU1LjIwMjQgMzcuMDQyOEM1OC41MTE4IDM3LjA0MjggNjEuMjAyNCAzOS43MzM0IDYxLjIwMjQgNDMuMDQyOFY0OS4wNDI4SDQ5LjIwMjRWNDMuMDQyOEM0OS4yMDI0IDM5LjczMzQgNTEuODkzIDM3LjA0MjggNTUuMjAyNCAzNy4wNDI4Wk00My4yMDI0IDQzLjA0MjhWNDkuMDQyOEMzNy44OTMgNDkuMDQyOCAzNy4yMDI0IDU2Ljg0MjggMzcuMjAyNCA2MC4xNTIyQzM3LjIwMjQgODUuNDA5IDczLjIwMjQgODYuMTE5MSA3My4yMDI0IDYwLjE1MjJDNzMuMjAyNCA1Ni44NDI4IDcyLjUxMTggNDkuMDQyOCA2Ny4yMDI0IDQ5LjA0MjhWNDMuMDQyOEM2Ny4yMDI0IDM2LjQxNDcgNjEuODMwNSAzMS4wNDI4IDU1LjIwMjQgMzEuMDQyOEM0OC41NzQzIDMxLjA0MjggNDMuMjAyNCAzNi40MTQ3IDQzLjIwMjQgNDMuMDQyOFpNNTcuNDUyNCA2MS43OTI4VjY1LjI5MjhDNTcuNDUyNCA2Ni41Mzk3IDU2LjQ0OTMgNjcuNTQyOCA1NS4yMDI0IDY3LjU0MjhDNTMuOTU1NSA2Ny41NDI4IDUyLjk1MjQgNjYuNTM5NyA1Mi45NTI0IDY1LjI5MjhWNjEuNzkyOEM1Mi45NTI0IDYwLjU0NTkgNTMuOTU1NSA1OS41NDI4IDU1LjIwMjQgNTkuNTQyOEM1Ni40NDkzIDU5LjU0MjggNTcuNDUyNCA2MC41NDU5IDU3LjQ1MjQgNjEuNzkyOFoiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuMDgiLz4KPC9nPgo8ZGVmcz4KPGZpbHRlciBpZD0iZmlsdGVyMF9pXzBfNDgiIHg9IjAiIHk9IjAiIHdpZHRoPSIxMTAuNDA1IiBoZWlnaHQ9IjExMC40MDUiIGZpbHRlclVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgY29sb3ItaW50ZXJwb2xhdGlvbi1maWx0ZXJzPSJzUkdCIj4KPGZlRmxvb2QgZmxvb2Qtb3BhY2l0eT0iMCIgcmVzdWx0PSJCYWNrZ3JvdW5kSW1hZ2VGaXgiLz4KPGZlQmxlbmQgbW9kZT0ibm9ybWFsIiBpbj0iU291cmNlR3JhcGhpYyIgaW4yPSJCYWNrZ3JvdW5kSW1hZ2VGaXgiIHJlc3VsdD0ic2hhcGUiLz4KPGZlQ29sb3JNYXRyaXggaW49IlNvdXJjZUFscGhhIiB0eXBlPSJtYXRyaXgiIHZhbHVlcz0iMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMTI3IDAiIHJlc3VsdD0iaGFyZEFscGhhIi8+CjxmZU9mZnNldC8+CjxmZUdhdXNzaWFuQmx1ciBzdGREZXZpYXRpb249IjQuODMyMDQiLz4KPGZlQ29tcG9zaXRlIGluMj0iaGFyZEFscGhhIiBvcGVyYXRvcj0iYXJpdGhtZXRpYyIgazI9Ii0xIiBrMz0iMSIvPgo8ZmVDb2xvck1hdHJpeCB0eXBlPSJtYXRyaXgiIHZhbHVlcz0iMCAwIDAgMCAwLjQwNzQ5NSAwIDAgMCAwIDAuNjEwNDg3IDAgMCAwIDAgMC43MjgwMDkgMCAwIDAgMC40IDAiLz4KPGZlQmxlbmQgbW9kZT0ibm9ybWFsIiBpbjI9InNoYXBlIiByZXN1bHQ9ImVmZmVjdDFfaW5uZXJTaGFkb3dfMF80OCIvPgo8L2ZpbHRlcj4KPC9kZWZzPgo8L3N2Zz4K") center / 100% 100% no-repeat; }
 .cell.bonus.landed { animation: cardLand 420ms cubic-bezier(.2, .8, .3, 1.3); }
-.cell.unlocked::before { content: ''; position: absolute; z-index: 3; inset: 0; background: url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjExMC40MDUiIGhlaWdodD0iMTEwLjQwNSIgdmlld0JveD0iMCAwIDExMC40MDUgMTEwLjQwNSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgaWQ9IkRpY2UiIGZpbHRlcj0idXJsKCNmaWx0ZXIwX2lfMF80OCkiPgo8cmVjdCB3aWR0aD0iMTEwLjQwNSIgaGVpZ2h0PSIxMTAuNDA1IiByeD0iMjYiIGZpbGw9ImJsYWNrIiBmaWxsLW9wYWNpdHk9IjAuMiIvPgo8cGF0aCBpZD0iUHJpbWFyeSIgZD0iTTU1LjIwMjQgMzcuMDQyOEM1OC41MTE4IDM3LjA0MjggNjEuMjAyNCAzOS43MzM0IDYxLjIwMjQgNDMuMDQyOFY0OS4wNDI4SDQ5LjIwMjRWNDMuMDQyOEM0OS4yMDI0IDM5LjczMzQgNTEuODkzIDM3LjA0MjggNTUuMjAyNCAzNy4wNDI4Wk00My4yMDI0IDQzLjA0MjhWNDkuMDQyOEMzNy44OTMgNDkuMDQyOCAzNy4yMDI0IDU2Ljg0MjggMzcuMjAyNCA2MC4xNTIyQzM3LjIwMjQgODUuNDA5IDczLjIwMjQgODYuMTE5MSA3My4yMDI0IDYwLjE1MjJDNzMuMjAyNCA1Ni44NDI4IDcyLjUxMTggNDkuMDQyOCA2Ny4yMDI0IDQ5LjA0MjhWNDMuMDQyOEM2Ny4yMDI0IDM2LjQxNDcgNjEuODMwNSAzMS4wNDI4IDU1LjIwMjQgMzEuMDQyOEM0OC41NzQzIDMxLjA0MjggNDMuMjAyNCAzNi40MTQ3IDQzLjIwMjQgNDMuMDQyOFpNNTcuNDUyNCA2MS43OTI4VjY1LjI5MjhDNTcuNDUyNCA2Ni41Mzk3IDU2LjQ0OTMgNjcuNTQyOCA1NS4yMDI0IDY3LjU0MjhDNTMuOTU1NSA2Ny41NDI4IDUyLjk1MjQgNjYuNTM5NyA1Mi45NTI0IDY1LjI5MjhWNjEuNzkyOEM1Mi45NTI0IDYwLjU0NTkgNTMuOTU1NSA1OS41NDI4IDU1LjIwMjQgNTkuNTQyOEM1Ni40NDkzIDU5LjU0MjggNTcuNDUyNCA2MC41NDU5IDU3LjQ1MjQgNjEuNzkyOFoiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuMDgiLz4KPC9nPgo8ZGVmcz4KPGZpbHRlciBpZD0iZmlsdGVyMF9pXzBfNDgiIHg9IjAiIHk9IjAiIHdpZHRoPSIxMTAuNDA1IiBoZWlnaHQ9IjExMC40MDUiIGZpbHRlclVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgY29sb3ItaW50ZXJwb2xhdGlvbi1maWx0ZXJzPSJzUkdCIj4KPGZlRmxvb2QgZmxvb2Qtb3BhY2l0eT0iMCIgcmVzdWx0PSJCYWNrZ3JvdW5kSW1hZ2VGaXgiLz4KPGZlQmxlbmQgbW9kZT0ibm9ybWFsIiBpbj0iU291cmNlR3JhcGhpYyIgaW4yPSJCYWNrZ3JvdW5kSW1hZ2VGaXgiIHJlc3VsdD0ic2hhcGUiLz4KPGZlQ29sb3JNYXRyaXggaW49IlNvdXJjZUFscGhhIiB0eXBlPSJtYXRyaXgiIHZhbHVlcz0iMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMTI3IDAiIHJlc3VsdD0iaGFyZEFscGhhIi8+CjxmZU9mZnNldC8+CjxmZUdhdXNzaWFuQmx1ciBzdGREZXZpYXRpb249IjQuODMyMDQiLz4KPGZlQ29tcG9zaXRlIGluMj0iaGFyZEFscGhhIiBvcGVyYXRvcj0iYXJpdGhtZXRpYyIgazI9Ii0xIiBrMz0iMSIvPgo8ZmVDb2xvck1hdHJpeCB0eXBlPSJtYXRyaXgiIHZhbHVlcz0iMCAwIDAgMCAwLjQwNzQ5NSAwIDAgMCAwIDAuNjEwNDg3IDAgMCAwIDAgMC43MjgwMDkgMCAwIDAgMC40IDAiLz4KPGZlQmxlbmQgbW9kZT0ibm9ybWFsIiBpbjI9InNoYXBlIiByZXN1bHQ9ImVmZmVjdDFfaW5uZXJTaGFkb3dfMF80OCIvPgo8L2ZpbHRlcj4KPC9kZWZzPgo8L3N2Zz4K") center / 100% 100% no-repeat; pointer-events: none; animation: lockBreak 380ms ease-out forwards; }
 @keyframes cardLand { 0% { transform: scale(1.16); } 55% { transform: scale(.94); } 100% { transform: scale(1); } }
-@keyframes lockBreak { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.45) rotate(8deg); } }
 .bank-fly { position: fixed; z-index: 30; margin: 0; pointer-events: none; }
 /* Auto Hand play: unheld dice outside the hand fade out; a used card makes way for a new die or a banked card */
 .cell.burn { animation: burn 420ms ease-in forwards; }
@@ -793,7 +793,8 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
     <p class="end-note muted" id="endSolver"></p>
     <p class="end-note muted" id="endTier"></p>
     <div class="upgrades" id="upgrades" hidden>
-      <p class="up-head">PICK A COMBINATION · +1 TO ITS MULTIPLIER</p>
+      <p class="up-head">NEXT LEVEL: PICK AN UPGRADE</p>
+      <p class="up-sub">+1 TO ITS MULTIPLIER FOR THE WHOLE RUN</p>
       <div class="up-list" id="upList"></div>
     </div>
     <div class="end-actions">
@@ -2231,10 +2232,12 @@ const __mod_auto = (() => {
 // A level ends as soon as the score reaches the target (owner, 01.11.2026), otherwise after its
 // three hands. The bank (owner, 02.11.2026): bonuses not played on a won level wait in a bank of three
 // for the next levels (`level.bank`, kinds); a banked bonus is cell BANK + k, switched on and used like a
-// card on the board, and gone once played. No empty cells (owner, 03.11.2026, option B): at a level's
-// start the banked cards take the locked cells, in bank and board order (cell `fromBank: k`, the entry
-// `placed`); a played card's cell takes the first banked card still waiting, else a new die. A 'hole'
-// remains only in games saved before. Pure state transitions, same action shape as poker.js.
+// card on the board, and gone once played. The banked cards come in on the level's first reroll (owner,
+// 03.11.2026: «a kept card takes part only after the first reroll; the first round always has every cell
+// filled»): each takes the cell of a die being rerolled, in bank and board order (cell `fromBank: k`, the
+// entry `placed`), while the board keeps MIN_DICE dice; the rest wait above the board, usable from then
+// on. After that reroll a played card's cell takes the first banked card still waiting, else a new die. A
+// 'hole' remains only in games saved before. Pure state transitions, same action shape as poker.js.
 
 const { bestHand, BONUS_KINDS } = __mod_hands;
 
@@ -2247,6 +2250,7 @@ const AUTO_DEFAULT_CONFIG = Object.freeze({
 const reject = (code, message) => ({ ok: false, code, message });
 const BANK = 100;    // the first banked bonus's cell number (the board's are 0–8)
 const BANK_SIZE = 3; // places in the bank (owner, 02.11.2026); the rest burn
+const MIN_DICE = 6; // every layout keeps this many dice (levels3.js), and so does a kept card coming in
 const waiting = (b) => !b.used && !b.placed; // a banked card still above the board
 
 // Face of the largest group (ties: the higher face), or null without dice.
@@ -2274,13 +2278,6 @@ function createAutoGame(level, configOverrides = {}, attempt = 1) {
   const bank = (level.bank || []).map((kind) => {
     if (!BONUS_KINDS[kind]) throw new Error(`unknown bonus kind ${kind} in the bank`);
     return { kind, off: true, used: false, placed: false };
-  });
-  // the banked cards take the locked cells first; the rest wait above the board
-  const locks = cells.map((c, i) => i).filter((i) => cells[i].type === 'block');
-  bank.forEach((b, k) => {
-    if (!locks.length) return;
-    cells[locks.shift()] = { type: 'bonus', kind: b.kind, fromBank: k };
-    b.placed = true;
   });
   return {
     mode: 'auto',
@@ -2340,6 +2337,7 @@ function toggleBonus(state, i) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   const b = Number.isInteger(i) ? banked(state, i) : null;
   if (b && waiting(b)) {
+    if (!state.stats.rerollsUsed) return reject('NOT_YET', 'Kept bonuses come in on the first reroll');
     const bank = state.bank.map((x, k) => (k === i - BANK ? { ...x, off: !x.off } : x));
     return { ok: true, off: bank[i - BANK].off, state: { ...state, bank, stats: bump(state, 'bonusToggles') } };
   }
@@ -2350,22 +2348,39 @@ function toggleBonus(state, i) {
 }
 
 // Rerolls every unheld die, then clears every hold and switches every bonus off again (owner,
-// 01.11.2026): a hold and a switched-on bonus count for one throw.
+// 01.11.2026): a hold and a switched-on bonus count for one throw. On the level's first reroll the banked
+// cards come in, each in place of a die being rerolled, in board order, landing switched off (owner,
+// 03.11.2026), as long as the board keeps MIN_DICE dice; those left over wait above the board.
 function reroll(state, rollDie) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   if (state.rerollsLeft <= 0) return reject('NO_REROLLS', 'No rerolls left');
   const targets = rerollTargets(state);
   if (targets.length === 0) return reject('NOTHING_TO_REROLL', 'Every die is held - release one to reroll');
+  const cells = state.cells.slice();
   const faces = state.faces.slice();
-  for (const i of targets) {
+  const bank = state.bank.map((b) => ({ ...b, off: true }));
+  const placed = [];
+  const rolled = targets.slice();
+  if (!state.stats.rerollsUsed) {
+    let spare = diceCells(state).length - MIN_DICE; // dice the kept cards may take
+    bank.forEach((b, k) => {
+      if (!waiting(b) || !rolled.length || spare <= 0) return;
+      spare -= 1;
+      const i = rolled.shift();
+      cells[i] = { type: 'bonus', kind: b.kind, fromBank: k };
+      faces[i] = null;
+      b.placed = true;
+      placed.push({ cell: i, from: k });
+    });
+  }
+  for (const i of rolled) {
     const f = rollDie();
     if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`rollDie returned ${f}`);
     faces[i] = f;
   }
   const held = state.held.map(() => false);
-  const off = state.cells.map((c, i) => (isBonus(state, i) ? true : state.off[i]));
-  const bank = state.bank.map((b) => ({ ...b, off: true }));
-  return { ok: true, rolled: targets, state: { ...state, faces, held, off, bank, rerollsLeft: state.rerollsLeft - 1, stats: bump(state, 'rerollsUsed') } };
+  const off = cells.map((c, i) => (c.type === 'bonus' ? true : state.off[i]));
+  return { ok: true, rolled, placed, state: { ...state, cells, faces, held, off, bank, rerollsLeft: state.rerollsLeft - 1, stats: bump(state, 'rerollsUsed') } };
 }
 
 // The best hand on the board with every bonus that is on, or null.
@@ -2426,12 +2441,13 @@ function playHand(state, drawDie) {
   const cells = state.cells.slice();
   const off = state.off.slice();
   const bank = state.bank.map((b, k) => (used.includes(BANK + k) ? { ...b, off: false, used: true } : b)); // a played one is gone
-  // a played card's cell takes the first banked card still waiting, else a new die (owner, 03.11.2026)
+  // a played card's cell takes the first banked card still waiting, else a new die (owner, 03.11.2026); before
+  // the level's first reroll the banked cards are not in play yet
   const spent = used.filter((i) => i < BANK);
   const placed = [];
   const fresh = [];
   for (const i of spent) {
-    const k = bank.findIndex(waiting);
+    const k = state.stats.rerollsUsed ? bank.findIndex(waiting) : -1;
     if (k >= 0) {
       bank[k] = { ...bank[k], placed: true };
       cells[i] = { type: 'bonus', kind: bank[k].kind, fromBank: k };
@@ -2521,7 +2537,7 @@ function restoreGame(snapshot) {
   };
 }
 
-return { AUTO_DEFAULT_CONFIG, BANK, BANK_SIZE, createAutoGame, isDie, isBonus, bonusKind, diceCells, heldCount, rerollTargets, canReroll, toggleHold, toggleBonus, reroll, boardHand, heldHand, currentHand, playHand, hintFor, markHintUsed, carryOver, snapshotGame, restoreGame };
+return { AUTO_DEFAULT_CONFIG, BANK, BANK_SIZE, MIN_DICE, createAutoGame, isDie, isBonus, bonusKind, diceCells, heldCount, rerollTargets, canReroll, toggleHold, toggleBonus, reroll, boardHand, heldHand, currentHand, playHand, hintFor, markHintUsed, carryOver, snapshotGame, restoreGame };
 })();
 // ---- src/engine/levels.js ----
 const __mod_levels = (() => {
@@ -2715,11 +2731,11 @@ const __mod_levels3 = (() => {
 
 const { createRng } = __mod_rng;
 const { clampTier } = __mod_levels;
-const { createAutoGame, currentHand } = __mod_auto;
+const { createAutoGame, currentHand, MIN_DICE } = __mod_auto;
 
 const GENERATOR3_VERSION = 'auto-gen-1';
 const BONUS_UNLOCKS = Object.freeze(['x2_any', 'x3_straight', 'x3_pairs', 'x3_trips', 'joker', 'refund']);
-const MIN_DICE3 = 6;
+const MIN_DICE3 = MIN_DICE;
 
 // Tier levels are the balance reference of the bots and scripts/montecarlo3.mjs; the game itself
 // plays adaptive levels (adapt3.js). Targets: the greedy bot of bot3.js wins ~75% at tier 1
@@ -3045,7 +3061,9 @@ function skillSample(recipe, score, hands = 3, lift = 1) {
 
 // The bank's lift (owner, 02.11.2026: bonuses carried over): a banked bonus is a bonus that takes no cell,
 // as if a block of a layout became it, so its lift is the greedy median of `<d>d<b-1>x:A+B` over `<d>d<b>x:A`,
-// averaged over the recipes that have both. Banked bonuses add up like those on the board.
+// averaged over the recipes that have both. Banked bonuses add up like those on the board. Since 03.11.2026
+// they come in on the first reroll and take a die's cell only where the board has dice to spare (above six);
+// most wait above and take no cell, so the lift stays (a little high: no card helps a hand played first).
 const BANK_LIFT = (() => {
   const median = (r) => r.greedy[RECIPE_QUANTILES.indexOf(0.5)];
   const sums = {};
@@ -4081,16 +4099,22 @@ const __mod_puppets = (() => {
 // Bonus characters alive on their cards, the old-cartoon way (owner, 03.11.2026: «the animation inside the cards
 // trembles; another approach, after the joker: a storyboard like old Disney cartoons or Cuphead»; the joker approved
 // the same day, «the others the same way»; docs/ANIM-STORYBOARDS.md). A card's picture is a cutout puppet (rig.js)
-// shown as held drawings: 12 a second (24 fps on twos), in big poses to a beat of 90 bpm, 8 drawings a beat, and now
-// and then an act that starts on a beat and lasts whole beats, so the character comes back in step. Nothing moves
-// between drawings, so nothing shimmers. The canvas covers the card at the screen's full resolution, the parts
-// scaled once to it, and draws only when the drawing changes. A tap moves only the card. One loop for every card,
-// each a few drawings off the others; a card out of sight is skipped; with reduced motion the picture stands still.
+// shown as held drawings: 12 a second (24 fps on twos), in big poses to a beat of 90 bpm, 8 drawings a beat. Nothing
+// moves between drawings, so nothing shimmers. The character rests, its picture as drawn, and now and then takes a
+// turn of two beats (owner, 03.11.2026: «the constant animation distracts; reasonable pauses and cycles»): its bounce,
+// every other time its act, then it lands and rests again. One card at a time, a pause between turns, and no turn
+// while the dice are thrown or counted or just after a tap. The canvas covers the card at the screen's full
+// resolution, the parts scaled once to it, and draws only when the drawing changes. A tap moves only the card. One
+// loop for every card; a card out of sight is skipped; with reduced motion the picture never leaves its rest.
 // Approach 1 (a breath and small events every display frame) is kept in prototypes/char-anim/approach1.js.
 const { createPuppet } = __mod_rig;
 
 const D = 12; // drawings a second
 const BEAT = 8; // drawings a beat: 90 bpm
+const FIRST = [2, 5]; // seconds before a card's first turn
+const REST = [10, 16]; // seconds a card rests between its turns
+const GAP = 3; // seconds between one card's turn and any other's
+const CALM = 4; // seconds after a tap before a turn
 const row = (table, e) => table[Math.min(e, table.length - 1)];
 const mod = (n, m) => ((n % m) + m) % m;
 
@@ -4392,8 +4416,8 @@ function birdPose(k, act) {
 
 // By bonus kind. frame: the card picture's frame in the 1024 px drawing, laid like the picture it replaces (contain,
 // centre bottom in .art, moved by its --drop); edge: where the card's edge cuts the `clip` parts. Parts back to
-// front, cut by art/bonuses/anim/cartoon-fix.py (half size in assets/ui/bonuses/cartoon/). acts: { name: [table,
-// shortest and longest seconds between] }; pose(k, act) gives the bones of drawing k, or of the act's drawing act.e.
+// front, cut by art/bonuses/anim/cartoon-fix.py (half size in assets/ui/bonuses/cartoon/). acts: { name: table of
+// 16 drawings }; pose(k, act) gives the bones of the bounce's drawing k, or of the act's drawing act.e.
 const CHARACTERS = {
   x2_any: {
     name: 'knight',
@@ -4406,7 +4430,7 @@ const CHARACTERS = {
       { name: 'flower', at: [756, 276], size: [195, 226], pivot: [812, 303], parent: 'head' },
       { name: 'gear', at: [14, 578], size: [997, 345], pivot: [512, 884] },
     ],
-    acts: { duck: [KNIGHT_DUCK, 9, 14] },
+    acts: { duck: KNIGHT_DUCK },
     pose: knightPose,
   },
   x3_straight: {
@@ -4423,7 +4447,7 @@ const CHARACTERS = {
       { name: 'legs', at: [28, 598], size: [969, 409], pivot: [512, 950] },
       { name: 'staff', at: [752, 108], size: [272, 883], pivot: [810, 770], clip: true },
     ],
-    acts: { hmph: [BUG_HMPH, 8, 13] },
+    acts: { hmph: BUG_HMPH },
     pose: bugPose,
   },
   x3_pairs: {
@@ -4437,7 +4461,7 @@ const CHARACTERS = {
       { name: 'kidR', at: [826, 726], size: [27, 54], pivot: [842, 752], parent: 'kid', clip: true },
       { name: 'gear', at: [24, 796], size: [975, 184], pivot: [512, 905] },
     ],
-    acts: { leap: [PAIR_LEAP, 7, 12] },
+    acts: { leap: PAIR_LEAP },
     pose: pairPose,
   },
   x3_trips: {
@@ -4450,7 +4474,7 @@ const CHARACTERS = {
       { name: 'bot', at: [288, 680], size: [516, 319], pivot: [560, 958], clip: true },
       { name: 'gear', at: [36, 476], size: [951, 523], pivot: [512, 958] },
     ],
-    acts: { teeter: [TRIO_TEETER, 7, 12] },
+    acts: { teeter: TRIO_TEETER },
     pose: trioPose,
   },
   joker: {
@@ -4466,7 +4490,7 @@ const CHARACTERS = {
       { name: 'handL', at: [16, 670], size: [450, 178], pivot: [200, 803] },
       { name: 'handR', at: [678, 674], size: [330, 170], pivot: [840, 803] },
     ],
-    acts: { cackle: [SKULL_CACKLE, 8, 12] },
+    acts: { cackle: SKULL_CACKLE },
     pose: skullPose,
   },
   refund: {
@@ -4481,7 +4505,7 @@ const CHARACTERS = {
       { name: 'gear', at: [0, 542], size: [1005, 449], pivot: [512, 881] },
       { name: 'glint', at: [218, 680], size: [104, 121], pivot: [268, 742] },
     ],
-    acts: { count: [BIRD_COUNT, 8, 12] },
+    acts: { count: BIRD_COUNT },
     pose: birdPose,
   },
 };
@@ -4490,9 +4514,32 @@ const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-m
 const live = new Set();
 const images = {};
 let urlOf = () => null;
+let busy = () => false; // the dice being thrown or counted
 let raf = 0;
+let calm = 0; // the drawing (on the page's count) before which no card starts a turn
+let lastTap = -Infinity;
+if (typeof addEventListener === 'function') {
+  for (const type of ['pointerdown', 'keydown']) addEventListener(type, () => { lastTap = performance.now(); }, { capture: true, passive: true });
+}
 
-function setupPuppets(urls) { urlOf = urls; }
+function setupPuppets(urls, isBusy) {
+  urlOf = urls;
+  if (isBusy) busy = isBusy;
+}
+
+// A turn from drawing turn.k0 (on a beat): two beats of the bounce, or the act turn.act; then it lands on the next
+// beat's squash, settles halfway and rests, the picture as drawn ({}: every part at rest).
+const TURN = 2 * BEAT + 2;
+function turnPose(c, turn, k) {
+  const e = k - turn.k0;
+  if (e < 0 || e >= TURN) return {};
+  if (e < 2 * BEAT) return c.pose(k, turn.act ? { name: turn.act, e, dir: turn.dir } : null);
+  const land = c.pose(turn.k0 + 2 * BEAT, null);
+  return e === 2 * BEAT ? land : toward(land, 0.5);
+}
+// A pose `f` of the way from rest.
+const toward = (bones, f) => Object.fromEntries(Object.entries(bones).map(([part, b]) => [part,
+  Object.fromEntries(Object.entries(b).map(([key, v]) => [key, key === 'sx' || key === 'sy' ? 1 + (v - 1) * f : v * f]))]));
 
 function load(kind) {
   const c = CHARACTERS[kind];
@@ -4563,7 +4610,7 @@ function animateArt(art, kind) {
     if (art.dataset.puppet !== kind) return; // the card changed while the parts loaded
     art.append(canvas);
     art.classList.add('live');
-    live.add({ art, canvas, c, imgs, phase: 2 * Math.floor(Math.random() * 4), act: null, next: null, drawn: null, size: '' });
+    live.add({ art, canvas, c, imgs, phase: 2 * Math.floor(Math.random() * 4), turn: null, turns: 0, next: null, drawn: null, size: '' });
     if (!raf) raf = requestAnimationFrame(frame);
   }).catch(() => {}); // parts that fail to load leave the drawn picture
 }
@@ -4593,44 +4640,56 @@ function fit(p) {
   const size = `${card.clientWidth}x${card.clientHeight}@${devicePixelRatio || 1}`;
   if (size === p.size) return false;
   p.size = size;
-  p.puppet = layPuppet(p.art, p.canvas, p.c, p.imgs, (k) => (still ? {} : p.c.pose(k, p.act))); // still: the picture as drawn
+  p.puppet = layPuppet(p.art, p.canvas, p.c, p.imgs, (k) => (p.turn ? turnPose(p.c, p.turn, k) : {}));
   return true;
 }
 
-// The card's acts: one starts on a beat once its wait is over, and ends after its last drawing.
-function cue(p, k) {
-  if (p.act && k - p.act.k0 >= p.c.acts[p.act.name][0].length) p.act = null;
-  const names = Object.keys(p.c.acts);
-  if (p.next == null) { // the first wait is shorter
-    const [, lo, hi] = p.c.acts[names[0]];
-    p.next = k + Math.round((lo / 2 + (Math.random() * hi) / 2) * D);
+const wait = ([lo, hi]) => Math.round((lo + Math.random() * (hi - lo)) * D);
+
+// The card that has waited longest since its rest ended takes the next turn, on its beat, if no other card has
+// moved for GAP seconds, the dice are still and nothing was tapped for CALM seconds; every other turn is its act.
+function cue(seen, d, now) {
+  let up = null;
+  for (const p of seen) {
+    const k = d + p.phase;
+    if (p.next == null) p.next = k + wait(FIRST);
+    if (!p.turn && k >= p.next && (!up || p.next - p.phase < up.next - up.phase)) up = p;
   }
-  if (p.act || k < p.next || mod(k, BEAT) !== 0) return;
-  const name = names[Math.floor(Math.random() * names.length)];
-  const [, lo, hi] = p.c.acts[name];
-  p.act = { name, k0: k, e: 0, dir: Math.random() < 0.5 ? -1 : 1 };
-  p.next = k + p.c.acts[name][0].length + Math.round((lo + Math.random() * (hi - lo)) * D);
+  if (!up || d < calm || now - lastTap < CALM * 1000 || busy()) return;
+  const k = d + up.phase;
+  if (mod(k, BEAT)) return; // it waits for its beat
+  const acts = Object.keys(up.c.acts);
+  up.turn = { k0: k, act: up.turns++ % 2 ? acts[Math.floor(Math.random() * acts.length)] : null, dir: Math.random() < 0.5 ? -1 : 1 };
+  up.next = k + TURN + wait(REST);
+  calm = d + TURN + GAP * D;
 }
 
 function frame(now) {
   raf = 0;
   const d = Math.floor((now / 1000) * D);
+  const seen = [];
   for (const p of live) {
     if (!p.canvas.isConnected) { live.delete(p); continue; }
     const r = p.canvas.getBoundingClientRect();
     if (!r.width || r.bottom < 0 || r.top > innerHeight) continue; // hidden or out of sight
     if (fit(p)) p.drawn = null;
-    const k = still ? 0 : d + p.phase;
-    if (!still) cue(p, k);
-    if (p.act) p.act.e = k - p.act.k0;
-    if (k === p.drawn) continue; // the drawing is held
-    p.drawn = k;
+    if (p.turn && d + p.phase - p.turn.k0 >= TURN) p.turn = null;
+    seen.push(p);
+  }
+  const open = document.querySelectorAll('.overlay:not([hidden])'); // screens over the board: the later one on top,
+  const over = document.querySelector('.sheet-up:not([hidden])') || open[open.length - 1]; // the bonus sheet over all
+  if (!still) cue(over ? seen.filter((p) => over.contains(p.canvas)) : seen, d, now); // only its cards take turns
+  for (const p of seen) {
+    const k = d + p.phase;
+    const drawing = p.turn ? k : 'rest';
+    if (drawing === p.drawn) continue; // the drawing is held, or the card rests
+    p.drawn = drawing;
     p.puppet.draw(k);
   }
   if (live.size && (!still || [...live].some((p) => p.drawn == null))) raf = requestAnimationFrame(frame); // still: each drawn once
 }
 
-return { CHARACTERS, setupPuppets, prescale, cardView, animateArt, layPuppet };
+return { CHARACTERS, setupPuppets, TURN, turnPose, prescale, cardView, animateArt, layPuppet };
 })();
 // ---- src/ui/app.js ----
 const __mod_app = (() => {
@@ -4896,7 +4955,7 @@ const MODES = {
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
         'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back). They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus makes way for a new die, or for a bonus waiting above the board.',
         'Reach the target and the level ends at once; a level has three hands at most.',
-        'Bonuses you did not play on a won level are kept for the next level of the run (three at most, the rest burn): they break its locks and take those cells, the rest wait above the board. Tap one there to switch it on like a card on the board.',
+        'Bonuses you did not play on a won level are kept for the next level of the run (three at most, the rest burn). They come in on its first reroll, each in place of a die being rerolled while six dice stay on the board; the rest wait above the board from then on: tap one there to switch it on like a card on the board.',
       ],
       scoreTitle: 'SCORING · THE HAND IS THE DICE OF THE COMBINATION',
       scoreRows: () => {
@@ -5108,13 +5167,10 @@ function startGame(level, attempt) {
   st.pendingTier = null;
   st.allHeldToastShown = false;
   for (const c of els.cells) {
-    c.classList.remove('bank-pop', 'burn', 'gone', 'rolling', 'refill', 'pressed', 'shake', 'safe-hint', 'stays', 'arriving', 'locked', 'landed', 'unlocked');
+    c.classList.remove('bank-pop', 'burn', 'gone', 'rolling', 'refill', 'pressed', 'shake', 'safe-hint', 'stays', 'arriving', 'landed');
     c.flight = null; // a card still on its way to the last level's board
   }
-  // the cards kept from the last level fly from the bank onto the locks they break (owner, 03.11.2026)
-  const arrivals = st.game.cells ? st.game.cells.map((c, i) => [i, c]).filter(([, c]) => c.type === 'bonus' && c.fromBank != null) : [];
-  app.launching = new Set(arrivals.map(([, c]) => c.fromBank));
-  for (const [i] of arrivals) els.cells[i].classList.add('arriving', 'locked');
+  app.launching = new Set(); // the cards kept from the last level wait above until the first reroll (owner, 03.11.2026)
   app.path = [];
   app.tapPath = [];
   clearTimeout(app.hintTimer);
@@ -5130,11 +5186,9 @@ function startGame(level, attempt) {
   render();
   persist();
   autoTips();
-  arrivals.forEach(([i, c], n) => flyFromBank(i, c.fromBank, { delay: 380 + 160 * n, lock: true })); // once the row has slid in
-  if (st.game.bank && st.game.bank.length && attempt === 1 && !st.tips.bank) { // the first time the bank fills
-    st.tips.bank = true;
-    const waiting = st.game.bank.length - arrivals.length;
-    toast(arrivals.length ? `KEPT BONUSES TAKE THE LOCKS${waiting ? ' · THE REST WAIT ABOVE' : ''}` : 'KEPT BONUSES WAIT ABOVE · TAP ONE TO USE IT', 'hint', 3600);
+  if (st.game.bank && st.game.bank.length && attempt === 1 && !st.tips.bankReroll) { // the first time the bank fills
+    st.tips.bankReroll = true;
+    toast('KEPT BONUSES COME IN ON THE FIRST REROLL', 'hint', 3600);
   }
 }
 
@@ -5219,6 +5273,7 @@ function showLevelEnd() {
   const offer = mode.id === 'auto' && won && g.level.levelIndex < RUN_LEVELS ? upgradeOffer(st.runSeed, g.level.levelIndex) : [];
   $('upgrades').hidden = !offer.length;
   $('nextBtn').hidden = offer.length > 0;
+  $('retryBtn').hidden = won; // a cleared level goes on, through its upgrade (owner, 03.11.2026: RETRY confused)
   $('upList').innerHTML = offer.map((cat) => {
     const m = AUTO_MULT[cat] + (st.ups[cat] || 0);
     const dice = (GUIDE_COMBOS.find(([c]) => c === cat) || [cat, []])[1];
@@ -5519,7 +5574,7 @@ function renderCell(i) {
   const order = cell.querySelector('.order');
   // Effect classes that are still mid-animation survive a re-render; 'bank-pop' is not among
   // them because it fills forwards (opacity 0) and must be dropped by the render after the bank.
-  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'arriving', 'locked', 'landed', 'unlocked', 'on-fire', 'flip', 'hidden3d', 'gone'].filter((c) => cell.classList.contains(c));
+  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'arriving', 'landed', 'on-fire', 'flip', 'hidden3d', 'gone'].filter((c) => cell.classList.contains(c));
   cell.className = ['cell', ...transient].join(' ');
   cell.querySelector('.x2').textContent = '×2';
   const special = M().id === 'auto' && g.cells && g.cells[i];
@@ -5769,9 +5824,9 @@ function render() {
 }
 
 // The bonus bank above the board (owner, 02.11.2026): the bonuses this level started with from earlier
-// won levels that wait above the board; a tap switches one on or off like a card on the board. Place k holds
-// card k until it is played or flies to the board (owner, 03.11.2026), then a + (Figma 1308:3047). Cards new
-// to the row slide in.
+// won levels that wait above the board. They come in on the first reroll (owner, 03.11.2026); from then on a
+// tap switches one still waiting on or off like a card on the board. Place k holds card k until it is played
+// or flies to the board, then a + (Figma 1308:3047). Cards new to the row slide in.
 function renderBank() {
   const box = $('bank');
   const g = S().game;
@@ -5791,7 +5846,7 @@ function renderBank() {
       el.classList.toggle('on', !b.off);
       el.classList.toggle('off', b.off);
       el.classList.toggle('armed', !!h && h.bonusCells.includes(BANK + k));
-      el.setAttribute('aria-label', `${BONUS_KINDS[b.kind].symbol} ${BONUS_KINDS[b.kind].label} from the bank, ${b.off ? 'off, tap to switch on' : 'on'}`);
+      el.setAttribute('aria-label', `${BONUS_KINDS[b.kind].symbol} ${BONUS_KINDS[b.kind].label} from the bank, ${!g.stats.rerollsUsed ? 'comes in on the first reroll' : b.off ? 'off, tap to switch on' : 'on'}`);
     } else if (!el || !el.classList.contains('slot')) {
       el = document.createElement('span');
       el.className = 'slot';
@@ -5804,26 +5859,24 @@ function renderBank() {
   while (box.children.length > places) box.lastElementChild.remove();
 }
 
-// A card from the bank flies to the board (owner, 03.11.2026: no empty cells): at a level's start onto a lock,
-// which breaks under it, or into the cell of a card just played. The cell shows its lock (or nothing) until
-// the card lands face up.
-function flyFromBank(i, k, { delay = 0, lock = false } = {}) {
+// A card from the bank flies to the board (owner, 03.11.2026): on the level's first reroll into the cell of a die
+// being rerolled, or into the cell of a card just played. The cell shows nothing until the card lands face up.
+function flyFromBank(i, k, { delay = 0 } = {}) {
   const cell = els.cells[i];
   const flight = {};
   cell.flight = flight;
   cell.classList.add('arriving');
-  cell.classList.toggle('locked', lock);
   const land = () => {
     if (cell.flight !== flight) return; // a new level came first
     cell.flight = null;
     app.launching.delete(k);
-    cell.classList.remove('arriving', 'locked');
+    cell.classList.remove('arriving');
     renderBank();
     if (reduceMotion) return;
     cell.classList.remove('landed');
     void cell.offsetWidth;
-    cell.classList.add('landed', ...(lock ? ['unlocked'] : []));
-    setTimeout(() => cell.classList.remove('landed', 'unlocked'), 480);
+    cell.classList.add('landed');
+    setTimeout(() => cell.classList.remove('landed'), 480);
     sfx('flip');
   };
   if (reduceMotion) { land(); return; }
@@ -6183,6 +6236,9 @@ async function doReroll(source) {
   renderControls();
   haptic(8);
   sfx('roll');
+  // the kept cards come in on the level's first reroll, each in place of a die (owner, 03.11.2026)
+  for (const { cell, from } of r.placed || []) { app.launching.add(from); els.cells[cell].classList.add('arriving'); renderCell(cell); }
+  (r.placed || []).forEach(({ cell, from }, n) => flyFromBank(cell, from, { delay: 120 * n }));
   let rolled3d = false;
   if (app.dice3d && !reduceMotion && dice3dStatus() === 'ready') {
     r.rolled.forEach((i) => els.cells[i].classList.add('hidden3d'));
@@ -6823,7 +6879,7 @@ function init() {
   $('optSound').checked = soundOn;
   const sounds = Object.fromEntries(SOUNDS.map((n) => [n, cssUrl(`--sfx-${n}`)]));
   setupSound((n) => sounds[n], soundOn);
-  setupPuppets((character, part) => cssUrl(`--rig-${character}-${part}`));
+  setupPuppets((character, part) => cssUrl(`--rig-${character}-${part}`), () => app.busy); // no turn while the dice fly or count
   let d3 = true;
   try { d3 = localStorage.getItem(DICE3D_KEY) !== '0'; } catch { /* ignore */ }
   app.dice3d = d3;

@@ -8,10 +8,12 @@
 // A level ends as soon as the score reaches the target (owner, 01.11.2026), otherwise after its
 // three hands. The bank (owner, 02.11.2026): bonuses not played on a won level wait in a bank of three
 // for the next levels (`level.bank`, kinds); a banked bonus is cell BANK + k, switched on and used like a
-// card on the board, and gone once played. No empty cells (owner, 03.11.2026, option B): at a level's
-// start the banked cards take the locked cells, in bank and board order (cell `fromBank: k`, the entry
-// `placed`); a played card's cell takes the first banked card still waiting, else a new die. A 'hole'
-// remains only in games saved before. Pure state transitions, same action shape as poker.js.
+// card on the board, and gone once played. The banked cards come in on the level's first reroll (owner,
+// 03.11.2026: «a kept card takes part only after the first reroll; the first round always has every cell
+// filled»): each takes the cell of a die being rerolled, in bank and board order (cell `fromBank: k`, the
+// entry `placed`), while the board keeps MIN_DICE dice; the rest wait above the board, usable from then
+// on. After that reroll a played card's cell takes the first banked card still waiting, else a new die. A
+// 'hole' remains only in games saved before. Pure state transitions, same action shape as poker.js.
 
 import { bestHand, BONUS_KINDS } from './hands.js';
 
@@ -24,6 +26,7 @@ export const AUTO_DEFAULT_CONFIG = Object.freeze({
 const reject = (code, message) => ({ ok: false, code, message });
 export const BANK = 100;    // the first banked bonus's cell number (the board's are 0–8)
 export const BANK_SIZE = 3; // places in the bank (owner, 02.11.2026); the rest burn
+export const MIN_DICE = 6; // every layout keeps this many dice (levels3.js), and so does a kept card coming in
 const waiting = (b) => !b.used && !b.placed; // a banked card still above the board
 
 // Face of the largest group (ties: the higher face), or null without dice.
@@ -51,13 +54,6 @@ export function createAutoGame(level, configOverrides = {}, attempt = 1) {
   const bank = (level.bank || []).map((kind) => {
     if (!BONUS_KINDS[kind]) throw new Error(`unknown bonus kind ${kind} in the bank`);
     return { kind, off: true, used: false, placed: false };
-  });
-  // the banked cards take the locked cells first; the rest wait above the board
-  const locks = cells.map((c, i) => i).filter((i) => cells[i].type === 'block');
-  bank.forEach((b, k) => {
-    if (!locks.length) return;
-    cells[locks.shift()] = { type: 'bonus', kind: b.kind, fromBank: k };
-    b.placed = true;
   });
   return {
     mode: 'auto',
@@ -117,6 +113,7 @@ export function toggleBonus(state, i) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   const b = Number.isInteger(i) ? banked(state, i) : null;
   if (b && waiting(b)) {
+    if (!state.stats.rerollsUsed) return reject('NOT_YET', 'Kept bonuses come in on the first reroll');
     const bank = state.bank.map((x, k) => (k === i - BANK ? { ...x, off: !x.off } : x));
     return { ok: true, off: bank[i - BANK].off, state: { ...state, bank, stats: bump(state, 'bonusToggles') } };
   }
@@ -127,22 +124,39 @@ export function toggleBonus(state, i) {
 }
 
 // Rerolls every unheld die, then clears every hold and switches every bonus off again (owner,
-// 01.11.2026): a hold and a switched-on bonus count for one throw.
+// 01.11.2026): a hold and a switched-on bonus count for one throw. On the level's first reroll the banked
+// cards come in, each in place of a die being rerolled, in board order, landing switched off (owner,
+// 03.11.2026), as long as the board keeps MIN_DICE dice; those left over wait above the board.
 export function reroll(state, rollDie) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   if (state.rerollsLeft <= 0) return reject('NO_REROLLS', 'No rerolls left');
   const targets = rerollTargets(state);
   if (targets.length === 0) return reject('NOTHING_TO_REROLL', 'Every die is held - release one to reroll');
+  const cells = state.cells.slice();
   const faces = state.faces.slice();
-  for (const i of targets) {
+  const bank = state.bank.map((b) => ({ ...b, off: true }));
+  const placed = [];
+  const rolled = targets.slice();
+  if (!state.stats.rerollsUsed) {
+    let spare = diceCells(state).length - MIN_DICE; // dice the kept cards may take
+    bank.forEach((b, k) => {
+      if (!waiting(b) || !rolled.length || spare <= 0) return;
+      spare -= 1;
+      const i = rolled.shift();
+      cells[i] = { type: 'bonus', kind: b.kind, fromBank: k };
+      faces[i] = null;
+      b.placed = true;
+      placed.push({ cell: i, from: k });
+    });
+  }
+  for (const i of rolled) {
     const f = rollDie();
     if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`rollDie returned ${f}`);
     faces[i] = f;
   }
   const held = state.held.map(() => false);
-  const off = state.cells.map((c, i) => (isBonus(state, i) ? true : state.off[i]));
-  const bank = state.bank.map((b) => ({ ...b, off: true }));
-  return { ok: true, rolled: targets, state: { ...state, faces, held, off, bank, rerollsLeft: state.rerollsLeft - 1, stats: bump(state, 'rerollsUsed') } };
+  const off = cells.map((c, i) => (c.type === 'bonus' ? true : state.off[i]));
+  return { ok: true, rolled, placed, state: { ...state, cells, faces, held, off, bank, rerollsLeft: state.rerollsLeft - 1, stats: bump(state, 'rerollsUsed') } };
 }
 
 // The best hand on the board with every bonus that is on, or null.
@@ -203,12 +217,13 @@ export function playHand(state, drawDie) {
   const cells = state.cells.slice();
   const off = state.off.slice();
   const bank = state.bank.map((b, k) => (used.includes(BANK + k) ? { ...b, off: false, used: true } : b)); // a played one is gone
-  // a played card's cell takes the first banked card still waiting, else a new die (owner, 03.11.2026)
+  // a played card's cell takes the first banked card still waiting, else a new die (owner, 03.11.2026); before
+  // the level's first reroll the banked cards are not in play yet
   const spent = used.filter((i) => i < BANK);
   const placed = [];
   const fresh = [];
   for (const i of spent) {
-    const k = bank.findIndex(waiting);
+    const k = state.stats.rerollsUsed ? bank.findIndex(waiting) : -1;
     if (k >= 0) {
       bank[k] = { ...bank[k], placed: true };
       cells[i] = { type: 'bonus', kind: bank[k].kind, fromBank: k };

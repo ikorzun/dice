@@ -22,10 +22,10 @@
 </head>
 <body>
 <h1>Бонусы как в старых мультфильмах</h1>
-<p>Каждый рисунок держится два кадра из 24 (12 рисунков в секунду), позы крупные, все шестеро живут под счёт 90 ударов в минуту, каждая карта на пару рисунков сдвинута. Номер начинается на долю и длится целые доли. Те же стили и тот же код, что в игре (src/ui/puppets.js).</p>
+<p>Каждый рисунок держится два кадра из 24 (12 рисунков в секунду), позы крупные, под счёт 90 ударов в минуту. Здесь подскок идёт без остановки, чтобы смотреть движения; номер — по кнопке. В игре персонаж стоит и выходит изредка, по одному (<code>?game</code> показывает это здесь). Те же стили и тот же код, что в игре (src/ui/puppets.js).</p>
 <div class="grid" id="cards"></div>
 <script type="module">
-import { CHARACTERS, layPuppet } from '../../src/ui/puppets.js';
+import { CHARACTERS, layPuppet, setupPuppets, animateArt } from '../../src/ui/puppets.js';
 
 const params = new URLSearchParams(location.search);
 const W = Number(params.get('w') || 112); // the card's CSS width (phone: 112)
@@ -37,6 +37,8 @@ if (params.has('clip')) document.body.classList.add('clip');
 if (params.has('wide')) document.getElementById('cards').classList.add('wide');
 document.documentElement.style.setProperty('--gap', params.get('gap') || '22px');
 const D = 12;
+const GAME = params.has('game'); // the game's own scheduler: the cards rest and take turns, one at a time
+if (GAME) setupPuppets((name, part) => `../../assets/ui/bonuses/cartoon/${name}-${part}.webp`);
 
 const load = (c) => Promise.all(c.parts.map((p) => new Promise((ok) => {
   const im = new Image();
@@ -49,9 +51,10 @@ for (const [i, kind] of KINDS.entries()) {
   const c = CHARACTERS[kind];
   const fig = document.createElement('figure');
   fig.innerHTML = `<span class="cell bonus kind-${kind}" style="--w:${W}px; --kb:${W / 110.4}"><span class="arch"></span><span class="art"></span><span class="tag">${LABEL[kind]}</span><span class="x2">${STICKER[kind]}</span></span>`
-    + `<figcaption>${NAMES[kind]} ${Object.keys(c.acts).map((a) => `<button data-act="${a}">${a}</button>`).join('')}</figcaption>`;
+    + `<figcaption>${NAMES[kind]} ${GAME ? '' : Object.keys(c.acts).map((a) => `<button data-act="${a}">${a}</button>`).join('')}</figcaption>`;
   document.getElementById('cards').append(fig);
   const art = fig.querySelector('.art');
+  if (GAME) { animateArt(art, kind); continue; }
   const canvas = document.createElement('canvas');
   art.append(canvas);
   art.classList.add('live');
@@ -74,10 +77,10 @@ function drawAt(t, schedule = null) {
         if (kind !== card.kind) continue;
         let k0 = Math.ceil(at * D) + card.phase;
         k0 += (8 - (k0 % 8)) % 8;
-        if (k >= k0 && k - k0 < card.c.acts[name][0].length) card.act = { name, k0, e: k - k0, dir: 1 };
+        if (k >= k0 && k - k0 < card.c.acts[name].length) card.act = { name, k0, e: k - k0, dir: 1 };
       }
     } else {
-      if (card.act && k - card.act.k0 >= card.c.acts[card.act.name][0].length) card.act = null;
+      if (card.act && k - card.act.k0 >= card.c.acts[card.act.name].length) card.act = null;
       if (card.want && !card.act && k % 8 === 0) { card.act = { name: card.want, k0: k, e: 0, dir: Math.random() < 0.5 ? -1 : 1 }; card.want = null; }
       if (card.act) card.act.e = k - card.act.k0;
     }

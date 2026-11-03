@@ -4,7 +4,7 @@
 // only on the multiset of faces and the kinds of the bonuses that are on, so the greedy bot
 // scores a board by its face counts and memoizes; its lookahead is exact, not sampled.
 
-import { createAutoGame, toggleHold, toggleBonus, reroll, currentHand, boardHand, playHand, diceCells, isBonus } from './auto.js';
+import { createAutoGame, toggleHold, toggleBonus, reroll, currentHand, boardHand, playHand, diceCells, isBonus, bonusKind, BANK } from './auto.js';
 import { bestHand, BONUS_KINDS } from './hands.js';
 
 // Release unwanted holds first, then hold the rest (same shape as bot5.setHolds).
@@ -14,12 +14,17 @@ export function setHolds(game, keep) {
   return game;
 }
 
-const bonusCells = (game) => game.cells.map((c, i) => i).filter((i) => isBonus(game, i));
+// The bonuses to switch: the board's and, from the level's first reroll, the kept ones still waiting above it.
+const bonusCells = (game) => [
+  ...game.cells.map((c, i) => i).filter((i) => isBonus(game, i)),
+  ...(game.stats.rerollsUsed ? game.bank.map((b, k) => (b.used || b.placed ? -1 : BANK + k)).filter((i) => i >= 0) : []),
+];
+const isOff = (game, i) => (i >= BANK ? game.bank[i - BANK].off : game.off[i]);
 const unconditional = (kind) => kind === 'x2_any' || BONUS_KINDS[kind].wild;
 
 function setBonuses(game, wantOn) {
   for (const i of bonusCells(game)) {
-    if (game.off[i] === wantOn(game.cells[i].kind)) {
+    if (isOff(game, i) === wantOn(bonusKind(game, i))) {
       const r = toggleBonus(game, i);
       if (!r.ok) throw new Error(`bot produced an illegal bonus switch: ${r.code}`);
       game = r.state;
@@ -118,7 +123,7 @@ export function expectedBest(heldFaces, rerolled, { kinds = [], hand = null } = 
   return contextFor(kinds, hand).expected(heldFaces.reduce((s, f) => s + FACE_KEY[f], 0), rerolled);
 }
 
-const onKinds = (game) => bonusCells(game).filter((i) => !game.off[i]).map((i) => game.cells[i].kind);
+const onKinds = (game) => bonusCells(game).filter((i) => !isOff(game, i)).map((i) => bonusKind(game, i));
 
 // Greedy one-step lookahead (`hand`: experiment scoring options, passed to the engine as handOptions): for every hold mask of the dice, the exact expected best-hand
 // total after one reroll; rerolls while the best mask beats the standing hand by `margin`.

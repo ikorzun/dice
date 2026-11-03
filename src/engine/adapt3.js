@@ -68,7 +68,9 @@ export function skillSample(recipe, score, hands = 3, lift = 1) {
 
 // The bank's lift (owner, 02.11.2026: bonuses carried over): a banked bonus is a bonus that takes no cell,
 // as if a block of a layout became it, so its lift is the greedy median of `<d>d<b-1>x:A+B` over `<d>d<b>x:A`,
-// averaged over the recipes that have both. Banked bonuses add up like those on the board.
+// averaged over the recipes that have both. Banked bonuses add up like those on the board. Since 03.11.2026
+// they come in on the first reroll and take a die's cell only where the board has dice to spare (above six);
+// most wait above and take no cell, so the lift stays (a little high: no card helps a hand played first).
 const BANK_LIFT = (() => {
   const median = (r) => r.greedy[RECIPE_QUANTILES.indexOf(0.5)];
   const sums = {};

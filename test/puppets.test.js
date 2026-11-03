@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CHARACTERS, cardView } from '../src/ui/puppets.js';
+import { CHARACTERS, cardView, turnPose, TURN } from '../src/ui/puppets.js';
 
 // Every number a pose gives, by part and property.
 const bones = (c, k, act) => Object.entries(c.pose(k, act));
@@ -15,13 +15,31 @@ test('bonus characters keep the beat: acts last whole beats, the bounce comes ro
       }
       assert.deepEqual(c.pose(k, null), c.pose(k + 16, null), `${kind}: drawing ${k} differs from ${k + 16}`);
     }
-    for (const [name, [table, lo, hi]] of Object.entries(c.acts)) {
-      assert.equal(table.length % 8, 0, `${kind} ${name}: ${table.length} drawings, not whole beats`);
-      assert.ok(lo > 0 && hi >= lo, `${kind} ${name}: its wait`);
+    for (const [name, table] of Object.entries(c.acts)) {
+      assert.equal(table.length, 16, `${kind} ${name}: ${table.length} drawings, not two beats`);
       for (let e = 0; e < table.length; e++) {
         for (const [part, b] of bones(c, 0, { name, e, dir: -1 })) {
           assert.ok(names.has(part), `${kind} ${name}: ${part} is not a part`);
           for (const [key, v] of Object.entries(b)) assert.ok(Number.isFinite(v), `${kind} ${name} ${part}.${key} at ${e}`);
+        }
+      }
+    }
+  }
+});
+
+test('a turn starts from rest, lands on the beat, settles halfway and rests again (owner, 03.11.2026)', () => {
+  for (const [kind, c] of Object.entries(CHARACTERS)) {
+    for (const act of [null, ...Object.keys(c.acts)]) {
+      const turn = { k0: 40, act, dir: 1 }; // on a beat
+      assert.deepEqual(turnPose(c, turn, 39), {}, `${kind} ${act}: at rest before the turn`);
+      assert.deepEqual(turnPose(c, turn, 40 + TURN), {}, `${kind} ${act}: at rest after the turn`);
+      const land = turnPose(c, turn, 40 + 16);
+      assert.deepEqual(land, c.pose(56, null), `${kind} ${act}: lands on the next beat's squash`);
+      const settle = turnPose(c, turn, 40 + 17);
+      for (const [part, b] of Object.entries(land)) {
+        for (const [key, v] of Object.entries(b)) {
+          const rest = key === 'sx' || key === 'sy' ? 1 : 0;
+          assert.ok(Math.abs(settle[part][key] - rest) <= Math.abs(v - rest) / 2 + 1e-9, `${kind} ${act}: ${part}.${key} settles toward rest`);
         }
       }
     }

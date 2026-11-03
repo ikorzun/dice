@@ -2,19 +2,21 @@
 // Checks the adaptive Auto Hand generator: players of three strengths play runs of adaptive
 // levels (each level built from their own history, like the game does) and the report shows
 // whether every one of them settles near the aimed win rate, which layouts they get, how often
-// help in trouble fires and how well the predicted win chance matches the outcome.
-// Usage: node scripts/adapt3-sim.mjs [--runs=60] [--levels=30] [--seed=adapt-1] [--out=path]
+// help in trouble fires and how well the predicted win chance matches the outcome. As in the game, the bonuses a
+// won level leaves unplayed are kept for the next (the bank; --bank=0 turns it off).
+// Usage: node scripts/adapt3-sim.mjs [--runs=60] [--levels=30] [--seed=adapt-1] [--bank=0] [--out=path]
 import { writeFileSync } from 'node:fs';
 import { createRng } from '../src/engine/rng.js';
 import { generateAdaptiveLevel, skillSample, recipeById, ADAPT3, ADAPT3_VERSION, levelTarget } from '../src/engine/adapt3.js';
 import { upgradeOffer, sensiblePick, withUpgrade } from '../src/engine/upgrades3.js';
 import { playNaiveBot3, playGreedyBot3 } from '../src/engine/bot3.js';
-import { createAutoGame, toggleBonus, playHand, isBonus } from '../src/engine/auto.js';
+import { createAutoGame, toggleBonus, playHand, isBonus, carryOver } from '../src/engine/auto.js';
 
 const args = Object.fromEntries(process.argv.slice(2).map((a) => { const [k, v] = a.replace(/^--/, '').split('='); return [k, v ?? true]; }));
 const RUNS = Number(args.runs ?? 60);
 const LEVELS = Number(args.levels ?? 30);
 const SEED = String(args.seed ?? 'adapt-1');
+const BANKED = String(args.bank ?? '1') !== '0';
 const lines = [];
 const out = (s = '') => { lines.push(s); console.log(s); };
 const pct = (x) => `${(100 * x).toFixed(1)}%`;
@@ -25,6 +27,7 @@ function playLazy(level, { rng }) {
   for (let i = 0; i < 9; i++) if (isBonus(g, i)) g = toggleBonus(g, i).state;
   while (g.phase === 'playing') {
     g = playHand(g, () => rng.die()).state;
+    if (g.phase !== 'playing') break; // a card that came in after the last hand stays off
     for (let i = 0; i < 9; i++) if (isBonus(g, i) && g.off[i]) g = toggleBonus(g, i).state;
   }
   return { score: g.score, won: g.phase === 'won', state: g };
@@ -34,7 +37,7 @@ function playLazy(level, { rng }) {
 const PLAYERS = [['lazy (no rerolls)', playLazy, true], ['naive', playNaiveBot3, true], ['greedy', playGreedyBot3, true], ['greedy, no upgrades', playGreedyBot3, false]];
 const t0 = Date.now();
 out('# Auto Hand — adaptive generator check');
-out(`seed ${SEED} · ${RUNS} runs × ${LEVELS} levels per player · ${ADAPT3_VERSION} · aim ${pct(ADAPT3.aim)} · ${new Date().toISOString()}`);
+out(`seed ${SEED} · ${RUNS} runs × ${LEVELS} levels per player · ${ADAPT3_VERSION} · aim ${pct(ADAPT3.aim)} · bank ${BANKED ? 'kept' : 'off'} · ${new Date().toISOString()}`);
 out();
 out(`Target ladder (grown with the expected upgrades): ${[1, 2, 3, 5, 10, 15, 20, 25].map((l) => `L${l} ${levelTarget(l)}`).join(' · ')}. Level 1 is fixed (8 dice + ×2); from level 2 the layout follows the player's skill.`);
 out();
@@ -59,11 +62,13 @@ for (const [name, play, upgrades] of PLAYERS) {
     const history = [];
     let skill = ADAPT3.startSkill;
     let ups = {};
+    let bank = [];
     for (let L = 1; L <= LEVELS; L++) {
-      const level = generateAdaptiveLevel({ runSeed: `${SEED}/${name}/${r}`, levelIndex: L, history, config: {}, ups });
+      const level = generateAdaptiveLevel({ runSeed: `${SEED}/${name}/${r}`, levelIndex: L, history, config: {}, ups, bank });
       const res = play(level, { rng });
       const recipe = recipeById(level.recipe);
-      history.push({ mode: 'auto', recipe: level.recipe, ratio: skillSample(recipe, res.score, res.state.hands.length, level.upLift), won: res.won, predictedWin: level.predictedWin });
+      history.push({ mode: 'auto', recipe: level.recipe, ratio: skillSample(recipe, res.score, res.state.hands.length, level.bankLift * level.upLift), won: res.won, predictedWin: level.predictedWin });
+      if (BANKED && res.won) bank = carryOver(res.state); // a missed level keeps the bank it had, as in the game
       if (upgrades && res.won) ups = withUpgrade(ups, sensiblePick(upgradeOffer(`${SEED}/${name}/${r}`, L)));
       skill = level.skill;
       if (L === 1) continue;

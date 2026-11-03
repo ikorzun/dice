@@ -276,7 +276,7 @@ const MODES = {
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
         'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back). They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus makes way for a new die, or for a bonus waiting above the board.',
         'Reach the target and the level ends at once; a level has three hands at most.',
-        'Bonuses you did not play on a won level are kept for the next level of the run (three at most, the rest burn): they break its locks and take those cells, the rest wait above the board. Tap one there to switch it on like a card on the board.',
+        'Bonuses you did not play on a won level are kept for the next level of the run (three at most, the rest burn). They come in on its first reroll, each in place of a die being rerolled while six dice stay on the board; the rest wait above the board from then on: tap one there to switch it on like a card on the board.',
       ],
       scoreTitle: 'SCORING · THE HAND IS THE DICE OF THE COMBINATION',
       scoreRows: () => {
@@ -488,13 +488,10 @@ function startGame(level, attempt) {
   st.pendingTier = null;
   st.allHeldToastShown = false;
   for (const c of els.cells) {
-    c.classList.remove('bank-pop', 'burn', 'gone', 'rolling', 'refill', 'pressed', 'shake', 'safe-hint', 'stays', 'arriving', 'locked', 'landed', 'unlocked');
+    c.classList.remove('bank-pop', 'burn', 'gone', 'rolling', 'refill', 'pressed', 'shake', 'safe-hint', 'stays', 'arriving', 'landed');
     c.flight = null; // a card still on its way to the last level's board
   }
-  // the cards kept from the last level fly from the bank onto the locks they break (owner, 03.11.2026)
-  const arrivals = st.game.cells ? st.game.cells.map((c, i) => [i, c]).filter(([, c]) => c.type === 'bonus' && c.fromBank != null) : [];
-  app.launching = new Set(arrivals.map(([, c]) => c.fromBank));
-  for (const [i] of arrivals) els.cells[i].classList.add('arriving', 'locked');
+  app.launching = new Set(); // the cards kept from the last level wait above until the first reroll (owner, 03.11.2026)
   app.path = [];
   app.tapPath = [];
   clearTimeout(app.hintTimer);
@@ -510,11 +507,9 @@ function startGame(level, attempt) {
   render();
   persist();
   autoTips();
-  arrivals.forEach(([i, c], n) => flyFromBank(i, c.fromBank, { delay: 380 + 160 * n, lock: true })); // once the row has slid in
-  if (st.game.bank && st.game.bank.length && attempt === 1 && !st.tips.bank) { // the first time the bank fills
-    st.tips.bank = true;
-    const waiting = st.game.bank.length - arrivals.length;
-    toast(arrivals.length ? `KEPT BONUSES TAKE THE LOCKS${waiting ? ' · THE REST WAIT ABOVE' : ''}` : 'KEPT BONUSES WAIT ABOVE · TAP ONE TO USE IT', 'hint', 3600);
+  if (st.game.bank && st.game.bank.length && attempt === 1 && !st.tips.bankReroll) { // the first time the bank fills
+    st.tips.bankReroll = true;
+    toast('KEPT BONUSES COME IN ON THE FIRST REROLL', 'hint', 3600);
   }
 }
 
@@ -599,6 +594,7 @@ function showLevelEnd() {
   const offer = mode.id === 'auto' && won && g.level.levelIndex < RUN_LEVELS ? upgradeOffer(st.runSeed, g.level.levelIndex) : [];
   $('upgrades').hidden = !offer.length;
   $('nextBtn').hidden = offer.length > 0;
+  $('retryBtn').hidden = won; // a cleared level goes on, through its upgrade (owner, 03.11.2026: RETRY confused)
   $('upList').innerHTML = offer.map((cat) => {
     const m = AUTO_MULT[cat] + (st.ups[cat] || 0);
     const dice = (GUIDE_COMBOS.find(([c]) => c === cat) || [cat, []])[1];
@@ -899,7 +895,7 @@ function renderCell(i) {
   const order = cell.querySelector('.order');
   // Effect classes that are still mid-animation survive a re-render; 'bank-pop' is not among
   // them because it fills forwards (opacity 0) and must be dropped by the render after the bank.
-  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'arriving', 'locked', 'landed', 'unlocked', 'on-fire', 'flip', 'hidden3d', 'gone'].filter((c) => cell.classList.contains(c));
+  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'arriving', 'landed', 'on-fire', 'flip', 'hidden3d', 'gone'].filter((c) => cell.classList.contains(c));
   cell.className = ['cell', ...transient].join(' ');
   cell.querySelector('.x2').textContent = '×2';
   const special = M().id === 'auto' && g.cells && g.cells[i];
@@ -1149,9 +1145,9 @@ function render() {
 }
 
 // The bonus bank above the board (owner, 02.11.2026): the bonuses this level started with from earlier
-// won levels that wait above the board; a tap switches one on or off like a card on the board. Place k holds
-// card k until it is played or flies to the board (owner, 03.11.2026), then a + (Figma 1308:3047). Cards new
-// to the row slide in.
+// won levels that wait above the board. They come in on the first reroll (owner, 03.11.2026); from then on a
+// tap switches one still waiting on or off like a card on the board. Place k holds card k until it is played
+// or flies to the board, then a + (Figma 1308:3047). Cards new to the row slide in.
 function renderBank() {
   const box = $('bank');
   const g = S().game;
@@ -1171,7 +1167,7 @@ function renderBank() {
       el.classList.toggle('on', !b.off);
       el.classList.toggle('off', b.off);
       el.classList.toggle('armed', !!h && h.bonusCells.includes(BANK + k));
-      el.setAttribute('aria-label', `${BONUS_KINDS[b.kind].symbol} ${BONUS_KINDS[b.kind].label} from the bank, ${b.off ? 'off, tap to switch on' : 'on'}`);
+      el.setAttribute('aria-label', `${BONUS_KINDS[b.kind].symbol} ${BONUS_KINDS[b.kind].label} from the bank, ${!g.stats.rerollsUsed ? 'comes in on the first reroll' : b.off ? 'off, tap to switch on' : 'on'}`);
     } else if (!el || !el.classList.contains('slot')) {
       el = document.createElement('span');
       el.className = 'slot';
@@ -1184,26 +1180,24 @@ function renderBank() {
   while (box.children.length > places) box.lastElementChild.remove();
 }
 
-// A card from the bank flies to the board (owner, 03.11.2026: no empty cells): at a level's start onto a lock,
-// which breaks under it, or into the cell of a card just played. The cell shows its lock (or nothing) until
-// the card lands face up.
-function flyFromBank(i, k, { delay = 0, lock = false } = {}) {
+// A card from the bank flies to the board (owner, 03.11.2026): on the level's first reroll into the cell of a die
+// being rerolled, or into the cell of a card just played. The cell shows nothing until the card lands face up.
+function flyFromBank(i, k, { delay = 0 } = {}) {
   const cell = els.cells[i];
   const flight = {};
   cell.flight = flight;
   cell.classList.add('arriving');
-  cell.classList.toggle('locked', lock);
   const land = () => {
     if (cell.flight !== flight) return; // a new level came first
     cell.flight = null;
     app.launching.delete(k);
-    cell.classList.remove('arriving', 'locked');
+    cell.classList.remove('arriving');
     renderBank();
     if (reduceMotion) return;
     cell.classList.remove('landed');
     void cell.offsetWidth;
-    cell.classList.add('landed', ...(lock ? ['unlocked'] : []));
-    setTimeout(() => cell.classList.remove('landed', 'unlocked'), 480);
+    cell.classList.add('landed');
+    setTimeout(() => cell.classList.remove('landed'), 480);
     sfx('flip');
   };
   if (reduceMotion) { land(); return; }
@@ -1563,6 +1557,9 @@ async function doReroll(source) {
   renderControls();
   haptic(8);
   sfx('roll');
+  // the kept cards come in on the level's first reroll, each in place of a die (owner, 03.11.2026)
+  for (const { cell, from } of r.placed || []) { app.launching.add(from); els.cells[cell].classList.add('arriving'); renderCell(cell); }
+  (r.placed || []).forEach(({ cell, from }, n) => flyFromBank(cell, from, { delay: 120 * n }));
   let rolled3d = false;
   if (app.dice3d && !reduceMotion && dice3dStatus() === 'ready') {
     r.rolled.forEach((i) => els.cells[i].classList.add('hidden3d'));
@@ -2203,7 +2200,7 @@ function init() {
   $('optSound').checked = soundOn;
   const sounds = Object.fromEntries(SOUNDS.map((n) => [n, cssUrl(`--sfx-${n}`)]));
   setupSound((n) => sounds[n], soundOn);
-  setupPuppets((character, part) => cssUrl(`--rig-${character}-${part}`));
+  setupPuppets((character, part) => cssUrl(`--rig-${character}-${part}`), () => app.busy); // no turn while the dice fly or count
   let d3 = true;
   try { d3 = localStorage.getItem(DICE3D_KEY) !== '0'; } catch { /* ignore */ }
   app.dice3d = d3;
