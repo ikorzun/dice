@@ -2,9 +2,9 @@
 // The game shows the best hand on the board (counting the bonuses the player switched on; every
 // bonus starts off); the player holds dice, rerolls the rest (three rerolls per level, shared by
 // the hands) or plays it.
-// Playing burns the hand, every unheld die and the bonuses the hand used: burnt dice are
-// replaced. Held dice outside the hand stay, no longer held (owner, 01.11.2026: no die stays selected
-// after a hand).
+// Playing burns every die on the board and the bonuses the hand used: burnt dice are replaced
+// (owner, 03.11.2026: «перебрасывать все»; held dice outside the hand used to stay). A hold before
+// PLAY only picks the hand.
 // A level ends as soon as the score reaches the target (owner, 01.11.2026), otherwise after its
 // three hands. The bank (owner, 02.11.2026): bonuses not played on a won level wait in a bank of three
 // for the next levels (`level.bank`, kinds); a banked bonus is cell BANK + k, switched on and used like a
@@ -29,14 +29,6 @@ export const BANK_SIZE = 3; // places in the bank (owner, 02.11.2026); the rest 
 export const MIN_DICE = 6; // every layout keeps this many dice (levels3.js), and so does a kept card coming in
 const waiting = (b) => !b.used && !b.placed; // a banked card still above the board
 
-// Face of the largest group (ties: the higher face), or null without dice.
-function largestGroupFace(faces) {
-  const counts = [0, 0, 0, 0, 0, 0, 0];
-  for (const f of faces) counts[f]++;
-  let best = null;
-  for (let f = 6; f >= 1; f--) if (counts[f] && (best === null || counts[f] > counts[best])) best = f;
-  return best;
-}
 const bump = (state, key) => ({ ...state.stats, [key]: state.stats[key] + 1 });
 
 export function createAutoGame(level, configOverrides = {}, attempt = 1) {
@@ -203,17 +195,11 @@ export function playHand(state, drawDie) {
     total: best.total,
     bonusAuto: false,
   };
-  const burned = diceCells(state).filter((i) => best.cells.includes(i) || !state.held[i]);
+  const burned = diceCells(state); // every die, held or not (owner, 03.11.2026)
   const score = state.score + hand.total;
   const handsLeft = state.handsLeft - 1;
-  // Help in trouble (adaptive levels set typicalHand): when the hands left need far more than a
-  // typical hand each, each refilled die may copy the largest group of the held dice that stay.
-  // Help comes only with what arrives, aims at what the player kept, and is never shown.
-  const need = handsLeft > 0 && state.level.typicalHand ? (state.level.target - score) / handsLeft / state.level.typicalHand : 0;
-  const help = need > 1.6 ? 2 : need > 1.25 ? 1 : 0;
-  const favored = help ? largestGroupFace(diceCells(state).filter((i) => !burned.includes(i)).map((i) => state.faces[i])) : null;
   const faces = state.faces.slice();
-  const held = state.held.map(() => false); // the dice that stay keep their faces, not their holds
+  const held = state.held.map(() => false); // nothing stays held after a hand
   const cells = state.cells.slice();
   const off = state.off.slice();
   const bank = state.bank.map((b, k) => (used.includes(BANK + k) ? { ...b, off: false, used: true } : b)); // a played one is gone
@@ -237,12 +223,10 @@ export function playHand(state, drawDie) {
   }
   const refilled = [...burned, ...fresh];
   for (const i of refilled) {
-    const coin = favored ? drawDie() : 0; // a die as the coin: copy on 1 (help 1) or 1–2 (help 2)
     const f = drawDie();
     if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`drawDie returned ${f}`);
-    faces[i] = favored && coin <= help ? favored : f;
+    faces[i] = f;
   }
-  hand.help = favored ? help : 0;
   const phase = score >= state.level.target ? 'won' : handsLeft > 0 ? 'playing' : 'lost';
   // a refund bonus in the hand gives rerolls back
   hand.refund = used.reduce((n, i) => n + (BONUS_KINDS[bonusKind(state, i)].refund || 0), 0);

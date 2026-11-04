@@ -23,7 +23,7 @@ const MODULES = [
   'src/engine/recipes3.js',
   'src/engine/uplift3.js',
   'src/engine/upgrades3.js',
-  'src/engine/adapt3.js',
+  'src/engine/run3.js',
   'src/ui/dice-model.js',
   'src/ui/dice3d-math.js',
   'src/ui/dice3d.js',

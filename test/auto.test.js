@@ -33,7 +33,7 @@ test('classifyExact accepts only sets where every die is part of the combination
   assert.equal(classifyExact([6, 6, 6, 1, 2]), null);
 });
 
-test('the best hand ignores positions and burns only the dice of the combination', () => {
+test('the best hand ignores positions and takes only the dice of the combination', () => {
   // three 6s scattered over the board beat the pair of 5s and the straight-less rest
   const h = bestHand(dice([6, 1, 5, 6, 2, 5, 3, 6]));
   assert.equal(h.category, 'full_house'); // 6 6 6 5 5 = 28 × 5
@@ -175,22 +175,22 @@ test('the held hand is the best hand among the held dice only', () => {
   assert.equal(currentHand(g).category, 'four_kind'); // but the player picked the four: it plays (owner, 02.11.2026)
 });
 
-test('playing burns the hand and every unheld die; held dice outside the hand stay, no longer held; a new die takes the used card\'s cell', () => {
+test('playing burns every die, held or not (owner, 03.11.2026), and nothing stays selected; a new die takes the used card\'s cell', () => {
   let g = on(createAutoGame(level(L1, F, 10000)), 8);
-  g = toggleHold(g, 7).state; // the 1 at the bottom is not in the straight
-  g = toggleHold(g, 4).state; // the 3 is in the straight: held, but played, so it burns
+  g = toggleHold(g, 7).state; // the 1 at the bottom is not in the straight: held, it burns all the same
+  g = toggleHold(g, 4).state; // the 3 is in the straight: held, and played
   const r = playHand(g, seq([2]));
   assert.equal(r.ok, true);
   assert.equal(r.hand.category, 'straight');
   assert.deepEqual(r.hand.bonuses, ['x2_any']);
   assert.equal(r.hand.total, 320);
-  assert.deepEqual(r.burned, [0, 1, 2, 3, 4, 5, 6]); // the straight + the unheld 6 and 1
+  assert.deepEqual(r.burned, [0, 1, 2, 3, 4, 5, 6, 7]); // every die on the board
   assert.deepEqual(r.spent, [8]);
   assert.deepEqual(r.placed, []); // nothing waits in the bank: a new die
-  assert.deepEqual(r.refilled, [0, 1, 2, 3, 4, 5, 6, 8]);
+  assert.deepEqual(r.refilled, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
   const s = r.state;
-  assert.equal(s.faces[7], 1);
-  assert.equal(s.held[7], false); // it stayed, but nothing stays selected after a hand
+  assert.equal(s.faces[7], 2); // thrown anew
+  assert.equal(s.held[7], false);
   assert.equal(s.held[4], false);
   assert.equal(s.cells[8].type, 'die');
   assert.equal(s.faces[8], 2);
@@ -301,11 +301,11 @@ test('the player picks the hand by holding its dice (owner, 02.11.2026); a held 
   assert.deepEqual([currentHand(g).category, currentHand(g).cells], ['pair', [0, 1]]);
   const r = playHand(g, seq([2]));
   assert.equal(r.hand.category, 'pair');
-  assert.deepEqual(r.burned, [0, 1, 2, 3, 4, 5, 6, 7, 8]); // the pair, and every die not held
-  // one held die is no combination: the best on the board plays, and the held 1 outside it stays
+  assert.deepEqual(r.burned, [0, 1, 2, 3, 4, 5, 6, 7, 8]); // every die burns
+  // one held die is no combination: the best on the board plays, and the held 1 outside it burns too
   const one = toggleHold(createAutoGame(level([D, D, D, D, D, D, D, D, D], [6, 6, 1, 2, 3, 4, 5, 1, 1], 10000)), 7).state;
   assert.equal(currentHand(one).category, 'straight');
-  assert.ok(!playHand(one, seq([2])).burned.includes(7));
+  assert.ok(playHand(one, seq([2])).burned.includes(7));
 });
 
 test('the bank (owner, 02.11.2026): a banked bonus comes in on the first reroll; one left above switches on by tap, joins a hand it fits and is gone once played', () => {

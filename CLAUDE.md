@@ -2,10 +2,10 @@
 
 Portrait-mobile dice puzzle on a 3×3 grid, plain HTML/CSS/JS, no build step for development.
 Three rule sets live in one page: **Snake 4+4** (`src/engine/game.js`), **Poker 5**
-(`src/engine/poker.js`) and **Auto Hand** (`src/engine/auto.js` + `hands.js`, adaptive levels
-in `adapt3.js`; rules, calibration and next steps in `docs/MODE3-PLAN.md`). Since the owner's
+(`src/engine/poker.js`) and **Auto Hand** (`src/engine/auto.js` + `hands.js`, the run's curve
+in `run3.js`; rules, calibration and next steps in `docs/MODE3-PLAN.md`). Since the owner's
 Figma mockup (file `0mTCxjPtORKQzV7EZ6kTfE`, section DARK, node 1285:1548) the screen shows Auto
-Hand only, as a run of 25 levels; the other modes keep their code and engines but have no tab
+Hand only, as an endless run that a missed target ends; the other modes keep their code and engines but have no tab
 (`#tabs` hidden, `app.modeId` forced to `auto`). Mockup art lives in `assets/ui/`, the font
 (Basteleur Bold, OFL) in `assets/fonts/`; the build inlines both into `dist/`. The screen is one
 of two mockups (phone column, or desktop/landscape with the board left of a panel: `body.wide`)
@@ -22,7 +22,7 @@ npm run sim       # Snake 4+4 balance report -> docs/simulation-latest.md
 node scripts/montecarlo5.mjs --table=pips --out=docs/simulation5-pips.md   # Poker 5
 npm run sim3      # Auto Hand tiers, bots, experiments -> docs/simulation3-latest.md
 node scripts/recipes3.mjs --levels=400       # Auto Hand layout table -> src/engine/recipes3.js (generated)
-node scripts/adapt3-sim.mjs --runs=100 --out=docs/simulation3-adaptive.md  # adaptive levels check
+node scripts/run3-sim.mjs --runs=400 --out=docs/simulation3-run.md  # the run's curve: how far the bots get
 node scripts/upgrades3.mjs                   # combination upgrades: point shares + expected lift -> src/engine/uplift3.js (generated)
 node scripts/model-to-js.mjs                 # die model GLB -> src/ui/dice-model.js (generated)
 node scripts/bake-faces.mjs                  # die faces with their matcaps -> assets/dice/ (after any model, matcap or colour change)
@@ -44,9 +44,10 @@ Locally the CDN loads, so the 3D throw runs in the smoke; it waits for `app.busy
   (sum of the matching dice × rarity multiplier: pair 2, two pairs 3, trips 4, straight and
   full house 5, four 6, five 8). Flat tables remain as experiments.
 - Level targets are per table (`levels.js` / `levels5.js`); recalibrate with the simulation
-  scripts after any scoring or economy change. Auto Hand: the game plays `generateAdaptiveLevel`
-  (`adapt3.js`, target ladder + layout chosen from the run's history and `recipes3.js`); tier
-  levels (`levels3.js`) are the bots' reference. Regenerate `recipes3.js` after any rule change.
+  scripts after any scoring or economy change. Auto Hand: the game plays `generateRunLevel`
+  (`run3.js`: one target ladder for everyone; the layout is drawn from `recipes3.js` by the run seed
+  and the level number, never from how the player did); tier levels (`levels3.js`) are the bots'
+  reference. Regenerate `recipes3.js` after any rule change, then recheck the curve with `run3-sim`.
 - `scripts/build.mjs` bundles modules into per-module scopes; it validates import names and
   module order. Dynamic `import()` of CDN URLs (three.js in `src/ui/dice3d.js`) is
   left untouched and must keep its CSS fallback.

@@ -4,7 +4,7 @@
 // only on the multiset of faces and the kinds of the bonuses that are on, so the greedy bot
 // scores a board by its face counts and memoizes; its lookahead is exact, not sampled.
 
-import { createAutoGame, toggleHold, toggleBonus, reroll, currentHand, boardHand, playHand, diceCells, isBonus, bonusKind, BANK } from './auto.js';
+import { createAutoGame, toggleHold, toggleBonus, reroll, currentHand, playHand, diceCells, isBonus, bonusKind, BANK } from './auto.js';
 import { bestHand, BONUS_KINDS } from './hands.js';
 
 // Release unwanted holds first, then hold the rest (same shape as bot5.setHolds).
@@ -128,21 +128,30 @@ const onKinds = (game) => bonusCells(game).filter((i) => !isOff(game, i)).map((i
 // Greedy one-step lookahead (`hand`: experiment scoring options, passed to the engine as handOptions): for every hold mask of the dice, the exact expected best-hand
 // total after one reroll; rerolls while the best mask beats the standing hand by `margin`.
 // Bonus policy: conditional bonuses always on; unconditional ones (×2 any, joker) on for the
-// last hand, or earlier when the hand without them already totals `strong`.
+// last hand, or earlier when the hand without them already totals `strong`. A missed target ends the run (owner,
+// 03.11.2026), so it plays for the target the way a strong player would: a hand that reaches what the level still
+// needs, with every bonus on, is played at once, and a hand on pace keeps its dice through a reroll.
+const finishes = (game) => currentHand(setBonuses(game, () => true)).total >= game.level.target - game.score;
+
 export function playGreedyBot3(level, { rng, config = {}, hand = null, margin = 20, strong = 150 } = {}) {
   let game = createAutoGame(level, hand ? { ...config, handOptions: hand } : config);
   while (game.phase === 'playing') {
     const last = game.handsLeft === 1;
     const policy = (kind) => last || !unconditional(kind);
-    let keep = null;
     while (game.rerollsLeft > 0) {
       game = setBonuses(game, policy);
+      if (finishes(game)) break;
       const ctx = contextFor(onKinds(game), game.level.ups ? { ...(hand || {}), ups: game.level.ups } : hand); // the run's upgrades too
       const cells = diceCells(game);
-      const standing = currentHand(game).total;
+      const now = currentHand(game);
+      const standing = now.total;
+      // on pace for the target (a hand worth its share of what is left), it keeps the hand's dice and only adds to them
+      const onPace = standing >= (game.level.target - game.score) / game.handsLeft;
+      const keep = onPace ? cells.reduce((mask, c, k) => (now.cells.includes(c) ? mask | (1 << k) : mask), 0) : 0;
       let bestMask = -1;
       let bestEst = standing + margin;
       for (let m = 0; m < (1 << cells.length) - 1; m++) {
+        if ((m & keep) !== keep) continue;
         let key = 0;
         let held = 0;
         for (let k = 0; k < cells.length; k++) if ((m >> k) & 1) { key += FACE_KEY[game.faces[cells[k]]]; held++; }
@@ -150,16 +159,14 @@ export function playGreedyBot3(level, { rng, config = {}, hand = null, margin = 
         if (est > bestEst) { bestEst = est; bestMask = m; }
       }
       if (bestMask < 0) break;
-      keep = new Set(cells.filter((c, k) => (bestMask >> k) & 1));
-      game = setHolds(game, keep);
+      game = setHolds(game, new Set(cells.filter((c, k) => (bestMask >> k) & 1)));
       const r = reroll(game, () => rng.die());
       if (!r.ok) throw new Error(`bot produced an illegal reroll: ${r.code}`);
       game = r.state;
     }
     game = setBonuses(game, policy);
-    // hold the keepers again (unheld dice burn on play) with the best hand's dice, so the best plays
-    if (keep) game = setHolds(game, new Set([...keep, ...boardHand(game).cells]));
-    if (!last && currentHand(game).total >= strong) game = setBonuses(game, () => true);
+    // nothing to hold before playing: every die burns (owner, 03.11.2026), and with no holds the best plays
+    if ((!last && currentHand(game).total >= strong) || (currentHand(game).total < game.level.target - game.score && finishes(game))) game = setBonuses(game, () => true);
     game = play(game, rng);
   }
   return result(game);

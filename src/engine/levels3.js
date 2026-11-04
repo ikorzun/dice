@@ -13,7 +13,7 @@ export const BONUS_UNLOCKS = Object.freeze(['x2_any', 'x3_straight', 'x3_pairs',
 export const MIN_DICE3 = MIN_DICE;
 
 // Tier levels are the balance reference of the bots and scripts/montecarlo3.mjs; the game itself
-// plays adaptive levels (adapt3.js). Targets: the greedy bot of bot3.js wins ~75% at tier 1
+// plays the run's levels (run3.js). Targets: the greedy bot of bot3.js wins ~75% at tier 1
 // stepping down evenly to ~40% at tier 5 (owner, 31.10.2026: the naive-bot criterion felt too
 // easy), recalibrated 01.11.2026 for bonuses that add up and the straight ×8. Taken from the
 // greedy score distributions of scripts/montecarlo3.mjs (--tierLevels=1000 --seed=check1000; the

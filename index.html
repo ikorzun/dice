@@ -25,7 +25,7 @@
     <button class="tab" type="button" data-mode="auto" id="tabAuto">AUTO HAND</button>
   </nav>
   <header class="hud">
-    <div class="stat" id="levelHud"><span class="label">LEVEL</span><span class="value level-text">1/25</span></div>
+    <div class="stat" id="levelHud"><span class="label">LEVEL</span><span class="value level-text">1</span></div>
     <div class="bank" id="bank" aria-label="Bonus bank: bonuses kept from earlier levels"></div>
     <button class="book" id="helpBtn" type="button" aria-label="How to play"><i></i>How</button>
   </header>
@@ -39,7 +39,7 @@
     <div class="board rendered" id="board" aria-label="3 by 3 dice board"></div>
   </section>
   <section class="counter" aria-live="polite">
-    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1/25</span></div>
+    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span></div>
     <div class="stat mid" id="handStat"><span class="label" id="bonesLabel">BONES</span><span class="value"><span id="bones">0</span><span class="sticker" id="multSticker"></span><span id="handTotal">0</span></span></div>
     <div class="stat mid" id="targetStat"><span class="label">THRESHOLD</span><span class="value" id="target">0</span></div>
     <div class="hand-row" id="handRow"><span class="gdice" id="handDice"></span><span class="hand-name"><b id="handName"></b><em id="handMult"></em></span></div>
@@ -68,11 +68,19 @@
 <section class="overlay" id="levelEnd" hidden>
   <div class="panel">
     <h2 class="end-title" id="endTitle">LEVEL CLEARED</h2>
+    <!-- a missed target ends the run (owner, 03.11.2026): the level it got to, then why -->
+    <p class="run-reached" id="runReached" hidden>LEVEL <b id="runLevel">1</b></p>
     <div class="end-score"><span id="endScore">0</span><span class="end-sep">/</span><span id="endTarget">0</span></div>
+    <p class="end-note" id="runWhy" hidden></p>
+    <p class="end-note run-mark" id="runMark" hidden></p>
     <ul class="hands" id="endHands"></ul>
     <p class="end-note" id="endBonus"></p>
     <p class="end-note muted" id="endSolver"></p>
     <p class="end-note muted" id="endTier"></p>
+    <div class="run-sum" id="runSum" hidden>
+      <p class="end-note" id="runStats"></p>
+      <ol class="medals" id="medals" aria-label="Medals of this run"></ol>
+    </div>
     <div class="upgrades" id="upgrades" hidden>
       <p class="up-head">NEXT LEVEL: PICK AN UPGRADE</p>
       <p class="up-sub">+1 TO ITS MULTIPLIER FOR THE WHOLE RUN</p>
@@ -102,7 +110,7 @@
   <div class="guide-page" data-page="2">
     <h2 class="guide-head">HOLD THE KEEPERS.<br>REROLL THE REST.</h2>
     <div class="hold-pic" id="holdPic"></div>
-    <p class="guide-note">UNHELD DICE BURN WHEN YOU PLAY</p>
+    <p class="guide-note">PLAY THROWS EVERY DIE ANEW</p>
   </div>
   <div class="guide-page" data-page="3">
     <h2 class="guide-head">SWITCH ON BONUSES.<br>BEAT THE THRESHOLD.</h2>

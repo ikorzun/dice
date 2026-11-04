@@ -1,6 +1,6 @@
 // Dice Snake — portrait mobile UI driving three rule sets: "Snake 4+4" (engine/game.js), "Poker 5"
 // (engine/poker.js) and "Auto Hand" (engine/auto.js). Since the owner's Figma mockup (DARK,
-// 01.11.2026) the screen shows Auto Hand only, as a run of 25 levels; the other modes keep their
+// 01.11.2026) the screen shows Auto Hand only, as an endless run a missed target ends; the other modes keep their
 // code but have no tab. All rules live in the engines; this file renders state, interprets pointer
 // gestures, plays effects, runs the example-based tutorial and keeps a local event log per mode.
 
@@ -30,7 +30,7 @@ import {
 } from '../engine/auto.js';
 import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from '../engine/levels.js';
 import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
-import { generateAdaptiveLevel, skillFrom, skillSample, recipeById, ADAPT3_VERSION } from '../engine/adapt3.js';
+import { generateRunLevel, runTarget, RUN3_VERSION } from '../engine/run3.js';
 import { upgradeOffer, withUpgrade } from '../engine/upgrades3.js';
 import { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } from './dice3d.js';
 import { createFire } from './fire.js';
@@ -54,7 +54,7 @@ const LONG_PRESS_MS = 450; // a long press on a bonus die opens its description 
 const CORE_INSET = 0.18; // path hit region = central 64% of a cell (no corner cutting)
 const LOG_LIMIT = 4000;
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const RUN_LEVELS = 25; // an Auto Hand run (owner, 01.11.2026): LEVEL n/25, then a new run
+const MEDAL_STEP = 5; // a medal for clearing every fifth level of a run (owner's questionnaire В6, 04.11.2026)
 const FIRE_HANDS = new Set(['four_kind', 'five_kind', 'straight']); // ×6 and ×8: their dice burn when played
 
 const reduceMotion = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -258,24 +258,24 @@ const MODES = {
     bonus: 'board',
     refill: true,
     engine: autoEngine,
-    generatorVersion: ADAPT3_VERSION,
+    generatorVersion: RUN3_VERSION,
     defaultSettings: { settingsVersion: 1, maxHolds: null, scoreTable: 'pips', autoBonusOnFinalHand: false, pathMode: false, hands: 3, rerolls: 3 },
     gameConfig: (st) => ({ hands: st.hands, rerolls: st.rerolls }),
-    // the next layout follows how this run's levels went (hidden from the player)
-    generate: ({ runSeed, levelIndex, tier, settings, history, bank, ups }) => generateAdaptiveLevel({ runSeed, levelIndex, tier, history, bank, ups, config: MODES.auto.gameConfig(settings) }),
+    // one curve for everyone (questionnaire В1 A, 04.11.2026): the level depends on the run seed and its number only
+    generate: ({ runSeed, levelIndex, settings, bank, ups }) => generateRunLevel({ runSeed, levelIndex, bank, ups, config: MODES.auto.gameConfig(settings) }),
     scoringHtml: '<strong>Matching dice score their sum × a multiplier that grows with rarity.</strong> Pair × 2, two pairs × 3, three of a kind × 4, full house × 5, four of a kind × 6, straight × 8, five of a kind × 8. Bonus dice add up: ×2 and ×3 together make ×4.',
-    difficultyText: 'Adaptive, hidden from the player: the target rises slowly by level; the next layout is picked from this run\'s scores so a level is won about 3 times in 4; far behind, some new dice copy the dice you hold.',
-    summary: (g) => ({ recipe: g.level.recipe, ratio: g.level.recipe ? skillSample(recipeById(g.level.recipe), g.score, g.hands.length, (g.level.bankLift || 1) * (g.level.upLift || 1)) : null, skill: g.level.skill, predictedWin: g.level.predictedWin, help: g.hands.map((h) => h.help || 0) }),
+    difficultyText: 'One curve for everyone: each level asks for more than the one before, and its board is drawn to fit the level, never the player. A missed target ends the run.',
+    summary: (g) => ({ recipe: g.level.recipe, chance: g.level.chance }),
     idleCopy: (g) => `Hand ${g.hands.length + 1}/${g.hands.length + g.handsLeft} · hold to keep · reroll or play`,
     solverLine: (level) => `Best opening hand before any reroll: ${CATEGORY5_LABELS[level.openingCategory] || ''} ${level.openingBest}`,
     help: {
-      lead: 'Hold what you want to keep: every die you do not hold burns when you play. Bonus dice wait on the board, switched off, until you switch one on for a hand that fits it.',
+      lead: 'Hold what you want to keep on a reroll; PLAY throws every die anew. Bonus dice wait on the board, switched off, until you switch one on for a hand that fits it.',
       rules: [
         'Dice, bonus dice and blocks on a 3×3 board. Positions do not matter: PLAY scores the best poker hand among all the dice, or the one you pick: when the dice you hold make a combination, the best of them plays. The counter shows the hand and its points; the board does not mark its dice.',
-        'PLAY HAND scores it. The dice of the hand and every die you did not hold burn and are replaced; held dice outside the hand stay.',
+        'PLAY HAND scores it. Then every die burns and is thrown anew, held or not.',
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
         'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back). They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus makes way for a new die, or for a bonus waiting above the board.',
-        'Reach the target and the level ends at once; a level has three hands at most.',
+        'Reach the target and the level ends at once; a level has three hands at most. Miss it and the run is over. There is no last level: each asks for more.',
         'Bonuses you did not play on a won level are kept for the next level of the run (three at most, the rest burn). They come in on its first reroll, each in place of a die being rerolled while six dice stay on the board; the rest wait above the board from then on: tap one there to switch it on like a card on the board.',
       ],
       scoreTitle: 'SCORING · THE HAND IS THE DICE OF THE COMBINATION',
@@ -289,7 +289,7 @@ const MODES = {
     },
     coachText(step, g, hint) {
       if (step === 'swipe') return `BEST HAND · ${hint.hand.label} ${hint.hand.total} · PRESS PLAY`;
-      return `HAND ${g.hands.length + 1}/${g.hands.length + g.handsLeft} · UNHELD DICE BURNED · HOLD, REROLL OR PLAY`;
+      return `HAND ${g.hands.length + 1}/${g.hands.length + g.handsLeft} · NEW DICE · HOLD, REROLL OR PLAY`;
     },
   },
 };
@@ -315,6 +315,11 @@ function freshModeState(mode) {
     tips: {}, // one-time Auto Hand tips already shown (new bonus kinds, saving a bonus)
     bank: [], // Auto Hand: the bonus kinds kept from won levels for the next ones (owner, 02.11.2026)
     ups: {}, // Auto Hand: the run's upgrades of the combinations, +1 to the multiplier each (owner, 02.11.2026)
+    runScore: 0, // Auto Hand: the points of this run's levels; ties of the record break on them (questionnaire В3)
+    runMedals: [], // Auto Hand: this run's medals, { level, fresh } (fresh: first cleared on this device)
+    best: null, // Auto Hand: the record on this device, { level, score }: the furthest level a run got to, then points
+    medal: 0, // Auto Hand: the furthest medal level ever cleared (5, 10, 15…)
+    lastEnd: null, // Auto Hand: what the last level end brought (medal, record), for its summary after a reload
   };
 }
 
@@ -420,6 +425,11 @@ function serializeMode(st, engine) {
     tips: st.tips,
     bank: st.bank,
     ups: st.ups,
+    runScore: st.runScore,
+    runMedals: st.runMedals,
+    best: st.best,
+    medal: st.medal,
+    lastEnd: st.lastEnd,
     game: st.game ? engine.snapshot(st.game) : null,
     log: st.log.slice(-LOG_LIMIT),
     levels: st.levels.slice(-200),
@@ -455,6 +465,11 @@ function hydrateMode(id, saved) {
   st.tips = saved.tips && typeof saved.tips === 'object' ? saved.tips : {};
   st.bank = Array.isArray(saved.bank) ? saved.bank.filter((k) => BONUS_KINDS[k]).slice(0, 3) : [];
   st.ups = saved.ups && typeof saved.ups === 'object' ? Object.fromEntries(Object.entries(saved.ups).filter(([c, n]) => AUTO_MULT[c] && Number.isInteger(n) && n > 0)) : {};
+  st.runScore = Number.isFinite(saved.runScore) ? saved.runScore : 0;
+  st.runMedals = Array.isArray(saved.runMedals) ? saved.runMedals.filter((m) => m && Number.isInteger(m.level)) : [];
+  st.best = saved.best && Number.isInteger(saved.best.level) && Number.isFinite(saved.best.score) ? { level: saved.best.level, score: saved.best.score } : null;
+  st.medal = Number.isInteger(saved.medal) ? saved.medal : 0;
+  st.lastEnd = saved.lastEnd && typeof saved.lastEnd === 'object' ? saved.lastEnd : null;
   if (saved.game) {
     try {
       st.game = mode.engine.restore(saved.game);
@@ -526,6 +541,7 @@ function finishLevel() {
   const won = g.phase === 'won';
   if (won) sfx('win'); // only a real win is celebrated (digest §1, rule 27); a missed target stays quiet
   if (won && mode.id === 'auto') st.bank = autoCarryOver(g); // the unplayed bonuses wait for the next level
+  if (mode.id === 'auto') tallyRun(st, g, won);
   const now = Date.now();
   const summary = {
     mode: mode.id, levelIndex: g.level.levelIndex, seed: g.level.seed, tier: g.level.tier, target: g.level.target, score: g.score, won, attempt: g.attempt,
@@ -538,9 +554,32 @@ function finishLevel() {
   };
   st.levels.push(summary);
   logEvent('level_end', summary);
+  if (mode.id === 'auto' && !won) logEvent('run_end', { runSeed: st.runSeed, level: g.level.levelIndex, score: st.runScore, best: st.best, newBest: st.lastEnd.newBest });
   st.pendingTier = nextTier(st.tier, won);
   persist();
   showLevelEnd();
+}
+
+// The run's points, medals and record (owner, 03.11.2026: a missed target ends the run; questionnaire В3: the
+// record is the furthest level, ties broken by points; В6: a medal for every fifth level cleared). `lastEnd`
+// keeps what this level end brought for its summary, which a reload shows again.
+function tallyRun(st, g, won) {
+  const level = g.level.levelIndex;
+  st.runScore += g.score;
+  const end = { seed: g.level.seed };
+  if (won) {
+    if (level % MEDAL_STEP === 0) {
+      end.medal = level;
+      end.fresh = level > st.medal;
+      st.medal = Math.max(st.medal, level);
+      st.runMedals = [...st.runMedals, { level, fresh: end.fresh }];
+    }
+    end.passedBest = !!st.best && level === st.best.level; // from here on the run goes further than any before
+  } else {
+    end.newBest = !st.best || level > st.best.level || (level === st.best.level && st.runScore > st.best.score);
+    if (end.newBest) st.best = { level, score: st.runScore };
+  }
+  st.lastEnd = end;
 }
 
 function showLevelEnd() {
@@ -549,8 +588,11 @@ function showLevelEnd() {
   const mode = M();
   const won = g.phase === 'won';
   if (st.pendingTier == null) st.pendingTier = nextTier(st.tier, won);
-  $('endTitle').textContent = won ? 'LEVEL CLEARED' : 'TARGET MISSED';
+  const over = mode.id === 'auto' && !won; // a missed target ends the run (owner, 03.11.2026)
+  $('endTitle').textContent = won ? 'LEVEL CLEARED' : over ? 'RUN OVER' : 'TARGET MISSED';
   $('endTitle').className = `end-title ${won ? 'won' : 'lost'}`;
+  $('levelEnd').classList.toggle('run-over', over);
+  showRunEnd(st, g, won, over);
   $('endScore').textContent = g.score;
   $('endTarget').textContent = g.level.target;
   const list = $('endHands');
@@ -585,16 +627,13 @@ function showLevelEnd() {
   $('endTier').textContent = st.pendingTier === st.tier
     ? `Rule-based difficulty: stays at tier ${st.tier} / 5`
     : `Rule-based difficulty: tier ${st.tier} → ${st.pendingTier} / 5`;
-  $('nextBtn').textContent = won ? 'NEXT LEVEL' : 'NEXT LEVEL (EASIER)';
-  if (mode.id === 'auto' && g.level.levelIndex >= RUN_LEVELS) {
-    $('endTitle').textContent = 'RUN COMPLETE';
-    $('nextBtn').textContent = 'NEW RUN';
-  }
+  $('nextBtn').textContent = won ? 'NEXT LEVEL' : over ? 'NEW RUN' : 'NEXT LEVEL (EASIER)';
   // a won level of the run offers three combinations to upgrade; the pick goes on (owner, 02.11.2026)
-  const offer = mode.id === 'auto' && won && g.level.levelIndex < RUN_LEVELS ? upgradeOffer(st.runSeed, g.level.levelIndex) : [];
+  const offer = mode.id === 'auto' && won ? upgradeOffer(st.runSeed, g.level.levelIndex) : [];
   $('upgrades').hidden = !offer.length;
   $('nextBtn').hidden = offer.length > 0;
-  $('retryBtn').hidden = won; // a cleared level goes on, through its upgrade (owner, 03.11.2026: RETRY confused)
+  // a cleared level goes on through its upgrade (owner, 03.11.2026: RETRY confused); a missed one ends the run
+  $('retryBtn').hidden = won || mode.id === 'auto';
   $('upList').innerHTML = offer.map((cat) => {
     const m = AUTO_MULT[cat] + (st.ups[cat] || 0);
     const dice = (GUIDE_COMBOS.find(([c]) => c === cat) || [cat, []])[1];
@@ -607,18 +646,39 @@ function showLevelEnd() {
   app.endTimer = setTimeout(() => { if (app.modeId === forMode) $('levelEnd').hidden = false; }, mode.id === 'auto' ? 0 : T.endDelay);
 }
 
+// The run's marks on the level's summary: on a clear, a medal every fifth level and the record passed; when the
+// run is over, the level it got to, why it ended (digest rules 7 and 17: the player sees the cause), its points,
+// the record and its medals.
+function showRunEnd(st, g, won, over) {
+  const end = st.lastEnd && st.lastEnd.seed === g.level.seed ? st.lastEnd : {};
+  const marks = [];
+  if (M().id === 'auto' && won && end.medal) marks.push(`<i class="medal${end.fresh ? ' fresh' : ''}">${end.medal}</i>${end.fresh ? 'NEW MEDAL' : 'MEDAL'}`);
+  if (M().id === 'auto' && won && end.passedBest) marks.push(`NEW BEST · LEVEL ${g.level.levelIndex + 1}`);
+  $('runMark').innerHTML = marks.join('<span class="end-sep">·</span>');
+  $('runMark').hidden = !marks.length;
+  for (const id of ['runReached', 'runWhy', 'runSum']) $(id).hidden = !over;
+  if (!over) return;
+  $('runLevel').textContent = String(g.level.levelIndex);
+  const unused = g.rerollsLeft ? ` · ${g.rerollsLeft} REROLL${g.rerollsLeft > 1 ? 'S' : ''} UNUSED` : '';
+  $('runWhy').textContent = `SHORT BY ${Math.max(0, g.level.target - g.score)}${unused}`;
+  $('runStats').innerHTML = `RUN SCORE ${st.runScore}${end.newBest ? ' · <b>NEW BEST</b>' : st.best ? ` · BEST: LEVEL ${st.best.level}` : ''}`;
+  $('medals').innerHTML = st.runMedals.map((m) => `<li class="medal${m.fresh ? ' fresh' : ''}">${m.level}</li>`).join('');
+  $('medals').hidden = !st.runMedals.length;
+}
+
 function onNext() {
   const st = S();
   if ($('levelEnd').dataset.mode !== app.modeId || !st.game || st.game.phase === 'playing') return;
   if (st.pendingTier != null) st.tier = st.pendingTier;
   st.levelIndex += 1;
-  if (app.modeId === 'auto' && st.levelIndex > RUN_LEVELS) {
-    // a new run starts at level 1; the levels played stay, so the adaptive layouts keep the skill
-    logEvent('run_end', { runSeed: st.runSeed });
+  if (app.modeId === 'auto' && st.game.phase === 'lost') {
+    // a missed target ends the run (owner, 03.11.2026): a new one starts at level 1; the record and medals stay
     st.runSeed = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     st.levelIndex = 1;
     st.bank = []; // the bank lives for one run
     st.ups = {}; // and so do the upgrades
+    st.runScore = 0;
+    st.runMedals = [];
   }
   newLevel();
 }
@@ -653,7 +713,12 @@ function switchMode(id, { silent = false } = {}) {
   const st = S();
   if (!st.runSeed) st.runSeed = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   if (!st.game) newLevel();
-  else if (st.game.phase !== 'playing') { render(); showLevelEnd(); }
+  else if (st.game.phase !== 'playing') {
+    render();
+    // a reload during the last hand's count left the level unfinished: count it now (record, medal, bank)
+    if (id === 'auto' && !(st.lastEnd && st.lastEnd.seed === st.game.level.seed)) finishLevel();
+    else showLevelEnd();
+  }
   else render();
   if (!st.onboarded) openGuide('intro');
   if (!silent && from !== id) logEvent('mode_switch', { from, to: id });
@@ -935,7 +1000,7 @@ function renderCell(i) {
   if (app.coachTargets && app.coachTargets.includes(i) && k < 0) cell.classList.add('hint');
   if (k < 0 && app.safeNext && app.safeNext.includes(i)) cell.classList.add('safe-next');
   // Auto Hand does not mark the dice of its hand (owner, 01.11.2026): finding it is the game. Nor the dice
-  // PLAY would burn: dimming them confused (owner, 02.11.2026); a line after the first reroll says it instead
+  // PLAY would burn: dimming them confused (owner, 02.11.2026), and since 03.11.2026 that is every die
   cell.style.setProperty('--die-img', `var(--face-${g.faces[i]}${g.held[i] ? '-held' : ''})`); // the rendered die, when 3D is on
   cell.style.setProperty('--die-plain', `var(--face-${g.faces[i]})`); // a burning die is not lime (owner, 01.11.2026)
   cell.setAttribute('aria-label', `Die ${g.faces[i]}${g.held[i] ? ', held' : ''}${sealed ? ', fixed' : ''}`);
@@ -996,7 +1061,7 @@ function renderHud() {
   const g = st.game;
   // THRESHOLD shows what the level still needs (owner, 02.11.2026): it counts down as hands score
   if (!app.scoreAnim) $('target').textContent = String(remaining(g.score, g));
-  for (const el of document.querySelectorAll('.level-text')) el.textContent = `${g.level.levelIndex}/${RUN_LEVELS}`;
+  for (const el of document.querySelectorAll('.level-text')) el.textContent = String(g.level.levelIndex); // no last level (owner, 03.11.2026)
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
 }
 
@@ -1594,11 +1659,6 @@ async function doReroll(source) {
   render();
   persist();
   autoTips();
-  if (M().id === 'auto' && !S().tips.burnHint) { // once: a reroll clears the holds, and PLAY burns what is not held
-    S().tips.burnHint = true;
-    toast('HOLD THE DICE YOU WANT TO KEEP · PLAY BURNS THE REST', 'hint', 3600);
-    persist();
-  }
 }
 
 async function attemptBank(path, source) {
@@ -1626,7 +1686,7 @@ async function attemptBank(path, source) {
   }
   const hand = r.hand;
   if (hand.index === 0) st.firstHandAt = Date.now();
-  logEvent('bank', { source, hand: hand.index, cells: hand.cells, faces: hand.faces, category: hand.category, points: hand.points, multiplier: hand.multiplier, total: hand.total, auto: hand.bonusAuto, refilled: r.refilled || [], help: hand.help, refund: hand.refund || 0 });
+  logEvent('bank', { source, hand: hand.index, cells: hand.cells, faces: hand.faces, category: hand.category, points: hand.points, multiplier: hand.multiplier, total: hand.total, auto: hand.bonusAuto, refilled: r.refilled || [], refund: hand.refund || 0 });
   persist(); // the irreversible hand survives a reload during the animation
   app.busy = true;
   clearTimeout(app.hintTimer);
@@ -1647,8 +1707,8 @@ async function attemptBank(path, source) {
   // A hand with a bonus is counted on the board like any other: the combination, then the bonus's hit
   // (owner, 03.11.2026: no full-screen bonus screen)
   showReveal(hand, { remaining: g.level.target - g.score });
-  // Auto Hand also burns the bonus dice the hand used (they pop with it) and every unheld die
-  // outside the hand (those fade out); the other modes pop only the hand. With the 3D dice the burnt
+  // Auto Hand also burns the bonus dice the hand used (they pop with it) and every other die
+  // (those fade out); the other modes pop only the hand. With the 3D dice the burnt
   // dice are thrown anew in place like a reroll (owner, 02.11.2026): only the used cards pop.
   // The level's last hand (the target reached, or no hands left) brings no new dice: its dice burn away and the
   // level's summary opens (owner, 02.11.2026)
@@ -1907,9 +1967,9 @@ function openGuide(mode) {
   const help = mode === 'help';
   $('bonusPic').innerHTML = help
     ? `<ul class="bonus-list">${Object.keys(GUIDE_BONUSES).map((k) => `<li>${guideTile(k, false)}<small>${GUIDE_BONUSES[k]}</small></li>`).join('')}</ul>`
-    : `<span class="tap">${guideTile('x2_any', false)}</span><span class="goal"><small>THRESHOLD</small><b>340</b><small>IN 3 HANDS</small></span>`;
+    : `<span class="tap">${guideTile('x2_any', false)}</span><span class="goal"><small>THRESHOLD</small><b>${runTarget(1)}</b><small>IN 3 HANDS</small></span>`;
   animateTiles($('bonusPic'));
-  $('bonusNote').textContent = help ? 'TAP TO SWITCH ON · THEY ADD UP' : '25 LEVELS IN A RUN';
+  $('bonusNote').textContent = help ? 'TAP TO SWITCH ON · THEY ADD UP' : 'MISS ONE AND THE RUN IS OVER';
   app.guide = { mode, page: help ? 1 : 0 };
   guide.classList.toggle('help', help);
   $('guideSkip').textContent = help ? 'CLOSE' : 'SKIP';
@@ -2028,8 +2088,8 @@ function openHelp() {
   // Hold cap and the auto ×2 belong to the snake modes
   $('optHoldCap').closest('label').hidden = mode.id === 'auto';
   $('optAutoBonus').closest('label').hidden = mode.id === 'auto';
-  const adaptive = mode.id === 'auto' && st.game ? ` · skill ${skillFrom(st.levels).toFixed(2)} · layout ${st.game.level.recipe || '—'}` : ` · tier ${st.tier}`;
-  $('runInfo').textContent = `${mode.name} · run ${st.runSeed} · level ${st.levelIndex}${adaptive} · generator ${mode.generatorVersion} · ${st.log.length} events logged locally`;
+  const run = mode.id === 'auto' && st.game ? ` · layout ${st.game.level.recipe || '—'} · run score ${st.runScore}${st.best ? ` · best level ${st.best.level} (${st.best.score})` : ''}` : ` · tier ${st.tier}`;
+  $('runInfo').textContent = `${mode.name} · run ${st.runSeed} · level ${st.levelIndex}${run} · generator ${mode.generatorVersion} · ${st.log.length} events logged locally`;
   $('difficultyRule').textContent = mode.difficultyText || DIFFICULTY_RULE_TEXT;
   $('logOut').hidden = true;
   $('help').hidden = false;

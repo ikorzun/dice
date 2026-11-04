@@ -466,6 +466,20 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .muted { color: var(--muted); }
 .small { font-size: 13px; line-height: 1.4; }
 .end-actions { display: grid; gap: 8px; margin-top: 4px; }
+/* The run's end (owner, 03.11.2026: a missed target ends the run): the level it got to over the level's score, and
+   the run's marks. Gold is the game's reward colour (the upgrade pick); lime stays for held dice, a switched-on
+   card and PLAY. */
+.run-reached { margin: 0; text-align: center; font: 700 24px/1 var(--font-display); color: var(--muted); }
+.run-reached b { display: block; margin-top: 4px; font-size: 96px; line-height: .9; color: var(--fg); font-variant-numeric: tabular-nums; }
+.overlay.run-over .end-score { font-size: 32px; color: var(--muted); }
+.run-mark { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; color: var(--gold); }
+.run-mark .end-sep { margin: 0; }
+.medal { display: inline-grid; place-items: center; width: 34px; height: 34px; border: 2px solid var(--gold); border-radius: 50%; color: var(--gold); font: 700 15px/1 var(--font-display); font-style: normal; font-variant-numeric: tabular-nums; }
+.medal.fresh { background: var(--gold); color: var(--btn-primary-fg); }
+.run-sum { display: grid; justify-items: center; gap: 10px; }
+.run-sum b { color: var(--gold); }
+.medals { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.medals .medal { width: 44px; height: 44px; font-size: 18px; }
 .lead { margin: 0; font-size: 16px; line-height: 1.45; }
 .rules { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--fg); }
 .sheet-panel h3 { margin: 8px 0 0; font: 700 16px/1 var(--font-display); letter-spacing: .16em; color: var(--muted); }

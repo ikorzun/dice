@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // Playwright smoke test for the built page: three phone viewports plus desktop. The screen is the
 // owner's Figma mockup (Auto Hand only): the title and guide, the tutorial, hold (lime), reroll, a bonus
-// switched on, the bonus screen and SKIP, three hands, the level end, LEVEL n/25 and the help
-// sheet; captures screenshots to dist/shots and fails on console errors, horizontal overflow or
-// controls outside the viewport.
+// switched on, the bonus screen and SKIP, three hands, the level end, the endless LEVEL n, the help
+// sheet, and a missed target ending the run (RUN OVER, the record kept); captures screenshots to dist/shots
+// and fails on console errors, horizontal overflow or controls outside the viewport.
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)('playwright'); // preinstalled globally in the cloud session
 import { mkdirSync } from 'node:fs';
@@ -109,7 +109,7 @@ for (const vp of viewports) {
   if (!layout.wide && (Math.abs(layout.play.width - layout.reroll.width) > 0.5 || Math.abs(layout.play.top - layout.reroll.top) > 0.5)) note(vp, 'PLAY and REROLL are not side by side');
   if (layout.wide && (Math.abs(layout.panelTop - layout.boardTop) > 1 || Math.abs(layout.controlsBottom - layout.boardBottom) > 1.5 || Math.abs(layout.play.top - layout.reroll.top) > 0.5 || layout.play.right > layout.reroll.left)) note(vp, 'desktop panel not level with the board, or PLAY not beside REROLL');
   console.log(`${vp.w}x${vp.h}: board ${layout.board.toFixed(0)}px, cell ${layout.cell.toFixed(0)}px, buttons bottom ${layout.controlsBottom.toFixed(0)}`);
-  if ((await text('#levelText')) !== '1/25') note(vp, `level text: ${await text('#levelText')}`);
+  if ((await text('#levelText')) !== '1') note(vp, `level text: ${await text('#levelText')}`);
   if (Number(await text('#target')) !== a.target) note(vp, 'THRESHOLD is not the target');
   if ((await text('#playBtn')) !== 'PLAY•3' || (await text('#rerollBtn')) !== 'REROLL•3') note(vp, `button labels: ${await text('#playBtn')} / ${await text('#rerollBtn')}`);
   if ((await text('#bones')) !== `${a.hand.hand.base}×${a.hand.hand.mult}`) note(vp, `the hand's value ${await text('#bones')} is not its sum × multiplier (${a.hand.hand.base}×${a.hand.hand.mult})`);
@@ -183,7 +183,8 @@ for (const vp of viewports) {
   await idle(page);
   if (!(await auto()).off[8]) note(vp, 'a reroll did not switch the bonus off');
   await tap(page, 8);
-  // held dice outside the hand survive it: hold one now, after the last reroll
+  // a held die outside the hand burns with the rest (owner, 03.11.2026): hold one now, after the last
+  // reroll; no hold is left after the hand
   a = await auto();
   const keep2 = a.cells.findIndex((t, i) => t === 'die' && !a.hand.cells.includes(i));
   if (keep2 >= 0) await tap(page, keep2);
@@ -209,7 +210,6 @@ for (const vp of viewports) {
   const b = await auto();
   if (b.hands !== 1 || b.handsLeft !== 2 || (b.score >= b.target) !== (b.phase === 'won')) note(vp, `first hand: hands=${b.hands} left=${b.handsLeft} phase=${b.phase}`);
   if (b.cells[8] !== 'die') note(vp, `a new die did not take the played ×2's cell (cell 8=${b.cells[8]})`);
-  if (keep2 >= 0 && b.phase === 'playing' && b.faces[keep2] !== a.faces[keep2]) note(vp, 'held die outside the hand did not survive the hand');
   if (b.held.some(Boolean)) note(vp, `dice still selected after the hand: ${b.held}`);
   // THRESHOLD counts down to what the level still needs (owner, 02.11.2026)
   await page.waitForTimeout(600);
@@ -230,20 +230,24 @@ for (const vp of viewports) {
   if (!(await page.$eval('#coach', (el) => el.hidden))) note(vp, 'tutorial bar still visible after the level ended');
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-7-end.png` });
   console.log(`${vp.w}x${vp.h}: auto level finished with ${a.score}/${a.target} (${a.phase})`);
-  if (a.phase === 'won') { // a won level offers three combinations to upgrade; the pick goes on (owner, 02.11.2026)
+  const firstWon = a.phase === 'won';
+  if (firstWon) { // a won level offers three combinations to upgrade; the pick goes on (owner, 02.11.2026)
     const offer = await page.$$eval('#upList .up', (els) => els.map((e) => e.dataset.cat));
-    if (offer.length !== 3 || !(await page.$eval('#nextBtn', (e) => e.hidden))) note(vp, `upgrade offer: ${offer}`);
+    if (offer.length !== 3 || !(await page.$eval('#nextBtn', (e) => e.hidden)) || !(await page.$eval('#retryBtn', (e) => e.hidden))) note(vp, `upgrade offer: ${offer}`);
     await page.click('#upList .up');
     const ups = await page.evaluate(() => window.__diceSnake.state().ups);
     if (!ups || ups[offer[0]] !== 1) note(vp, `the pick did not upgrade ${offer[0]}: ${JSON.stringify(ups)}`);
-  } else await page.click('#nextBtn');
+  } else { // level 1 is almost never lost; when it is, the run is over and a new one starts at level 1
+    console.log(`${vp.w}x${vp.h}: level 1 missed, the run starts again`);
+    await page.click('#nextBtn');
+  }
   await page.waitForTimeout(200);
   a = await auto();
-  if ((await text('#levelText')) !== '2/25') note(vp, `level text on level 2: ${await text('#levelText')}`);
+  if ((await text('#levelText')) !== (firstWon ? '2' : '1')) note(vp, `level text after level 1: ${await text('#levelText')}`);
   if (a.cells.filter((t) => t === 'die').length < 6) note(vp, `level 2 has ${a.cells.filter((t) => t === 'die').length} dice`);
   // level 2: its cards are dealt face down and turn over one by one, 2 s apart; each new kind's sheet follows
   const dealt = await page.$$eval('#board .cell.bonus', (els) => els.map((e) => e.classList.contains('face-down')));
-  if (!dealt.length || dealt.some((d) => !d)) note(vp, `level 2 cards not dealt face down: ${dealt}`);
+  if (firstWon && (!dealt.length || dealt.some((d) => !d))) note(vp, `level 2 cards not dealt face down: ${dealt}`);
   for (let n = 0; n < 2 && dealt.length; n++) {
     const got = await page.waitForFunction(() => !document.getElementById('bonusSheet').hidden, null, { timeout: 4500 }).then(() => true, () => false);
     if (!got) break;
@@ -275,6 +279,48 @@ for (const vp of viewports) {
   await page.waitForSelector('#board .cell');
   const after = await auto();
   if (after.level !== beforeReload.level || JSON.stringify(after.faces) !== JSON.stringify(beforeReload.faces)) note(vp, 'state not restored after reload');
+
+  // a missed target ends the run (owner, 03.11.2026), forced here by putting the target out of reach
+  await idle(page);
+  const reachedLevel = after.level;
+  await page.evaluate(() => { window.__diceSnake.state().game.level.target = 99999; });
+  while ((await auto()).handsLeft > 1) {
+    await page.click('#playBtn');
+    await page.waitForTimeout(1700);
+    await idle(page);
+  }
+  // the last hand: a reload in the middle of its count must still end the run and keep the record
+  await page.click('#playBtn');
+  await page.waitForTimeout(300);
+  const saved = await page.evaluate(() => { const m = JSON.parse(localStorage.getItem('dice-snake.v2')).modes.auto; return { phase: m.game.phase, counted: !!m.lastEnd && m.lastEnd.seed === m.game.level.seed }; });
+  if (saved.phase !== 'lost' || saved.counted) note(vp, `the reload did not land inside the last hand's count: ${JSON.stringify(saved)}`);
+  await page.reload();
+  await page.waitForSelector('#board .cell');
+  await page.waitForTimeout(400);
+  const over = await page.evaluate(() => {
+    const $ = (id) => document.getElementById(id);
+    const st = window.__diceSnake.state();
+    const next = $('nextBtn').getBoundingClientRect();
+    return {
+      shown: !$('levelEnd').hidden, runOver: $('levelEnd').classList.contains('run-over'), title: $('endTitle').textContent,
+      reached: $('runReached').hidden ? null : $('runLevel').textContent, why: $('runWhy').hidden ? null : $('runWhy').textContent,
+      stats: $('runSum').hidden ? null : $('runStats').textContent, next: $('nextBtn').hidden ? null : $('nextBtn').textContent, nextBottom: next.bottom,
+      retry: !$('retryBtn').hidden, upgrades: !$('upgrades').hidden, best: st.best, runScore: st.runScore,
+      reachedSize: $('runReached').hidden ? 0 : parseFloat(getComputedStyle($('runLevel')).fontSize),
+    };
+  });
+  if (!over.shown || !over.runOver || over.title !== 'RUN OVER' || over.reached !== String(reachedLevel) || !/^SHORT BY \d+/.test(over.why || '') || over.next !== 'NEW RUN' || over.retry || over.upgrades) note(vp, `run over: ${JSON.stringify(over)}`);
+  if (!over.best || over.best.level !== reachedLevel || (firstWon && over.best.score !== over.runScore) || !/RUN SCORE \d+/.test(over.stats || '')) note(vp, `the record after the run: ${JSON.stringify(over)}`);
+  if (over.nextBottom > vp.h + 0.5) note(vp, `NEW RUN below the viewport (${over.nextBottom.toFixed(0)} > ${vp.h})`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-10-run-over.png` });
+  await page.click('#nextBtn');
+  await page.waitForTimeout(300);
+  const fresh = await page.evaluate(() => { const st = window.__diceSnake.state(); return { level: st.game.level.levelIndex, phase: st.game.phase, runScore: st.runScore, ups: st.ups, bank: st.bank, best: st.best }; });
+  if (fresh.level !== 1 || fresh.phase !== 'playing' || fresh.runScore !== 0 || Object.keys(fresh.ups).length || fresh.bank.length || (await text('#levelText')) !== '1') note(vp, `new run: ${JSON.stringify(fresh)}`);
+  await page.reload();
+  await page.waitForSelector('#board .cell');
+  const kept = await page.evaluate(() => window.__diceSnake.state().best);
+  if (!kept || kept.level !== reachedLevel) note(vp, `the record did not survive a reload: ${JSON.stringify(kept)}`);
   await ctx.close();
 }
 await browser.close();

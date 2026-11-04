@@ -56,6 +56,18 @@ test('the greedy bot scores at least as much as the naive bot on average and use
   assert.ok(bonusHands >= 25, `greedy used bonuses on ${bonusHands} hands only`);
 });
 
+test('the greedy bot plays a hand that reaches the target at once instead of rerolling for more (a miss ends the run)', () => {
+  // three 6s (18 × 4 = 72) reach a target of 60: no reroll, one hand, the level won
+  const level = { seed: 'fin', levelIndex: 1, tier: 1, target: 60, hands: 3, rerolls: 3, faces: [6, 6, 6, 1, 2, 4, 5, null, null], layout: [...Array(7).fill({ type: 'die' }), { type: 'block' }, { type: 'block' }] };
+  const sure = playGreedyBot3(level, { rng: createRng('fin') });
+  assert.equal(sure.state.stats.rerollsUsed, 0);
+  assert.equal(sure.state.hands.length, 1);
+  assert.ok(sure.won);
+  // far from the target it still rerolls for the better hand
+  const far = playGreedyBot3({ ...level, target: 5000 }, { rng: createRng('fin') });
+  assert.ok(far.state.stats.rerollsUsed > 0);
+});
+
 test('experiment scoring options reach the engine through config.handOptions', () => {
   // 1 2 3 4 5 5 5 1 + a block: the straight (15 × 8) wins under the rules, the full house (85) with the Poker 5 straight ×5
   const level = { seed: 'opt', levelIndex: 1, tier: 1, target: 100, hands: 3, rerolls: 3, faces: [1, 2, 3, 4, 5, 5, 5, 1, null], layout: [...Array(8).fill({ type: 'die' }), { type: 'block' }] };
