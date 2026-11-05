@@ -92,6 +92,10 @@ SFX = {
     'bonus': (1.3, 'A triumphant short fantasy fanfare sting: a bright brassy synth hit with sparkling bells, a big score multiplier won in a card game. Exciting.' + NO),
     'refund': (0.8, 'A single gold coin flipped and landing on a wooden counter with a bright clink, and a tiny cheeky bird chirp.' + NO),
     'win': (1.8, 'A short joyful level-complete jingle: a rising arpeggio of warm chimes and a sparkling finish, cozy fantasy card game.' + NO),
+    # the lost run's receipt (owner's pick В12 A, GPT's spec): neutral, dry, no chord and no tail
+    'tally': (0.5, 'A single dry mechanical click of a small wooden tally counter: one short flat tick, no ring, no echo.' + NO),
+    'stop': (0.5, 'A single muted wooden knock, a game piece set down firmly on a felt table: dull, short, no ring, no tail.' + NO),
+    'paper': (0.5, 'A short dry slide of a paper receipt across a wooden table: one quick soft papery swish.' + NO),
 }  # (a menu click came out as a held tone both takes: the buttons tap with 'hold', higher)
 
 

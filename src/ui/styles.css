@@ -113,6 +113,9 @@
   --sfx-bonus: url("../../assets/sfx/bonus.mp3");
   --sfx-refund: url("../../assets/sfx/refund.mp3");
   --sfx-win: url("../../assets/sfx/win.mp3");
+  --sfx-tally: url("../../assets/sfx/tally.mp3");
+  --sfx-stop: url("../../assets/sfx/stop.mp3");
+  --sfx-paper: url("../../assets/sfx/paper.mp3");
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -195,11 +198,13 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 /* The pick is the way on (owner, 03.11.2026: «RETRY confuses; show that NEXT is choosing the upgrade»): no RETRY on a
    won level, the offer heads the way on and its combinations are the main buttons */
 .upgrades { margin: 14px 0 4px; }
-.up-head { margin: 0 0 4px; font: 700 22px/1.15 var(--font-display); color: var(--accent); text-align: center; text-wrap: balance; }
-.up-sub { margin: 0 0 12px; font: 500 13px/1.3 var(--font-display); color: var(--muted); text-align: center; }
-.up-list { display: grid; gap: 8px; }
-.up { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 8px 20px 8px 14px; border: 0; border-radius: 72px; background: var(--btn-primary-bg); color: var(--btn-primary-fg); font: 700 18px/1 var(--font-display); text-align: left; cursor: pointer; }
-.up .gdice { --gd: 22px; display: flex; gap: 3px; }
+.up-head { margin: 0; font: 700 calc(23.5px * var(--k, 1))/calc(31.3px * var(--k, 1)) var(--font-display); color: var(--accent); text-align: center; text-wrap: balance; }
+.up-sub { margin: 0 0 calc(11.7px * var(--k, 1)); font: 700 calc(11.7px * var(--k, 1))/calc(17.6px * var(--k, 1)) var(--font-display); color: #8f8f8f; text-align: center; }
+.up-list { display: grid; gap: calc(9.8px * var(--k, 1)); }
+/* GPT's spec (04.11.2026): dice | name | ×m → ×m+1 on a 370 px pill at 402 px; the longest name wraps to two lines */
+.up { display: grid; grid-template-columns: calc(104px * var(--k, 1)) 1fr auto; align-items: center; gap: calc(8px * var(--k, 1)); width: 100%; height: calc(56.7px * var(--k, 1)); padding: 0 calc(15px * var(--k, 1)) 0 calc(12px * var(--k, 1)); border: 0; border-radius: calc(28.4px * var(--k, 1)); background: var(--btn-primary-bg); color: var(--btn-primary-fg); font: 700 calc(16.6px * var(--k, 1))/1 var(--font-display); text-align: left; cursor: pointer; }
+.up .gdice { --gd: calc(16.6px * var(--k, 1)); display: flex; gap: calc(3px * var(--k, 1)); }
+.up b { font-weight: inherit; line-height: calc(14.7px * var(--k, 1)); }
 .up em { font-style: normal; color: inherit; white-space: nowrap; }
 .up:active { transform: scale(.97); }
 /* The bonus bank (owner, 02.11.2026): the bonuses kept from won levels, three places, as small cards of 64 px
@@ -450,7 +455,7 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .panel { width: min(100%, 420px); max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 .end-title { margin: 0; font: 700 40px/1 var(--font-title); letter-spacing: .12em; text-align: center; text-wrap: balance; }
 .end-title.lost { color: var(--bad); }
-.end-title.won { color: var(--good); }
+.end-title.won { color: var(--fg); } /* never lime or green: lime is held, on and PLAY (GPT's review, 04.11.2026) */
 .end-score { text-align: center; font: 700 64px/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .end-sep { color: var(--muted); margin: 0 10px; }
 .hands { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
@@ -466,20 +471,207 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .muted { color: var(--muted); }
 .small { font-size: 13px; line-height: 1.4; }
 .end-actions { display: grid; gap: 8px; margin-top: 4px; }
-/* The run's end (owner, 03.11.2026: a missed target ends the run): the level it got to over the level's score, and
-   the run's marks. Gold is the game's reward colour (the upgrade pick); lime stays for held dice, a switched-on
-   card and PLAY. */
-.run-reached { margin: 0; text-align: center; font: 700 24px/1 var(--font-display); color: var(--muted); }
-.run-reached b { display: block; margin-top: 4px; font-size: 96px; line-height: .9; color: var(--fg); font-variant-numeric: tabular-nums; }
-.overlay.run-over .end-score { font-size: 32px; color: var(--muted); }
-.run-mark { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; color: var(--gold); }
-.run-mark .end-sep { margin: 0; }
+/* Gold is the game's reward colour (the upgrade pick, medals); lime stays for held dice, a switched-on card and PLAY. */
 .medal { display: inline-grid; place-items: center; width: 34px; height: 34px; border: 2px solid var(--gold); border-radius: 50%; color: var(--gold); font: 700 15px/1 var(--font-display); font-style: normal; font-variant-numeric: tabular-nums; }
 .medal.fresh { background: var(--gold); color: var(--btn-primary-fg); }
-.run-sum { display: grid; justify-items: center; gap: 10px; }
-.run-sum b { color: var(--gold); }
-.medals { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.medals .medal { width: 44px; height: 44px; font-size: 18px; }
+/* A cleared level (owner's pick В11 A «Пробитый порог», 04.11.2026; GPT's production spec, boxes at 402 px in mockup
+   px × --k): on pure black, the white title over the honest score and how far past the threshold it went, a rail
+   kept for the medal and the record, the winning hand in one row, then the pick. On a tall screen the stack sits
+   lower (94 px at 874, 16 px at 660). While the moment plays (.playing) the page shows through; the pick waits until it has risen (.waiting). */
+#levelEnd:is(.won, .run-over) { align-items: flex-start; background: #000; padding-top: max(calc(env(safe-area-inset-top, 0px) + 16px), clamp(16px, calc(16px + (100vh - 660px) * .3645), 94px)); }
+@supports (height: 100svh) { #levelEnd:is(.won, .run-over) { padding-top: max(calc(env(safe-area-inset-top, 0px) + 16px), clamp(16px, calc(16px + (100svh - 660px) * .3645), 94px)); } }
+#levelEnd:is(.won, .run-over).playing { background: transparent; }
+#levelEnd.won.waiting .up, #levelEnd.run-over.waiting #nextBtn { pointer-events: none; }
+#levelEnd:is(.won, .run-over) .panel { width: calc(361px * var(--k, 1)); max-width: 100%; gap: 0; overflow: visible; }
+#levelEnd.won :is(#endHands, #endBonus, #endSolver, #endTier, .end-actions) { display: none; }
+#levelEnd.won .end-title { font-size: calc(30.3px * var(--k, 1)); line-height: calc(37.1px * var(--k, 1)); letter-spacing: 0; }
+#levelEnd.won .end-score { display: flex; align-items: center; justify-content: center; height: calc(58.7px * var(--k, 1)); font-size: calc(46.9px * var(--k, 1)); line-height: 1; }
+#levelEnd.won .end-sep { margin: 0 calc(8px * var(--k, 1)); }
+.end-over { margin-left: calc(10px * var(--k, 1)); padding: 0 calc(9px * var(--k, 1)); border-radius: calc(14px * var(--k, 1)); background: var(--gold); color: #000; font: 700 calc(13.7px * var(--k, 1))/calc(27.4px * var(--k, 1)) var(--font-display); white-space: nowrap; }
+.end-badges { display: flex; align-items: center; height: calc(35.2px * var(--k, 1)); margin-top: calc(7.8px * var(--k, 1)); padding-left: calc(7.8px * var(--k, 1)); }
+.end-medal { display: flex; align-items: center; gap: calc(8px * var(--k, 1)); color: var(--gold); font: 700 calc(15.6px * var(--k, 1))/1 var(--font-display); }
+.end-medal b { font-weight: inherit; }
+/* the medal is the threshold's shards put back together: a yellow disc with black seams and the level's number */
+.end-medal .medal { position: relative; width: calc(35.2px * var(--k, 1)); height: calc(35.2px * var(--k, 1)); border: calc(2px * var(--k, 1)) solid #000; outline: calc(1.5px * var(--k, 1)) solid var(--gold); background: var(--gold) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Cg stroke='%23000' stroke-width='1.2' stroke-linecap='round' fill='none'%3E%3Cpath d='M18 0 L16 9 M36 15 L27 17 M30 33 L24 26 M6 33 L12 26 M0 15 L9 17 M18 36 L19 29'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100%; color: #000; font-size: calc(17.6px * var(--k, 1)); }
+.end-best { margin-left: auto; padding: 0 calc(14px * var(--k, 1)); border: calc(2px * var(--k, 1)) solid var(--gold); border-radius: calc(16.6px * var(--k, 1)); background: #000; color: var(--gold); font: 700 calc(14.7px * var(--k, 1))/calc(29.2px * var(--k, 1)) var(--font-display); white-space: nowrap; }
+.end-hand, .hands li.end-hand { display: grid; grid-template-columns: calc(103.6px * var(--k, 1)) 1fr auto; align-items: center; gap: calc(8px * var(--k, 1)); height: calc(70.4px * var(--k, 1)); margin-top: calc(7.8px * var(--k, 1)); padding: 0 calc(11.7px * var(--k, 1)); border: 1.5px solid #3b3b3b; border-radius: calc(15.6px * var(--k, 1)); --gd: calc(21.5px * var(--k, 1)); }
+.end-hand .gdice { display: flex; gap: calc(3.9px * var(--k, 1)); }
+.end-hand b { display: block; font: 700 calc(16.6px * var(--k, 1))/1.05 var(--font-display); }
+.end-hand small { display: block; margin-top: calc(4px * var(--k, 1)); font: 700 calc(12.7px * var(--k, 1))/1 var(--font-display); color: #8f8f8f; white-space: nowrap; }
+.end-hand .pts { font: 700 calc(24.4px * var(--k, 1))/1 var(--font-display); font-variant-numeric: tabular-nums; }
+#levelEnd.won .upgrades { margin: calc(15.6px * var(--k, 1)) 0 0; }
+/* desktop (body.wide): the celebration where the board was, the pick in the panel's column */
+body.wide #levelEnd.won { align-items: center; padding-top: 16px; }
+body.wide #levelEnd.won .panel { width: calc(1134px * var(--k, 1)); height: calc(546px * var(--k, 1)); display: grid; grid-template-columns: calc(546px * var(--k, 1)) calc(546px * var(--k, 1)); column-gap: calc(42px * var(--k, 1)); align-content: start; }
+body.wide #levelEnd.won .panel > * { grid-column: 1; }
+body.wide #levelEnd.won .end-title { margin-top: calc(25px * var(--k, 1)); font-size: calc(42px * var(--k, 1)); line-height: calc(50px * var(--k, 1)); }
+body.wide #levelEnd.won .end-score { height: calc(74px * var(--k, 1)); margin-top: calc(4px * var(--k, 1)); font-size: calc(64px * var(--k, 1)); }
+body.wide .end-over { font-size: calc(17px * var(--k, 1)); line-height: calc(34px * var(--k, 1)); border-radius: calc(17px * var(--k, 1)); padding: 0 calc(12px * var(--k, 1)); }
+body.wide .end-badges { height: calc(40px * var(--k, 1)); margin: calc(16px * var(--k, 1)) calc(36px * var(--k, 1)) 0; padding-left: 0; }
+body.wide .end-medal { font-size: calc(17px * var(--k, 1)); }
+body.wide .end-medal .medal { width: calc(40px * var(--k, 1)); height: calc(40px * var(--k, 1)); font-size: calc(20px * var(--k, 1)); }
+body.wide .end-best { font-size: calc(16px * var(--k, 1)); line-height: calc(30px * var(--k, 1)); }
+body.wide .end-hand { height: calc(84px * var(--k, 1)); margin: calc(16px * var(--k, 1)) calc(36px * var(--k, 1)) 0; padding: 0 calc(16px * var(--k, 1)); grid-template-columns: calc(132px * var(--k, 1)) 1fr auto; border-radius: calc(18px * var(--k, 1)); --gd: calc(27px * var(--k, 1)); }
+body.wide .end-hand b { font-size: calc(21px * var(--k, 1)); }
+body.wide .end-hand small { font-size: calc(16px * var(--k, 1)); }
+body.wide .end-hand .pts { font-size: calc(30px * var(--k, 1)); }
+body.wide #levelEnd.won .upgrades { grid-column: 2; grid-row: 1 / span 9; margin-top: calc(41px * var(--k, 1)); }
+body.wide .up-head { font-size: calc(31px * var(--k, 1)); line-height: calc(42px * var(--k, 1)); margin-bottom: calc(4px * var(--k, 1)); }
+body.wide .up-sub { font-size: calc(14px * var(--k, 1)); line-height: calc(22px * var(--k, 1)); margin-bottom: calc(34px * var(--k, 1)); }
+body.wide .up-list { gap: calc(16px * var(--k, 1)); }
+body.wide .up { height: calc(72px * var(--k, 1)); grid-template-columns: calc(142px * var(--k, 1)) 1fr auto; padding: 0 calc(20px * var(--k, 1)) 0 calc(16px * var(--k, 1)); border-radius: calc(36px * var(--k, 1)); font-size: calc(22px * var(--k, 1)); }
+body.wide .up .gdice { --gd: calc(24px * var(--k, 1)); }
+body.wide .up b { line-height: calc(20px * var(--k, 1)); }
+/* the moment's own layers: the black that spreads over the board from the break, a bonus card's sticker on its way
+   to the count, the overshoot at the line; the shards' canvas is above them all */
+.win-black { position: fixed; inset: 0; z-index: 19; background: #000; pointer-events: none; }
+.medal-ring { position: fixed; z-index: 21; border: 2px solid var(--gold); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+.win-chip { position: fixed; z-index: 21; display: flex; align-items: center; justify-content: center; border-radius: 50%; pointer-events: none; }
+.win-over { position: fixed; z-index: 21; padding: 0 calc(8px * var(--k, 1)); border-radius: calc(12px * var(--k, 1)); background: var(--gold); color: #000; font: 700 calc(12px * var(--k, 1))/calc(22px * var(--k, 1)) var(--font-display); white-space: nowrap; pointer-events: none; }
+.shards-layer { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 22; pointer-events: none; }
+.reveal.win { animation: revealWin 180ms cubic-bezier(.2, 1.4, .3, 1) forwards; }
+@keyframes revealWin { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.88); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+/* A lost run (owner's pick В12 A «Честный чек», 04.11.2026; GPT's production spec, boxes at 402 px in mockup px × --k):
+   the cleared screen's stack on pure black, its mirror. RUN OVER in red over the level's score with how far it fell
+   short; the level and the rerolls left unused beside the board as its last hand was played (drawn like the board,
+   whole, then scaled into its corner); the level's three hands in the cleared screen's row, the last outlined red;
+   the run, the record and the gap to it; the run's medals; NEW RUN in white: a restart is not a reward. */
+#levelEnd.run-over .panel { display: grid; grid-template-columns: calc(244.4px * var(--k, 1)) calc(109.5px * var(--k, 1)); column-gap: calc(7.8px * var(--k, 1)); align-items: start; }
+#levelEnd.run-over .panel > * { grid-column: 1 / -1; }
+#levelEnd.run-over :is(#endBonus, #endSolver, #endTier, #retryBtn) { display: none; }
+#levelEnd.run-over .end-title { font-size: calc(30.3px * var(--k, 1)); line-height: calc(37.1px * var(--k, 1)); letter-spacing: 0; }
+#levelEnd.run-over .end-score { grid-column: 1; display: grid; grid-template-columns: auto auto auto; justify-content: start; align-content: center; align-items: center; row-gap: calc(4px * var(--k, 1)); height: calc(58.7px * var(--k, 1)); font-size: calc(33.2px * var(--k, 1)); line-height: 1; white-space: nowrap; } /* GPT's 38 px score and its chip side by side are 315 px in a 250 px box: the chip goes under the score */
+#levelEnd.run-over .end-sep { margin: 0 calc(6px * var(--k, 1)); color: #9a9a9a; }
+#levelEnd.run-over #endTarget { color: #9a9a9a; }
+.end-over.short { grid-column: 1 / -1; justify-self: start; margin-left: 0; background: var(--bad); font-size: calc(11.7px * var(--k, 1)); line-height: calc(21.5px * var(--k, 1)); border-radius: calc(11px * var(--k, 1)); padding: 0 calc(8px * var(--k, 1)); } /* the pill the line gave it */
+#levelEnd.run-over .run-reached { grid-column: 1; display: flex; align-items: center; gap: calc(6px * var(--k, 1)); height: calc(43px * var(--k, 1)); margin: calc(7.8px * var(--k, 1)) 0 0; padding: 0 calc(11.7px * var(--k, 1)); border: 1.5px solid #3b3b3b; border-radius: calc(13.7px * var(--k, 1)); font: 700 calc(10.8px * var(--k, 1))/1 var(--font-display); color: #9a9a9a; white-space: nowrap; }
+.run-reached b { font-size: calc(16.6px * var(--k, 1)); color: var(--fg); font-variant-numeric: tabular-nums; }
+.run-reached i { font-style: normal; margin: 0 calc(2px * var(--k, 1)); }
+#levelEnd.run-over .end-board { grid-column: 2; grid-row: 2 / span 2; position: relative; width: calc(109.5px * var(--k, 1)); height: calc(109.5px * var(--k, 1)); margin-top: calc(3.9px * var(--k, 1)); --kb: var(--k, 1); --board: calc(360px * var(--kb)); --mini: .30417; }
+.end-board .grid { position: absolute; left: 0; top: 0; width: var(--board); height: var(--board); display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); gap: calc(6px * var(--kb)); transform: scale(var(--mini)); transform-origin: 0 0; }
+#levelEnd .end-board .cell { animation: none; }
+.end-board .cell.die { background: var(--die-img) center / 100% 100% no-repeat; box-shadow: none; }
+#levelEnd.run-over .hands { gap: calc(7.8px * var(--k, 1)); margin-top: calc(11.7px * var(--k, 1)); }
+.hands li.end-hand { margin: 0; letter-spacing: 0; }
+.hands li.end-hand b { font-size: calc(14.4px * var(--k, 1)); } /* THREE OF A KIND beside a three-digit total, in one line */
+.hands li.end-hand i { display: block; margin-bottom: calc(3px * var(--k, 1)); font: 700 calc(10.8px * var(--k, 1))/1 var(--font-display); font-style: normal; color: #9a9a9a; }
+.hands li.end-hand { grid-template-columns: calc(103.6px * var(--k, 1)) minmax(0, 1fr) auto; } /* a long name with a long total takes two lines, never the screen's edge */
+.hands li.end-hand.lose { border: 2px solid var(--bad); }
+#levelEnd.run-over .run-sum { display: grid; justify-items: center; margin-top: calc(7.8px * var(--k, 1)); text-align: center; }
+.run-stats { margin: 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; min-height: calc(23px * var(--k, 1)); gap: calc(2px * var(--k, 1)) calc(4px * var(--k, 1)); font: 700 calc(16.6px * var(--k, 1))/1.15 var(--font-display); color: var(--fg); }
+.run-stats span { white-space: nowrap; } /* a very long run takes a second line */
+.run-stats.two { flex-direction: column; align-items: center; }
+.run-stats.two i, .run-stats.two + .run-gap { display: none; }
+.run-stats i { font-style: normal; color: #9a9a9a; }
+.run-stats span:last-child b { color: #9a9a9a; font-size: calc(14.7px * var(--k, 1)); }
+.best-badge { display: inline-block; margin-left: calc(6px * var(--k, 1)); padding: 0 calc(7px * var(--k, 1)); border-radius: calc(5px * var(--k, 1)); background: var(--gold); color: #000; font: 700 calc(12.7px * var(--k, 1))/calc(21.5px * var(--k, 1)) var(--font-display); font-style: normal; vertical-align: middle; }
+.run-gap { margin: 0; height: calc(20px * var(--k, 1)); font: 700 calc(12.7px * var(--k, 1))/calc(20px * var(--k, 1)) var(--font-display); color: #9a9a9a; }
+.medal-rail { display: flex; align-items: center; justify-content: center; gap: calc(23.5px * var(--k, 1)); height: calc(35.2px * var(--k, 1)); margin-top: calc(7.8px * var(--k, 1)); font: 700 calc(11.7px * var(--k, 1))/1 var(--font-display); color: #9a9a9a; }
+.medal-group { display: flex; align-items: center; gap: calc(8px * var(--k, 1)); }
+.medals { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: calc(3.9px * var(--k, 1)); }
+.medals .medal { width: calc(27.4px * var(--k, 1)); height: calc(27.4px * var(--k, 1)); border-width: calc(2px * var(--k, 1)); font-size: calc(12.7px * var(--k, 1)); }
+.medals .none { font-size: calc(16.6px * var(--k, 1)); }
+#levelEnd.run-over .end-actions { margin-top: calc(19.6px * var(--k, 1)); }
+#levelEnd.run-over #nextBtn { height: calc(56.7px * var(--k, 1)); border-radius: calc(28.4px * var(--k, 1)); background: #fff; color: #000; font-size: calc(21.5px * var(--k, 1)); letter-spacing: 0; }
+#levelEnd.run-over.waiting #nextBtn { background: #3b3b3b; color: #9a9a9a; } /* grey until it can be tapped, white from that frame on (GPT's review) */
+/* the moment's own layers, under the receipt's black: the count where the hand is named, SHORT BY N at the line,
+   the line itself */
+.loss-count { position: fixed; z-index: 19; display: grid; justify-items: center; gap: calc(2px * var(--k, 1)); transform: translateY(-50%); font: 700 calc(15.6px * var(--k, 1))/1 var(--font-display); color: var(--fg); text-align: center; white-space: nowrap; pointer-events: none; }
+.loss-count span { display: flex; align-items: baseline; gap: calc(5px * var(--k, 1)); }
+.loss-count em { font-style: normal; font-size: calc(27.4px * var(--k, 1)); font-variant-numeric: tabular-nums; }
+.loss-count small { font-size: calc(12.7px * var(--k, 1)); color: #9a9a9a; }
+.loss-short { position: fixed; z-index: 19; padding: 0 calc(8px * var(--k, 1)); border-radius: calc(11px * var(--k, 1)); background: var(--bad); color: #000; font: 700 calc(11.7px * var(--k, 1))/calc(21.5px * var(--k, 1)) var(--font-display); white-space: nowrap; pointer-events: none; }
+.loss-line { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 19; pointer-events: none; }
+/* desktop: the receipt where the board was, the run and NEW RUN in the panel's column, at GPT's boxes */
+body.wide #levelEnd.run-over { align-items: center; padding-top: 16px; }
+body.wide #levelEnd.run-over .panel { position: relative; display: block; width: calc(1134px * var(--k, 1)); height: calc(546px * var(--k, 1)); }
+body.wide #levelEnd.run-over .panel > * { position: absolute; margin: 0; }
+body.wide #levelEnd.run-over .end-title { left: 0; top: 0; width: calc(546px * var(--k, 1)); font-size: calc(40px * var(--k, 1)); line-height: calc(48px * var(--k, 1)); }
+body.wide #levelEnd.run-over .end-score { left: 0; top: calc(48px * var(--k, 1)); width: calc(366px * var(--k, 1)); height: calc(76px * var(--k, 1)); font-size: calc(54px * var(--k, 1)); }
+body.wide .end-over.short { font-size: calc(14px * var(--k, 1)); line-height: calc(32px * var(--k, 1)); border-radius: calc(16px * var(--k, 1)); padding: 0 calc(11px * var(--k, 1)); }
+body.wide #levelEnd.run-over .run-reached { left: 0; top: calc(132px * var(--k, 1)); width: calc(366px * var(--k, 1)); height: calc(48px * var(--k, 1)); font-size: calc(13px * var(--k, 1)); }
+body.wide .run-reached b { font-size: calc(20px * var(--k, 1)); }
+body.wide #levelEnd.run-over .end-board { left: calc(384px * var(--k, 1)); top: calc(54px * var(--k, 1)); width: calc(162px * var(--k, 1)); height: calc(162px * var(--k, 1)); --kb: calc(var(--k, 1) * 1.5); --board: calc(546px * var(--k, 1)); --mini: .29670; }
+body.wide .end-board .grid { gap: calc(12px * var(--k, 1)); }
+body.wide #levelEnd.run-over .hands { left: 0; top: calc(236px * var(--k, 1)); width: calc(546px * var(--k, 1)); }
+body.wide .hands li.end-hand { height: calc(72px * var(--k, 1)); margin: 0; grid-template-columns: calc(132px * var(--k, 1)) minmax(0, 1fr) auto; }
+body.wide .hands li.end-hand b { font-size: calc(21px * var(--k, 1)); }
+body.wide #levelEnd.run-over .run-sum { left: calc(588px * var(--k, 1)); top: 0; width: calc(546px * var(--k, 1)); height: auto; display: block; }
+body.wide .run-stats { display: block; height: auto; }
+body.wide .run-stats i { display: none; }
+body.wide .run-stats span { display: block; }
+body.wide .run-stats span:first-child { font-size: calc(30px * var(--k, 1)); line-height: calc(48px * var(--k, 1)); }
+body.wide .run-stats span:last-child { margin-top: calc(12px * var(--k, 1)); font-size: calc(24px * var(--k, 1)); line-height: calc(56px * var(--k, 1)); }
+body.wide .run-stats span:last-child b { font-size: inherit; color: var(--fg); }
+body.wide .best-badge { font-size: calc(13px * var(--k, 1)); line-height: calc(22px * var(--k, 1)); }
+body.wide .run-gap { margin-top: calc(12px * var(--k, 1)); height: calc(40px * var(--k, 1)); font-size: calc(18px * var(--k, 1)); line-height: calc(40px * var(--k, 1)); }
+body.wide .medal-rail { margin-top: calc(16px * var(--k, 1)); height: calc(48px * var(--k, 1)); font-size: calc(14px * var(--k, 1)); }
+body.wide .medals .medal { width: calc(32px * var(--k, 1)); height: calc(32px * var(--k, 1)); font-size: calc(14px * var(--k, 1)); }
+body.wide #levelEnd.run-over .end-actions { left: calc(588px * var(--k, 1)); top: calc(307px * var(--k, 1)); width: calc(546px * var(--k, 1)); }
+body.wide #levelEnd.run-over #nextBtn { height: calc(96px * var(--k, 1)); border-radius: calc(48px * var(--k, 1)); font-size: calc(30px * var(--k, 1)); }
+body.wide .loss-count { font-size: calc(20px * var(--k, 1)); }
+body.wide .loss-count em { font-size: calc(36px * var(--k, 1)); }
+body.wide .loss-count small { font-size: calc(16px * var(--k, 1)); }
+body.wide .loss-short { font-size: calc(14px * var(--k, 1)); line-height: calc(28px * var(--k, 1)); border-radius: calc(14px * var(--k, 1)); padding: 0 calc(10px * var(--k, 1)); }
+/* The act strip (owner's pick В13 A «Акты по пять уровней», 05.11.2026; GPT's production spec, boxes at 402 px in
+   mockup px × --k): the current act's four nodes and the bigger medal seal, in LEVEL's box beside its label, adding no
+   height to the column; the BEST mark in the gap under the board. Drawn in acts.js, again on the cleared screen and in
+   the receipt at their own sizes (--an node, --ag gap, --as seal). No lime: lime is held, on and PLAY. */
+.act { position: relative; display: inline-flex; align-items: center; flex: none; height: var(--as); --an: calc(23.5px * var(--k, 1)); --ag: calc(7.8px * var(--k, 1)); --as: calc(31.3px * var(--k, 1)); pointer-events: none; }
+.act-node { display: block; flex: none; width: var(--an); height: var(--an); }
+.act-node .ring { fill: #000; stroke: #9a9a9a; stroke-width: 1.5; }
+.act-node .disc { fill: #fff; stroke: #000; stroke-width: 1.1; opacity: 0; transition: fill 120ms linear, opacity 180ms cubic-bezier(.2, .8, .2, 1); }
+.act-node.done .disc, .act-node.current .disc { opacity: 1; }
+.act-node .dot, .act-node .tick { opacity: 0; transition: opacity 180ms cubic-bezier(.2, .8, .2, 1); }
+.act-node .dot { fill: #000; }
+.act-node .tick { fill: none; stroke: #000; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round; }
+.act-node.current .dot, .act-node.done .tick { opacity: 1; }
+.act-link { flex: none; width: var(--ag); height: max(1px, calc(1px * var(--k, 1))); background: #3b3b3b; }
+.act-link.on { background: #fff; }
+.act-seal { position: relative; display: grid; place-items: center; flex: none; width: var(--as); height: var(--as); color: #9a9a9a; font: 700 calc(var(--as) * .366)/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.act-seal svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.act-seal b { position: relative; font-weight: inherit; }
+.act-seal .disc { fill: #000; stroke: #9a9a9a; stroke-width: 1.2; transition: fill 120ms linear; }
+.act-seal .seams { fill: none; stroke: #3b3b3b; stroke-width: 1.2; stroke-linecap: round; }
+.act-seal.current { color: #000; }
+.act-seal.current .disc { fill: #fff; stroke: #000; }
+.act-seal.current .seams { stroke: #000; }
+.act-seal.cleared { color: #000; }
+.act-seal.cleared .disc { fill: var(--gold); stroke: #000; } /* the medal of the cleared screen */
+.act-seal.cleared .seams { stroke: #000; }
+.act-node.current.miss .disc, .act-seal.current.miss .disc { fill: var(--bad); } /* the level the run ended on, as SHORT BY N comes */
+.act.enter .act-node.current .dot { animation: actInk 240ms cubic-bezier(.2, .8, .2, 1); }
+.act.enter .act-seal.current .seams { animation: actSeam 240ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes actInk { from { fill: #9a9a9a; } }
+@keyframes actSeam { from { stroke: #9a9a9a; } }
+.act-best { position: absolute; left: calc(var(--i, 0) * (var(--an) + var(--ag)) + var(--an) / 2); bottom: calc(100% - (var(--as) - var(--an)) / 2); transform: translateX(-50%); padding-bottom: calc(3.9px * var(--k, 1)); color: var(--gold); font: 700 calc(10.8px * var(--k, 1))/1 var(--font-display); white-space: nowrap; }
+.act-best::after { content: ''; position: absolute; left: 50%; bottom: 0; width: calc(5px * var(--k, 1)); height: calc(3.9px * var(--k, 1)); margin-left: calc(-2.5px * var(--k, 1)); background: var(--gold); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.act-best.on-seal { left: calc(4 * (var(--an) + var(--ag)) + var(--as) / 2); bottom: 100%; }
+.act-best.far { left: 50%; bottom: 100%; padding-bottom: calc(2px * var(--k, 1)); }
+.act-best.far::after { content: none; }
+.act-best i { font-style: normal; }
+/* on the cleared screen a record on the seal stands left of it, pointing at its upper left */
+#endAct .act-best.on-seal { transform: translateX(calc(-50% - 11.7px * var(--k, 1))); }
+#endAct .act-best.on-seal::after { left: calc(50% - .5px * var(--k, 1)); bottom: calc(-3.4px * var(--k, 1)); width: calc(3.9px * var(--k, 1)); height: calc(3.9px * var(--k, 1)); margin: 0; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+#runAct .act-best { display: none; } /* the receipt's summary, just above, says the record in words */
+#actStrip { position: absolute; left: calc(46.5px * var(--k, 1)); top: calc(-1.2px * var(--k, 1)); --an: calc(11px * var(--k, 1)); --ag: calc(2px * var(--k, 1)); --as: calc(20px * var(--k, 1)); }
+#levelStat { position: relative; }
+#endAct { align-self: center; margin-top: calc(17.6px * var(--k, 1)); --an: calc(13.7px * var(--k, 1)); --ag: calc(3.9px * var(--k, 1)); --as: calc(23.5px * var(--k, 1)); }
+body.wide #actStrip { left: auto; right: 0; top: calc(67px * var(--k, 1)); --an: calc(15px * var(--k, 1)); --ag: calc(4px * var(--k, 1)); --as: calc(24px * var(--k, 1)); }
+body.wide #endAct { position: absolute; left: calc(771px * var(--k, 1)); top: calc(429px * var(--k, 1)); width: calc(180px * var(--k, 1)); justify-content: center; margin: 0; --an: calc(16px * var(--k, 1)); --ag: calc(5px * var(--k, 1)); --as: calc(28px * var(--k, 1)); }
+body.wide #levelEnd.won .panel { position: relative; }
+body.wide #runAct { --an: calc(24px * var(--k, 1)); --ag: calc(8px * var(--k, 1)); --as: calc(32px * var(--k, 1)); }
+/* in play on the desktop BEST hangs under the strip: above it a long LEVEL number would meet it */
+body.wide #actStrip .act-best { bottom: auto; top: calc(100% - (var(--as) - var(--an)) / 2); padding: calc(3.9px * var(--k, 1)) 0 0; }
+body.wide #actStrip .act-best::after { top: 0; bottom: auto; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+body.wide #actStrip .act-best.on-seal { top: 100%; }
+body.wide #actStrip .act-best.far { left: auto; right: 0; top: 100%; transform: none; padding-top: calc(2px * var(--k, 1)); text-align: right; }
+/* a phone on its side: the words stop shrinking at 6.8 px; the far record takes two lines */
+@media (max-height: 500px) {
+  body.wide .act .act-best { font-size: 6.8px; line-height: 7.2px; }
+  body.wide #actStrip .act-best { padding-top: 3px; }
+  body.wide #actStrip .act-best.far i { display: block; }
+}
 .lead { margin: 0; font-size: 16px; line-height: 1.45; }
 .rules { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--fg); }
 .sheet-panel h3 { margin: 8px 0 0; font: 700 16px/1 var(--font-display); letter-spacing: .16em; color: var(--muted); }

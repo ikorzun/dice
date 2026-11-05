@@ -51,9 +51,29 @@ const KNIGHT_DUCK = [
   [1.05, 0.97, -2, 0, 0, 2, 0], // 15 falling
   [1, 1, 0, 0, 0, 2, 4], // 16 the next beat lands him
 ];
+// The win (owner's pick В11 A, 04.11.2026; GPT's victory act): he sinks, springs up stiff and upright, the tulip snapped
+// up like a salute (drawing 6, the key pose), glances left and right, and lands.
+const KNIGHT_WIN = [
+  [0.96, 1.04, 18, 0, 0, 2, 8],
+  [0.9, 1.08, 34, 0, 0, 4, 14],
+  [1.08, 0.95, -18, -2, 0, -6, -12],
+  [1.14, 0.92, -42, -4, -4, -8, -18],
+  [1.1, 0.94, -50, -3, 8, -8, -24],
+  [1.08, 0.95, -52, 0, 0, -10, -30],
+  [1.08, 0.95, -52, 0, 0, -10, -30],
+  [1.06, 0.96, -46, 3, -12, -7, -18],
+  [1.06, 0.96, -46, -3, 12, -7, -10],
+  [0.98, 1.02, -30, 0, 0, 2, 16],
+  [1.04, 0.98, -36, 0, 0, -4, -8],
+  [1.02, 0.99, -24, 0, 0, -2, -4],
+  [1.01, 0.995, -14, 0, 0, 0, 2],
+  [0.98, 1.02, 4, 0, 0, 2, 6],
+  [1.01, 0.99, -3, 0, 0, 0, 2],
+  [1, 1, 0, 0, 0, 0, 0],
+];
 function knightPose(k, act) {
   const side = act ? 1 : mod(k, 16) < 8 ? 1 : -1;
-  const [sy, sx, dy, lean, px, py, tulip] = act ? row(KNIGHT_DUCK, act.e) : KNIGHT_BEAT[mod(k, BEAT)];
+  const [sy, sx, dy, lean, px, py, tulip] = act ? row(act.name === 'win' ? KNIGHT_WIN : KNIGHT_DUCK, act.e) : KNIGHT_BEAT[mod(k, BEAT)];
   const pupil = { dx: px * side, dy: py };
   return { head: { sy, sx, dy, rot: lean * side }, pupilL: pupil, pupilR: pupil, flower: { rot: tulip } };
 }
@@ -91,15 +111,35 @@ const BUG_HMPH = [
   [1.04, 0.975, -2, 0, 1, 0, 0, -1], // 15 falling
   [1, 1, 0, 0, 1, 0, 0, 0], // 16
 ];
+// The win: it rises glaring and stamps the star staff down, feelers thrown forward (drawing 7), then settles. Same row.
+const BUG_WIN = [
+  [0.95, 1.04, 18, 2, 0.94, 8, -4, 4],
+  [0.9, 1.08, 34, 4, 0.9, 16, -12, 10],
+  [1.08, 0.95, -16, -5, 1.08, -10, -24, -12],
+  [1.12, 0.93, -38, -8, 1.12, -18, -30, -18],
+  [1.08, 0.95, -44, -6, 1.08, -14, -34, -22],
+  [1.04, 0.98, -36, 3, 0.98, 10, -12, 10],
+  [0.94, 1.05, -18, 0, 1.16, 24, 22, 0],
+  [0.94, 1.05, -18, 0, 1.16, 24, 22, 0],
+  [1.08, 0.95, -32, -3, 1.06, -8, 2, -8],
+  [1.05, 0.97, -28, 2, 1.02, 6, 8, 4],
+  [1.02, 0.99, -20, -2, 1, -4, 4, -2],
+  [0.98, 1.02, -8, 1, 0.98, 4, 2, 1],
+  [1.01, 0.99, -12, 0, 1, 0, 0, 0],
+  [0.99, 1.01, 3, 0, 1, 2, 2, 0],
+  [1.01, 0.99, -2, 0, 1, 0, 0, 0],
+  [1, 1, 0, 0, 1, 0, 0, 0],
+];
 function bugPose(k, act) {
   const side = mod(k, 16) < 8 ? 1 : -1;
   let head, pupil, staff, feel;
   if (act) {
-    const [sy, sx, dy, rot, ps, , sd, sr] = row(BUG_HMPH, act.e);
+    const table = act.name === 'win' ? BUG_WIN : BUG_HMPH;
+    const [sy, sx, dy, rot, ps, , sd, sr] = row(table, act.e);
     head = { sy, sx, dy, rot };
     pupil = { sx: ps, sy: ps };
     staff = { dy: sd, rot: sr };
-    feel = (late) => row(BUG_HMPH, Math.max(0, act.e - late))[5];
+    feel = (late) => row(table, Math.max(0, act.e - late))[5];
   } else {
     const [sy, sx, dy, lean, py, sd, sr] = BUG_BEAT[mod(k, BEAT)];
     head = { sy, sx, dy, rot: lean * side };
@@ -153,11 +193,30 @@ const PAIR_LEAP = [
   [[1.04, 0.98, -4, 0, 0, 0], [-4, 1.03]], // 15
   [[1, 1, 0, 0, 0, 2], [0, 1]], // 16
 ];
+// The win: the little one leaps highest (drawing 5) while the tall one barely lifts, bored. Same row.
+const PAIR_WIN = [
+  [[0.96, 1.04, 18, 0, 0, 2], [4, 0.99]],
+  [[0.9, 1.08, 34, -4, 0, 4], [8, 0.98]],
+  [[1.08, 0.95, -32, 8, -4, -6], [-2, 1.01]],
+  [[1.14, 0.92, -82, -8, 5, -8], [-5, 1.015]],
+  [[1.1, 0.94, -112, 5, 0, -10], [-8, 1.02]],
+  [[1.1, 0.94, -112, 5, 0, -10], [-8, 1.02]],
+  [[1.06, 0.97, -96, -6, -7, -6], [-6, 1.015]],
+  [[1.06, 0.97, -88, 7, 7, -5], [-4, 1.01]],
+  [[0.94, 1.05, 12, 0, 0, 4], [2, 0.995]],
+  [[1.08, 0.95, -48, -4, -4, -4], [-3, 1.01]],
+  [[1.04, 0.98, -34, 3, 4, -2], [-2, 1.005]],
+  [[1.02, 0.99, -24, -2, 0, 0], [-1, 1]],
+  [[0.98, 1.02, 4, 0, 0, 2], [1, 0.998]],
+  [[1.02, 0.99, -10, 1, 0, 0], [0, 1]],
+  [[0.99, 1.01, 2, 0, 0, 0], [0, 1]],
+  [[1, 1, 0, 0, 0, 0], [0, 1]],
+];
 function pairPose(k, act) {
   const side = mod(k, 16) < 8 ? 1 : -1;
   let kid, pupil, tall;
   if (act) {
-    const [[sy, sx, dy, lean, px, py], [tdy, tsy]] = row(PAIR_LEAP, act.e);
+    const [[sy, sx, dy, lean, px, py], [tdy, tsy]] = row(act.name === 'win' ? PAIR_WIN : PAIR_LEAP, act.e);
     kid = { sy, sx, dy, rot: lean };
     pupil = { dx: px, dy: py };
     tall = { dy: tdy, sy: tsy, sx: 2 - tsy };
@@ -204,9 +263,28 @@ const TRIO_TEETER = [
   [1, 1, 1, 1.02, -2], // 15
   [0, 0, 0, 1, 0], // 16
 ];
+// The win: the stack wobbles wildly one way and the other, then snaps into a proud straight tower (drawing 7). Same row.
+const TRIO_WIN = [
+  [2, -3, 4, 0.96, 14],
+  [5, -8, 10, 0.9, 32],
+  [-8, 12, -14, 1.08, -18],
+  [-13, 17, -20, 1.12, -38],
+  [16, -20, 22, 1.08, -48],
+  [-18, 22, -24, 1.06, -52],
+  [0, 0, 0, 1.1, -54],
+  [0, 0, 0, 1.1, -54],
+  [12, -14, 16, 0.96, -30],
+  [-10, 12, -13, 1.04, -34],
+  [7, -8, 9, 1.02, -24],
+  [-5, 6, -7, 0.99, -12],
+  [3, -4, 4, 1.01, -8],
+  [-2, 2, -2, 0.98, 3],
+  [1, -1, 1, 1.01, -2],
+  [0, 0, 0, 1, 0],
+];
 function trioPose(k, act) {
   if (act) {
-    const [b, m, t, sy, dy] = row(TRIO_TEETER, act.e).map((v, i) => (i < 3 ? v * act.dir : v));
+    const [b, m, t, sy, dy] = row(act.name === 'win' ? TRIO_WIN : TRIO_TEETER, act.e).map((v, i) => (i < 3 ? v * act.dir : v));
     return { bot: { rot: b, sy, sx: 2 - sy, dy }, mid: { rot: m - b }, top: { rot: t - m } };
   }
   const at = (late) => { // the bottom one's pose `late` drawings ago, with the lean of its beat
@@ -254,9 +332,28 @@ const SKULL_CACKLE = [
   [1.05, 0.97, -4, 0.5, 0, 1, 90, 0], // 15 falling, stretched
   [1, 1, 0, 0, 0, 1, 90, 0], // 16 the next beat lands it (a four-point star a quarter turn on looks the same)
 ];
+// The win: it rises into a cackle, jaw wide and the star swelling (drawing 5), and laughs itself back down. Same row.
+const SKULL_WIN = [
+  [0.96, 1.04, 16, 2, -6, 0.8, -8, 2],
+  [0.9, 1.08, 32, -3, -14, 0.7, -16, 4],
+  [1.08, 0.95, -24, 6, -24, 1.2, 14, -6],
+  [1.12, 0.93, -48, -8, -30, 1.4, -18, -10],
+  [1.1, 0.94, -58, 10, -34, 1.55, 24, -12],
+  [1.1, 0.94, -58, 10, -34, 1.55, 24, -12],
+  [1.06, 0.97, -50, -9, -28, 1.35, -22, -8],
+  [1.08, 0.95, -54, 8, -34, 1.6, 28, -10],
+  [0.96, 1.04, -30, -6, -20, 1.2, -16, -4],
+  [1.06, 0.97, -38, 5, -28, 1.4, 18, -6],
+  [1.02, 0.99, -26, -4, -18, 1.18, -10, -3],
+  [1.01, 0.995, -18, 3, -12, 1.1, 8, -2],
+  [0.98, 1.02, 3, -2, -6, 0.9, -4, 1],
+  [1.02, 0.99, -8, 1, -4, 1.05, 2, 0],
+  [0.99, 1.01, 2, 0, -2, 1, 0, 0],
+  [1, 1, 0, 0, 0, 1, 0, 0],
+];
 function skullPose(k, act) {
   if (act) {
-    const [sy, sx, dy, rot, jaw, star, turn, iy] = row(SKULL_CACKLE, act.e);
+    const [sy, sx, dy, rot, jaw, star, turn, iy] = row(act.name === 'win' ? SKULL_WIN : SKULL_CACKLE, act.e);
     const grip = act.e >= 2 && act.e <= 10 ? (act.e % 2 ? 0.97 : 0.93) : 1; // the fingers squeeze the edge on each HA
     return { head: { sy, sx, dy, rot }, jaw: { rot: jaw }, star: { sx: star, sy: star, rot: turn }, iris: { dy: iy }, handL: { sy: grip }, handR: { sy: grip } };
   }
@@ -309,9 +406,28 @@ const BIRD_COUNT = [
   [1, 1, 0, 0, 0, 0, 0, 1, 270], // 15
   [0.98, 1.01, 6, 2, 1, -4, -6, 1, 270], // 16 about to thrust
 ];
+// The win: smug, it leans to its coin, crest high, as the sparkle swells to its largest (drawing 5), and settles. Same row.
+const BIRD_WIN = [
+  [0.97, 1.03, -4, 14, -2, -6, 5, 1, 0],
+  [0.92, 1.07, -8, 30, -4, -12, 10, 0.7, -12],
+  [1.08, 0.95, 8, -18, 5, 10, -8, 0.9, 18],
+  [1.12, 0.93, 14, -38, 8, 16, -12, 1.2, 36],
+  [1.08, 0.95, 18, -46, 10, 20, -16, 1.6, 54],
+  [1.08, 0.95, 18, -46, 10, 20, -16, 1.6, 54],
+  [1.04, 0.98, 10, -38, 5, 12, -10, 1.25, 92],
+  [1.02, 0.99, -6, -30, -4, -8, 8, 0.9, 138],
+  [0.96, 1.04, -12, -14, -6, -14, 12, 1.4, 180],
+  [1.06, 0.97, 8, -28, 4, 10, -8, 1.1, 228],
+  [1.03, 0.99, 4, -20, 2, 6, -5, 1, 270],
+  [1.01, 0.995, -2, -12, -1, -3, 3, 1, 318],
+  [0.98, 1.02, 0, 3, 0, 2, -2, 1, 350],
+  [1.02, 0.99, 0, -8, 0, 0, 1, 1, 0],
+  [0.99, 1.01, 0, 2, 0, 0, 0, 1, 0],
+  [1, 1, 0, 0, 0, 0, 0, 1, 0],
+];
 function birdPose(k, act) {
   const [sy, sx, dx, dy, rot, crest, earring, g, gr] = act
-    ? row(BIRD_COUNT, act.e)
+    ? row(act.name === 'win' ? BIRD_WIN : BIRD_COUNT, act.e)
     : [...BIRD_BEAT[mod(k, BEAT)], ...(GLINT[mod(k, 16)] || [1, 90])];
   return { head: { sy, sx, dx, dy, rot }, crest: { rot: crest }, earring: { rot: earring }, glint: { sx: g, sy: g, rot: gr } };
 }
@@ -564,6 +680,33 @@ function cue(seen, d, now) {
   up.turn = { k0: k, act: up.turns++ % 2 ? acts[Math.floor(Math.random() * acts.length)] : null, dir: Math.random() < 0.5 ? -1 : 1 };
   up.next = k + TURN + wait(REST);
   calm = d + TURN + GAP * D;
+}
+
+// How the card itself moves with its character's victory act (GPT's spec): keys at drawings 1..16 of
+// [drawing, dx px, dy px, rotate°, scale x, scale y] at the phone's card size, held between drawings like the act.
+// The trio's card also rocks against its top head (cardRock).
+export const WIN_CARD = {
+  x2_any: [[1, 0, 0, 0, 1, 1], [6, 0, -9, -1.5, 1.06, 1.06], [7, 0, -9, -1.5, 1.06, 1.06], [16, 0, 0, 0, 1, 1]],
+  x3_straight: [[1, 0, 0, 0, 1, 1], [5, 0, -7, -2, 1, 1], [6, 0, -7, -2, 1, 1], [7, 0, -3, 0, 1.035, 0.97], [8, 0, -3, 0, 1, 1], [16, 0, 0, 0, 1, 1]],
+  x3_pairs: [[1, 0, 0, 0, 1, 1], [5, 0, -8, 2, 1, 1], [6, 0, -8, 2, 1, 1], [16, 0, 0, 0, 1, 1]],
+  x3_trips: [[1, 0, 0, 0, 1, 1], [7, 0, -8, 0, 1, 1], [8, 0, -8, 0, 1, 1], [16, 0, 0, 0, 1, 1]],
+  joker: [[1, 0, 0, 0, 1, 1], [5, 0, -9, 3, 1, 1], [6, 0, -9, 3, 1, 1], [7, 0, -8, -2, 1, 1], [16, 0, 0, 0, 1, 1]],
+  refund: [[1, 0, 0, 0, 1, 1], [5, 3, -7, 2.5, 1.045, 1.045], [6, 3, -7, 2.5, 1.045, 1.045], [16, 0, 0, 0, 1, 1]],
+};
+export const cardRock = (kind, d) => (kind === 'x3_trips' ? -Math.max(-2.5, Math.min(2.5, TRIO_WIN[d - 1][2] / 8)) : 0);
+
+// The level is won (owner's pick В11 A, 04.11.2026): the card's character plays its victory act at once, off the
+// beat, then lands and rests; the other cards keep still for a while. False when the card has no puppet yet.
+export function cheer(art) {
+  const p = [...live].find((q) => q.art === art);
+  if (!p || still) return false;
+  const d = Math.floor((performance.now() / 1000) * D);
+  p.turn = { k0: d + p.phase, act: 'win', dir: 1 };
+  p.next = p.turn.k0 + TURN + wait(REST);
+  p.drawn = null;
+  calm = d + TURN + GAP * D;
+  if (!raf) raf = requestAnimationFrame(frame);
+  return true;
 }
 
 function frame(now) {

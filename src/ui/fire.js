@@ -10,6 +10,7 @@
 const MAX_DICE = 9;
 const IGNITE_S = 0.25;   // the fire grows on the dice this long
 const MAX_PIXELS = 9e5;  // the canvas resolution is capped: soft fire needs no retina pixels
+const FLARE = [90, 220, 0.25]; // a flare: up over 90 ms, back by 220 ms, a quarter past full (the won level's PLAY)
 
 const VERT = 'attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }';
 const frag = (derivatives) => `${derivatives ? '#extension GL_OES_standard_derivatives : enable' : '#define fwidth(x) 0.02'}
@@ -93,6 +94,7 @@ export function createFire(board) {
   let uniforms = null;
   let cells = [];
   let started = 0;
+  let flared = -1e9; // when the last flare began
   let raf = 0;
   const data = new Float32Array(MAX_DICE * 4);
 
@@ -146,7 +148,9 @@ export function createFire(board) {
     const t = (now - started) / 1000;
     const box = canvas.getBoundingClientRect();
     const k = canvas.width / box.width;
-    const grow = reduce ? 1 : Math.min(1, t / IGNITE_S);
+    const since = now - flared; // a flare: past full strength the flames grow taller and hotter, then settle
+    const boost = reduce || since > FLARE[1] ? 1 : 1 + FLARE[2] * (since < FLARE[0] ? since / FLARE[0] : 1 - (since - FLARE[0]) / (FLARE[1] - FLARE[0]));
+    const grow = (reduce ? 1 : Math.min(1, t / IGNITE_S)) * boost;
     data.fill(0);
     cells.forEach((c, i) => {
       const r = c.getBoundingClientRect();
@@ -186,5 +190,5 @@ export function createFire(board) {
     if (canvas) canvas.style.display = 'none';
   }
 
-  return { ignite, out, burning: () => cells.map((c) => Number(c.dataset.index)) };
+  return { ignite, out, flare: () => { flared = performance.now(); }, burning: () => cells.map((c) => Number(c.dataset.index)) };
 }

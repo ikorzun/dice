@@ -39,7 +39,7 @@
     <div class="board rendered" id="board" aria-label="3 by 3 dice board"></div>
   </section>
   <section class="counter" aria-live="polite">
-    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span></div>
+    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span><div class="act" id="actStrip" role="img"></div></div>
     <div class="stat mid" id="handStat"><span class="label" id="bonesLabel">BONES</span><span class="value"><span id="bones">0</span><span class="sticker" id="multSticker"></span><span id="handTotal">0</span></span></div>
     <div class="stat mid" id="targetStat"><span class="label">THRESHOLD</span><span class="value" id="target">0</span></div>
     <div class="hand-row" id="handRow"><span class="gdice" id="handDice"></span><span class="hand-name"><b id="handName"></b><em id="handMult"></em></span></div>
@@ -68,24 +68,29 @@
 <section class="overlay" id="levelEnd" hidden>
   <div class="panel">
     <h2 class="end-title" id="endTitle">LEVEL CLEARED</h2>
-    <!-- a missed target ends the run (owner, 03.11.2026): the level it got to, then why -->
-    <p class="run-reached" id="runReached" hidden>LEVEL <b id="runLevel">1</b></p>
-    <div class="end-score"><span id="endScore">0</span><span class="end-sep">/</span><span id="endTarget">0</span></div>
-    <p class="end-note" id="runWhy" hidden></p>
-    <p class="end-note run-mark" id="runMark" hidden></p>
+    <div class="end-score"><span id="endScore">0</span><span class="end-sep">/</span><span id="endTarget">0</span><span class="end-over" id="endOver" hidden></span></div>
+    <!-- a missed target ends the run (owner, 03.11.2026; pick В12 A «Честный чек»): the level it got to and the rerolls
+         left unused, then the board as its last hand was played -->
+    <p class="run-reached" id="runReached" hidden><span>LEVEL</span><b id="runLevel">1</b><i>·</i><span>REROLLS LEFT</span><b id="runRerolls">0</b></p>
+    <div class="end-board" id="endBoard" hidden></div>
+    <!-- a cleared level (owner's pick В11 A, 04.11.2026): a rail for the medal and the record, then the winning hand -->
+    <div class="end-badges" id="endBadges" hidden><span class="end-medal" id="endMedal" hidden><i class="medal fresh" id="endMedalDisc">5</i><b id="endMedalText">NEW MEDAL</b></span><span class="end-best" id="endBest" hidden>NEW BEST</span></div>
+    <div class="end-hand" id="endHand" hidden></div>
     <ul class="hands" id="endHands"></ul>
     <p class="end-note" id="endBonus"></p>
     <p class="end-note muted" id="endSolver"></p>
     <p class="end-note muted" id="endTier"></p>
     <div class="run-sum" id="runSum" hidden>
-      <p class="end-note" id="runStats"></p>
-      <ol class="medals" id="medals" aria-label="Medals of this run"></ol>
+      <p class="run-stats" id="runStats"></p>
+      <p class="run-gap" id="runGap"></p>
+      <div class="medal-rail"><div class="act" id="runAct" role="img"></div><div class="medal-group"><span>MEDALS</span><ol class="medals" id="medals" aria-label="Medals of this run"></ol></div></div>
     </div>
     <div class="upgrades" id="upgrades" hidden>
-      <p class="up-head">NEXT LEVEL: PICK AN UPGRADE</p>
-      <p class="up-sub">+1 TO ITS MULTIPLIER FOR THE WHOLE RUN</p>
+      <p class="up-head">PICK AN UPGRADE</p>
+      <p class="up-sub">+1 FOR THIS RUN</p>
       <div class="up-list" id="upList"></div>
     </div>
+    <div class="act" id="endAct" role="img" hidden></div>
     <div class="end-actions">
       <button class="btn-primary" id="nextBtn" type="button">NEXT LEVEL</button>
       <button class="btn-secondary" id="retryBtn" type="button">RETRY</button>

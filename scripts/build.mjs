@@ -31,6 +31,8 @@ const MODULES = [
   'src/ui/sound.js',
   'src/ui/rig.js',
   'src/ui/puppets.js',
+  'src/ui/shards.js',
+  'src/ui/acts.js',
   'src/ui/app.js',
 ];
 

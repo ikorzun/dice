@@ -35,7 +35,9 @@ import { upgradeOffer, withUpgrade } from '../engine/upgrades3.js';
 import { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } from './dice3d.js';
 import { createFire } from './fire.js';
 import { SOUNDS, setupSound, setSound, sfx } from './sound.js';
-import { setupPuppets, animateArt } from './puppets.js';
+import { setupPuppets, animateArt, cheer, WIN_CARD, cardRock } from './puppets.js';
+import { breakLine, holdLine } from './shards.js';
+import { actOf, actHtml } from './acts.js';
 
 const APP_VERSION = '0.2.0';
 const STORAGE_KEY = 'dice-snake.v2';
@@ -519,6 +521,8 @@ function startGame(level, attempt) {
     opening: level.bestNoRerollWithBonus ?? level.openingBest, config: mode.gameConfig(st.settings),
   });
   $('levelEnd').hidden = true;
+  app.actEnter = true;
+  $('actStrip').dataset.key = ''; // the same level and record again after a lost run: the moment's marks go
   render();
   persist();
   autoTips();
@@ -534,14 +538,14 @@ function newLevel() {
   startGame(level, 1);
 }
 
-function finishLevel() {
+function finishLevel(board) {
   const st = S();
   const g = st.game;
   const mode = M();
   const won = g.phase === 'won';
-  if (won) sfx('win'); // only a real win is celebrated (digest §1, rule 27); a missed target stays quiet
+  if (won && mode.id !== 'auto') sfx('win'); // only a real win is celebrated (digest §1, rule 27); Auto Hand's rings at the break (playWin)
   if (won && mode.id === 'auto') st.bank = autoCarryOver(g); // the unplayed bonuses wait for the next level
-  if (mode.id === 'auto') tallyRun(st, g, won);
+  if (mode.id === 'auto') tallyRun(st, g, won, board);
   const now = Date.now();
   const summary = {
     mode: mode.id, levelIndex: g.level.levelIndex, seed: g.level.seed, tier: g.level.tier, target: g.level.target, score: g.score, won, attempt: g.attempt,
@@ -562,8 +566,9 @@ function finishLevel() {
 
 // The run's points, medals and record (owner, 03.11.2026: a missed target ends the run; questionnaire В3: the
 // record is the furthest level, ties broken by points; В6: a medal for every fifth level cleared). `lastEnd`
-// keeps what this level end brought for its summary, which a reload shows again.
-function tallyRun(st, g, won) {
+// keeps what this level end brought for its summary, which a reload shows again; a lost run's also keeps the board
+// as its last hand was played (the engine has already refilled it), which the run's end shows (owner's pick В12 A).
+function tallyRun(st, g, won, board) {
   const level = g.level.levelIndex;
   st.runScore += g.score;
   const end = { seed: g.level.seed };
@@ -578,6 +583,7 @@ function tallyRun(st, g, won) {
   } else {
     end.newBest = !st.best || level > st.best.level || (level === st.best.level && st.runScore > st.best.score);
     if (end.newBest) st.best = { level, score: st.runScore };
+    if (board) end.board = board;
   }
   st.lastEnd = end;
 }
@@ -589,15 +595,30 @@ function showLevelEnd() {
   const won = g.phase === 'won';
   if (st.pendingTier == null) st.pendingTier = nextTier(st.tier, won);
   const over = mode.id === 'auto' && !won; // a missed target ends the run (owner, 03.11.2026)
+  const cleared = mode.id === 'auto' && won; // the cleared screen of the owner's pick В11 A (GPT's spec, 04.11.2026)
   $('endTitle').textContent = won ? 'LEVEL CLEARED' : over ? 'RUN OVER' : 'TARGET MISSED';
   $('endTitle').className = `end-title ${won ? 'won' : 'lost'}`;
   $('levelEnd').classList.toggle('run-over', over);
+  $('levelEnd').classList.toggle('won', cleared);
+  $('levelEnd').classList.toggle('playing', (cleared || over) && !!app.endPlaying); // the moment plays over the board first
   showRunEnd(st, g, won, over);
   $('endScore').textContent = g.score;
   $('endTarget').textContent = g.level.target;
+  // honestly how far the total went past the threshold, or how far it fell short (owner's pick В12 A)
+  $('endOver').textContent = over ? `SHORT BY ${remaining(g.score, g)}` : `+${g.score - g.level.target} OVER`;
+  $('endOver').classList.toggle('short', over);
+  $('endOver').hidden = !over && (!cleared || g.score <= g.level.target);
+  const last = g.hands[g.hands.length - 1]; // the hand that broke the threshold, in one row
+  $('endHand').hidden = !cleared || !last;
+  if (cleared && last) $('endHand').innerHTML = `<span class="gdice">${last.faces.map((v) => guideDie(v)).join('')}</span><span><b>${last.label}</b><small>${handFormula(last)}</small></span><span class="pts">${last.total}</span>`;
+  $('endAct').hidden = !cleared;
+  if (cleared) drawAct($('endAct'), g.level.levelIndex, { cleared: true, best: st.best });
   const list = $('endHands');
   list.innerHTML = '';
-  g.hands.forEach((h, k) => {
+  // a lost run's receipt: the level's three hands in the cleared screen's row, the last one, which ended the run,
+  // outlined red (owner's pick В12 A)
+  if (over) list.innerHTML = g.hands.map((h, k) => `<li class="end-hand${k === g.hands.length - 1 ? ' lose' : ''}"><span class="gdice">${h.faces.map((v) => guideDie(v)).join('')}</span><span><i>HAND ${k + 1}</i><b>${h.label}</b><small>${handFormula(h)}</small></span><span class="pts">${h.total}</span></li>`).join('');
+  else g.hands.forEach((h, k) => {
     const li = document.createElement('li');
     const mini = h.faces.map((f) => `<b>${f}</b>`).join('');
     const mult = h.multiplier > 1 ? `<em>×${h.multiplier}</em>` : '';
@@ -642,33 +663,61 @@ function showLevelEnd() {
   $('levelEnd').dataset.mode = app.modeId;
   clearTimeout(app.endTimer);
   const forMode = app.modeId;
-  // Auto Hand opens the summary at once: its last hand has already burnt away (owner, 02.11.2026)
+  // Auto Hand opens the summary at once: the level's last hand plays its moment over the board as the summary rises
   app.endTimer = setTimeout(() => { if (app.modeId === forMode) $('levelEnd').hidden = false; }, mode.id === 'auto' ? 0 : T.endDelay);
 }
+
+// A played hand's sum, multiplier and bonus as the count shows them: 24 × 6 ×2.
+const handFormula = (h) => `${h.formula || h.points}${h.multiplier > 1 ? ` ×${h.multiplier}` : ''}`;
 
 // The run's marks on the level's summary: on a clear, a medal every fifth level and the record passed; when the
 // run is over, the level it got to, why it ended (digest rules 7 and 17: the player sees the cause), its points,
 // the record and its medals.
 function showRunEnd(st, g, won, over) {
   const end = st.lastEnd && st.lastEnd.seed === g.level.seed ? st.lastEnd : {};
-  const marks = [];
-  if (M().id === 'auto' && won && end.medal) marks.push(`<i class="medal${end.fresh ? ' fresh' : ''}">${end.medal}</i>${end.fresh ? 'NEW MEDAL' : 'MEDAL'}`);
-  if (M().id === 'auto' && won && end.passedBest) marks.push(`NEW BEST · LEVEL ${g.level.levelIndex + 1}`);
-  $('runMark').innerHTML = marks.join('<span class="end-sep">·</span>');
-  $('runMark').hidden = !marks.length;
-  for (const id of ['runReached', 'runWhy', 'runSum']) $(id).hidden = !over;
+  // a cleared level's rail (owner's pick В11 A): the medal of every fifth level, made of the threshold's shards, and
+  // the record passed; it keeps its place when there is neither
+  const cleared = M().id === 'auto' && won;
+  $('endBadges').hidden = !cleared;
+  $('endMedal').hidden = !(cleared && end.medal);
+  if (cleared && end.medal) {
+    $('endMedalDisc').textContent = String(end.medal);
+    $('endMedalText').textContent = end.fresh ? 'NEW MEDAL' : 'MEDAL';
+  }
+  $('endBest').hidden = !(cleared && end.passedBest);
+  // a lost run (owner's pick В12 A «Честный чек»): the level and the rerolls left unused, 0 too; the board as its last
+  // hand was played; the run's points, the record with the gap to it said plainly (digest rule 18: a near miss is a
+  // fact, not a hook), a small BEST badge and no celebration for a new one (rule 27), the run's medals
+  for (const id of ['runReached', 'runSum']) $(id).hidden = !over;
+  $('endBoard').hidden = !(over && end.board); // a save from before the board was kept shows the receipt alone
   if (!over) return;
-  $('runLevel').textContent = String(g.level.levelIndex);
-  const unused = g.rerollsLeft ? ` · ${g.rerollsLeft} REROLL${g.rerollsLeft > 1 ? 'S' : ''} UNUSED` : '';
-  $('runWhy').textContent = `SHORT BY ${Math.max(0, g.level.target - g.score)}${unused}`;
-  $('runStats').innerHTML = `RUN SCORE ${st.runScore}${end.newBest ? ' · <b>NEW BEST</b>' : st.best ? ` · BEST: LEVEL ${st.best.level}` : ''}`;
-  $('medals').innerHTML = st.runMedals.map((m) => `<li class="medal${m.fresh ? ' fresh' : ''}">${m.level}</li>`).join('');
-  $('medals').hidden = !st.runMedals.length;
+  const level = g.level.levelIndex;
+  $('runLevel').textContent = String(level);
+  $('runRerolls').textContent = String(g.rerollsLeft);
+  if (end.board) {
+    const { cells, faces, held, off } = end.board;
+    $('endBoard').innerHTML = `<div class="grid">${cells.map((c, i) => (c.type === 'bonus' ? guideTile(c.kind, !off[i])
+      : c.type === 'die' ? `<span class="cell die" style="--die-img: var(--face-${faces[i]}${held[i] ? '-held' : ''})"></span>`
+        : `<span class="cell ${c.type === 'block' ? 'block' : 'empty'}"></span>`)).join('')}</div>`;
+  }
+  const best = st.best || { level, score: st.runScore };
+  const gap = end.newBest ? null : best.level - level;
+  $('runStats').innerHTML = `<span>RUN SCORE <b>${st.runScore}</b></span><i> · </i><span>BEST LEVEL <b>${best.level}</b>${end.newBest ? '<em class="best-badge">BEST</em>' : ''}</span>`;
+  $('runStats').classList.toggle('two', !!end.newBest); // the record with its badge takes the gap's line
+  $('runGap').textContent = gap === 1 || gap === 2 ? `${gap} LEVEL${gap > 1 ? 'S' : ''} TO BEST`
+    : gap === 0 ? `BEST LEVEL TIED${best.score > st.runScore ? ` · ${best.score - st.runScore} POINTS TO BEST` : ''}` : '';
+  drawAct($('runAct'), level, { best: st.best }); // where in the act the run ended
+  // two medals fit beside the strip; past that the newest and how many
+  const medals = st.runMedals;
+  $('medals').innerHTML = !medals.length ? '<li class="none">0</li>'
+    : medals.length > 2 ? `<li class="medal">${medals[medals.length - 1].level}</li><li class="none">×${medals.length}</li>`
+      : medals.map((m) => `<li class="medal">${m.level}</li>`).join('');
 }
 
 function onNext() {
   const st = S();
   if ($('levelEnd').dataset.mode !== app.modeId || !st.game || st.game.phase === 'playing') return;
+  if (app.endPlaying || performance.now() < (app.skipUntil || 0)) return; // the tap that completed the receipt does not start a run
   if (st.pendingTier != null) st.tier = st.pendingTier;
   st.levelIndex += 1;
   if (app.modeId === 'auto' && st.game.phase === 'lost') {
@@ -936,6 +985,7 @@ function fitBoard() {
   const coachHeight = !wide && !coach.hidden ? coach.offsetHeight + 16 * phone : 0;
   const k = wide ? desk : Math.min(width / MOCKUP.width, (height - coachHeight) / MOCKUP.rows);
   els.app.style.setProperty('--k', Math.max(0.4, k).toFixed(4));
+  document.documentElement.style.setProperty('--k', Math.max(0.4, k).toFixed(4)); // the overlays scale with it too
   app.cellRects = null;
 }
 
@@ -1063,6 +1113,27 @@ function renderHud() {
   if (!app.scoreAnim) $('target').textContent = String(remaining(g.score, g));
   for (const el of document.querySelectorAll('.level-text')) el.textContent = String(g.level.levelIndex); // no last level (owner, 03.11.2026)
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
+  renderAct();
+}
+
+// The act strip by LEVEL (owner's pick В13 A, acts.js). It changes only when a level starts, ends or the record does:
+// the new level hard-cuts in with its current node inked once, and PLAY works at once.
+function renderAct() {
+  const st = S();
+  const el = $('actStrip');
+  const level = st.game.level.levelIndex;
+  const key = `${level}/${st.best ? st.best.level : ''}`;
+  if (el.dataset.key === key) return;
+  el.dataset.key = key;
+  drawAct(el, level, { best: st.best });
+  el.classList.toggle('enter', !!app.actEnter && !reduceMotion);
+  app.actEnter = false;
+}
+
+function drawAct(el, level, opts) {
+  const view = actOf(level, opts);
+  el.innerHTML = actHtml(view);
+  el.setAttribute('aria-label', view.label);
 }
 
 const remaining = (score, g) => Math.max(0, g.level.target - score);
@@ -1529,6 +1600,7 @@ function turnCard(i, { sheet = true } = {}) {
 
 // Sheets come one at a time: a card's sheet waits while another is open.
 function queueSheet(kind) {
+  if (app.endPlaying) { app.sheetQueue.push(kind); return; } // not over a level end's moment: after it
   if ($('bonusSheet').hidden && !app.sheetQueue.length) showBonusSheet(kind);
   else app.sheetQueue.push(kind);
 }
@@ -1695,15 +1767,22 @@ async function attemptBank(path, source) {
   stopGhost();
   clearPath();
   haptic(hand.points >= 10 ? [14, 40, 18] : 12);
-  // A strong hand catches fire first (the combination), then the count follows
+  // A strong hand catches fire first (the combination), then the count follows; dice that burn already (held) count
+  // at once, and so does the hand that clears the level (GPT's review, 04.11.2026: PLAY must never look ignored)
   const burning = mode.id === 'auto' && FIRE_HANDS.has(hand.category) ? [...hand.cells, ...(hand.jokerCells || [])] : [];
+  const cleared = mode.id === 'auto' && st.game.phase === 'won';
+  if (mode.id === 'auto' && st.game.phase === 'lost') { playLoss(hand, g); return; } // the run's end lights nothing
   if (burning.length) {
+    const lit = !!app.fire && burning.every((i) => app.fire.burning().includes(i));
     app.fire = app.fire || createFire(els.board);
     app.fire.ignite(burning.map((i) => els.cells[i]));
-    sfx('fire');
-    await wait(T.fire);
-    if (!stillCurrent(st, modeId)) { app.fire.out(); app.busy = false; return; }
+    if (!lit) sfx('fire');
+    if (!lit && !cleared) {
+      await wait(T.fire);
+      if (!stillCurrent(st, modeId)) { app.fire.out(); app.busy = false; return; }
+    }
   }
+  if (cleared) { playWin(hand, g); return; }
   // A hand with a bonus is counted on the board like any other: the combination, then the bonus's hit
   // (owner, 03.11.2026: no full-screen bonus screen)
   showReveal(hand, { remaining: g.level.target - g.score });
@@ -1779,6 +1858,385 @@ async function attemptBank(path, source) {
   persist();
   if (st.game.phase !== 'playing') finishLevel();
   else autoTips();
+}
+
+// ---------- the won level's moment ----------
+// Owner's pick В11 A «Пробитый порог» (04.11.2026), built to GPT's production spec
+// (art/ai/2026-11-04-win-production/design-2.json). PLAY counts at once over the board while THRESHOLD runs down to
+// 0; each card the hand used plays its character's victory act, and a multiplying card sends its sticker into the
+// count; at 0 the line under THRESHOLD ruptures across the counter into yellow shards (on a medal level five of them
+// fly into the medal); black spreads from the rupture like an ink blot and the cleared screen rises on pure black, the
+// pick tappable after about 1.5 s. Dice never dim, and nothing else moves meanwhile (GPT's review of the build). A tap
+// skips to the pick. The record, the medal and the bank are counted first, so a reload in the middle shows the cleared
+// screen. Times are ms from PLAY.
+const WIN = { lift: 80, chip: 167, step: 83, snap: 500, cover: 290, black: 860, title: 840, hand: 900, badges: 940, act: 960, pick: 980, choices: 1040, ready: 1480 };
+const ACT_MS = 16000 / 12; // a victory act: sixteen held drawings, twelve a second
+
+// The card's own motion with its character's act (puppets.js WIN_CARD), one held pose per drawing.
+function cardFrames(kind, sc) {
+  const keys = WIN_CARD[kind];
+  const frames = [];
+  for (let d = 1; d <= 16; d++) {
+    let k = 0;
+    while (k < keys.length - 2 && keys[k + 1][0] <= d) k++;
+    const [d0, ...a] = keys[k];
+    const [d1, ...b] = keys[k + 1];
+    const f = Math.min(1, Math.max(0, (d - d0) / (d1 - d0)));
+    const [dx, dy, rot, sx, sy] = a.map((v, j) => v + (b[j] - v) * f);
+    frames.push({ transform: `translate(${(dx * sc).toFixed(2)}px, ${(dy * sc).toFixed(2)}px) rotate(${(rot + cardRock(kind, d)).toFixed(2)}deg) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`, offset: (d - 1) / 16, easing: 'steps(1, end)' });
+  }
+  frames.push({ transform: 'none', offset: 1 });
+  return frames;
+}
+
+function playWin(hand, g0) {
+  const st = S();
+  const g = st.game;
+  const t0 = performance.now();
+  const anims = [];
+  const timers = [];
+  const extras = []; // the moment's own elements: the black, a flying sticker, the overshoot at the line
+  const moved = []; // board elements it lifts, and stickers it hides, put back at the end
+  let shards = null;
+  let done = false;
+  const now = () => performance.now() - t0;
+  const at = (ms, fn) => timers.push(setTimeout(() => { if (!done) fn(); }, Math.max(0, ms - now())));
+  const play = (el, frames, { dur, start = now(), easing = 'linear', fill = 'both' }) => {
+    const a = el.animate(frames, { duration: dur, delay: Math.max(0, start - now()), easing, fill });
+    anims.push(a);
+    return a;
+  };
+  const box = (el) => el.getBoundingClientRect();
+  app.endPlaying = true;
+  for (const cell of els.cells) if (cell.waiting) clearTimeout(cell.dealTimer); // a card still face down waits
+  finishLevel(); // the record, the medal and the bank first: a reload in the middle shows the cleared screen
+  const end = $('levelEnd');
+  end.classList.add('waiting');
+  const last = st.lastEnd || {};
+  const wide = document.body.classList.contains('wide');
+  const s = els.cells[0].offsetWidth / 118.7; // GPT's pixels are the phone's at k = 1.0229
+  const u = wide ? s / 1.466 : s; // its desktop pixels are at k = 1, where the board is the phone's × 1.5
+
+  // the count over the board, at once: the combination, then each multiplying card's sticker lands in it
+  const rv = $('reveal');
+  const used = [...hand.bonusCells, ...(hand.jokerCells || [])];
+  const kindOf = (i) => hand.bonuses[used.indexOf(i)];
+  const cardEl = (i) => (i < BANK ? els.cells[i] : document.querySelector(`#bank .cell[data-k="${i - BANK}"]`));
+  const steps = hand.bonusCells.filter((i) => BONUS_KINDS[kindOf(i)].mult > 1).sort((a, b) => a - b);
+  const formula = hand.formula || String(hand.points);
+  rv.querySelector('.cat').textContent = hand.label;
+  rv.querySelector('.pts').textContent = `+${steps.length && !reduceMotion ? hand.points : hand.total}`;
+  rv.querySelector('.mult').textContent = steps.length && !reduceMotion ? formula : handFormula(hand);
+  rv.className = 'reveal win fire';
+  if (app.fire && FIRE_HANDS.has(hand.category)) app.fire.flare(); // the burning dice flare up with the win
+  sfx('score');
+  countUp($('target'), remaining(g0.score, g0), 0, 0, 500);
+  setPreview(`${hand.label} +${hand.total}`, 'good');
+
+  // each card the hand used: its character's victory act, the card moving with it, one after another
+  used.filter((i) => cardEl(i)).sort((a, b) => a - b).forEach((i, k) => at(WIN.step * k, () => {
+    const el = cardEl(i);
+    cheer(el.querySelector('.art'));
+    if (reduceMotion || !WIN_CARD[kindOf(i)]) return;
+    el.style.zIndex = '2'; // over its neighbours, under the fire and the count
+    moved.push(el);
+    play(el, cardFrames(kindOf(i), el.offsetWidth / 118.7), { dur: ACT_MS, fill: 'none' });
+  }));
+  // the dice of the hand rise with it; with no card, they hop together instead
+  const dice = hand.cells.map((i) => els.cells[i]);
+  if (!reduceMotion && used.length) dice.forEach((el) => play(el, [{ transform: 'none' }, { transform: `translateY(${-5 * s}px) scale(1.045)`, offset: 0.5 }, { transform: `translateY(${-5 * s}px)` }], { dur: 320, start: WIN.lift, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' }));
+  if (!reduceMotion && !used.length) {
+    dice.forEach((el) => play(el, [{ transform: 'none' }, { transform: `translateY(${-8 * s}px) scale(.97, 1.04)`, offset: 0.45 }, { transform: 'scale(1.04, .94)', offset: 0.8 }, { transform: 'none' }], { dur: 333, start: WIN.chip }));
+    at(WIN.chip + 270, () => sfx('drop'));
+  }
+  let mult = 1;
+  steps.forEach((i, k) => at(WIN.chip + WIN.step * k, () => {
+    const land = () => { // bonuses add up: the count shows each step honestly
+      mult += BONUS_KINDS[kindOf(i)].mult - 1;
+      const lastStep = k === steps.length - 1;
+      rv.querySelector('.pts').textContent = `+${lastStep ? hand.total : hand.points * mult}`;
+      rv.querySelector('.mult').textContent = `${formula} ×${lastStep ? hand.multiplier : mult}`;
+      rv.classList.remove('hit');
+      void rv.offsetWidth;
+      rv.classList.add('hit');
+      sfx('bonus');
+      haptic(14);
+    };
+    const sticker = cardEl(i).querySelector('.x2');
+    if (reduceMotion || !sticker) { land(); return; }
+    const from = box(sticker);
+    const to = box(rv.querySelector('.mult'));
+    const cs = getComputedStyle(sticker);
+    const chip = document.createElement('span');
+    chip.className = 'win-chip';
+    chip.innerHTML = sticker.innerHTML;
+    Object.assign(chip.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, background: cs.backgroundColor, color: cs.color, fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight, letterSpacing: cs.letterSpacing });
+    document.body.appendChild(chip);
+    extras.push(chip);
+    sticker.style.visibility = 'hidden'; // the sticker leaves its card for the count
+    moved.push(sticker);
+    const dx = to.right + 4 * s - from.left;
+    const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+    play(chip, [{ transform: 'none' }, { transform: `translate(${dx}px, ${dy}px) scale(.8)` }], { dur: 250, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)', fill: 'forwards' })
+      .finished.then(() => { chip.remove(); if (!done) land(); }, () => {});
+  }));
+
+  // the line under THRESHOLD: it bows and cracks while the count runs down; at 0 it ruptures across the counter
+  const tb = box($('targetStat'));
+  const cb = box(document.querySelector('.counter'));
+  const span = { x0: cb.left + cb.width * 0.179, x1: cb.left + cb.width * 0.821 }; // GPT's review: x 72–330 at 402 px
+  const line = wide ? { x: tb.left + 8 * u, y: tb.bottom - 4 * u, w: tb.width - 16 * u, h: 4 * u } : { x: tb.left + 4 * u, y: tb.bottom - 4 * u, w: tb.width - 8 * u, h: 3 * u };
+  const extra = g.score - g.level.target;
+  const power = Math.min(1.35, 1 + (extra / g.level.target) * 0.7 + (FIRE_HANDS.has(hand.category) ? 0.1 : 0));
+  const disc = $('endMedalDisc');
+  if (last.medal && !reduceMotion) disc.style.opacity = '0'; // the shards become the medal
+  shards = breakLine({
+    line, span, scale: wide ? 1.35 * u : u, power, still: reduceMotion, start: t0,
+    medal: last.medal && !reduceMotion ? () => { const r = box(disc); return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: r.width / 2 }; } : null,
+    onMedal: () => { // the medal lands: a squash, and a ring rings out from it
+      disc.style.opacity = '';
+      play(disc, [{ transform: 'scale(1.12, .88)' }, { transform: 'none' }], { dur: 100, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'none' });
+      const r = box(disc);
+      const ring = document.createElement('span');
+      ring.className = 'medal-ring';
+      Object.assign(ring.style, { left: `${r.left + r.width / 2}px`, top: `${r.top + r.height / 2}px`, borderWidth: `${2 * u}px` });
+      document.body.appendChild(ring);
+      extras.push(ring);
+      play(ring, [{ width: `${28 * u}px`, height: `${28 * u}px`, opacity: 1 }, { width: `${42 * u}px`, height: `${42 * u}px`, opacity: 0 }], { dur: 160, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' });
+    },
+  });
+  at(WIN.snap, () => {
+    haptic(18);
+    sfx('win'); // the real win sounds once, at the break
+    document.querySelector('#actStrip .act-node.current')?.classList.replace('current', 'done'); // the act strip takes the level
+    if (extra <= 0) return;
+    const chip = document.createElement('span');
+    chip.className = 'win-over';
+    chip.textContent = `+${extra} OVER`;
+    document.body.appendChild(chip);
+    extras.push(chip);
+    const cb = box(chip);
+    chip.style.left = `${Math.min(innerWidth - cb.width - 4, line.x + line.w - cb.width / 2)}px`;
+    chip.style.top = `${line.y - cb.height - 6 * u}px`;
+    if (!reduceMotion) play(chip, [{ opacity: 0, transform: `translateY(${6 * u}px)` }, { opacity: 1, transform: 'none' }], { dur: 240, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
+  });
+
+  // black spreads over the board, the counter and the buttons from the rupture, a hand-cut ink blot (GPT's review: the
+  // tiles of its spec read as holes punched in the dice, a true circle as a generic wipe); then the cleared screen's own
+  // black takes over
+  if (!reduceMotion) {
+    const black = document.createElement('div');
+    black.className = 'win-black';
+    document.body.appendChild(black);
+    extras.push(black);
+    const ox = (span.x0 + span.x1) / 2;
+    const oy = line.y + line.h / 2;
+    const far = Math.ceil(Math.hypot(Math.max(ox, innerWidth - ox), Math.max(oy, innerHeight - oy))) + 24 * u;
+    const frames = Array.from({ length: 10 }, (_, i) => ({ clipPath: blot(ox, oy, 18 * u + ((far - 18 * u) * i) / 9, 12 * u) }));
+    play(black, frames, { dur: WIN.cover, start: WIN.snap + 60, easing: 'cubic-bezier(0.55, 0.05, 0.67, 0.19)' });
+  }
+  at(reduceMotion ? 300 : WIN.black, () => { // the board is covered: the cleared screen's own black takes over
+    end.classList.remove('playing');
+    if (app.fire) app.fire.out();
+    rv.className = 'reveal';
+    for (const el of extras) if (el.classList.contains('win-black') || el.classList.contains('win-over')) el.remove();
+  });
+
+  // the cleared screen rises: the title and the score, the hand, the badges, the pick, the three choices
+  const rise = (el, start, dy = 8, dur = 260) => el && play(el, reduceMotion ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${dy * u}px) scale(.96)` }, { opacity: 1, transform: 'none' }], { dur: reduceMotion ? 200 : dur, start: reduceMotion ? 300 : start, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
+  rise($('endTitle'), WIN.title);
+  rise(end.querySelector('.end-score'), WIN.title);
+  rise($('endHand'), WIN.hand, 6, 240);
+  rise($('endMedalText'), WIN.badges, 0, 240);
+  rise($('endBest'), WIN.badges, 0, 240);
+  rise(end.querySelector('.up-head'), WIN.pick, 6, 240);
+  rise(end.querySelector('.up-sub'), WIN.pick, 6, 240);
+  play($('endAct'), [{ opacity: 0 }, { opacity: 1 }], { dur: reduceMotion ? 200 : 160, start: reduceMotion ? 300 : WIN.act });
+  end.querySelectorAll('.up').forEach((el, k) => {
+    if (reduceMotion) { rise(el, 300); return; }
+    play(el, [{ opacity: 0, transform: `translateY(${24 * u}px) scale(.97)` }, { opacity: 1, transform: 'none' }], { dur: 320, start: WIN.choices + 60 * k, easing: 'cubic-bezier(0.16, 1.12, 0.3, 1)' });
+  });
+
+  // a tap skips to the pick; that tap does not pick
+  const skip = (e) => { if (e.isPrimary === false) return; app.skipUntil = performance.now() + 300; finish(); };
+  addEventListener('pointerdown', skip, true);
+  at(reduceMotion ? 500 : WIN.ready, finish);
+  function finish() {
+    if (done) return;
+    done = true;
+    removeEventListener('pointerdown', skip, true);
+    timers.forEach(clearTimeout);
+    anims.forEach((a) => a.cancel()); // every element back to its own look: the cleared screen as drawn
+    if (shards) shards.stop();
+    extras.forEach((el) => el.remove());
+    moved.forEach((el) => { el.style.zIndex = ''; el.style.visibility = ''; });
+    disc.style.opacity = '';
+    if (app.fire) app.fire.out();
+    rv.className = 'reveal';
+    end.classList.remove('playing', 'waiting');
+    app.endPlaying = false;
+    app.busy = false;
+    if (app.sheetQueue.length && $('bonusSheet').hidden) showBonusSheet(app.sheetQueue.shift()); // a sheet that waited
+  }
+}
+
+// ---------- the lost run's moment ----------
+// Owner's pick В12 A «Честный чек» (04.11.2026), built to GPT's production spec
+// (art/ai/2026-11-04-loss-production/design-1.json), the win's mirror on the same stage: PLAY counts at once in the
+// counter row, never over the board, while THRESHOLD runs down and stops short; the line under it is drawn red, takes
+// the count with a 2 px bow and holds, and SHORT BY N comes at its end. Nothing burns or dims: the board, as played,
+// shrinks whole into the receipt's corner, the rest of the screen goes, and the receipt rises on pure black (the
+// level and the rerolls left, the three hands with the last one outlined red, the run and the record), NEW RUN
+// tappable after 1.32 s. No fire, no poses, no chord (digest rule 27). A tap completes the screen and does not start a
+// run. The run and its board are counted first, so a reload in the middle shows the receipt. Times are ms from PLAY.
+const LOSS = { lift: 80, short: 500, shrink: 620, fade: 160, flip: 300, title: 700, head: 760, rows: 780, row: 60, act: 900, sum: 980, medals: 1040, button: 1100, ready: 1320 };
+
+function playLoss(hand, g0) {
+  const st = S();
+  const g = st.game;
+  const t0 = performance.now();
+  const anims = [];
+  const timers = [];
+  const extras = []; // the moment's own elements: the count in the counter row, SHORT BY N at the line
+  let line = null;
+  let done = false;
+  const now = () => performance.now() - t0;
+  const at = (ms, fn) => timers.push(setTimeout(() => { if (!done) fn(); }, Math.max(0, ms - now())));
+  const play = (el, frames, { dur, start = now(), easing = 'linear', fill = 'both' }) => {
+    const a = el.animate(frames, { duration: dur, delay: Math.max(0, start - now()), easing, fill });
+    anims.push(a);
+    return a;
+  };
+  const box = (el) => el.getBoundingClientRect();
+  app.endPlaying = true;
+  for (const cell of els.cells) if (cell.waiting) clearTimeout(cell.dealTimer); // a card still face down waits
+  finishLevel({ cells: g0.cells, faces: g0.faces, held: g0.held, off: g0.off }); // the run and the board as played first
+  const end = $('levelEnd');
+  end.classList.add('waiting');
+  const wide = document.body.classList.contains('wide');
+  const s = els.cells[0].offsetWidth / 118.7; // GPT's pixels are the phone's at k = 1.0229
+  const u = wide ? s / 1.466 : s; // its desktop pixels are at k = 1, where the board is the phone's × 1.5
+  const ease = 'cubic-bezier(0.22, 1, 0.36, 1)';
+  renderControls(); // PLAY•0; both stay locked
+  // held dice that burnt: the flames hold a moment, then die down over the held dice's lime (GPT's review: gone in one
+  // frame they read as a glitch, even as a reward)
+  const flames = app.fire && app.fire.burning().length ? document.querySelector('.fire-layer') : null;
+  if (flames) {
+    at(reduceMotion ? 0 : 40, () => {
+      els.cells.forEach((c) => c.classList.remove('on-fire'));
+      if (!reduceMotion) play(flames, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.92)' }], { dur: 140, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
+    });
+    at(reduceMotion ? 0 : 180, () => app.fire.out());
+  }
+  sfx('tally'); // the loss's own cues (GPT's spec): dry tally clicks, a muted wooden stop, a short paper slide
+
+  // the count where the hand is named, the board left clear: the hand, its points, its formula
+  const hs = box($('handStat'));
+  const count = document.createElement('div');
+  count.className = 'loss-count';
+  count.innerHTML = `<b>${hand.label}</b><span><em>+${hand.total}</em><small>${handFormula(hand)}</small></span>`;
+  Object.assign(count.style, { left: `${hs.left}px`, top: `${hs.top + hs.height / 2}px`, width: `${hs.width}px` });
+  document.body.appendChild(count);
+  extras.push(count);
+  const name = count.querySelector('b'); // a long name (FOUR OF A KIND) fits the hand's place: tighter, then smaller, 12 px at least
+  if (name.offsetWidth > hs.width) name.style.letterSpacing = '-0.25px';
+  if (name.offsetWidth > hs.width) name.style.fontSize = `${Math.max(12 * u, (parseFloat(getComputedStyle(name).fontSize) * hs.width) / name.offsetWidth)}px`;
+  $('handStat').style.visibility = 'hidden';
+  countUp($('target'), remaining(g0.score, g0), remaining(g.score, g), 0, 500);
+  if (reduceMotion) play($('target'), [{ opacity: 0 }, { opacity: 1 }], { dur: 500, fill: 'none' });
+  if (!reduceMotion) { // the dice of the hand rise 5 px and settle; nothing else on the board moves
+    hand.cells.forEach((i) => play(els.cells[i], [{ transform: 'none' }, { transform: `translateY(${-5 * s}px)`, offset: 0.54 }, { transform: `translateY(${-5 * s}px)`, offset: 0.75 }, { transform: 'none' }], { dur: 280, start: LOSS.lift, easing: ease, fill: 'none' }));
+  }
+
+  // the line under THRESHOLD, red from the start, holds; SHORT BY N at it. It underlines THRESHOLD's number, centred
+  // like it, 60 px on the phone and 78 on the desktop (GPT's review: across the whole box it read as a minus after
+  // the formula)
+  const tb = box($('targetStat'));
+  const lw = (wide ? 78 : 60) * u;
+  const lineBox = { x: tb.left + (tb.width - lw) / 2, y: tb.bottom - 4 * u, w: lw, h: (wide ? 4 : 3) * u };
+  line = holdLine({ line: lineBox, scale: u, still: reduceMotion, start: t0 });
+  at(reduceMotion ? 0 : LOSS.short, () => {
+    sfx('stop');
+    document.querySelector('#actStrip .current')?.classList.add('miss'); // the level the run ended on, on the act strip
+    const pill = document.createElement('span');
+    pill.className = 'loss-short';
+    pill.textContent = `SHORT BY ${remaining(g.score, g)}`;
+    document.body.appendChild(pill);
+    extras.push(pill);
+    const pb = box(pill);
+    pill.style.left = `${wide ? lineBox.x + lineBox.w + 6 * u : lineBox.x + (lineBox.w - pb.width) / 2}px`; // under the line on the phone, after it on the desktop
+    pill.style.top = `${wide ? lineBox.y + 3 * u - pb.height : lineBox.y + 4.6 * u}px`;
+    play(pill, reduceMotion ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { dur: reduceMotion ? 500 : 160, easing: ease });
+  });
+
+  // the board as played shrinks whole into its place on the receipt while the rest of the screen goes; then the
+  // receipt's own black takes over, with the same board drawn from the saved one in that place
+  const mini = $('endBoard');
+  mini.style.visibility = 'hidden';
+  const live = [document.querySelector('.hud'), document.querySelector('.counter'), document.querySelector('.controls')];
+  if (!reduceMotion) {
+    at(LOSS.shrink, () => {
+      sfx('paper');
+      const from = box(els.board);
+      const to = box(mini);
+      const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+      const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+      play(els.board, [{ transform: 'none' }, { transform: `translate(${dx}px, ${dy}px) scale(${to.width / from.width})` }], { dur: LOSS.flip, easing: ease, fill: 'forwards' });
+      for (const el of [...live, line.canvas, ...extras]) play(el, [{ opacity: 1 }, { opacity: 0 }], { dur: LOSS.fade, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
+    });
+  }
+  at(reduceMotion ? LOSS.short : LOSS.shrink + LOSS.flip, () => {
+    mini.style.visibility = '';
+    end.classList.remove('playing');
+  });
+
+  // the receipt rises: the title, the score and the facts, the three hands, the run, the medals, NEW RUN
+  const rise = (el, start, dy = 8) => el && play(el, reduceMotion ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${dy * u}px)` }, { opacity: 1, transform: 'none' }], { dur: reduceMotion ? 500 : 220, start: reduceMotion ? LOSS.short : start, easing: ease });
+  for (const el of [$('endTitle'), end.querySelector('.end-score'), $('runReached')]) { // the head shows once the counter has gone (GPT's review)
+    if (reduceMotion) { rise(el); continue; }
+    play(el, [{ transform: `translateY(${12 * u}px)` }, { transform: 'none' }], { dur: 220, start: LOSS.title, easing: ease });
+    play(el, [{ opacity: 0 }, { opacity: 1 }], { dur: 100, start: LOSS.head, easing: ease });
+  }
+  end.querySelectorAll('#endHands li').forEach((el, k) => rise(el, LOSS.rows + LOSS.row * k));
+  rise($('runStats'), LOSS.sum);
+  rise($('runGap'), LOSS.sum);
+  play($('runAct'), [{ opacity: 0 }, { opacity: 1 }], { dur: reduceMotion ? 500 : 160, start: reduceMotion ? LOSS.short : LOSS.act });
+  play(end.querySelector('.medal-group'), [{ opacity: 0 }, { opacity: 1 }], { dur: reduceMotion ? 500 : 220, start: reduceMotion ? LOSS.short : LOSS.medals, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' });
+  rise($('nextBtn'), LOSS.button);
+  $('nextBtn').setAttribute('aria-disabled', 'true'); // grey until it can be tapped (GPT's review)
+
+  // a tap completes the receipt; that tap does not start a run
+  const skip = (e) => { if (e.isPrimary === false) return; app.skipUntil = performance.now() + 300; finish(); };
+  addEventListener('pointerdown', skip, true);
+  at(reduceMotion ? 1000 : LOSS.ready, finish);
+  function finish() {
+    if (done) return;
+    done = true;
+    removeEventListener('pointerdown', skip, true);
+    timers.forEach(clearTimeout);
+    anims.forEach((a) => a.cancel()); // every element back to its own look: the receipt as drawn, the board in place under it
+    if (line) line.stop();
+    extras.forEach((el) => el.remove());
+    $('handStat').style.visibility = '';
+    mini.style.visibility = '';
+    if (app.fire) app.fire.out();
+    end.classList.remove('playing', 'waiting');
+    $('nextBtn').removeAttribute('aria-disabled');
+    app.endPlaying = false;
+    app.busy = false;
+    if (app.sheetQueue.length && $('bonusSheet').hidden) showBonusSheet(app.sheetQueue.shift()); // a sheet that waited
+    else $('nextBtn').focus({ preventScroll: true });
+  }
+}
+
+// A hand-cut ink blot of radius r around x, y: a fixed wobble of ±a px, as a clip-path polygon.
+function blot(x, y, r, a) {
+  const pts = Array.from({ length: 72 }, (_, i) => {
+    const t = (i / 72) * Math.PI * 2;
+    const rr = r + a * (0.55 * Math.sin(12 * t + 0.7) + 0.3 * Math.sin(7 * t + 2.1) + 0.15 * Math.sin(19 * t + 4));
+    return `${(x + rr * Math.cos(t)).toFixed(1)}px ${(y + rr * Math.sin(t)).toFixed(1)}px`;
+  });
+  return `polygon(${pts.join(', ')})`;
 }
 
 function clearPath() {
@@ -2168,7 +2626,7 @@ function bind() {
   $('upList').addEventListener('click', (e) => {
     const b = e.target.closest('.up');
     const st = S();
-    if (!b || !st.game || st.game.phase !== 'won') return;
+    if (!b || !st.game || st.game.phase !== 'won' || app.endPlaying || performance.now() < (app.skipUntil || 0)) return; // the tap that skipped the moment does not pick
     st.ups = withUpgrade(st.ups, b.dataset.cat);
     logEvent('upgrade', { category: b.dataset.cat, ups: st.ups });
     onNext();

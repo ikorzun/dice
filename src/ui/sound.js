@@ -3,8 +3,8 @@
 // while the page is hidden; the Sound setting turns it off and on. The files come as addresses from the caller
 // (the build inlines them like the rest of the art).
 
-export const SOUNDS = ['roll', 'hold', 'release', 'flip', 'on', 'off', 'score', 'fire', 'burn', 'drop', 'bonus', 'refund', 'win'];
-const VOLUME = { roll: 0.8, hold: 0.7, release: 0.6, flip: 0.55, on: 0.6, off: 0.5, score: 0.7, fire: 0.6, burn: 0.45, drop: 0.5, bonus: 0.8, refund: 0.7, win: 0.8 };
+export const SOUNDS = ['roll', 'hold', 'release', 'flip', 'on', 'off', 'score', 'fire', 'burn', 'drop', 'bonus', 'refund', 'win', 'tally', 'stop', 'paper'];
+const VOLUME = { roll: 0.8, hold: 0.7, release: 0.6, flip: 0.55, on: 0.6, off: 0.5, score: 0.7, fire: 0.6, burn: 0.45, drop: 0.5, bonus: 0.8, refund: 0.7, win: 0.8, tally: 0.6, stop: 0.7, paper: 0.5 };
 
 let ctx = null;
 let out = null;

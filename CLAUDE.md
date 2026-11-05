@@ -51,6 +51,13 @@ Locally the CDN loads, so the 3D throw runs in the smoke; it waits for `app.busy
 - `scripts/build.mjs` bundles modules into per-module scopes; it validates import names and
   module order. Dynamic `import()` of CDN URLs (three.js in `src/ui/dice3d.js`) is
   left untouched and must keep its CSS fallback.
+- The won level's moment (`playWin` in `app.js`, `shards.js`, the characters' `win` acts in `puppets.js`) is built to
+  GPT's spec in `art/ai/2026-11-04-win-production` (local, not in git; MODE3-PLAN §20): times are ms from PLAY,
+  `finishLevel` runs first so a reload shows the cleared screen, a tap skips to the pick. The lost run's moment
+  (`playLoss`, `holdLine` in `shards.js`; `art/ai/2026-11-04-loss-production`, §21) mirrors it: `finishLevel(board)`
+  keeps the board as played in `lastEnd.board` (the engine has refilled it), never call `render()` during the moment.
+  The act strip (`acts.js`, `renderAct`; `art/ai/2026-11-05-acts-production`, §22) is worked out from the level and
+  the record; it adds no height to the column. Visual work goes through GPT first (tools in `art/ai/tools`, local).
 - Before pushing: `npm test`, `npm run build`, `npm run smoke`.
 
 ## Documents
