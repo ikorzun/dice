@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sprite baker</title>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+</head>
+<body style="margin:0;background:#333">
+<!-- Offline baker for variant C. Opened by render-sprites.mjs in headless Chromium; also works in a
+     normal browser (the result is shown on the page). Parameters: ?frame=144&frames=20&sub=8&still=256 -->
+<canvas id="gl"></canvas>
+<div id="out"></div>
+<script type="module">
+import * as THREE from 'three';
+import { createDieScene, tumbleAt, tumbleTheta, BLEED, CAM_DIST } from './model.js';
+
+const q = new URLSearchParams(location.search);
+const FRAME = +(q.get('frame') || 144);   // px per tumble frame (frame = BLEED x die)
+const N = +(q.get('frames') || 20);       // frames per landing value
+const SUB = +(q.get('sub') || 8);         // motion-blur subsamples per frame
+const STILL = +(q.get('still') || 256);   // px per resting still (die only, no bleed)
+const QUALITY = +(q.get('q') || 0.82);
+const TURNS = 1.1;
+const AXIS = new THREE.Vector3(0.8, 0.25, 0.55).normalize();
+const U0 = 0.08;
+const U1 = 0.84;
+
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setClearColor(0x000000, 0);
+const { scene, camera, die, landing } = await createDieScene(THREE, renderer);
+const gl = renderer.getContext();
+
+function grab(size) {
+  const px = new Uint8Array(size * size * 4);
+  gl.readPixels(0, 0, size, size, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  return px;
+}
+
+// Average SUB renders across the frame's exposure (premultiplied), write straight alpha.
+function renderFrame(ctx, x, y, v, uCentre, du) {
+  renderer.setSize(FRAME, FRAME, false);
+  const acc = new Float32Array(FRAME * FRAME * 4);
+  const shutter = 0.85;
+  for (let s = 0; s < SUB; s++) {
+    const u = SUB === 1 ? uCentre : uCentre + du * shutter * ((s + 0.5) / SUB - 0.5);
+    const theta = tumbleTheta(Math.min(U1, Math.max(U0, u)), TURNS * Math.PI * 2);
+    tumbleAt(THREE, landing[v], AXIS, theta, die.quaternion);
+    renderer.render(scene, camera);
+    const px = grab(FRAME);
+    for (let i = 0; i < px.length; i++) acc[i] += px[i];
+  }
+  const img = ctx.createImageData(FRAME, FRAME);
+  for (let row = 0; row < FRAME; row++) {
+    for (let col = 0; col < FRAME; col++) {
+      const si = ((FRAME - 1 - row) * FRAME + col) * 4; // readPixels is bottom-up
+      const di = (row * FRAME + col) * 4;
+      const a = acc[si + 3] / SUB;
+      if (a < 0.5) continue;
+      for (let c = 0; c < 3; c++) img.data[di + c] = Math.min(255, Math.round((acc[si + c] / SUB) * 255 / a));
+      img.data[di + 3] = Math.round(a);
+    }
+  }
+  ctx.putImageData(img, x, y);
+}
+
+const t0 = performance.now();
+const sheet = document.createElement('canvas');
+sheet.width = FRAME * N;
+sheet.height = FRAME * 6;
+const sctx = sheet.getContext('2d');
+const du = (U1 - U0) / (N - 1);
+const frameU = [];
+for (let i = 0; i < N; i++) frameU.push(U0 + du * i);
+for (let v = 1; v <= 6; v++) {
+  // the last frame is the exact rest pose, without blur
+  for (let i = 0; i < N; i++) renderFrameWith(i === N - 1 ? 1 : SUB, sctx, i * FRAME, (v - 1) * FRAME, v, frameU[i], du);
+}
+function renderFrameWith(sub, ctx, x, y, v, u, d) {
+  if (sub === SUB) return renderFrame(ctx, x, y, v, u, d);
+  // single exact sample
+  renderer.setSize(FRAME, FRAME, false);
+  tumbleAt(THREE, landing[v], AXIS, tumbleTheta(u, TURNS * Math.PI * 2), die.quaternion);
+  renderer.render(scene, camera);
+  const px = grab(FRAME);
+  const img = ctx.createImageData(FRAME, FRAME);
+  for (let row = 0; row < FRAME; row++) for (let col = 0; col < FRAME; col++) {
+    const si = ((FRAME - 1 - row) * FRAME + col) * 4;
+    const di = (row * FRAME + col) * 4;
+    const a = px[si + 3];
+    if (!a) continue;
+    for (let c = 0; c < 3; c++) img.data[di + c] = Math.min(255, Math.round(px[si + c] * 255 / a));
+    img.data[di + 3] = a;
+  }
+  ctx.putImageData(img, x, y);
+}
+
+// Resting stills: camera framing the die only, so a still covers exactly one cell.
+const stillCam = camera.clone();
+stillCam.fov = 2 * Math.atan(1 / (CAM_DIST - 1)) * 180 / Math.PI;
+stillCam.updateProjectionMatrix();
+const stills = document.createElement('canvas');
+stills.width = STILL * 6;
+stills.height = STILL;
+const tctx = stills.getContext('2d');
+renderer.setSize(STILL, STILL, false);
+for (let v = 1; v <= 6; v++) {
+  die.quaternion.copy(landing[v]);
+  renderer.render(scene, stillCam);
+  const px = grab(STILL);
+  const img = tctx.createImageData(STILL, STILL);
+  for (let row = 0; row < STILL; row++) for (let col = 0; col < STILL; col++) {
+    const si = ((STILL - 1 - row) * STILL + col) * 4;
+    const di = (row * STILL + col) * 4;
+    const a = px[si + 3];
+    if (!a) continue;
+    for (let c = 0; c < 3; c++) img.data[di + c] = Math.min(255, Math.round(px[si + c] * 255 / a));
+    img.data[di + 3] = a;
+  }
+  tctx.putImageData(img, (v - 1) * STILL, 0);
+}
+
+const sheetUrl = sheet.toDataURL('image/webp', QUALITY);
+const stillsUrl = stills.toDataURL('image/webp', 0.9);
+window.result = {
+  sheet: sheetUrl,
+  stills: stillsUrl,
+  meta: { frame: FRAME, frames: N, still: STILL, bleed: BLEED, u0: U0, u1: U1, turns: TURNS, sub: SUB, quality: QUALITY, ms: Math.round(performance.now() - t0) },
+};
+const out = document.getElementById('out');
+out.innerHTML = `<p style="color:#fff;font:14px system-ui">${JSON.stringify(window.result.meta)}</p>`;
+const a = new Image(); a.src = sheetUrl; a.style.maxWidth = '100%'; out.append(a);
+const b = new Image(); b.src = stillsUrl; b.style.maxWidth = '100%'; out.append(b);
+</script>
+</body>
+</html>

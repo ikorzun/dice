@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script>
+  // GitHub Pages lets a browser keep each file for 10 minutes, so right after a deploy a phone could mix
+  // this page with old styles and scripts. Players there get the single-file build (dist/), which can't.
+  if (/\.github\.io$/.test(location.hostname) && !/\/dist\//.test(location.pathname)) location.replace(`dist/${location.search}${location.hash}`);
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>Dicefool</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Cinzel:wght@600;800&family=Uncial+Antiqua&family=Pirata+One&family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap">
+<link rel="stylesheet" href="src/ui/styles.css">
+</head>
+<body>
+<main class="app" id="app">
+  <!-- One screen after the owner's Figma mockup (DARK, 01.11.2026): Auto Hand only; the other
+       modes keep their code but leave the interface (tabs, path tools and looks are hidden). -->
+  <nav class="tabs" id="tabs" aria-label="Game mode" hidden>
+    <button class="tab" type="button" data-mode="snake4" id="tabSnake4">SNAKE 4+4</button>
+    <button class="tab" type="button" data-mode="poker5" id="tabPoker5">POKER 5</button>
+    <button class="tab" type="button" data-mode="auto" id="tabAuto">AUTO HAND</button>
+  </nav>
+  <header class="hud">
+    <div class="stat" id="levelHud"><span class="label">LEVEL</span><span class="value level-text">1</span></div>
+    <div class="bank" id="bank" aria-label="Bonus bank: bonuses kept from earlier levels"></div>
+    <div class="charm-rail" id="charmRail" aria-label="Charms of this run"></div>
+    <button class="book" id="helpBtn" type="button" aria-label="How to play"><i></i>How</button>
+  </header>
+  <div class="preview" id="preview" aria-live="polite" hidden></div>
+  <div class="coach" id="coach" hidden>
+    <span class="coach-step" id="coachStep">1 / 4</span>
+    <span class="coach-text" id="coachText"></span>
+    <button class="btn-ghost coach-skip" id="coachSkip" type="button">SKIP</button>
+  </div>
+  <section class="board-wrap" id="boardWrap">
+    <div class="board rendered" id="board" aria-label="3 by 3 dice board"></div>
+    <div class="boss-card" id="bossCard" hidden></div>
+  </section>
+  <section class="counter" aria-live="polite">
+    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span><span class="level-best" id="levelBest" hidden></span><span class="next-up" id="nextUp"></span><i class="boss-face" id="bossFace" hidden></i></div>
+    <div class="stat mid" id="handStat"><span class="label" id="bonesLabel">BONES</span><span class="value"><span id="bones">0</span><span class="sticker" id="multSticker"></span><span id="handTotal">0</span></span></div>
+    <div class="stat mid" id="targetStat"><span class="label">THRESHOLD</span><span class="value" id="target">0</span></div>
+    <div class="run-line" id="runLine" hidden></div>
+    <div class="hand-row" id="handRow"><span class="gdice" id="handDice"></span><span class="hand-name"><b id="handName"></b><em id="handMult"></em></span></div>
+  </section>
+  <section class="controls">
+    <div class="status" hidden>
+      <span class="rerolls"><span class="pips" id="rerollPips"></span><span id="rerollText">REROLLS</span></span>
+      <button class="bonus-status" id="bonusStatus" type="button">×2 READY</button>
+    </div>
+    <button class="btn-play" id="playBtn" type="button">PLAY•3</button>
+    <button class="btn-dark" id="rerollBtn" type="button">REROLL•3</button>
+    <button class="btn-secondary" id="bankLastBtn" type="button" hidden>BANK LAST 4</button>
+    <div class="tapbar" id="tapbar" hidden>
+      <button class="btn-secondary" id="undoBtn" type="button">UNDO</button>
+      <button class="btn-secondary" id="bankTapBtn" type="button">BANK PATH</button>
+    </div>
+    <nav class="toolbar" hidden>
+      <button class="btn-ghost" id="hintBtn" type="button">HINT</button>
+      <button class="btn-ghost" id="pathModeBtn" type="button" aria-pressed="false">PATH MODE</button>
+      <button class="btn-ghost" id="lookBtn" type="button">LOOK</button>
+    </nav>
+  </section>
+  <div class="toast" id="toast" hidden></div>
+</main>
+
+<section class="overlay" id="levelEnd" hidden>
+  <div class="panel">
+    <h2 class="end-title" id="endTitle">LEVEL CLEARED</h2>
+    <div class="end-score"><span id="endScore">0</span><span class="end-sep">/</span><span id="endTarget">0</span><span class="end-over" id="endOver" hidden></span></div>
+    <!-- a missed target ends the run (owner, 03.11.2026; pick В12 A «Честный чек»): the level it got to and the rerolls
+         left unused, then the board as its last hand was played -->
+    <p class="run-reached" id="runReached" hidden><span>LEVEL</span><b id="runLevel">1</b><i>·</i><span>REROLLS LEFT</span><b id="runRerolls">0</b></p>
+    <div class="end-board" id="endBoard" hidden></div>
+    <!-- a cleared level (owner's pick В11 A, 04.11.2026): a rail for the medal and the record, then the winning hand -->
+    <div class="end-badges" id="endBadges" hidden><span class="end-medal" id="endMedal" hidden><i class="medal fresh" id="endMedalDisc">5</i><b id="endMedalText">NEW MEDAL</b></span><span class="end-best" id="endBest" hidden>NEW BEST</span></div>
+    <div class="end-hand" id="endHand" hidden></div>
+    <ul class="hands" id="endHands"></ul>
+    <p class="end-note" id="endBonus"></p>
+    <p class="end-note muted" id="endSolver"></p>
+    <p class="end-note muted" id="endTier"></p>
+    <div class="run-sum" id="runSum" hidden>
+      <p class="run-stats" id="runStats"></p>
+      <p class="run-gap" id="runGap"></p>
+      <div class="medal-rail"><div class="medal-group"><span>MEDALS</span><ol class="medals" id="medals" aria-label="Medals of this run"></ol></div></div>
+    </div>
+    <div class="upgrades" id="upgrades" hidden>
+      <p class="up-head">PICK AN UPGRADE</p>
+      <p class="up-sub">+1 FOR THIS RUN</p>
+      <div class="up-list" id="upList"></div>
+    </div>
+    <p class="end-next" id="endAct" hidden></p>
+    <p class="end-bells" id="endBells" hidden></p>
+    <div class="end-actions">
+      <button class="btn-primary" id="nextBtn" type="button">NEXT LEVEL</button>
+      <button class="btn-secondary" id="retryBtn" type="button">RETRY</button>
+      <button class="guide-link" id="runsBtn" type="button" hidden>BEST RUNS</button>
+    </div>
+  </div>
+</section>
+
+<section class="overlay shop" id="shop" hidden>
+  <div class="shop-panel">
+    <header class="shop-head"><h2>SHOP</h2><span class="wallet"><i class="bell"></i><b id="shopBells">0</b> BELLS</span></header>
+    <div class="shop-held">
+      <div><span>BANK</span><div class="shop-places" id="shopBank"></div></div>
+      <div><span id="shopCharmLabel">CHARMS 0/3</span><div class="shop-places" id="shopCharms"></div></div>
+    </div>
+    <div class="shop-boss" id="shopBoss"></div>
+    <ul class="shop-list" id="shopList"></ul>
+    <p class="shop-hint" id="shopHint">TAP AN OFFER, THEN TAP BUY</p>
+    <button class="btn-dark shop-leave" id="shopLeave" type="button">LEAVE SHOP</button>
+  </div>
+</section>
+
+<section class="sheet-up" id="runsSheet" hidden>
+  <div class="sheet-card runs-card" role="dialog" aria-labelledby="runsTitle">
+    <h3 id="runsTitle">YOUR BEST RUNS</h3>
+    <ol class="runs-list" id="runsList"></ol>
+    <button class="btn-play" id="runsClose" type="button">CLOSE</button>
+  </div>
+</section>
+
+<section class="overlay guide" id="guide" hidden>
+  <div class="guide-bar">
+    <span class="guide-dots" id="guideDots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <button class="guide-skip" id="guideSkip" type="button">SKIP</button>
+  </div>
+  <div class="guide-page guide-title" data-page="0">
+    <h1 class="game-name" id="gameName">DICE<span>FOOL</span></h1>
+    <div class="title-art" role="img" aria-label="A skeleton knight, a grinning skull and a bird around two dice showing six"></div>
+  </div>
+  <div class="guide-page" data-page="1">
+    <h2 class="guide-head">MATCH DICE:<br>SUM × MULTIPLIER</h2>
+    <ol class="combos" id="combos"></ol>
+    <p class="guide-note">THREE 6s: 18 × 4 = 72</p>
+  </div>
+  <div class="guide-page" data-page="2">
+    <h2 class="guide-head">HOLD THE KEEPERS.<br>REROLL THE REST.</h2>
+    <div class="hold-pic" id="holdPic"></div>
+    <p class="guide-note">PLAY THROWS EVERY DIE ANEW</p>
+  </div>
+  <div class="guide-page" data-page="3">
+    <h2 class="guide-head">SWITCH ON BONUSES.<br>BEAT THE THRESHOLD.</h2>
+    <div class="bonus-pic" id="bonusPic"></div>
+    <p class="guide-note" id="bonusNote"></p>
+  </div>
+  <div class="guide-actions">
+    <button class="btn-play" id="guideNext" type="button">PLAY</button>
+    <button class="guide-link" id="guideSettings" type="button" hidden>SETTINGS</button>
+  </div>
+</section>
+
+<section class="sheet-up" id="bonusSheet" hidden>
+  <div class="sheet-card" role="dialog" aria-labelledby="bonusSheetName">
+    <div class="sheet-tile" id="bonusSheetTile"></div>
+    <div class="sheet-text">
+      <h3 id="bonusSheetName"></h3>
+      <p id="bonusSheetWhat"></p>
+    </div>
+    <p class="sheet-note">ON FOR ONE THROW · USED, A NEW DIE TAKES ITS PLACE · BONUSES ADD UP</p>
+    <button class="btn-play" id="bonusSheetOk" type="button">GOT IT</button>
+  </div>
+</section>
+
+<section class="overlay sheet" id="help" hidden>
+  <div class="panel sheet-panel">
+    <h2 class="end-title" id="helpTitle">HOW TO PLAY</h2>
+    <div id="helpRules" class="help-rules">
+    <p class="lead" id="helpScoring"><strong>Matching dice score their sum × a multiplier that grows with rarity.</strong> Pair × 2, two pairs × 3, three of a kind × 4, straight and full house × 5 (all five dice), four of a kind × 6, five of a kind × 8. Three 3s = 9 × 4 = 36; four 4s = 16 × 6 = 96.</p>
+    <p class="lead" id="helpLead"></p>
+    <ol class="rules" id="helpRuleList"></ol>
+    <h3 id="helpScoreTitle">SCORING</h3>
+    <table class="score-table" id="scoreTable"></table>
+    </div>
+    <h3>LOOK</h3>
+    <label class="opt" hidden>Visual concept
+      <select id="optLook">
+        <option value="modern">Modern · black</option>
+        <option value="manuscript">Manuscript · parchment and ink</option>
+        <option value="tavern">Tavern · oak, bone and brass</option>
+        <option value="keep">Keep · stone and heraldry</option>
+      </select>
+    </label>
+    <label class="opt"><input type="checkbox" id="optSound" checked> Sound effects</label>
+    <label class="opt"><input type="checkbox" id="optDice3d" checked> 3D physics dice on REROLL (three.js + cannon-es from the CDN; falls back to the flat tumble offline)</label>
+    <h3>EXPERIMENTS</h3>
+    <label class="opt"><input type="checkbox" id="optHoldCap"> Hold cap: at most 3 held dice per reroll</label>
+    <label class="opt" id="optTableRow">Score table
+      <select id="optTable"></select>
+    </label>
+    <label class="opt" id="optSmallRow"><input type="checkbox" id="optSmall"> Small straight (four in a row) counts</label>
+    <label class="opt" id="optEndRow"><input type="checkbox" id="optEndOnTarget"> End the level as soon as the target is reached</label>
+    <label class="opt" id="optGoldRow"><input type="checkbox" id="optGold" checked> Gold ×2 cell replaces one die (off: nine dice, ×2 badge only)</label>
+    <label class="opt"><input type="checkbox" id="optAutoBonus" checked> Auto-apply an unused ×2 to the final hand</label>
+    <p class="muted small">Changes apply from the next level.</p>
+    <button class="btn-secondary" id="tutorialBtn" type="button">SHOW TUTORIAL AGAIN</button>
+    <h3>DATA</h3>
+    <p class="muted small" id="runInfo"></p>
+    <p class="muted small" id="difficultyRule"></p>
+    <div class="row">
+      <button class="btn-secondary" id="exportBtn" type="button">COPY EVENT LOG</button>
+      <button class="btn-secondary" id="resetBtn" type="button">RESET THIS MODE</button>
+    </div>
+    <textarea id="logOut" class="log-out" readonly hidden aria-label="Event log JSON"></textarea>
+    <button class="btn-primary" id="closeHelpBtn" type="button">CLOSE</button>
+  </div>
+</section>
+<script type="module" src="src/ui/app.js"></script>
+</body>
+</html>

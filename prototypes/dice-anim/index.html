@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dice Roll Prototypes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&display=swap">
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<style>
+/* Tokens copied from src/ui/styles.css (modern look) so the dice read like the game's. */
+:root {
+  --bg: #000;
+  --fg: #f4efe4;
+  --muted: #8d8676;
+  --line: #262219;
+  --line-strong: #3a3426;
+  --die: #f4efe4;
+  --die-edge: #cbc3b1;
+  --pip: #0c0b09;
+  --hold: #79cdfd;
+  --hold-ink: #04202e;
+  --path: #ff7b47;
+  --gold: #f3c54f;
+  --bad: #ff5f5f;
+  --die-radius: 14%;
+  --die-shadow: inset 0 -5px 0 var(--die-edge);
+  --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --tray: #1d1a15;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body { padding: 12px 16px 28px; -webkit-tap-highlight-color: transparent; }
+h1 { font: 700 22px/1.1 var(--font-display); letter-spacing: .06em; margin: 0 0 4px; text-transform: uppercase; }
+.lead { color: var(--muted); margin: 0 0 10px; max-width: 72ch; }
+.bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.bar button, .bar label { font: 700 14px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: #0e0c08; border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.bar button[aria-pressed="true"] { background: var(--fg); color: #000; border-color: var(--fg); }
+.bar label input { accent-color: var(--gold); margin: 0; }
+.decided { font: 700 15px/1.2 var(--font-display); letter-spacing: .06em; color: var(--muted); margin: 4px 0 10px; min-height: 18px; }
+.decided b { display: inline-block; min-width: 18px; text-align: center; background: var(--die); color: #000; border-radius: 4px; margin: 0 2px; padding: 1px 3px; }
+.decided b.keep { background: var(--hold); }
+.stage { display: grid; gap: 14px; justify-content: center; grid-template-columns: repeat(var(--cols, 1), auto); }
+.unit h2 { font: 700 15px/1.2 var(--font-display); letter-spacing: .08em; margin: 0 0 6px; text-transform: uppercase; }
+.unit h2 small { color: var(--muted); font-weight: 500; letter-spacing: .04em; text-transform: none; font-family: system-ui, sans-serif; font-size: 12px; display: block; margin-top: 2px; }
+.unit .stats { color: var(--muted); font: 12px/1.3 ui-monospace, Menlo, monospace; margin-top: 6px; min-height: 2.6em; }
+.tray { position: relative; padding: 14px; border-radius: 16px; background: var(--tray); box-shadow: inset 0 2px 14px rgba(0, 0, 0, .65), inset 0 0 0 1px #2c281f; }
+body.surface-black .tray { background: #000; box-shadow: inset 0 0 0 1px var(--line); }
+.board { position: relative; width: var(--bw); height: var(--bw); display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 4px; touch-action: manipulation; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 14px 0 6px; }
+.controls button { font: 700 22px/1 var(--font-display); letter-spacing: .14em; padding: 14px 22px; border-radius: 12px; border: 0; background: var(--fg); color: #000; cursor: pointer; min-width: 150px; }
+.controls button.secondary { background: #0e0c08; color: var(--fg); border: 1px solid var(--line-strong); font-size: 18px; min-width: 0; }
+.controls button:disabled { opacity: .45; }
+.hint { text-align: center; color: var(--muted); font-size: 12px; }
+
+/* ---------- cell / die ---------- */
+.cell { position: relative; border-radius: var(--die-radius); }
+.cell.rolling { z-index: 3; }
+.cell .shadow { position: absolute; inset: 3%; border-radius: 24%; background: radial-gradient(closest-side, rgba(0, 0, 0, .75), rgba(0, 0, 0, .45) 55%, rgba(0, 0, 0, 0)); transform: translate(5%, 7%) scale(1.04); opacity: .55; pointer-events: none; }
+body.surface-black .cell .shadow { display: none; }
+.cell .die { position: absolute; inset: 0; transform-origin: 50% 50%; }
+.cell .body { position: absolute; inset: 0; border-radius: var(--die-radius); background: var(--die); box-shadow: var(--die-shadow); }
+.cell .shade { position: absolute; inset: 0; border-radius: inherit; background: #000; opacity: 0; pointer-events: none; }
+.face { position: absolute; inset: 14%; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+.face i { display: block; width: 62%; height: 62%; margin: auto; border-radius: 50%; background: var(--pip); opacity: 0; }
+.face[data-value="1"] i:nth-child(5),
+.face[data-value="2"] i:nth-child(3), .face[data-value="2"] i:nth-child(7),
+.face[data-value="3"] i:nth-child(3), .face[data-value="3"] i:nth-child(5), .face[data-value="3"] i:nth-child(7),
+.face[data-value="4"] i:nth-child(1), .face[data-value="4"] i:nth-child(3), .face[data-value="4"] i:nth-child(7), .face[data-value="4"] i:nth-child(9),
+.face[data-value="5"] i:nth-child(1), .face[data-value="5"] i:nth-child(3), .face[data-value="5"] i:nth-child(5), .face[data-value="5"] i:nth-child(7), .face[data-value="5"] i:nth-child(9),
+.face[data-value="6"] i:nth-child(1), .face[data-value="6"] i:nth-child(3), .face[data-value="6"] i:nth-child(4), .face[data-value="6"] i:nth-child(6), .face[data-value="6"] i:nth-child(7), .face[data-value="6"] i:nth-child(9) { opacity: 1; }
+.cell.hand .face i { background: var(--bad); }
+
+/* Rendered-model skin: a still of the owner's model (sprites/faces.webp) instead of CSS pips. */
+.skin-model .body { background: url("sprites/faces.webp") 0 0 / 600% 100% no-repeat; background-position-x: calc((var(--v, 1) - 1) * 20%); box-shadow: none; border-radius: 18%; }
+.skin-model .face { display: none; }
+.skin-model .cell .shadow { inset: 5%; }
+
+/* held, bonus, hole */
+.cell .ring { position: absolute; inset: 0; border-radius: var(--die-radius); box-shadow: inset 0 0 0 4px var(--hold); pointer-events: none; display: none; z-index: 4; }
+.cell .tag { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); font: 700 11px/1 var(--font-display); letter-spacing: .16em; padding: 3px 6px; border-radius: 4px; display: none; white-space: nowrap; background: var(--hold); color: var(--hold-ink); z-index: 5; }
+.cell.held .ring, .cell.held .tag { display: block; }
+.cell.bonus { border: 2px solid var(--gold); background: #0e0c08; display: flex; align-items: center; justify-content: center; color: var(--gold); font: 700 clamp(22px, 9vw, 52px)/1 var(--font-display); }
+.cell.bonus > :not(.x2) { display: none; }
+.cell .x2 { display: none; }
+.cell.bonus .x2 { display: block; }
+.cell.hole { border: 2px dashed var(--line-strong); background: transparent; }
+.cell.hole > * { display: none; }
+.cell.gone .die, .cell.gone .shadow { opacity: 0; }
+
+/* B: CSS 3D cube */
+.v-cube .die { perspective: calc(var(--cell) * 4); }
+.v-cube .body { display: none; }
+.cube { position: absolute; inset: 0; transform-style: preserve-3d; }
+.cube .side { position: absolute; inset: 0; border-radius: var(--die-radius); background: var(--die); box-shadow: var(--die-shadow); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.skin-model .cube .side { background: url("sprites/faces.webp") 0 0 / 600% 100% no-repeat; background-position-x: calc((var(--v, 1) - 1) * 20%); box-shadow: none; border-radius: 18%; }
+.cube .core { position: absolute; inset: 4%; background: var(--die-edge); border-radius: 8%; }
+.skin-model .cube .core { background: #d9cfb8; inset: 6%; }
+.cell:not(.rolling) .cube .core { visibility: hidden; } /* Chromium paints them through the front face at rest */
+
+/* C: baked sprite frames from the owner's model */
+.v-sprite .sprite { position: absolute; inset: -25%; background: url("sprites/rolls.webp") 0 0 no-repeat; opacity: 0; pointer-events: none; }
+
+/* D: live three.js overlay */
+.gl { position: absolute; pointer-events: none; z-index: 6; }
+.v-gl .cell.rolling .die { visibility: hidden; }
+
+/* score stamp for the hand demo */
+.stamp { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 700 clamp(30px, 12vw, 64px)/1 var(--font-display); color: var(--path); text-shadow: 0 3px 0 #000, 0 0 18px rgba(0, 0, 0, .8); pointer-events: none; z-index: 8; opacity: 0; white-space: nowrap; }
+.stamp small { display: block; text-align: center; font-size: .38em; letter-spacing: .14em; color: var(--fg); }
+</style>
+</head>
+<body>
+<h1>Бросок костей — 4 прототипа</h1>
+<p class="lead">Значения решает «движок» до анимации (строка ниже), каждая анимация обязана приземлиться ровно на них. Тап по кости — HOLD. Сравнивайте по одному или все рядом; «Замедлить» растягивает время в 4 раза, чтобы рассмотреть приземление.</p>
+<div class="bar" id="variants">
+  <button type="button" data-variant="flip">A · 2D-кувырок</button>
+  <button type="button" data-variant="cube">B · CSS 3D-куб</button>
+  <button type="button" data-variant="sprite">C · Спрайты из модели</button>
+  <button type="button" data-variant="gl">D · three.js по ключам</button>
+  <button type="button" data-variant="all">Все рядом</button>
+</div>
+<div class="bar">
+  <label><input type="checkbox" id="skinModel"> Скин A/B: рендер модели</label>
+  <label><input type="checkbox" id="slow"> Замедлить ×4</label>
+  <label><input type="checkbox" id="rm"> Меньше движения</label>
+  <label><input type="checkbox" id="sound" checked> Звук</label>
+  <label><input type="checkbox" id="black"> Чёрный фон, как в игре</label>
+</div>
+<div class="decided" id="decided"></div>
+<div class="stage" id="stage"></div>
+<div class="controls">
+  <button type="button" id="rerollBtn">REROLL</button>
+  <button type="button" class="secondary" id="playBtn">СЫГРАТЬ РУКУ</button>
+  <button type="button" class="secondary" id="newBtn">НОВАЯ ДОСКА</button>
+</div>
+<p class="hint" id="hint">Кости с HOLD не катятся. Тап по доске во время броска — пропуск. ×2 — бонусная клетка, при розыгрыше руки становится дырой.</p>
+
+<script type="module">
+import { createDieScene, tumbleTheta, BLEED } from './model.js';
+
+let THREE = null; // three.js loads only for variant D, so A/B/C never wait for the CDN
+
+// ---------------------------------------------------------------- timing (the spec)
+const ROLL_MS = 620;     // one die: crouch 0-8%, rise to 36%, fall, impact at 62%, hop, second contact at 84%
+const STAGGER_MS = 45;   // between dice, in a shuffled order
+const IMPACT_U = [0.62, 0.84];
+const RM_FADE_MS = 160;  // reduced motion: cross-fade only
+
+// Lift of the whole die (transform on .die): the same curve for every variant. The 3D variants
+// lift less, because a tumbling cube already grows (its diagonal is up to 1.7x the face).
+const liftKeys = (peak, dy) => [
+  { offset: 0, transform: 'translate(0, 0) scale(1)', easing: 'cubic-bezier(.3, 0, .6, 1)' },
+  { offset: 0.08, transform: 'translate(0, 1.5%) scale(.95)', easing: 'cubic-bezier(.2, .7, .35, 1)' },
+  { offset: 0.36, transform: `translate(0, ${-dy}%) scale(${peak})`, easing: 'cubic-bezier(.55, 0, .85, .4)' },
+  { offset: 0.62, transform: 'translate(0, 0) scale(1)', easing: 'cubic-bezier(.2, .8, .4, 1)' },
+  { offset: 0.67, transform: 'translate(0, 0) scale(1.035, .965)', easing: 'cubic-bezier(.2, .7, .4, 1)' },
+  { offset: 0.74, transform: 'translate(0, -3%) scale(1.04)', easing: 'cubic-bezier(.5, 0, .8, .5)' },
+  { offset: 0.84, transform: 'translate(0, 0) scale(.985)', easing: 'cubic-bezier(.2, .8, .4, 1)' },
+  { offset: 1, transform: 'translate(0, 0) scale(1)' },
+];
+const dropKeys = (lift) => [ // refill: thrown in from above the board
+  { offset: 0, transform: 'translate(0, -70%) scale(1.4)', opacity: 0, easing: 'linear' },
+  { offset: 0.14, transform: 'translate(0, -55%) scale(1.3)', opacity: 1, easing: 'cubic-bezier(.55, 0, .85, .4)' },
+  ...lift.slice(3),
+];
+const LIFT_2D = liftKeys(1.16, 9);
+const LIFT_3D = liftKeys(1.06, 6);
+const SHADOW = [
+  { offset: 0, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0.55, easing: 'cubic-bezier(.3, 0, .6, 1)' },
+  { offset: 0.08, transform: 'translate(4%, 6%) scale(1.02)', opacity: 0.6, easing: 'cubic-bezier(.2, .7, .35, 1)' },
+  { offset: 0.36, transform: 'translate(17%, 22%) scale(.84)', opacity: 0.2, easing: 'cubic-bezier(.55, 0, .85, .4)' },
+  { offset: 0.62, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0.6, easing: 'cubic-bezier(.2, .8, .4, 1)' },
+  { offset: 0.74, transform: 'translate(8%, 10%) scale(.98)', opacity: 0.45, easing: 'cubic-bezier(.5, 0, .8, .5)' },
+  { offset: 0.84, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0.58, easing: 'ease-out' },
+  { offset: 1, transform: 'translate(5%, 7%) scale(1.04)', opacity: 0.55 },
+];
+const SHADOW_DROP = [
+  { offset: 0, transform: 'translate(30%, 40%) scale(.6)', opacity: 0, easing: 'linear' },
+  { offset: 0.14, transform: 'translate(26%, 34%) scale(.66)', opacity: 0.12, easing: 'cubic-bezier(.55, 0, .85, .4)' },
+  ...SHADOW.slice(3),
+];
+
+// ---------------------------------------------------------------- helpers
+const $ = (id) => document.getElementById(id);
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+function rng(seed) { // mulberry32
+  let a = seed >>> 0;
+  return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const sample = (n, fn) => Array.from({ length: n + 1 }, (_, k) => ({ offset: k / n, ...fn(k / n) }));
+const bump = (x) => (Math.abs(x) >= 1 ? 0 : Math.cos((x * Math.PI) / 2) ** 2);
+
+// ---------------------------------------------------------------- settings + state
+const ui = {
+  variant: new URLSearchParams(location.search).get('variant') || (innerWidth >= 1100 ? 'all' : 'flip'),
+  slow: false,
+  rm: matchMedia('(prefers-reduced-motion: reduce)').matches,
+  sound: true,
+  skinModel: false,
+};
+const K = () => (ui.slow ? 4 : 1);
+const state = { seed: 7, faces: [], held: [], kind: [], busy: false, round: 0 };
+let R = rng(state.seed);
+function newBoard() {
+  state.faces = Array.from({ length: 9 }, () => 1 + Math.floor(R() * 6));
+  state.held = Array(9).fill(false);
+  state.held[1] = true;
+  state.kind = Array(9).fill('die');
+  state.kind[8] = 'bonus';
+}
+newBoard();
+
+// ---------------------------------------------------------------- sound + haptics
+let audio = null;
+let noise = null;
+function unlockAudio() { // call synchronously from a click handler
+  if (!ui.sound) return;
+  try {
+    audio = audio || new AudioContext();
+    if (audio.state === 'suspended') audio.resume();
+  } catch { /* no audio */ }
+}
+function clack(gain, pitch = 1) {
+  if (!ui.sound || !audio) return;
+  try {
+    if (!noise) {
+      noise = audio.createBuffer(1, audio.sampleRate * 0.08, audio.sampleRate);
+      const d = noise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audio.sampleRate * 0.012));
+    }
+    const t = audio.currentTime;
+    const src = audio.createBufferSource();
+    src.buffer = noise;
+    src.playbackRate.value = pitch;
+    const bp = audio.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 2600 * pitch; bp.Q.value = 1.4;
+    const g = audio.createGain();
+    g.gain.setValueAtTime(gain * 0.9, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    src.connect(bp).connect(g).connect(audio.destination);
+    src.start(t);
+    const o = audio.createOscillator(); // the "thock" of the body on the table
+    o.frequency.setValueAtTime(190 * pitch, t);
+    o.frequency.exponentialRampToValueAtTime(120 * pitch, t + 0.05);
+    const og = audio.createGain();
+    og.gain.setValueAtTime(gain * 0.35, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    o.connect(og).connect(audio.destination);
+    o.start(t); o.stop(t + 0.07);
+  } catch { /* no audio */ }
+}
+function tick(pitch) {
+  if (!ui.sound || !audio) return;
+  try {
+    const t = audio.currentTime;
+    const o = audio.createOscillator();
+    o.type = 'triangle';
+    o.frequency.value = 660 * pitch;
+    const g = audio.createGain();
+    g.gain.setValueAtTime(0.18, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    o.connect(g).connect(audio.destination);
+    o.start(t); o.stop(t + 0.13);
+  } catch { /* no audio */ }
+}
+const haptic = (ms) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch { /* none */ } };
+
+// ---------------------------------------------------------------- frame clock (fps proxy + per-die tickers)
+const tickers = new Set();
+let frameLog = null;
+function loop(now) {
+  if (frameLog) { if (frameLog.last) frameLog.d.push(now - frameLog.last); frameLog.last = now; }
+  for (const f of tickers) f(now);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+// Calls fn(u) every frame while `anim` runs (u = 0..1 of its active time); resolves when it ends.
+function follow(anim, fn) {
+  return new Promise((resolve) => {
+    const dur = anim.effect.getTiming().duration;
+    const delay = anim.effect.getTiming().delay || 0;
+    const f = () => {
+      const t = (anim.currentTime ?? 0) - delay;
+      fn(Math.max(0, Math.min(1, t / dur)), t >= 0);
+    };
+    tickers.add(f);
+    anim.finished.catch(() => {}).then(() => { tickers.delete(f); fn(1, true); resolve(); });
+  });
+}
+// Sounds on the two impacts, whatever the playback speed.
+function impactSounds(anim, k) {
+  const fired = [false, false];
+  const pitch = 0.94 + ((k * 37) % 13) / 100;
+  return follow(anim, (u) => {
+    IMPACT_U.forEach((iu, j) => {
+      if (!fired[j] && u >= iu) {
+        fired[j] = true;
+        clack(j === 0 ? 0.8 : 0.28, pitch);
+        if (j === 0 && k === 0) haptic(12);
+      }
+    });
+  });
+}
+
+// ---------------------------------------------------------------- board base
+const VARIANTS = {
+  flip: { title: 'A · 2D-кувырок', note: '0 КБ · только transform/opacity, грань меняется «через ребро»' },
+  cube: { title: 'B · CSS 3D-куб', note: '0 КБ · 6 граней в preserve-3d, перспектива у каждой кости своя' },
+  sprite: { title: 'C · Спрайты из модели', note: 'запечённые кадры модели владельца с размытием движения' },
+  gl: { title: 'D · three.js по ключам', note: 'живой 3D без физики: та же модель, кривая полёта задана' },
+};
+
+class Board {
+  constructor(variant, host) {
+    this.variant = variant;
+    this.el = document.createElement('section');
+    this.el.className = `unit v-${variant}`;
+    this.el.innerHTML = `<h2>${VARIANTS[variant].title}<small>${VARIANTS[variant].note}</small></h2><div class="tray"><div class="board"></div></div><div class="stats"></div>`;
+    host.append(this.el);
+    this.board = this.el.querySelector('.board');
+    this.stats = this.el.querySelector('.stats');
+    this.cells = [];
+    for (let i = 0; i < 9; i++) {
+      const c = document.createElement('div');
+      c.className = 'cell';
+      c.dataset.i = i;
+      c.innerHTML = '<div class="shadow"></div><div class="die"><div class="body"><div class="face">' + '<i></i>'.repeat(9) + '</div><div class="shade"></div></div></div><div class="ring"></div><span class="tag">HOLD</span><span class="x2">×2</span>';
+      c.addEventListener('click', () => onCellTap(i));
+      this.board.append(c);
+      this.cells.push(c);
+    }
+    this.resize();
+    new ResizeObserver(() => this.resize()).observe(this.board);
+  }
+  get model() { return this.variant === 'sprite' || this.variant === 'gl' || ui.skinModel; }
+  resize() {
+    this.cellPx = this.cells[0].getBoundingClientRect().width || 100;
+    this.board.style.setProperty('--cell', `${this.cellPx}px`);
+  }
+  setFace(i, v) {
+    const c = this.cells[i];
+    c.querySelector('.face').dataset.value = String(v);
+    c.style.setProperty('--v', v);
+  }
+  render() {
+    this.el.classList.toggle('skin-model', this.model);
+    this.cells.forEach((c, i) => {
+      c.className = `cell ${state.kind[i] === 'die' ? '' : state.kind[i]} ${state.held[i] && state.kind[i] === 'die' ? 'held' : ''}`;
+      this.setFace(i, state.faces[i]);
+    });
+  }
+  shown(i) { return +this.cells[i].querySelector('.face').dataset.value; }
+  // dice: [{ i, from, to, delay, drop }]
+  async roll(dice) { await Promise.all(dice.map((d, k) => this.rollOne(d, k))); }
+  liftAnims(c, d) {
+    const timing = { duration: ROLL_MS * K(), delay: d.delay * K(), fill: 'backwards' };
+    const keys = this.variant === 'flip' ? LIFT_2D : LIFT_3D;
+    const lift = c.querySelector('.die').animate(d.drop ? dropKeys(keys) : keys, timing);
+    const shadow = c.querySelector('.shadow').animate(d.drop ? SHADOW_DROP : SHADOW, timing);
+    return { lift, shadow, timing };
+  }
+  // Reduced motion: no movement, the new face dissolves over the old one (Apple HIG / WCAG 2.3.3).
+  async fadeOne(d) {
+    const c = this.cells[d.i];
+    await wait(d.delay * 0.6 * K());
+    const ghost = c.querySelector('.die').cloneNode(true);
+    ghost.style.zIndex = 2;
+    this.setFace(d.i, d.to);
+    if (d.drop) { c.querySelector('.die').animate([{ opacity: 0 }, { opacity: 1 }], { duration: RM_FADE_MS * K() }); return; }
+    c.append(ghost);
+    await ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: RM_FADE_MS * K(), fill: 'forwards' }).finished;
+    ghost.remove();
+  }
+}
+
+// ---------------------------------------------------------------- A: 2D flip
+const FLIPS = [ // squeeze centre and half-width in roll time; slower as the die falls
+  [0.15, 0.045], [0.25, 0.05], [0.355, 0.055], [0.465, 0.06], [0.575, 0.06],
+];
+class FlipBoard extends Board {
+  async rollOne(d, k) {
+    if (ui.rm) return this.fadeOne(d);
+    const c = this.cells[d.i];
+    const r = rng(state.round * 131 + d.i * 7 + 1);
+    const faces = FLIPS.map((_, j) => (j === FLIPS.length - 1 ? d.to : 1 + Math.floor(r() * 6)));
+    for (let j = 0; j < faces.length - 1; j++) if (faces[j] === (faces[j - 1] ?? d.from)) faces[j] = (faces[j] % 6) + 1;
+    const spin = (r() < 0.5 ? -1 : 1) * 180; // ends on 0 mod 180: every pip layout is symmetric under a half turn
+    const axisX = r() < 0.5;
+    const body = c.querySelector('.body');
+    const at = (u) => {
+      let sx = 1; let sy = 1; let sh = 0;
+      FLIPS.forEach(([cu, w], j) => {
+        const b = bump((u - cu) / w);
+        if ((j % 2 === 0) === axisX) sx -= 0.88 * b; else sy -= 0.88 * b;
+        sh = Math.max(sh, 0.5 * b);
+      });
+      const e = u < 0.08 ? 0 : u < 0.62 ? 1 - (1 - (u - 0.08) / 0.54) ** 2 : 1;
+      const rock = u > 0.62 && u < 0.84 ? 5 * Math.sin(((u - 0.62) / 0.22) * Math.PI) * (1 - (u - 0.62) / 0.22) : 0;
+      return { rot: spin * e + rock * Math.sign(spin), sx, sy, sh };
+    };
+    const { lift, timing } = this.liftAnims(c, d);
+    c.classList.add('rolling');
+    body.animate(sample(48, (u) => { const s = at(u); return { transform: `rotate(${s.rot}deg) scale(${s.sx}, ${s.sy})` }; }), timing);
+    c.querySelector('.shade').animate(sample(48, (u) => ({ opacity: at(u).sh })), timing);
+    let shownIdx = -1;
+    const p = follow(lift, (u) => {
+      let idx = -1;
+      FLIPS.forEach(([cu], j) => { if (u >= cu) idx = j; });
+      if (idx !== shownIdx) { shownIdx = idx; this.setFace(d.i, idx < 0 ? d.from : faces[idx]); }
+    });
+    await Promise.all([p, impactSounds(lift, k)]);
+    this.setFace(d.i, d.to);
+    c.classList.remove('rolling');
+  }
+}
+
+// ---------------------------------------------------------------- B: CSS 3D cube
+// Face transforms F; the cube shows value v when its rotation is F(v)^-1 (Euler X, Y, Z in degrees).
+const CUBE_FACES = [
+  { v: 1, f: 'translateZ(var(--h))', rest: [0, 0, 0], n: [0, 0, 1] },
+  { v: 6, f: 'rotateY(180deg) translateZ(var(--h))', rest: [0, 180, 0], n: [0, 0, -1] },
+  { v: 3, f: 'rotateY(90deg) translateZ(var(--h))', rest: [0, -90, 0], n: [1, 0, 0] },
+  { v: 4, f: 'rotateY(-90deg) translateZ(var(--h))', rest: [0, 90, 0], n: [-1, 0, 0] },
+  { v: 2, f: 'rotateX(90deg) translateZ(var(--h))', rest: [-90, 0, 0], n: [0, -1, 0] },
+  { v: 5, f: 'rotateX(-90deg) translateZ(var(--h))', rest: [90, 0, 0], n: [0, 1, 0] },
+];
+const LIGHT = (() => { const l = [-0.45, -0.55, 0.85]; const m = Math.hypot(...l); return l.map((x) => x / m); })();
+class CubeBoard extends Board {
+  constructor(...a) {
+    super(...a);
+    this.euler = [];
+    this.cells.forEach((c, i) => {
+      const cube = document.createElement('div');
+      cube.className = 'cube';
+      cube.innerHTML = '<div class="core"></div><div class="core" style="transform:rotateX(90deg)"></div><div class="core" style="transform:rotateY(90deg)"></div>'
+        + CUBE_FACES.map((f) => `<div class="side" style="transform:${f.f};--v:${f.v}"><div class="face" data-value="${f.v}">${'<i></i>'.repeat(9)}</div><div class="shade"></div></div>`).join('');
+      c.querySelector('.die').append(cube);
+      this.euler[i] = [0, 0, 0];
+    });
+    this.resize();
+  }
+  resize() {
+    super.resize();
+    if (!this.euler) return;
+    this.board.style.setProperty('--h', `${this.cellPx / 2}px`);
+    this.cells.forEach((c, i) => this.place(i, this.euler[i] || [0, 0, 0]));
+  }
+  cubeTransform(e) { return `translateZ(${-this.cellPx / 2}px) rotateX(${e[0]}deg) rotateY(${e[1]}deg) rotateZ(${e[2]}deg)`; }
+  place(i, e) { const cube = this.cells[i].querySelector('.cube'); if (cube) cube.style.transform = this.cubeTransform(e); }
+  setFace(i, v) {
+    super.setFace(i, v);
+    if (!this.euler) return;
+    if (!this.rollingSet || !this.rollingSet.has(i)) {
+      this.euler[i] = CUBE_FACES.find((f) => f.v === v).rest.slice();
+      this.place(i, this.euler[i]);
+    }
+  }
+  shown(i) {
+    // Which face points at the viewer, and is it upright? Read back from the computed matrix.
+    const cube = this.cells[i].querySelector('.cube');
+    const m = new DOMMatrix(getComputedStyle(cube).transform);
+    let best = null;
+    for (const f of CUBE_FACES) {
+      const fm = m.multiply(new DOMMatrix(f.f.replace('var(--h)', `${this.cellPx / 2}px`)));
+      const z = fm.m33; // face normal (local +z) in screen space, z component
+      if (!best || z > best.z) best = { v: f.v, z, upright: Math.abs(fm.m11 - 1) < 0.02 };
+    }
+    return best.upright ? best.v : -best.v;
+  }
+  async rollOne(d, k) {
+    this.rollingSet = this.rollingSet || new Set();
+    if (ui.rm) { await this.fadeOne(d); this.euler[d.i] = CUBE_FACES.find((f) => f.v === d.to).rest.slice(); this.place(d.i, this.euler[d.i]); return; }
+    const c = this.cells[d.i];
+    const r = rng(state.round * 977 + d.i * 13 + 5);
+    const start = this.euler[d.i].map((a) => ((a % 360) + 540) % 360 - 180);
+    const rest = CUBE_FACES.find((f) => f.v === d.to).rest;
+    const sgn = () => (r() < 0.5 ? -1 : 1);
+    const end = [rest[0] + 360 * sgn(), rest[1] + 360 * sgn(), rest[2] + (r() < 0.5 ? 0 : 360 * sgn())];
+    const rockAxis = r() < 0.5 ? 0 : 1;
+    const rockSign = sgn();
+    const angles = (u) => {
+      const f = tumbleTheta(u, 1, 0) ; // 1 -> 0, eased like the other variants
+      const e = end.map((b, j) => b + (start[j] - b) * f);
+      if (u > 0.62 && u < 0.84) { const q = (u - 0.62) / 0.22; e[rockAxis] += rockSign * 9 * Math.cos(1.5 * Math.PI * q) * (1 - q); }
+      else if (u > 0.5 && u <= 0.62) { e[rockAxis] += rockSign * 9 * ((u - 0.5) / 0.12); }
+      return e;
+    };
+    this.rollingSet.add(d.i);
+    c.classList.add('rolling');
+    const { lift, timing } = this.liftAnims(c, d);
+    const cube = c.querySelector('.cube');
+    const N = 36;
+    cube.animate(sample(N, (u) => ({ transform: this.cubeTransform(angles(u)) })), timing);
+    // Per-face shading from a fixed light, baked into opacity keyframes (compositor-only).
+    const sides = [...cube.querySelectorAll('.side .shade')];
+    const shadeKeys = sides.map(() => []);
+    for (let s = 0; s <= N; s++) {
+      const e = angles(s / N);
+      const m = new DOMMatrix(`rotateX(${e[0]}deg) rotateY(${e[1]}deg) rotateZ(${e[2]}deg)`);
+      CUBE_FACES.forEach((f, j) => {
+        const p = m.transformPoint(new DOMPoint(f.n[0], f.n[1], f.n[2], 0));
+        const lit = Math.max(0, p.x * LIGHT[0] + p.y * LIGHT[1] + p.z * LIGHT[2]) / LIGHT[2];
+        shadeKeys[j].push({ offset: s / N, opacity: Math.min(0.62, 0.62 * (1 - Math.min(1, lit))) });
+      });
+    }
+    sides.forEach((el, j) => el.animate(shadeKeys[j], timing));
+    await impactSounds(lift, k);
+    this.euler[d.i] = end;
+    this.place(d.i, end);
+    this.rollingSet.delete(d.i);
+    super.setFace(d.i, d.to);
+    c.classList.remove('rolling');
+  }
+}
+
+// ---------------------------------------------------------------- C: baked sprites
+let spriteMeta = null;
+const spriteReady = fetch('sprites/meta.json').then((r) => r.json()).then((m) => { spriteMeta = m; }).catch(() => {});
+class SpriteBoard extends Board {
+  constructor(...a) {
+    super(...a);
+    this.cells.forEach((c) => { const s = document.createElement('div'); s.className = 'sprite'; c.querySelector('.die').append(s); });
+    spriteReady.then(() => this.cells.forEach((c) => {
+      const s = c.querySelector('.sprite');
+      if (spriteMeta) s.style.backgroundSize = `${spriteMeta.frames * 100}% 600%`;
+    }));
+  }
+  async rollOne(d, k) {
+    if (ui.rm || !spriteMeta) { if (this.lastFrame) delete this.lastFrame[d.i]; return this.fadeOne(d); }
+    const c = this.cells[d.i];
+    const sprite = c.querySelector('.sprite');
+    const body = c.querySelector('.body');
+    const { frames: N, u0, u1 } = spriteMeta;
+    const flip = (state.round + d.i) % 2 === 1; // half turn: same pip layout, different motion
+    sprite.style.transform = flip ? 'rotate(180deg)' : '';
+    sprite.style.backgroundPositionY = `${((d.to - 1) / 5) * 100}%`;
+    c.classList.add('rolling');
+    const { lift, timing } = this.liftAnims(c, d);
+    // The baked tumble does not start from the previous face: cross-fade it in during the crouch.
+    body.animate([{ opacity: d.drop ? 0 : 1 }, { opacity: d.drop ? 0 : 1, offset: 0.03 }, { opacity: 0, offset: 0.09 }, { opacity: 0, offset: 0.999 }, { opacity: 1 }], timing);
+    sprite.animate([{ opacity: d.drop ? 1 : 0 }, { opacity: d.drop ? 1 : 0, offset: 0.03 }, { opacity: 1, offset: 0.09 }, { opacity: 1, offset: 0.999 }, { opacity: 0 }], timing);
+    let last = -1;
+    let swapped = false;
+    const p = follow(lift, (u) => {
+      const f = Math.max(0, Math.min(N - 1, Math.round(((u - u0) / (u1 - u0)) * (N - 1))));
+      if (f !== last) { last = f; sprite.style.backgroundPositionX = `${(f / (N - 1)) * 100}%`; }
+      if (!swapped && (d.drop || u >= 0.1)) { swapped = true; this.setFace(d.i, d.to); } // the still is hidden by now
+    });
+    await Promise.all([p, impactSounds(lift, k)]);
+    this.lastFrame = this.lastFrame || {};
+    this.lastFrame[d.i] = { frame: last, row: d.to };
+    c.classList.remove('rolling');
+  }
+  shown(i) {
+    const v = super.shown(i);
+    const lf = this.lastFrame && this.lastFrame[i];
+    if (lf && (lf.frame !== spriteMeta.frames - 1 || lf.row !== v)) return -v; // last sprite frame must be the rest pose of v
+    return v;
+  }
+}
+
+// ---------------------------------------------------------------- D: live three.js, keyframed
+let glKit = null;
+async function loadGl() {
+  if (glKit) return glKit;
+  THREE = await import('three');
+  const canvas = document.createElement('canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
+  renderer.setClearColor(0x000000, 0);
+  renderer.autoClear = false;
+  const kit = await createDieScene(THREE, renderer);
+  glKit = { canvas, renderer, ...kit };
+  return glKit;
+}
+class GlBoard extends Board {
+  constructor(...a) {
+    super(...a);
+    this.q = Array.from({ length: 9 }, () => null);
+    this.stats.textContent = 'загрузка three.js с CDN…';
+    this.ready = loadGl().then((kit) => { this.kit = kit; this.stats.textContent = '3D готов'; return kit; })
+      .catch(() => { this.stats.textContent = '3D недоступен: вместо броска будет растворение'; return null; });
+  }
+  async roll(dice) {
+    const kit = await this.ready;
+    if (!kit || ui.rm) {
+      dice.forEach((d) => { this.q[d.i] = null; if (this.final) delete this.final[d.i]; });
+      await Promise.all(dice.map((d) => this.fadeOne(d)));
+      return;
+    }
+    const { canvas, renderer, scene, camera, die, landing } = kit;
+    const br = this.board.getBoundingClientRect();
+    const bleed = this.cellPx * 0.6;
+    const dpr = Math.min(2, devicePixelRatio || 1);
+    canvas.className = 'gl';
+    Object.assign(canvas.style, { left: `${-bleed}px`, top: `${-bleed}px`, width: `${br.width + 2 * bleed}px`, height: `${br.height + 2 * bleed}px` });
+    renderer.setPixelRatio(dpr);
+    renderer.setSize(br.width + 2 * bleed, br.height + 2 * bleed, false);
+    this.board.append(canvas);
+    const H = (br.height + 2 * bleed) * dpr;
+    const jobs = dice.map((d) => {
+      const r = rng(state.round * 4421 + d.i * 17 + 3);
+      const qEnd = landing[d.to].clone();
+      if (r() < 0.5) qEnd.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI));
+      const qPrev = this.q[d.i] || landing[d.from];
+      // residual rotation prev -> end, plus one full tumble about a mostly horizontal axis
+      const rel = qPrev.clone().multiply(qEnd.clone().invert());
+      const ang = 2 * Math.acos(Math.min(1, Math.abs(rel.w)));
+      const sign = rel.w < 0 ? -1 : 1;
+      const s = Math.sqrt(Math.max(1e-9, 1 - rel.w * rel.w));
+      const resAxis = new THREE.Vector3(rel.x * sign / s, rel.y * sign / s, rel.z * sign / s).normalize();
+      const a = r() * Math.PI * 2;
+      const tumbleAxis = new THREE.Vector3(Math.cos(a), 0.25 * (r() - 0.5), Math.sin(a)).normalize();
+      return { d, qEnd, ang, resAxis, tumbleAxis, el: this.cells[d.i].querySelector('.die'), u: 0, started: false };
+    });
+    const qa = new THREE.Quaternion(); const qb = new THREE.Quaternion();
+    const draw = () => {
+      renderer.setScissorTest(false);
+      renderer.clear();
+      renderer.setScissorTest(true);
+      const live = jobs.filter((j) => j.started && !j.done).map((j) => ({ j, box: j.el.getBoundingClientRect() })).sort((x, y) => x.box.width - y.box.width);
+      for (const { j, box } of live) {
+        const f = tumbleTheta(j.u, 1, 0);
+        qa.setFromAxisAngle(j.resAxis, j.ang * f);
+        qb.setFromAxisAngle(j.tumbleAxis, tumbleTheta(j.u, Math.PI * 2, 0.16));
+        die.quaternion.copy(qb).multiply(qa).multiply(j.qEnd);
+        const w = box.width * BLEED; const h = box.height * BLEED;
+        const x = (box.left + box.width / 2 - br.left + bleed - w / 2) * dpr;
+        const y = H - (box.top + box.height / 2 - br.top + bleed + h / 2) * dpr;
+        renderer.setViewport(x / dpr, y / dpr, w, h);
+        renderer.setScissor(x / dpr, y / dpr, w, h);
+        renderer.clearDepth();
+        renderer.render(scene, camera);
+      }
+    };
+    const all = Promise.all(jobs.map((j, k) => this.rollJob(j, k))); // followers first, then the draw, every frame
+    const f = () => draw();
+    tickers.add(f);
+    await all;
+    tickers.delete(f);
+    renderer.setScissorTest(false);
+    renderer.clear();
+    canvas.remove();
+  }
+  async rollJob(j, k) {
+    const c = this.cells[j.d.i];
+    const { lift } = this.liftAnims(c, j.d);
+    const p = follow(lift, (u, on) => { j.u = u; j.started = on; if (on) c.classList.add('rolling'); });
+    await Promise.all([p, impactSounds(lift, k)]);
+    j.done = true;
+    this.q[j.d.i] = j.qEnd;
+    this.final = this.final || {};
+    this.final[j.d.i] = j.qEnd;
+    this.setFace(j.d.i, j.d.to);
+    c.classList.remove('rolling');
+  }
+  shown(i) {
+    if (!this.kit || !THREE || !this.final || !this.final[i]) return super.shown(i);
+    // value whose landing orientation (up to the symmetric half turn) matches the final quaternion
+    const q = this.final[i];
+    for (let v = 1; v <= 6; v++) {
+      const l = this.kit.landing[v];
+      const h = l.clone().premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI));
+      if (q.angleTo(l) < 0.02 || q.angleTo(h) < 0.02) return v === super.shown(i) ? v : -v;
+    }
+    return 0;
+  }
+}
+
+// ---------------------------------------------------------------- page
+const CLASSES = { flip: FlipBoard, cube: CubeBoard, sprite: SpriteBoard, gl: GlBoard };
+let boards = [];
+function build() {
+  const stage = $('stage');
+  stage.innerHTML = '';
+  const list = ui.variant === 'all' ? ['flip', 'cube', 'sprite', 'gl'] : [ui.variant];
+  const wide = innerWidth >= 1100;
+  const cols = list.length === 1 ? 1 : wide ? 4 : 2;
+  stage.style.setProperty('--cols', cols);
+  const avail = Math.min(innerWidth - 32, 1400);
+  const bw = list.length === 1 ? Math.min(avail - 28, 400) : Math.floor(Math.min((avail - (cols - 1) * 14) / cols - 28, 300));
+  document.documentElement.style.setProperty('--bw', `${bw}px`);
+  boards = list.map((v) => new CLASSES[v](v, stage));
+  boards.forEach((b) => b.render());
+  document.querySelectorAll('#variants button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.variant === ui.variant)));
+  showDecided();
+}
+function showDecided(next) {
+  const f = next || state.faces;
+  $('decided').innerHTML = (next ? 'Движок решил: ' : 'Сейчас: ') + f.map((v, i) => (state.kind[i] !== 'die' ? `<b style="background:${state.kind[i] === 'bonus' ? 'var(--gold)' : '#333'}">${state.kind[i] === 'bonus' ? '×2' : '·'}</b>` : `<b class="${state.held[i] ? 'keep' : ''}">${v}</b>`)).join('');
+}
+function onCellTap(i) {
+  unlockAudio();
+  if (state.busy || state.kind[i] !== 'die') return;
+  state.held[i] = !state.held[i];
+  haptic(8);
+  boards.forEach((b) => {
+    b.render();
+    if (!ui.rm) b.cells[i].querySelector('.die').animate([{ transform: 'scale(1)' }, { transform: 'scale(.95)', offset: 0.4 }, { transform: 'scale(1)' }], { duration: 160 * K(), easing: 'ease-out' });
+  });
+  showDecided();
+}
+function setBusy(b) {
+  state.busy = b;
+  ['rerollBtn', 'playBtn', 'newBtn'].forEach((id) => { $(id).disabled = b; });
+}
+function report(t0, rolled) {
+  const ms = Math.round(performance.now() - t0);
+  const d = frameLog ? frameLog.d : [];
+  frameLog = null;
+  const avg = d.length ? d.reduce((a, b) => a + b, 0) / d.length : 0;
+  const long = d.filter((x) => x > 25).length;
+  const checks = boards.map((b) => ({ variant: b.variant, results: rolled.map((i) => ({ i, target: state.faces[i], shown: b.shown(i) })) }));
+  window.__last = { ms, frames: d.length, avgFrame: +avg.toFixed(2), longFrames: long, maxFrame: +(d.length ? Math.max(...d) : 0).toFixed(1), checks };
+  boards.forEach((b, k) => {
+    const ok = checks[k].results.every((r) => r.shown === r.target);
+    b.stats.textContent = `${rolled.length} кост. · ${ms} мс · кадр ${avg.toFixed(1)} мс, >25 мс: ${long} · приземление ${ok ? 'точное' : 'НЕ СОВПАЛО'}`;
+  });
+}
+
+async function reroll() {
+  unlockAudio();
+  if (state.busy) return;
+  const rolling = [];
+  for (let i = 0; i < 9; i++) if (state.kind[i] === 'die' && !state.held[i]) rolling.push(i);
+  if (!rolling.length) return;
+  setBusy(true);
+  state.round++;
+  const from = state.faces.slice();
+  const next = state.faces.slice();
+  rolling.forEach((i) => { next[i] = 1 + Math.floor(R() * 6); }); // decided before any animation
+  showDecided(next);
+  const r = rng(state.round * 31 + 11);
+  const order = rolling.slice().sort(() => r() - 0.5);
+  state.faces = next;
+  state.rolling = true;
+  haptic(8);
+  boards.forEach((b) => {
+    if (ui.rm) return;
+    b.cells.forEach((c, i) => { if (state.held[i] && state.kind[i] === 'die') c.querySelector('.die').animate([{ transform: 'scale(1)' }, { transform: 'scale(.97)', offset: 0.5 }, { transform: 'scale(1)' }], { duration: 160 * K(), easing: 'ease-out' }); });
+  });
+  const t0 = performance.now();
+  frameLog = { d: [], last: 0 };
+  await Promise.all(boards.map((b) => b.roll(order.map((i, k) => ({ i, from: from[i], to: next[i], delay: k * STAGGER_MS })))));
+  report(t0, rolling);
+  state.rolling = false;
+  boards.forEach((b) => b.render());
+  showDecided();
+  setBusy(false);
+}
+
+// Playing a hand: count the hand die by die (rising tick), burn the unheld rest, the bonus leaves a
+// hole, then the empty cells refill with the variant's own throw.
+async function playHand() {
+  unlockAudio();
+  if (state.busy) return;
+  const dice = [...Array(9).keys()].filter((i) => state.kind[i] === 'die');
+  const byVal = {};
+  dice.forEach((i) => { (byVal[state.faces[i]] = byVal[state.faces[i]] || []).push(i); });
+  let hand = Object.values(byVal).sort((a, b) => b.length - a.length || state.faces[b[0]] - state.faces[a[0]])[0];
+  if (hand.length < 2) hand = dice.slice(0, 3);
+  const burn = dice.filter((i) => !hand.includes(i) && !state.held[i]);
+  const bonus = state.kind.indexOf('bonus');
+  setBusy(true);
+  state.round++;
+  const points = hand.reduce((s, i) => s + state.faces[i], 0) * (hand.length + 1) * (bonus >= 0 ? 2 : 1);
+  const S = K();
+  boards.forEach((b) => {
+    hand.forEach((i) => b.cells[i].classList.add('hand'));
+    const stamp = document.createElement('div');
+    stamp.className = 'stamp';
+    stamp.innerHTML = `+${points}<small>${hand.length} ОДИНАКОВЫХ${bonus >= 0 ? ' · ×2' : ''}</small>`;
+    b.board.append(stamp);
+    b.stamp = stamp;
+  });
+  // 1) count the hand: one die every 90 ms, rising pitch
+  for (let k = 0; k < hand.length; k++) {
+    tick(1 + k * 0.12);
+    boards.forEach((b) => {
+      const el = b.cells[hand[k]].querySelector('.die');
+      if (ui.rm) el.animate([{ opacity: 1 }, { opacity: 0.55 }, { opacity: 1 }], { duration: 160 * S });
+      else el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.16)', offset: 0.45 }, { transform: 'scale(1.08)' }], { duration: 180 * S, easing: 'cubic-bezier(.2,.8,.3,1.2)', fill: 'forwards' });
+    });
+    await wait(90 * S);
+  }
+  boards.forEach((b) => b.stamp.animate(ui.rm ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'translate(-50%,-50%) scale(1.6)' }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1)' }], { duration: 200 * S, easing: 'cubic-bezier(.2,.9,.3,1.3)', fill: 'forwards' }));
+  haptic([14, 40, 18]);
+  await wait(220 * S);
+  // 2) the hand flies off, the unheld rest burns, the bonus becomes a hole
+  boards.forEach((b) => {
+    hand.forEach((i, k) => b.cells[i].querySelector('.die').animate(ui.rm ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'scale(1.08)', opacity: 1 }, { transform: 'translate(0,-40%) scale(.3)', opacity: 0 }], { duration: 260 * S, delay: k * 40 * S, easing: 'cubic-bezier(.5,0,.9,.5)', fill: 'forwards' }));
+    burn.forEach((i) => {
+      b.cells[i].querySelector('.die').animate(ui.rm ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'none', opacity: 1, filter: 'saturate(1) brightness(1)' }, { transform: 'translate(0,6%) scale(.86)', opacity: 0, filter: 'saturate(0) brightness(.5)' }], { duration: 280 * S, easing: 'ease-in', fill: 'forwards' });
+      b.cells[i].querySelector('.shadow').animate([{ opacity: 0.55 }, { opacity: 0 }], { duration: 200 * S, fill: 'forwards' });
+    });
+    hand.forEach((i) => b.cells[i].querySelector('.shadow').animate([{ opacity: 0.55 }, { opacity: 0 }], { duration: 160 * S, fill: 'forwards' }));
+    if (bonus >= 0) b.cells[bonus].animate([{ boxShadow: '0 0 0 0 rgba(243,197,79,.0)', transform: 'scale(1)' }, { boxShadow: '0 0 26px 6px rgba(243,197,79,.7)', transform: 'scale(1.08)', offset: 0.3 }, { boxShadow: '0 0 0 0 rgba(243,197,79,0)', transform: 'scale(.9)', opacity: 0.2 }], { duration: 360 * S, fill: 'forwards' });
+  });
+  await wait(380 * S + hand.length * 40 * S);
+  boards.forEach((b) => b.stamp.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200 * S, fill: 'forwards' }));
+  // 3) refill: new dice are thrown into the empty cells
+  const refill = [...hand, ...burn].sort((a, b) => a - b);
+  const from = state.faces.slice();
+  refill.forEach((i) => { state.faces[i] = 1 + Math.floor(R() * 6); });
+  if (bonus >= 0) state.kind[bonus] = 'hole';
+  showDecided(state.faces);
+  boards.forEach((b) => {
+    b.cells.forEach((c) => { c.classList.remove('hand'); c.querySelector('.die').getAnimations().forEach((a) => a.cancel()); c.querySelector('.shadow').getAnimations().forEach((a) => a.cancel()); c.getAnimations().forEach((a) => a.cancel()); });
+    b.render();
+    b.stamp.remove();
+  });
+  await wait(60 * S);
+  const t0 = performance.now();
+  frameLog = { d: [], last: 0 };
+  await Promise.all(boards.map((b) => b.roll(refill.map((i, k) => ({ i, from: from[i], to: state.faces[i], delay: k * 50, drop: true })))));
+  report(t0, refill);
+  boards.forEach((b) => b.render());
+  showDecided();
+  setBusy(false);
+}
+
+$('rerollBtn').addEventListener('click', reroll);
+// Skip: a tap on a board during a throw jumps every animation to its end (the values are decided already).
+$('stage').addEventListener('pointerdown', () => { if (state.busy && state.rolling) document.getAnimations().forEach((a) => a.finish()); });
+$('playBtn').addEventListener('click', playHand);
+$('newBtn').addEventListener('click', () => { if (state.busy) return; newBoard(); boards.forEach((b) => b.render()); build(); });
+document.querySelectorAll('#variants button').forEach((b) => b.addEventListener('click', () => { if (state.busy) return; ui.variant = b.dataset.variant; build(); }));
+$('slow').addEventListener('change', (e) => { ui.slow = e.target.checked; });
+$('rm').checked = ui.rm;
+$('rm').addEventListener('change', (e) => { ui.rm = e.target.checked; });
+$('sound').addEventListener('change', (e) => { ui.sound = e.target.checked; });
+$('skinModel').addEventListener('change', (e) => { ui.skinModel = e.target.checked; boards.forEach((b) => b.render()); });
+$('black').addEventListener('change', (e) => document.body.classList.toggle('surface-black', e.target.checked));
+let lastW = innerWidth;
+addEventListener('resize', () => { if (Math.abs(innerWidth - lastW) > 40 && !state.busy) { lastW = innerWidth; build(); } });
+build();
+window.__proto = { ui, state, reroll, playHand, build, boards: () => boards, ready: () => Promise.all([spriteReady, ...boards.map((b) => b.ready || Promise.resolve())]) };
+</script>
+</body>
+</html>

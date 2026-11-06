@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bonus puppets</title>
+<style>
+  @font-face { font-family: "Basteleur"; src: url("../../assets/fonts/Basteleur-Bold.otf") format("opentype"); font-weight: 700; }
+  :root { --bg: #000; --fg: #fff; --muted: #8a8a8a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 14px/1.35 system-ui, sans-serif; }
+  h1 { margin: 0 0 4px; font: 700 26px/1.1 "Basteleur", system-ui; }
+  h2 { margin: 18px 0 8px; font: 700 18px/1.1 "Basteleur", system-ui; }
+  h2 small { color: var(--muted); font: 13px system-ui; }
+  nav a { color: var(--muted); margin-right: 12px; }
+  nav a.on { color: var(--fg); }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; }
+  figure { margin: 0; width: 120px; }
+  figcaption { margin-top: 4px; color: var(--muted); font-size: 12px; }
+  figcaption b { color: var(--fg); }
+  .card { position: relative; width: 100%; aspect-ratio: 1; border-radius: 23.55%; background: var(--card); border: 1px solid rgba(255, 255, 255, .32); }
+  .card .arch { position: absolute; left: 4.63%; top: 8.33%; width: 90.74%; height: 69.44%; background: var(--arch) center / 100% 100% no-repeat; }
+  .card .art { position: absolute; left: 9.26%; top: 3.7%; width: 79.63%; height: 79.63%; }
+  .card canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+  .live { width: 260px; }
+  button { margin: 10px 8px 0 0; height: 40px; padding: 0 16px; border: 0; border-radius: 40px; background: #ffea3a; color: #000; font: 700 15px "Basteleur", system-ui; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1 id="title"></h1>
+<nav id="nav"></nav>
+<p style="color: var(--muted); margin: 6px 0 0">Раскадровка из рига игры (docs/ANIM-STORYBOARDS.md): ключевые кадры событий при 24 к/с, на экране — 60 к/с.</p>
+<div class="row" style="margin-top: 12px; align-items: flex-end">
+  <div class="card live" id="live"><span class="arch"></span><span class="art"><canvas></canvas></span></div>
+  <div id="buttons"></div>
+</div>
+<div id="boards"></div>
+<script type="module">
+import { createPuppet } from '../../src/ui/rig.js';
+import { CHARACTERS } from './approach1.js';
+
+const kind = new URLSearchParams(location.search).get('kind') || 'x2_any';
+const C = CHARACTERS[kind];
+const purple = ['x3_straight', 'x3_pairs', 'x3_trips', 'joker'].includes(kind);
+document.documentElement.style.setProperty('--card', purple ? '#9c52e3' : '#ffeedb');
+document.documentElement.style.setProperty('--arch', `url("../../assets/ui/card-arch${purple ? '-purple' : ''}.svg")`);
+document.getElementById('title').textContent = `${kind} · ${C.name}`;
+document.getElementById('nav').innerHTML = Object.keys(CHARACTERS).map((k) => `<a href="?kind=${k}" class="${k === kind ? 'on' : ''}">${k}</a>`).join('');
+const images = Object.fromEntries(await Promise.all(C.parts.map((p) => new Promise((ok) => {
+  const im = new Image();
+  im.onload = () => ok([p.name, im]);
+  im.src = `../../assets/ui/bonuses/rig/${C.name}-${p.name}.webp`;
+}))));
+const size = (canvas, w) => { canvas.width = w; canvas.height = Math.round((w * C.view[3]) / C.view[2]); };
+
+// A puppet run from rest with the given events, stepped at 120 Hz (the springs need small steps).
+function stepped(canvas, on) {
+  const puppet = createPuppet(canvas, C, images, (t) => C.pose(t, on));
+  let t = 0;
+  return (until) => { do { t = Math.min(until, t + 1 / 120); puppet.draw(t); } while (t < until - 1e-9); };
+}
+
+// Each event's key frames at 24 fps: its start, then every sixth of it, then its end.
+const START = 1;
+const boards = document.getElementById('boards');
+for (const [ev, [, , len]] of Object.entries(C.events)) {
+  const frames = Math.round(len * 24);
+  const keys = [...new Set([1, ...[1, 2, 3, 4, 5].map((k) => Math.round((k * frames) / 6)), frames])].sort((a, b) => a - b);
+  boards.insertAdjacentHTML('beforeend', `<h2>${ev} <small>${frames} кадров</small></h2><div class="row"></div>`);
+  const row = boards.lastElementChild;
+  for (const f of keys) {
+    row.insertAdjacentHTML('beforeend', `<figure><div class="card"><span class="arch"></span><span class="art"><canvas></canvas></span></div><figcaption><b>кадр ${f}</b></figcaption></figure>`);
+    const canvas = row.lastElementChild.querySelector('canvas');
+    size(canvas, 192);
+    stepped(canvas, { [ev]: { t0: START, dir: 1 } })(START + (f - 1) / 24);
+  }
+}
+
+// The live card: the idle always, events on the buttons.
+const live = document.querySelector('#live canvas');
+size(live, 520);
+const on = {};
+const puppet = createPuppet(live, C, images, (t) => C.pose(t, on));
+const t0 = performance.now();
+const loop = (now) => {
+  const t = (now - t0) / 1000;
+  for (const [name, [, , len]] of Object.entries(C.events)) if (on[name] && t - on[name].t0 > len) delete on[name];
+  puppet.draw(t);
+  requestAnimationFrame(loop);
+};
+requestAnimationFrame(loop);
+document.getElementById('buttons').innerHTML = Object.keys(C.events).map((ev) => `<button data-ev="${ev}">${ev}</button>`).join('');
+document.querySelectorAll('button[data-ev]').forEach((b) => b.addEventListener('click', () => {
+  on[b.dataset.ev] = { t0: (performance.now() - t0) / 1000, dir: Math.random() < 0.5 ? -1 : 1 };
+}));
+
+// A clip on the card for the owner's phone: every event once, then again the other way (window.clip(fps) -> data URLs).
+const arch = await new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.src = `../../assets/ui/card-arch${purple ? '-purple' : ''}.svg`; });
+window.clip = (fps = 60) => {
+  const canvas = document.createElement('canvas');
+  size(canvas, 510);
+  const card = document.createElement('canvas');
+  card.width = card.height = 640;
+  const cx = card.getContext('2d');
+  const box = 0.7963 * 640;
+  const w = Math.min(box, (box * C.view[2]) / C.view[3]);
+  const h = (w * C.view[3]) / C.view[2];
+  const paint = () => {
+    cx.clearRect(0, 0, 640, 640);
+    cx.fillStyle = purple ? '#9c52e3' : '#ffeedb';
+    cx.beginPath();
+    cx.roundRect(0, 0, 640, 640, 151);
+    cx.fill();
+    cx.drawImage(arch, 0.0463 * 640, 0.0833 * 640, 0.9074 * 640, 0.6944 * 640);
+    cx.drawImage(canvas, 0.0926 * 640 + (box - w) / 2, 0.037 * 640 + box - h, w, h);
+  };
+  const plan = [];
+  let at = 0.8;
+  for (const dir of [1, -1]) for (const [ev, [, , len]] of Object.entries(C.events)) { plan.push([ev, at, dir]); at += len + 0.5; }
+  const evOn = {};
+  const p = createPuppet(canvas, C, images, (t) => C.pose(t, evOn));
+  const frames = [];
+  const end = at + 0.6;
+  for (let k = 0, t = 0; t <= end; k++, t = k / 120) {
+    for (const [name, start, dir] of plan) if (t >= start && t - start < 1 / 120) evOn[name] = { t0: start, dir };
+    for (const [name, [, , len]] of Object.entries(C.events)) if (evOn[name] && t - evOn[name].t0 > len) delete evOn[name];
+    p.draw(t);
+    if (k % (120 / fps) === 0) { paint(); frames.push(card.toDataURL('image/png')); }
+  }
+  return frames;
+};
+window.ready = true;
+</script>
+</body>
+</html>
