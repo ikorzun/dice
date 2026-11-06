@@ -251,9 +251,9 @@ for (const vp of viewports) {
   await page.waitForTimeout(200);
   a = await auto();
   if ((await text('#levelText')) !== (firstWon ? '2' : '1')) note(vp, `level text after level 1: ${await text('#levelText')}`);
-  // the act strip (owner's pick В13 A, 05.11.2026): by LEVEL, four nodes and the seal, on screen, adding no height
-  const act = await page.evaluate(() => { const s = document.getElementById('actStrip'); const r = s.getBoundingClientRect(); return { nodes: [...s.querySelectorAll('.act-node')].map((n) => n.classList[1]).join(), seal: s.querySelector('.act-seal').className, number: s.querySelector('.act-seal b').textContent, right: r.right, bottom: r.bottom, label: s.getAttribute('aria-label') }; });
-  if (act.nodes !== (firstWon ? 'done,current,upcoming,upcoming' : 'current,upcoming,upcoming,upcoming') || act.seal !== 'act-seal upcoming' || act.number !== '5' || act.right > vp.w || act.bottom > vp.h || !/^Levels 1 to 5\./.test(act.label)) note(vp, `act strip: ${JSON.stringify(act)}`);
+  // beside LEVEL, in words: the next shop and boss, on screen, adding no height
+  const said = await page.evaluate(() => { const s = document.getElementById('nextUp'); const r = s.getBoundingClientRect(); return { text: [...s.children].map((b) => b.textContent).join(' / '), right: r.right, bottom: r.bottom }; });
+  if (said.text !== (firstWon ? 'SHOP NEXT / BOSS IN 3' : 'SHOP IN 2 / BOSS IN 4') || said.right > vp.w || said.bottom > vp.h) note(vp, `the words by LEVEL: ${JSON.stringify(said)}`);
   if (a.cells.filter((t) => t === 'die').length < 6) note(vp, `level 2 has ${a.cells.filter((t) => t === 'die').length} dice`);
   // level 2: its cards are dealt face down and turn over one by one, 2 s apart; each new kind's sheet follows
   const dealt = await page.$$eval('#board .cell.bonus', (els) => els.map((e) => e.classList.contains('face-down')));
@@ -318,10 +318,9 @@ for (const vp of viewports) {
       nextBg: getComputedStyle($('nextBtn')).backgroundColor, nextOpacity: getComputedStyle($('nextBtn')).opacity,
       retry: !$('retryBtn').hidden, upgrades: !$('upgrades').hidden, best: st.best, runScore: st.runScore,
       left: document.querySelectorAll('.loss-line, .loss-count, .loss-short').length, busy: window.__diceSnake.app.busy,
-      act: document.querySelectorAll('#runAct .act-node').length, actOpacity: getComputedStyle($('runAct')).opacity,
     };
   });
-  const receiptOk = (o) => o.act === 4 && o.actOpacity === '1' && o.shown && /\brun-over\b/.test(o.cls) && !/playing|waiting/.test(o.cls) && o.title === 'RUN OVER' && /^SHORT BY \d+$/.test(o.short || '')
+  const receiptOk = (o) => o.shown && /\brun-over\b/.test(o.cls) && !/playing|waiting/.test(o.cls) && o.title === 'RUN OVER' && /^SHORT BY \d+$/.test(o.short || '')
     && o.board === 9 && o.rows === 'false,false,true' && o.next === 'NEW RUN' && o.nextBg === 'rgb(255, 255, 255)' && o.nextOpacity === '1' && !o.retry && !o.upgrades && !o.left && !o.busy;
   await toLastHand();
   const lossAt = Date.now();
@@ -372,10 +371,10 @@ for (const vp of viewports) {
     return {
       cls: $('levelEnd').className, title: $('endTitle').textContent, color: getComputedStyle($('endTitle')).color, over: $('endOver').hidden ? null : $('endOver').textContent,
       hand: !$('endHand').hidden, ups, left: document.querySelectorAll('.win-black, .win-chip, .win-over, .shards-layer').length, busy: window.__diceSnake.app.busy,
-      act: $('endAct').hidden ? null : { done: $('endAct').querySelectorAll('.act-node.done').length, opacity: getComputedStyle($('endAct')).opacity, bottom: $('endAct').getBoundingClientRect().bottom },
+      act: $('endAct').hidden ? null : { text: $('endAct').textContent, opacity: getComputedStyle($('endAct')).opacity, bottom: $('endAct').getBoundingClientRect().bottom },
     };
   });
-  if (!cleared.act || cleared.act.opacity !== '1' || cleared.act.bottom > vp.h + 0.5 || !cleared.act.done) note(vp, `the cleared screen's act strip: ${JSON.stringify(cleared.act)}`);
+  if (!cleared.act || cleared.act.opacity !== '1' || cleared.act.bottom > vp.h + 0.5 || !/^NEXT: /.test(cleared.act.text)) note(vp, `the cleared screen's next step: ${JSON.stringify(cleared.act)}`);
   if (!/\bwon\b/.test(cleared.cls) || /playing|waiting/.test(cleared.cls) || cleared.title !== 'LEVEL CLEARED' || cleared.color !== 'rgb(255, 255, 255)' || !/^\+\d+ OVER$/.test(cleared.over || '') || !cleared.hand || cleared.busy) note(vp, `cleared screen: ${JSON.stringify(cleared)}`);
   if (cleared.ups.length !== 3 || cleared.ups.some((u) => u.bottom > vp.h + 0.5 || u.right > vp.w + 0.5 || u.opacity !== '1')) note(vp, `upgrades: ${JSON.stringify(cleared.ups)}`);
   if (cleared.left) note(vp, `${cleared.left} layer(s) of the moment left behind`);

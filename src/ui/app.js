@@ -39,7 +39,7 @@ import { createFire } from './fire.js';
 import { RING_STEP, setupSound, setSound, sfx, hush, ringCount, ringChord, ringNote } from './sound.js';
 import { setupPuppets, animateArt, cheer, WIN_CARD, cardRock } from './puppets.js';
 import { breakLine, holdLine } from './shards.js';
-import { actOf, actHtml } from './acts.js';
+import { nextUp, afterClear } from './acts.js';
 import { withRun, submitRun, fetchBoard, hasBoard, setupBoard } from './board.js';
 
 const APP_VERSION = '0.2.0';
@@ -547,8 +547,6 @@ function startGame(level, attempt) {
     opening: level.bestNoRerollWithBonus ?? level.openingBest, config: mode.gameConfig(st.settings),
   });
   $('levelEnd').hidden = true;
-  app.actEnter = true;
-  $('actStrip').dataset.key = ''; // the same level and record again after a lost run: the moment's marks go
   render();
   persist();
   autoTips();
@@ -648,7 +646,7 @@ function showLevelEnd() {
   $('endHand').hidden = !cleared || !last;
   if (cleared && last) $('endHand').innerHTML = `<span class="gdice">${last.faces.map((v) => guideDie(v)).join('')}</span><span><b>${last.label}</b><small>${handFormula(last)}</small></span><span class="pts">${last.total}</span>`;
   $('endAct').hidden = !cleared;
-  if (cleared) drawAct($('endAct'), g.level.levelIndex, { cleared: true, best: st.best });
+  if (cleared) $('endAct').textContent = afterClear(g.level.levelIndex);
   const paid = cleared && st.lastEnd && st.lastEnd.seed === g.level.seed ? st.lastEnd.bells : null;
   $('endBells').hidden = !paid;
   if (paid) $('endBells').innerHTML = `<b><i class="bell"></i>+${paid.total}</b>${[['CLEAR', paid.clear], ['HANDS', paid.hand], ['REROLLS', paid.reroll], ['BOSS', paid.boss], ['CHARM', paid.charm]].filter(([, v]) => v).map(([n, v]) => `<span>${n} ${v}</span>`).join('')}${st.lastEnd.unlock ? `<em>NEW CARD IN THE SHOP: ${BONUS_KINDS[st.lastEnd.unlock].symbol} ${BONUS_KINDS[st.lastEnd.unlock].label}</em>` : ''}`;
@@ -748,7 +746,6 @@ function showRunEnd(st, g, won, over) {
   $('runStats').classList.toggle('two', !!end.newBest); // the record with its badge takes the gap's line
   $('runGap').textContent = gap === 1 || gap === 2 ? `${gap} LEVEL${gap > 1 ? 'S' : ''} TO BEST`
     : gap === 0 ? `BEST LEVEL TIED${best.score > st.runScore ? ` · ${best.score - st.runScore} POINTS TO BEST` : ''}` : '';
-  drawAct($('runAct'), level, { best: st.best }); // where in the act the run ended
   // two medals fit beside the strip; past that the newest and how many
   const medals = st.runMedals;
   $('medals').innerHTML = !medals.length ? '<li class="none">0</li>'
@@ -1165,7 +1162,7 @@ function renderHud() {
   if (!app.scoreAnim) $('target').textContent = String(remaining(g.score, g));
   for (const el of document.querySelectorAll('.level-text')) el.textContent = String(g.level.levelIndex); // no last level (owner, 03.11.2026)
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
-  renderAct();
+  renderNext();
   renderRun();
 }
 
@@ -1178,7 +1175,7 @@ function renderRun() {
   const line = $('runLine');
   line.hidden = M().id !== 'auto' || (level.levelIndex === 1 && !st.bells);
   line.classList.toggle('boss', !!boss);
-  const said = `<span class="wallet"><i class="bell"></i>${st.bells}</span><span>${boss ? `BOSS · ${boss.rule}` : 'UNUSED HAND +2 · REROLL +1'}</span>`;
+  const said = `<span class="wallet"><i class="bell"></i>${st.bells} BELLS</span><span>${boss ? `BOSS · ${boss.rule}` : 'UNUSED HAND +2 · REROLL +1'}</span>`;
   if (line.dataset.said !== said) { line.innerHTML = said; line.dataset.said = said; } // it sits in a live region: only news
   const rail = st.charms.map((id) => `<button class="sigil" type="button" data-charm="${id}" style="--sig: var(--charm-${id})" aria-label="${CHARMS[id].name}: ${CHARMS[id].rule}"></button>`).join('');
   if ($('charmRail').dataset.key !== st.charms.join()) { $('charmRail').innerHTML = rail; $('charmRail').dataset.key = st.charms.join(); }
@@ -1324,24 +1321,14 @@ async function openRuns() {
   $('runsList').classList.toggle('shared', shared);
 }
 
-// The act strip by LEVEL (owner's pick В13 A, acts.js). It changes only when a level starts, ends or the record does:
-// the new level hard-cuts in with its current node inked once, and PLAY works at once.
-function renderAct() {
+// By LEVEL, in words: the next shop, the next boss and the record (acts.js).
+function renderNext() {
   const st = S();
-  const el = $('actStrip');
-  const level = st.game.level.levelIndex;
-  const key = `${level}/${st.best ? st.best.level : ''}`;
-  if (el.dataset.key === key) return;
-  el.dataset.key = key;
-  drawAct(el, level, { best: st.best });
-  el.classList.toggle('enter', !!app.actEnter && !reduceMotion);
-  app.actEnter = false;
-}
-
-function drawAct(el, level, opts) {
-  const view = actOf(level, opts);
-  el.innerHTML = actHtml(view);
-  el.setAttribute('aria-label', view.label);
+  const next = nextUp(st.game.level.levelIndex, st.best);
+  const said = `<b>${next.shop}</b><b>${next.boss}</b>`;
+  if ($('nextUp').dataset.said !== said) { $('nextUp').innerHTML = said; $('nextUp').dataset.said = said; }
+  $('levelBest').textContent = next.best;
+  $('levelBest').hidden = !next.best;
 }
 
 const remaining = (score, g) => Math.max(0, g.level.target - score);
@@ -2247,7 +2234,6 @@ function playWin(hand, g0) {
   at(WIN.snap, () => {
     haptic(18);
     breakSound();
-    document.querySelector('#actStrip .act-node.current')?.classList.replace('current', 'done'); // the act strip takes the level
     if (extra <= 0) return;
     const chip = document.createElement('span');
     chip.className = 'win-over';
@@ -2399,7 +2385,6 @@ function playLoss(hand, g0) {
   line = holdLine({ line: lineBox, scale: u, still: reduceMotion, start: t0 });
   at(reduceMotion ? 0 : LOSS.short, () => {
     sfx('stop');
-    document.querySelector('#actStrip .current')?.classList.add('miss'); // the level the run ended on, on the act strip
     const pill = document.createElement('span');
     pill.className = 'loss-short';
     pill.textContent = `SHORT BY ${remaining(g.score, g)}`;
@@ -2442,7 +2427,6 @@ function playLoss(hand, g0) {
   end.querySelectorAll('#endHands li').forEach((el, k) => rise(el, LOSS.rows + LOSS.row * k));
   rise($('runStats'), LOSS.sum);
   rise($('runGap'), LOSS.sum);
-  play($('runAct'), [{ opacity: 0 }, { opacity: 1 }], { dur: reduceMotion ? 500 : 160, start: reduceMotion ? LOSS.short : LOSS.act });
   play(end.querySelector('.medal-group'), [{ opacity: 0 }, { opacity: 1 }], { dur: reduceMotion ? 500 : 220, start: reduceMotion ? LOSS.short : LOSS.medals, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' });
   rise($('nextBtn'), LOSS.button);
   $('nextBtn').setAttribute('aria-disabled', 'true'); // grey until it can be tapped (GPT's review)

@@ -244,13 +244,13 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 @keyframes bankIn { from { transform: translateY(40%) scale(.4); opacity: 0; } }
 #targetStat.bump .value { animation: bump 380ms ease-out; }
 @keyframes bump { 0% { transform: scale(1); } 35% { transform: scale(1.2); color: var(--accent); } 100% { transform: scale(1); } }
-/* The hand's ×N with a bonus on: black letters on a lime blob that follows them (Figma 1308:3041): shadows on
-   two rings fill the space between the letters */
+/* The hand's ×N with a bonus on: black letters on a lime blob that follows them (Figma 1308:3041): shadows on three
+   rings fill the space between the letters, 64 on the outer one so that its edge is smooth (owner, 06.11.2026) */
 .sticker {
   color: #000;
-  text-shadow: 0.21em 0em 0 var(--hold), 0.194em 0.08em 0 var(--hold), 0.148em 0.148em 0 var(--hold), 0.08em 0.194em 0 var(--hold), 0em 0.21em 0 var(--hold), -0.08em 0.194em 0 var(--hold), -0.148em 0.148em 0 var(--hold), -0.194em 0.08em 0 var(--hold),
-    -0.21em 0em 0 var(--hold), -0.194em -0.08em 0 var(--hold), -0.148em -0.148em 0 var(--hold), -0.08em -0.194em 0 var(--hold), 0em -0.21em 0 var(--hold), 0.08em -0.194em 0 var(--hold), 0.148em -0.148em 0 var(--hold), 0.194em -0.08em 0 var(--hold),
-    0.11em 0em 0 var(--hold), 0.078em 0.078em 0 var(--hold), 0em 0.11em 0 var(--hold), -0.078em 0.078em 0 var(--hold), -0.11em 0em 0 var(--hold), -0.078em -0.078em 0 var(--hold), 0em -0.11em 0 var(--hold), 0.078em -0.078em 0 var(--hold);
+  text-shadow: 0.210em 0em 0 var(--hold), 0.209em 0.021em 0 var(--hold), 0.206em 0.041em 0 var(--hold), 0.201em 0.061em 0 var(--hold), 0.194em 0.080em 0 var(--hold), 0.185em 0.099em 0 var(--hold), 0.175em 0.117em 0 var(--hold), 0.162em 0.133em 0 var(--hold), 0.148em 0.148em 0 var(--hold), 0.133em 0.162em 0 var(--hold), 0.117em 0.175em 0 var(--hold), 0.099em 0.185em 0 var(--hold), 0.080em 0.194em 0 var(--hold), 0.061em 0.201em 0 var(--hold), 0.041em 0.206em 0 var(--hold), 0.021em 0.209em 0 var(--hold), 0em 0.210em 0 var(--hold), -0.021em 0.209em 0 var(--hold), -0.041em 0.206em 0 var(--hold), -0.061em 0.201em 0 var(--hold), -0.080em 0.194em 0 var(--hold), -0.099em 0.185em 0 var(--hold), -0.117em 0.175em 0 var(--hold), -0.133em 0.162em 0 var(--hold), -0.148em 0.148em 0 var(--hold), -0.162em 0.133em 0 var(--hold), -0.175em 0.117em 0 var(--hold), -0.185em 0.099em 0 var(--hold), -0.194em 0.080em 0 var(--hold), -0.201em 0.061em 0 var(--hold), -0.206em 0.041em 0 var(--hold), -0.209em 0.021em 0 var(--hold), -0.210em 0em 0 var(--hold), -0.209em -0.021em 0 var(--hold), -0.206em -0.041em 0 var(--hold), -0.201em -0.061em 0 var(--hold), -0.194em -0.080em 0 var(--hold), -0.185em -0.099em 0 var(--hold), -0.175em -0.117em 0 var(--hold), -0.162em -0.133em 0 var(--hold), -0.148em -0.148em 0 var(--hold), -0.133em -0.162em 0 var(--hold), -0.117em -0.175em 0 var(--hold), -0.099em -0.185em 0 var(--hold), -0.080em -0.194em 0 var(--hold), -0.061em -0.201em 0 var(--hold), -0.041em -0.206em 0 var(--hold), -0.021em -0.209em 0 var(--hold), 0em -0.210em 0 var(--hold), 0.021em -0.209em 0 var(--hold), 0.041em -0.206em 0 var(--hold), 0.061em -0.201em 0 var(--hold), 0.080em -0.194em 0 var(--hold), 0.099em -0.185em 0 var(--hold), 0.117em -0.175em 0 var(--hold), 0.133em -0.162em 0 var(--hold), 0.148em -0.148em 0 var(--hold), 0.162em -0.133em 0 var(--hold), 0.175em -0.117em 0 var(--hold), 0.185em -0.099em 0 var(--hold), 0.194em -0.080em 0 var(--hold), 0.201em -0.061em 0 var(--hold), 0.206em -0.041em 0 var(--hold), 0.209em -0.021em 0 var(--hold),
+    0.140em 0em 0 var(--hold), 0.137em 0.027em 0 var(--hold), 0.129em 0.054em 0 var(--hold), 0.116em 0.078em 0 var(--hold), 0.099em 0.099em 0 var(--hold), 0.078em 0.116em 0 var(--hold), 0.054em 0.129em 0 var(--hold), 0.027em 0.137em 0 var(--hold), 0em 0.140em 0 var(--hold), -0.027em 0.137em 0 var(--hold), -0.054em 0.129em 0 var(--hold), -0.078em 0.116em 0 var(--hold), -0.099em 0.099em 0 var(--hold), -0.116em 0.078em 0 var(--hold), -0.129em 0.054em 0 var(--hold), -0.137em 0.027em 0 var(--hold), -0.140em 0em 0 var(--hold), -0.137em -0.027em 0 var(--hold), -0.129em -0.054em 0 var(--hold), -0.116em -0.078em 0 var(--hold), -0.099em -0.099em 0 var(--hold), -0.078em -0.116em 0 var(--hold), -0.054em -0.129em 0 var(--hold), -0.027em -0.137em 0 var(--hold), 0em -0.140em 0 var(--hold), 0.027em -0.137em 0 var(--hold), 0.054em -0.129em 0 var(--hold), 0.078em -0.116em 0 var(--hold), 0.099em -0.099em 0 var(--hold), 0.116em -0.078em 0 var(--hold), 0.129em -0.054em 0 var(--hold), 0.137em -0.027em 0 var(--hold),
+    0.070em 0em 0 var(--hold), 0.065em 0.027em 0 var(--hold), 0.049em 0.049em 0 var(--hold), 0.027em 0.065em 0 var(--hold), 0em 0.070em 0 var(--hold), -0.027em 0.065em 0 var(--hold), -0.049em 0.049em 0 var(--hold), -0.065em 0.027em 0 var(--hold), -0.070em 0em 0 var(--hold), -0.065em -0.027em 0 var(--hold), -0.049em -0.049em 0 var(--hold), -0.027em -0.065em 0 var(--hold), 0em -0.070em 0 var(--hold), 0.027em -0.065em 0 var(--hold), 0.049em -0.049em 0 var(--hold), 0.065em -0.027em 0 var(--hold);
 }
 
 /* Coach (interactive tutorial) */
@@ -642,65 +642,8 @@ body.wide .loss-count { font-size: calc(20px * var(--k, 1)); }
 body.wide .loss-count em { font-size: calc(36px * var(--k, 1)); }
 body.wide .loss-count small { font-size: calc(16px * var(--k, 1)); }
 body.wide .loss-short { font-size: calc(14px * var(--k, 1)); line-height: calc(28px * var(--k, 1)); border-radius: calc(14px * var(--k, 1)); padding: 0 calc(10px * var(--k, 1)); }
-/* The act strip (owner's pick В13 A «Акты по пять уровней», 05.11.2026; GPT's production spec, boxes at 402 px in
-   mockup px × --k): the current act's four nodes and the bigger medal seal, in LEVEL's box beside its label, adding no
-   height to the column; the BEST mark in the gap under the board. Drawn in acts.js, again on the cleared screen and in
-   the receipt at their own sizes (--an node, --ag gap, --as seal). No lime: lime is held, on and PLAY. */
-.act { position: relative; display: inline-flex; align-items: center; flex: none; height: var(--as); --an: calc(23.5px * var(--k, 1)); --ag: calc(7.8px * var(--k, 1)); --as: calc(31.3px * var(--k, 1)); pointer-events: none; }
-.act-node { display: block; flex: none; width: var(--an); height: var(--an); }
-.act-node .ring { fill: #000; stroke: #9a9a9a; stroke-width: 1.5; }
-.act-node .disc { fill: #fff; stroke: #000; stroke-width: 1.1; opacity: 0; transition: fill 120ms linear, opacity 180ms cubic-bezier(.2, .8, .2, 1); }
-.act-node.done .disc, .act-node.current .disc { opacity: 1; }
-.act-node .dot, .act-node .tick { opacity: 0; transition: opacity 180ms cubic-bezier(.2, .8, .2, 1); }
-.act-node .dot { fill: #000; }
-.act-node .tick { fill: none; stroke: #000; stroke-width: 1.45; stroke-linecap: round; stroke-linejoin: round; }
-.act-node.current .dot, .act-node.done .tick { opacity: 1; }
-.act-link { flex: none; width: var(--ag); height: max(1px, calc(1px * var(--k, 1))); background: #3b3b3b; }
-.act-link.on { background: #fff; }
-.act-seal { position: relative; display: grid; place-items: center; flex: none; width: var(--as); height: var(--as); color: #9a9a9a; font: 700 calc(var(--as) * .366)/1 var(--font-display); font-variant-numeric: tabular-nums; }
-.act-seal svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.act-seal b { position: relative; font-weight: inherit; }
-.act-seal .disc { fill: #000; stroke: #9a9a9a; stroke-width: 1.2; transition: fill 120ms linear; }
-.act-seal .seams { fill: none; stroke: #3b3b3b; stroke-width: 1.2; stroke-linecap: round; }
-.act-seal.current { color: #000; }
-.act-seal.current .disc { fill: #fff; stroke: #000; }
-.act-seal.current .seams { stroke: #000; }
-.act-seal.cleared { color: #000; }
-.act-seal.cleared .disc { fill: var(--gold); stroke: #000; } /* the medal of the cleared screen */
-.act-seal.cleared .seams { stroke: #000; }
-.act-node.current.miss .disc, .act-seal.current.miss .disc { fill: var(--bad); } /* the level the run ended on, as SHORT BY N comes */
-.act.enter .act-node.current .dot { animation: actInk 240ms cubic-bezier(.2, .8, .2, 1); }
-.act.enter .act-seal.current .seams { animation: actSeam 240ms cubic-bezier(.2, .8, .2, 1); }
-@keyframes actInk { from { fill: #9a9a9a; } }
-@keyframes actSeam { from { stroke: #9a9a9a; } }
-.act-best { position: absolute; left: calc(var(--i, 0) * (var(--an) + var(--ag)) + var(--an) / 2); bottom: calc(100% - (var(--as) - var(--an)) / 2); transform: translateX(-50%); padding-bottom: calc(3.9px * var(--k, 1)); color: var(--gold); font: 700 calc(10.8px * var(--k, 1))/1 var(--font-display); white-space: nowrap; }
-.act-best::after { content: ''; position: absolute; left: 50%; bottom: 0; width: calc(5px * var(--k, 1)); height: calc(3.9px * var(--k, 1)); margin-left: calc(-2.5px * var(--k, 1)); background: var(--gold); clip-path: polygon(0 0, 100% 0, 50% 100%); }
-.act-best.on-seal { left: calc(4 * (var(--an) + var(--ag)) + var(--as) / 2); bottom: 100%; }
-.act-best.far { left: 50%; bottom: 100%; padding-bottom: calc(2px * var(--k, 1)); }
-.act-best.far::after { content: none; }
-.act-best i { font-style: normal; }
-/* on the cleared screen a record on the seal stands left of it, pointing at its upper left */
-#endAct .act-best.on-seal { transform: translateX(calc(-50% - 11.7px * var(--k, 1))); }
-#endAct .act-best.on-seal::after { left: calc(50% - .5px * var(--k, 1)); bottom: calc(-3.4px * var(--k, 1)); width: calc(3.9px * var(--k, 1)); height: calc(3.9px * var(--k, 1)); margin: 0; clip-path: polygon(0 0, 100% 0, 100% 100%); }
-#runAct .act-best { display: none; } /* the receipt's summary, just above, says the record in words */
-#actStrip { position: absolute; left: calc(46.5px * var(--k, 1)); top: calc(-1.2px * var(--k, 1)); --an: calc(11px * var(--k, 1)); --ag: calc(2px * var(--k, 1)); --as: calc(20px * var(--k, 1)); }
 #levelStat { position: relative; }
-#endAct { align-self: center; margin-top: calc(17.6px * var(--k, 1)); --an: calc(13.7px * var(--k, 1)); --ag: calc(3.9px * var(--k, 1)); --as: calc(23.5px * var(--k, 1)); }
-body.wide #actStrip { left: auto; right: 0; top: calc(67px * var(--k, 1)); --an: calc(15px * var(--k, 1)); --ag: calc(4px * var(--k, 1)); --as: calc(24px * var(--k, 1)); }
-body.wide #endAct { position: absolute; left: calc(771px * var(--k, 1)); top: calc(429px * var(--k, 1)); width: calc(180px * var(--k, 1)); justify-content: center; margin: 0; --an: calc(16px * var(--k, 1)); --ag: calc(5px * var(--k, 1)); --as: calc(28px * var(--k, 1)); }
 body.wide #levelEnd.won .panel { position: relative; }
-body.wide #runAct { --an: calc(24px * var(--k, 1)); --ag: calc(8px * var(--k, 1)); --as: calc(32px * var(--k, 1)); }
-/* in play on the desktop BEST hangs under the strip: above it a long LEVEL number would meet it */
-body.wide #actStrip .act-best { bottom: auto; top: calc(100% - (var(--as) - var(--an)) / 2); padding: calc(3.9px * var(--k, 1)) 0 0; }
-body.wide #actStrip .act-best::after { top: 0; bottom: auto; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
-body.wide #actStrip .act-best.on-seal { top: 100%; }
-body.wide #actStrip .act-best.far { left: auto; right: 0; top: 100%; transform: none; padding-top: calc(2px * var(--k, 1)); text-align: right; }
-/* a phone on its side: the words stop shrinking at 6.8 px; the far record takes two lines */
-@media (max-height: 500px) {
-  body.wide .act .act-best { font-size: 6.8px; line-height: 7.2px; }
-  body.wide #actStrip .act-best { padding-top: 3px; }
-  body.wide #actStrip .act-best.far i { display: block; }
-}
 .lead { margin: 0; font-size: 16px; line-height: 1.45; }
 .rules { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--fg); }
 .sheet-panel h3 { margin: 8px 0 0; font: 700 16px/1 var(--font-display); letter-spacing: .16em; color: var(--muted); }
@@ -979,7 +922,6 @@ button.sigil { cursor: pointer; }
 .boss-face { display: block; flex: none; background: var(--boss) center / contain no-repeat; }
 #bossFace { position: absolute; left: calc(48px * var(--k, 1)); top: calc(10px * var(--k, 1)); width: calc(32px * var(--k, 1)); height: calc(32px * var(--k, 1)); }
 #bossFace[hidden] { display: none; }
-#levelStat.boss #actStrip { display: none; }
 .board-wrap.boss::after { content: ''; position: absolute; inset: calc(-4px * var(--k, 1)); pointer-events: none; --t: calc(12px * var(--k, 1)); --w: calc(2px * var(--k, 1)); background:
   linear-gradient(#fff, #fff) 0 0 / var(--t) var(--w) no-repeat, linear-gradient(#fff, #fff) 0 0 / var(--w) var(--t) no-repeat,
   linear-gradient(#fff, #fff) 100% 0 / var(--t) var(--w) no-repeat, linear-gradient(#fff, #fff) 100% 0 / var(--w) var(--t) no-repeat,
@@ -996,10 +938,6 @@ button.sigil { cursor: pointer; }
 .boss-card small { font-size: calc(10px * var(--k, 1)); color: #bdbdbd; }
 @keyframes bossCard { 0% { opacity: 0; transform: translateY(calc(12px * var(--k, 1))); } 8% { opacity: 1; transform: none; } 88% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .boss-card.show > div { animation: none; } }
-/* The door nodes and the boss seal on the strip */
-.act-node.door.done .disc { fill: var(--gold); }
-.act-seal i { position: absolute; left: 0; right: 0; top: 18%; font-style: normal; font-size: calc(var(--as) * .19); line-height: 1; text-align: center; }
-.act-seal b { top: .22em; font-size: .86em; }
 /* A cleared level's pay */
 .end-bells { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 calc(8px * var(--k, 1)); margin: calc(8px * var(--k, 1)) 0 0; font: 700 calc(11px * var(--k, 1))/calc(16px * var(--k, 1)) var(--font-display); color: #bdbdbd; }
 .end-bells[hidden] { display: none; }
@@ -1064,3 +1002,16 @@ body.wide .shop-leave { grid-column: 2; }
 .runs-list li.me { color: var(--gold); }
 .runs-list li.none { display: block; text-align: center; color: #8f8f8f; }
 .runs-list i, .runs-list em { font-style: normal; font-variant-numeric: tabular-nums; }
+/* By LEVEL, in words (owner, 06.11.2026: the strip of nodes was «нечитаемые ребус»): the next shop and boss beside the
+   number, the record on the label's row. No added height */
+.next-up, .level-best { position: absolute; right: calc(6px * var(--k, 1)); font: 700 max(7px, calc(11px * var(--k, 1)))/max(9px, calc(14px * var(--k, 1))) var(--font-display); white-space: nowrap; }
+.next-up { bottom: 0; display: flex; flex-direction: column; align-items: flex-start; color: #fff; }
+.next-up b { font-weight: inherit; }
+.level-best { top: 0; color: var(--gold); }
+.level-best[hidden] { display: none; }
+#levelStat.boss .next-up { display: none; }
+body.wide .next-up { right: 0; bottom: auto; top: calc(67px * var(--k, 1)); align-items: flex-end; }
+body.wide .level-best { right: calc(64px * var(--k, 1)); top: calc(2px * var(--k, 1)); }
+.end-next { margin: calc(14px * var(--k, 1)) 0 0; text-align: center; font: 700 calc(14px * var(--k, 1))/1.2 var(--font-display); color: #fff; }
+.end-next[hidden] { display: none; }
+body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(--k, 1)); top: calc(429px * var(--k, 1)); width: calc(240px * var(--k, 1)); margin: 0; }

@@ -41,7 +41,7 @@
     <div class="boss-card" id="bossCard" hidden></div>
   </section>
   <section class="counter" aria-live="polite">
-    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span><div class="act" id="actStrip" role="img"></div><i class="boss-face" id="bossFace" hidden></i></div>
+    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span><span class="level-best" id="levelBest" hidden></span><span class="next-up" id="nextUp"></span><i class="boss-face" id="bossFace" hidden></i></div>
     <div class="stat mid" id="handStat"><span class="label" id="bonesLabel">BONES</span><span class="value"><span id="bones">0</span><span class="sticker" id="multSticker"></span><span id="handTotal">0</span></span></div>
     <div class="stat mid" id="targetStat"><span class="label">THRESHOLD</span><span class="value" id="target">0</span></div>
     <div class="run-line" id="runLine" hidden></div>
@@ -86,14 +86,14 @@
     <div class="run-sum" id="runSum" hidden>
       <p class="run-stats" id="runStats"></p>
       <p class="run-gap" id="runGap"></p>
-      <div class="medal-rail"><div class="act" id="runAct" role="img"></div><div class="medal-group"><span>MEDALS</span><ol class="medals" id="medals" aria-label="Medals of this run"></ol></div></div>
+      <div class="medal-rail"><div class="medal-group"><span>MEDALS</span><ol class="medals" id="medals" aria-label="Medals of this run"></ol></div></div>
     </div>
     <div class="upgrades" id="upgrades" hidden>
       <p class="up-head">PICK AN UPGRADE</p>
       <p class="up-sub">+1 FOR THIS RUN</p>
       <div class="up-list" id="upList"></div>
     </div>
-    <div class="act" id="endAct" role="img" hidden></div>
+    <p class="end-next" id="endAct" hidden></p>
     <p class="end-bells" id="endBells" hidden></p>
     <div class="end-actions">
       <button class="btn-primary" id="nextBtn" type="button">NEXT LEVEL</button>

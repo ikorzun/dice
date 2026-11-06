@@ -57,8 +57,8 @@ Locally the CDN loads, so the 3D throw runs in the smoke; it waits for `app.busy
   `finishLevel` runs first so a reload shows the cleared screen, a tap skips to the pick. The lost run's moment
   (`playLoss`, `holdLine` in `shards.js`; `art/ai/2026-11-04-loss-production`, §21) mirrors it: `finishLevel(board)`
   keeps the board as played in `lastEnd.board` (the engine has refilled it), never call `render()` during the moment.
-  The act strip (`acts.js`, `renderAct`; `art/ai/2026-11-05-acts-production`, §22) is worked out from the level and
-  the record; it adds no height to the column. Visual work goes through GPT first (tools in `art/ai/tools`, local).
+  The words by LEVEL (`acts.js`, `renderNext`; MODE3-PLAN §32) are worked out from the level and the record and add no
+  height to the column; they replaced the strip of nodes (§22), which the owner called an unreadable rebus: name things in words, don't invent icons. Visual work goes through GPT first (tools in `art/ai/tools`, local).
 - The run's economy lives in `shop3.js` (bells, doors, shelf, charms, fit to the player, unlocks) and `bosses3.js` (a boss every fifth level, from the seed alone); `hands.js` counts their `rules`, `auto.js` applies them. Offers may look at the player; targets and layouts never do. Rules and numbers: MODE3-PLAN §25–29.
 - `src/ui/board.js`: best runs on the device, Playgama's table when the Bridge has one. `dist/playgama/` is the only build that loads the Bridge.
 - Before pushing: `npm test`, `npm run build`, `npm run smoke`.
