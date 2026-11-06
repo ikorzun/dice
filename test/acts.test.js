@@ -37,17 +37,19 @@ test('clearing the record level passes it', () => {
 });
 
 test('the label says it in one line, the record only when it shows', () => {
-  assert.equal(actOf(7, { best: { level: 18 } }).label, 'Levels 6 to 10. Level 7 current. Medal at 10. Best 18, 11 levels away.');
-  assert.equal(actOf(1).label, 'Levels 1 to 5. Level 1 current. Medal at 5.');
-  assert.equal(actOf(7, { best: { level: 6 } }).label, 'Levels 6 to 10. Level 7 current. Medal at 10.');
+  assert.equal(actOf(7, { best: { level: 18 } }).label, 'Levels 6 to 10. Level 7 current. Boss and medal at 10. Best 18, 11 levels away.');
+  assert.equal(actOf(1).label, 'Levels 1 to 5. Level 1 current. Boss and medal at 5.');
+  assert.equal(actOf(7, { best: { level: 6 } }).label, 'Levels 6 to 10. Level 7 current. Boss and medal at 10.');
 });
 
-test('the strip shows no lime and no boss: four nodes, a numbered seal, links white up to a done node', () => {
+test('the strip shows no lime: four nodes, two of them doors, a numbered boss seal, links white up to a done node', () => {
   const html = actHtml(actOf(3));
   assert.equal(html.match(/class="act-node /g).length, 4);
   assert.equal(html.match(/act-link on/g).length, 1); // node 2 is done, so the link before it is white
   assert.match(html, /<b>5<\/b>/);
-  assert.doesNotMatch(html, /BOSS|SHOP|bbf350/);
+  assert.doesNotMatch(html, /SHOP|bbf350/);
+  assert.match(html, /<i>BOSS<\/i>/);
+  assert.equal(html.match(/act-node [a-z]+ door/g).length, 2);
   assert.match(actHtml(actOf(7, { best: { level: 18 } })), /BEST 18 <i>\+11<\/i>/);
   assert.match(actHtml(actOf(7, { best: { level: 10 } })), /on-seal/);
 });

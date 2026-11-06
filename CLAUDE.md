@@ -16,7 +16,7 @@ scaled by `--k`, picked by `fitBoard` in `app.js` for the bigger board: write ev
 
 ```
 npm test          # node:test suites in test/ (must stay green)
-npm run build     # dist/index.html (standalone) + dist/artifact.html (claude.ai fragment)
+npm run build     # dist/index.html (standalone), dist/artifact.html (claude.ai fragment), dist/playgama/ (with the Bridge)
 npm run smoke     # Playwright: phone viewports + desktop, the Auto Hand screen, screenshots in dist/shots
 npm run sim       # Snake 4+4 balance report -> docs/simulation-latest.md
 node scripts/montecarlo5.mjs --table=pips --out=docs/simulation5-pips.md   # Poker 5
@@ -59,6 +59,8 @@ Locally the CDN loads, so the 3D throw runs in the smoke; it waits for `app.busy
   keeps the board as played in `lastEnd.board` (the engine has refilled it), never call `render()` during the moment.
   The act strip (`acts.js`, `renderAct`; `art/ai/2026-11-05-acts-production`, §22) is worked out from the level and
   the record; it adds no height to the column. Visual work goes through GPT first (tools in `art/ai/tools`, local).
+- The run's economy lives in `shop3.js` (bells, doors, shelf, charms, fit to the player, unlocks) and `bosses3.js` (a boss every fifth level, from the seed alone); `hands.js` counts their `rules`, `auto.js` applies them. Offers may look at the player; targets and layouts never do. Rules and numbers: MODE3-PLAN §25–29.
+- `src/ui/board.js`: best runs on the device, Playgama's table when the Bridge has one. `dist/playgama/` is the only build that loads the Bridge.
 - Before pushing: `npm test`, `npm run build`, `npm run smoke`.
 
 ## Documents

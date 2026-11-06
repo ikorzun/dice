@@ -232,6 +232,12 @@ for (const vp of viewports) {
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-7-end.png` });
   console.log(`${vp.w}x${vp.h}: auto level finished with ${a.score}/${a.target} (${a.phase})`);
   const firstWon = a.phase === 'won';
+  // the pick goes on; a door's shop opens after it, and leaving it goes on too
+  const pick = async () => {
+    await page.click('#upList .up');
+    await page.waitForTimeout(80);
+    if (await page.$eval('#shop', (e) => !e.hidden)) { await page.click('#shopLeave'); await page.waitForTimeout(150); }
+  };
   if (firstWon) { // a won level offers three combinations to upgrade; the pick goes on (owner, 02.11.2026)
     const offer = await page.$$eval('#upList .up', (els) => els.map((e) => e.dataset.cat));
     if (offer.length !== 3 || !(await page.$eval('#nextBtn', (e) => e.hidden)) || !(await page.$eval('#retryBtn', (e) => e.hidden))) note(vp, `upgrade offer: ${offer}`);
@@ -375,7 +381,7 @@ for (const vp of viewports) {
   if (cleared.left) note(vp, `${cleared.left} layer(s) of the moment left behind`);
   console.log(`${vp.w}x${vp.h}: the pick tappable ${pickMs} ms after PLAY`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-11-cleared.png` });
-  await page.click('#upList .up');
+  await pick();
   await page.waitForTimeout(300);
   // a reload in the middle of the moment shows the cleared screen at once, as drawn
   await idle(page);
@@ -388,7 +394,7 @@ for (const vp of viewports) {
   const back = await page.evaluate(() => ({ shown: !document.getElementById('levelEnd').hidden, cls: document.getElementById('levelEnd').className, ups: [...document.querySelectorAll('#upList .up')].map((b) => getComputedStyle(b).opacity) }));
   if (!back.shown || !/\bwon\b/.test(back.cls) || /playing|waiting/.test(back.cls) || back.ups.length !== 3 || back.ups.some((o) => o !== '1')) note(vp, `reload in the win moment: ${JSON.stringify(back)}`);
   // a reload in the middle of the loss moment shows the receipt at once, its board drawn from the saved one
-  await page.click('#upList .up');
+  await pick();
   await page.waitForTimeout(300);
   await idle(page);
   await toLastHand();
@@ -401,6 +407,67 @@ for (const vp of viewports) {
   await page.waitForTimeout(300);
   const again = await receipt();
   if (!receiptOk(again)) note(vp, `reload in the loss moment: ${JSON.stringify(again)}`);
+  // the best runs from the receipt
+  await page.click('#runsBtn');
+  await page.waitForTimeout(150);
+  const runs = await page.evaluate(() => ({ shown: !document.getElementById('runsSheet').hidden, rows: document.querySelectorAll('#runsList li:not(.none)').length, title: document.getElementById('runsTitle').textContent }));
+  if (!runs.shown || runs.rows < 1 || runs.title !== 'YOUR BEST RUNS') note(vp, `best runs: ${JSON.stringify(runs)}`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-12-runs.png` });
+  await page.click('#runsClose');
+  // the door before a boss: the shop fits the screen, a reload finds it, a good sells once, the boss's level has its rule
+  await page.evaluate(() => {
+    const d = window.__diceSnake;
+    const st = d.state();
+    st.levelIndex = 4;
+    st.bells = 30;
+    st.charms = ['bellwether'];
+    st.bank = ['joker', 'x2_any', 'refund'];
+    st.game = null;
+    st.shop = null;
+    d.switchMode('auto', { silent: true });
+    st.game.level.target = 1;
+  });
+  await idle(page);
+  await page.click('#playBtn');
+  await page.waitForFunction(() => document.querySelector('#upList .up') && !document.getElementById('levelEnd').hidden && !document.getElementById('levelEnd').classList.contains('waiting'), null, { timeout: 6000 });
+  await page.waitForTimeout(2200);
+  const paid = await page.evaluate(() => { const st = window.__diceSnake.state(); return { bells: st.bells, shown: !document.getElementById('endBells').hidden, text: document.getElementById('endBells').textContent }; });
+  if (paid.bells < 32 || !paid.shown || !/CLEAR 2/.test(paid.text)) note(vp, `a cleared level's pay: ${JSON.stringify(paid)}`);
+  await page.click('#upList .up');
+  await page.waitForSelector('#shop:not([hidden])');
+  const fits = () => page.evaluate(() => {
+    const $ = (id) => document.getElementById(id);
+    const r = document.querySelector('.shop-panel').getBoundingClientRect();
+    const rows = [...document.querySelectorAll('.ware')].map((g) => g.getBoundingClientRect());
+    const leave = $('shopLeave').getBoundingClientRect();
+    return { rows: rows.length, bottom: Math.max(r.bottom, leave.bottom), overlap: rows.some((g, k) => k && g.top < rows[k - 1].bottom - 0.5) || leave.top < rows[rows.length - 1].bottom - 0.5, boss: $('shopBoss').textContent, stock: window.__diceSnake.state().shop.stock.length };
+  });
+  const shop = await fits();
+  if (shop.rows !== 3 || shop.bottom > vp.h + 0.5 || shop.overlap || !/NEXT/.test(shop.boss)) note(vp, `the shop at ${vp.w}x${vp.h}: ${JSON.stringify(shop)}`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-13-shop.png` });
+  await page.reload();
+  await page.waitForSelector('#board .cell');
+  await page.waitForTimeout(300);
+  if (!(await page.$eval('#shop', (e) => !e.hidden))) note(vp, 'a reload lost the shop');
+  await page.click('.ware:nth-child(2)');
+  await page.click('.ware:nth-child(2) .price');
+  const bought = await page.evaluate(() => { const st = window.__diceSnake.state(); return { sold: st.shop.stock[1].sold, sum: Object.values(st.ups).reduce((a, b) => a + b, 0), up: !document.querySelector('#upList .up') || true }; });
+  if (!bought.sold) note(vp, `the +1 did not sell: ${JSON.stringify(bought)}`);
+  await page.click('.ware:nth-child(1)'); // a full bank: the card asks what it replaces
+  if (!/REPLACE A BANK CARD/.test(await page.$eval('#shopHint', (e) => e.textContent))) note(vp, 'a full bank did not ask what to replace');
+  await page.click('[data-bank="1"]');
+  await page.click('.ware:nth-child(1) .price');
+  const swapped = await page.evaluate(() => { const st = window.__diceSnake.state(); return { bank: st.bank, kind: st.shop.stock[0].id, sold: st.shop.stock[0].sold }; });
+  if (swapped.bank.length !== 3 || swapped.bank[1] !== swapped.kind || !swapped.sold) note(vp, `the replaced card: ${JSON.stringify(swapped)}`);
+  await page.click('#shopLeave');
+  await page.waitForTimeout(250);
+  const boss = await page.evaluate(() => {
+    const $ = (id) => document.getElementById(id);
+    const st = window.__diceSnake.state();
+    return { level: st.game.level.levelIndex, id: st.game.level.boss, line: $('runLine').textContent, face: !$('bossFace').hidden, ticks: $('boardWrap').classList.contains('boss'), card: !$('bossCard').hidden, shop: !$('shop').hidden, cls: $('runLine').className };
+  });
+  if (boss.level !== 5 || !boss.id || !/BOSS/.test(boss.line) || !boss.face || !boss.ticks || !boss.card || boss.shop) note(vp, `the boss's level: ${JSON.stringify(boss)}`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-14-boss.png` });
   await ctx.close();
 }
 await browser.close();

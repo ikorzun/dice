@@ -20,6 +20,10 @@ export const BONUS_KINDS = Object.freeze({
   x3_trips: Object.freeze({ symbol: '×3', label: 'TRIPS', mult: 3, fits: (c) => c === 'three_kind' || c === 'full_house' }),
   joker: Object.freeze({ symbol: '★', label: 'JOKER', wild: true }),
   refund: Object.freeze({ symbol: '+1', label: 'REFUND', mult: 1, fits: () => true, refund: 1 }),
+  // unlocked by far medals, sold in the shop only (questionnaire В6; shop3.js UNLOCKS)
+  x3_kinds: Object.freeze({ symbol: '×3', label: 'KINDS', mult: 3, fits: (c) => c === 'four_kind' || c === 'five_kind' }),
+  x3_small: Object.freeze({ symbol: '×3', label: 'SMALL', mult: 3, fits: (c) => c === 'small_straight' }),
+  x4_any: Object.freeze({ symbol: '×4', label: 'ANY HAND', mult: 4, fits: () => true }),
 });
 
 // Category of a set of dice that is itself a combination (every die counts), or null.
@@ -37,6 +41,12 @@ export function classifyExact(faces) {
   if (n === 5 && shape === '32') return 'full_house';
   if (n === 5 && shape === '11111' && Math.max(...faces) - Math.min(...faces) === 4) return 'straight';
   return null;
+}
+
+// The sum of a hand's dice under a charm's or a boss's rules. Faces still decide the combination.
+function sumOf(picked, jokerFaces, r) {
+  const pip = (f, natural) => (f === 1 && natural && r.ones ? r.ones : f === 6 && r.sixes === 0 ? 0 : f);
+  return picked.reduce((s, d) => s + pip(d.face, true) + (d.held ? r.heldAdd || 0 : 0), 0) + jokerFaces.reduce((s, f) => s + pip(f, false), 0) + (r.sumAdd || 0);
 }
 
 const better = (a, b) => {
@@ -57,8 +67,11 @@ const better = (a, b) => {
 // the largest applicable bonus is used and burnt); the joker is not a multiplier and is never
 // affected. table { base, mult }: score = (category base + pip sum) × mult. straightMult:
 // multiplier of the straight (5 = the Poker 5 table). ups { category: n }: the run's upgrades, +n to that
-// combination's multiplier (owner, 02.11.2026: after a won level the player picks one of three to upgrade).
-export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, straightMult = null, ups = null } = {}) {
+// combination's multiplier (owner, 02.11.2026: after a won level the player picks one of three to upgrade). rules:
+// what the run's charms and a boss change in the count (`handRules` in auto.js): ones, what a natural 1 adds to the
+// sum; sixes, what a six adds; heldAdd, the extra for each held die of the hand; sumAdd, the extra on the sum; half,
+// the combination whose multiplier halves.
+export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, straightMult = null, ups = null, rules = null } = {}) {
   const jokers = bonuses.filter((b) => BONUS_KINDS[b.kind].wild).map((b) => b.cell);
   const mults = bonuses.filter((b) => !BONUS_KINDS[b.kind].wild);
   const multOf = straightMult ? { ...(table ? table.mult : AUTO_MULT), straight: straightMult } : table ? table.mult : AUTO_MULT;
@@ -77,8 +90,8 @@ export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, s
         const faces = [...picked.map((d) => d.face), ...jokerFaces];
         const category = classifyExact(faces);
         if (!category) continue;
-        const base = faces.reduce((s, f) => s + f, 0) + (table ? table.base[category] : 0);
-        const mult = multOf[category] + ((ups && ups[category]) || 0);
+        const base = rules ? sumOf(picked, jokerFaces, rules) : faces.reduce((s, f) => s + f, 0) + (table ? table.base[category] : 0);
+        const mult = (multOf[category] + ((ups && ups[category]) || 0)) * (rules && rules.half === category ? 0.5 : 1);
         const fitting = mults.filter((b) => BONUS_KINDS[b.kind].fits(category));
         const applied = stacking === 'single' && fitting.length > 1 ? [fitting.reduce(largest)] : fitting;
         const bonusMult = stacking === 'add'
@@ -94,10 +107,10 @@ export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, s
           label: CATEGORY5_LABELS[category],
           base,
           mult,
-          points: base * mult,
+          points: Math.floor(base * mult),
           formula: `${base} × ${mult}`,
           bonusMult,
-          total: base * mult * bonusMult,
+          total: Math.floor(base * mult) * bonusMult,
           heldBurned: picked.filter((d) => d.held).length,
         };
         if (!best || better(cand, best)) best = cand;

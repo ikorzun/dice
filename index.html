@@ -27,6 +27,7 @@
   <header class="hud">
     <div class="stat" id="levelHud"><span class="label">LEVEL</span><span class="value level-text">1</span></div>
     <div class="bank" id="bank" aria-label="Bonus bank: bonuses kept from earlier levels"></div>
+    <div class="charm-rail" id="charmRail" aria-label="Charms of this run"></div>
     <button class="book" id="helpBtn" type="button" aria-label="How to play"><i></i>How</button>
   </header>
   <div class="preview" id="preview" aria-live="polite" hidden></div>
@@ -37,11 +38,13 @@
   </div>
   <section class="board-wrap" id="boardWrap">
     <div class="board rendered" id="board" aria-label="3 by 3 dice board"></div>
+    <div class="boss-card" id="bossCard" hidden></div>
   </section>
   <section class="counter" aria-live="polite">
-    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span><div class="act" id="actStrip" role="img"></div></div>
+    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span><div class="act" id="actStrip" role="img"></div><i class="boss-face" id="bossFace" hidden></i></div>
     <div class="stat mid" id="handStat"><span class="label" id="bonesLabel">BONES</span><span class="value"><span id="bones">0</span><span class="sticker" id="multSticker"></span><span id="handTotal">0</span></span></div>
     <div class="stat mid" id="targetStat"><span class="label">THRESHOLD</span><span class="value" id="target">0</span></div>
+    <div class="run-line" id="runLine" hidden></div>
     <div class="hand-row" id="handRow"><span class="gdice" id="handDice"></span><span class="hand-name"><b id="handName"></b><em id="handMult"></em></span></div>
   </section>
   <section class="controls">
@@ -91,10 +94,34 @@
       <div class="up-list" id="upList"></div>
     </div>
     <div class="act" id="endAct" role="img" hidden></div>
+    <p class="end-bells" id="endBells" hidden></p>
     <div class="end-actions">
       <button class="btn-primary" id="nextBtn" type="button">NEXT LEVEL</button>
       <button class="btn-secondary" id="retryBtn" type="button">RETRY</button>
+      <button class="guide-link" id="runsBtn" type="button" hidden>BEST RUNS</button>
     </div>
+  </div>
+</section>
+
+<section class="overlay shop" id="shop" hidden>
+  <div class="shop-panel">
+    <header class="shop-head"><h2>SHOP</h2><span class="wallet"><i class="bell"></i><b id="shopBells">0</b> BELLS</span></header>
+    <div class="shop-held">
+      <div><span>BANK</span><div class="shop-places" id="shopBank"></div></div>
+      <div><span id="shopCharmLabel">CHARMS 0/3</span><div class="shop-places" id="shopCharms"></div></div>
+    </div>
+    <div class="shop-boss" id="shopBoss"></div>
+    <ul class="shop-list" id="shopList"></ul>
+    <p class="shop-hint" id="shopHint">TAP AN OFFER, THEN TAP BUY</p>
+    <button class="btn-dark shop-leave" id="shopLeave" type="button">LEAVE SHOP</button>
+  </div>
+</section>
+
+<section class="sheet-up" id="runsSheet" hidden>
+  <div class="sheet-card runs-card" role="dialog" aria-labelledby="runsTitle">
+    <h3 id="runsTitle">YOUR BEST RUNS</h3>
+    <ol class="runs-list" id="runsList"></ol>
+    <button class="btn-play" id="runsClose" type="button">CLOSE</button>
   </div>
 </section>
 

@@ -10,12 +10,21 @@ import { UP_SHARES } from './uplift3.js';
 export const UP_CATEGORIES = Object.freeze(['pair', 'two_pairs', 'small_straight', 'three_kind', 'full_house', 'straight', 'four_kind', 'five_kind']);
 export const UP_OFFER = 3;
 
-// The three combinations offered after winning `levelIndex` (seeded: a reload shows the same three).
-export function upgradeOffer(runSeed, levelIndex) {
+// The three combinations offered after winning `levelIndex` (seeded: a reload shows the same three). With `weights`
+// ({ category: n }, questionnaire В9: the hands the player leans on) the first two are drawn by weight and the third
+// from all the rest evenly, so an unusual pick still appears.
+export function upgradeOffer(runSeed, levelIndex, weights = null) {
   const rng = createRng(`${runSeed}/A${levelIndex}/upgrade`);
   const pool = UP_CATEGORIES.slice();
   const offer = [];
-  while (offer.length < UP_OFFER) offer.push(pool.splice(rng.int(pool.length), 1)[0]);
+  while (offer.length < UP_OFFER) {
+    let k = rng.int(pool.length);
+    if (weights && offer.length < UP_OFFER - 1) {
+      let x = rng.next() * pool.reduce((s, c) => s + weights[c], 0);
+      k = pool.findIndex((c) => (x -= weights[c]) < 0);
+    }
+    offer.push(pool.splice(k, 1)[0]);
+  }
   return offer;
 }
 

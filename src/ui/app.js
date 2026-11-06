@@ -32,12 +32,15 @@ import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from
 import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
 import { generateRunLevel, runTarget, RUN3_VERSION } from '../engine/run3.js';
 import { upgradeOffer, withUpgrade } from '../engine/upgrades3.js';
+import { CHARMS, CHARM_SLOTS, UNLOCKS, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood } from '../engine/shop3.js';
+import { BOSSES, bossOf } from '../engine/bosses3.js';
 import { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } from './dice3d.js';
 import { createFire } from './fire.js';
 import { RING_STEP, setupSound, setSound, sfx, hush, ringCount, ringChord, ringNote } from './sound.js';
 import { setupPuppets, animateArt, cheer, WIN_CARD, cardRock } from './puppets.js';
 import { breakLine, holdLine } from './shards.js';
 import { actOf, actHtml } from './acts.js';
+import { withRun, submitRun, fetchBoard, hasBoard, setupBoard } from './board.js';
 
 const APP_VERSION = '0.2.0';
 const STORAGE_KEY = 'dice-snake.v2';
@@ -264,7 +267,7 @@ const MODES = {
     defaultSettings: { settingsVersion: 1, maxHolds: null, scoreTable: 'pips', autoBonusOnFinalHand: false, pathMode: false, hands: 3, rerolls: 3 },
     gameConfig: (st) => ({ hands: st.hands, rerolls: st.rerolls }),
     // one curve for everyone (questionnaire В1 A, 04.11.2026): the level depends on the run seed and its number only
-    generate: ({ runSeed, levelIndex, settings, bank, ups }) => generateRunLevel({ runSeed, levelIndex, bank, ups, config: MODES.auto.gameConfig(settings) }),
+    generate: ({ runSeed, levelIndex, settings, bank, ups, charms }) => generateRunLevel({ runSeed, levelIndex, bank, ups, charms, config: MODES.auto.gameConfig(settings) }),
     scoringHtml: '<strong>Matching dice score their sum × a multiplier that grows with rarity.</strong> Pair × 2, two pairs × 3, three of a kind × 4, full house × 5, four of a kind × 6, straight × 8, five of a kind × 8. Bonus dice add up: ×2 and ×3 together make ×4.',
     difficultyText: 'One curve for everyone: each level asks for more than the one before, and its board is drawn to fit the level, never the player. A missed target ends the run.',
     summary: (g) => ({ recipe: g.level.recipe, chance: g.level.chance }),
@@ -278,6 +281,8 @@ const MODES = {
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
         'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back). They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus makes way for a new die, or for a bonus waiting above the board.',
         'Reach the target and the level ends at once; a level has three hands at most. Miss it and the run is over. There is no last level: each asks for more.',
+        'A cleared level pays bells: 2, plus 2 for each hand and 1 for each reroll left unused. A shop opens after the second and fourth level of each act: one card, one +1 and one charm. Charms last for the run, three at most.',
+        'Every fifth level is a boss with one rule, named in the shop before it. Beat it for a medal and 3 more bells.',
         'Bonuses you did not play on a won level are kept for the next level of the run (three at most, the rest burn). They come in on its first reroll, each in place of a die being rerolled while six dice stay on the board; the rest wait above the board from then on: tap one there to switch it on like a card on the board.',
       ],
       scoreTitle: 'SCORING · THE HAND IS THE DICE OF THE COMBINATION',
@@ -322,6 +327,13 @@ function freshModeState(mode) {
     best: null, // Auto Hand: the record on this device, { level, score }: the furthest level a run got to, then points
     medal: 0, // Auto Hand: the furthest medal level ever cleared (5, 10, 15…)
     lastEnd: null, // Auto Hand: what the last level end brought (medal, record), for its summary after a reload
+    bells: 0, // Auto Hand: the run's money
+    charms: [], // Auto Hand: the run's charms, three at most
+    shop: null, // Auto Hand: the open shop, { level, stock }, so a reload finds it as it was
+    plays: [], // Auto Hand: the run's hands, { category, cleared, level }, and those that ended the last run (level 0)
+    habit: { rerolls: 0, holds: 0, levels: 0 }, // Auto Hand: how this run has been played, for the shop's fit
+    runs: [], // Auto Hand: this device's best runs, { level, score }
+    quickRuns: 0, // Auto Hand: runs in a row that ended by level 3 (questionnaire В9: hints after quick losses)
   };
 }
 
@@ -432,6 +444,13 @@ function serializeMode(st, engine) {
     best: st.best,
     medal: st.medal,
     lastEnd: st.lastEnd,
+    bells: st.bells,
+    charms: st.charms,
+    shop: st.shop,
+    plays: st.plays,
+    habit: st.habit,
+    runs: st.runs,
+    quickRuns: st.quickRuns,
     game: st.game ? engine.snapshot(st.game) : null,
     log: st.log.slice(-LOG_LIMIT),
     levels: st.levels.slice(-200),
@@ -472,6 +491,13 @@ function hydrateMode(id, saved) {
   st.best = saved.best && Number.isInteger(saved.best.level) && Number.isFinite(saved.best.score) ? { level: saved.best.level, score: saved.best.score } : null;
   st.medal = Number.isInteger(saved.medal) ? saved.medal : 0;
   st.lastEnd = saved.lastEnd && typeof saved.lastEnd === 'object' ? saved.lastEnd : null;
+  st.bells = Number.isInteger(saved.bells) ? saved.bells : 0;
+  st.charms = Array.isArray(saved.charms) ? saved.charms.filter((c) => CHARMS[c]).slice(0, CHARM_SLOTS) : [];
+  st.shop = saved.shop && Array.isArray(saved.shop.stock) ? saved.shop : null;
+  st.plays = Array.isArray(saved.plays) ? saved.plays : [];
+  st.habit = saved.habit && Number.isFinite(saved.habit.levels) ? saved.habit : st.habit;
+  st.runs = Array.isArray(saved.runs) ? saved.runs.filter((r) => r && Number.isInteger(r.level)) : [];
+  st.quickRuns = Number.isInteger(saved.quickRuns) ? saved.quickRuns : 0;
   if (saved.game) {
     try {
       st.game = mode.engine.restore(saved.game);
@@ -526,6 +552,7 @@ function startGame(level, attempt) {
   render();
   persist();
   autoTips();
+  if (level.boss) showBossCard(level);
   if (st.game.bank && st.game.bank.length && attempt === 1 && !st.tips.bankReroll) { // the first time the bank fills
     st.tips.bankReroll = true;
     toast('KEPT BONUSES COME IN ON THE FIRST REROLL', 'hint', 3600);
@@ -534,7 +561,7 @@ function startGame(level, attempt) {
 
 function newLevel() {
   const st = S();
-  const level = M().generate({ runSeed: st.runSeed, levelIndex: st.levelIndex, tier: st.tier, settings: st.settings, history: st.levels, bank: st.bank, ups: st.ups });
+  const level = M().generate({ runSeed: st.runSeed, levelIndex: st.levelIndex, tier: st.tier, settings: st.settings, history: st.levels, bank: st.bank, ups: st.ups, charms: st.charms });
   startGame(level, 1);
 }
 
@@ -572,10 +599,15 @@ function tallyRun(st, g, won, board) {
   const level = g.level.levelIndex;
   st.runScore += g.score;
   const end = { seed: g.level.seed };
+  st.plays = [...st.plays, ...g.hands.map((h, k) => ({ category: h.category, cleared: won && k === g.hands.length - 1, level }))];
+  st.habit = { rerolls: st.habit.rerolls + g.stats.rerollsUsed, holds: st.habit.holds + g.stats.holdToggles, levels: st.habit.levels + 1 };
   if (won) {
+    end.bells = levelBells(g);
+    st.bells += end.bells.total;
     if (level % MEDAL_STEP === 0) {
       end.medal = level;
       end.fresh = level > st.medal;
+      if (end.fresh) end.unlock = (UNLOCKS.find((u) => u.medal === level) || {}).kind;
       st.medal = Math.max(st.medal, level);
       st.runMedals = [...st.runMedals, { level, fresh: end.fresh }];
     }
@@ -584,6 +616,10 @@ function tallyRun(st, g, won, board) {
     end.newBest = !st.best || level > st.best.level || (level === st.best.level && st.runScore > st.best.score);
     if (end.newBest) st.best = { level, score: st.runScore };
     if (board) end.board = board;
+    st.runs = withRun(st.runs, { level, score: st.runScore });
+    submitRun(level, st.runScore);
+    st.quickRuns = level <= 3 ? st.quickRuns + 1 : 0;
+    st.plays = g.hands.map((h) => ({ category: h.category, cleared: false, level: 0 })); // the next run's shelf remembers what ended this one
   }
   st.lastEnd = end;
 }
@@ -613,6 +649,9 @@ function showLevelEnd() {
   if (cleared && last) $('endHand').innerHTML = `<span class="gdice">${last.faces.map((v) => guideDie(v)).join('')}</span><span><b>${last.label}</b><small>${handFormula(last)}</small></span><span class="pts">${last.total}</span>`;
   $('endAct').hidden = !cleared;
   if (cleared) drawAct($('endAct'), g.level.levelIndex, { cleared: true, best: st.best });
+  const paid = cleared && st.lastEnd && st.lastEnd.seed === g.level.seed ? st.lastEnd.bells : null;
+  $('endBells').hidden = !paid;
+  if (paid) $('endBells').innerHTML = `<b><i class="bell"></i>+${paid.total}</b>${[['CLEAR', paid.clear], ['HANDS', paid.hand], ['REROLLS', paid.reroll], ['BOSS', paid.boss], ['CHARM', paid.charm]].filter(([, v]) => v).map(([n, v]) => `<span>${n} ${v}</span>`).join('')}${st.lastEnd.unlock ? `<em>NEW CARD IN THE SHOP: ${BONUS_KINDS[st.lastEnd.unlock].symbol} ${BONUS_KINDS[st.lastEnd.unlock].label}</em>` : ''}`;
   const list = $('endHands');
   list.innerHTML = '';
   // a lost run's receipt: the level's three hands in the cleared screen's row, the last one, which ended the run,
@@ -650,15 +689,18 @@ function showLevelEnd() {
     : `Rule-based difficulty: tier ${st.tier} → ${st.pendingTier} / 5`;
   $('nextBtn').textContent = won ? 'NEXT LEVEL' : over ? 'NEW RUN' : 'NEXT LEVEL (EASIER)';
   // a won level of the run offers three combinations to upgrade; the pick goes on (owner, 02.11.2026)
-  const offer = mode.id === 'auto' && won ? upgradeOffer(st.runSeed, g.level.levelIndex) : [];
+  const fit = mode.id === 'auto' ? fitWeights({ plays: st.plays, ups: st.ups }, g.level.levelIndex) : null; // questionnaire В9
+  const offer = mode.id === 'auto' && won ? upgradeOffer(st.runSeed, g.level.levelIndex, Object.fromEntries(Object.entries(fit).map(([c, f]) => [c, f.weight]))) : [];
   $('upgrades').hidden = !offer.length;
   $('nextBtn').hidden = offer.length > 0;
   // a cleared level goes on through its upgrade (owner, 03.11.2026: RETRY confused); a missed one ends the run
   $('retryBtn').hidden = won || mode.id === 'auto';
+  $('runsBtn').hidden = !over;
   $('upList').innerHTML = offer.map((cat) => {
     const m = AUTO_MULT[cat] + (st.ups[cat] || 0);
     const dice = (GUIDE_COMBOS.find(([c]) => c === cat) || [cat, []])[1];
-    return `<button class="up" type="button" data-cat="${cat}"><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}</b><em>×${m} → ×${m + 1}</em></button>`;
+    const tag = fitTag(cat, fit, true);
+    return `<button class="up" type="button" data-cat="${cat}"><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}${tag ? `<i>${tag}</i>` : ''}</b><em>×${m} → ×${m + 1}</em></button>`;
   }).join('');
   $('levelEnd').dataset.mode = app.modeId;
   clearTimeout(app.endTimer);
@@ -728,6 +770,15 @@ function onNext() {
     st.ups = {}; // and so do the upgrades
     st.runScore = 0;
     st.runMedals = [];
+    st.bells = 0;
+    st.charms = [];
+    st.habit = { rerolls: 0, holds: 0, levels: 0 };
+    const left = st.game.rerollsLeft;
+    newLevel();
+    // В9: a goal for the run, and after quick losses a hint at what ended the last one (rules 7 and 17)
+    if (st.quickRuns >= 2) toast(left ? `LAST RUN LEFT ${left} REROLL${left > 1 ? 'S' : ''} UNUSED` : 'HOLD WHAT MATCHES, REROLL THE REST', 'hint', 3200);
+    else if (st.best) toast(`GOAL: BEAT LEVEL ${st.best.level}`, 'hint', 2400);
+    return;
   }
   newLevel();
 }
@@ -766,6 +817,7 @@ function switchMode(id, { silent = false } = {}) {
     render();
     // a reload during the last hand's count left the level unfinished: count it now (record, medal, bank)
     if (id === 'auto' && !(st.lastEnd && st.lastEnd.seed === st.game.level.seed)) finishLevel();
+    else if (st.shop) openShop();
     else showLevelEnd();
   }
   else render();
@@ -1114,6 +1166,162 @@ function renderHud() {
   for (const el of document.querySelectorAll('.level-text')) el.textContent = String(g.level.levelIndex); // no last level (owner, 03.11.2026)
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
   renderAct();
+  renderRun();
+}
+
+// What the run carries, in the gaps of the column (no added height): the bells and what a level pays, or the boss's
+// rule all through his level; the charms beside the bank; the boss's portrait in LEVEL's box and ticks on the board.
+function renderRun() {
+  const st = S();
+  const level = st.game.level;
+  const boss = M().id === 'auto' && level.boss ? BOSSES[level.boss] : null;
+  const line = $('runLine');
+  line.hidden = M().id !== 'auto' || (level.levelIndex === 1 && !st.bells);
+  line.classList.toggle('boss', !!boss);
+  const said = `<span class="wallet"><i class="bell"></i>${st.bells}</span><span>${boss ? `BOSS · ${boss.rule}` : 'UNUSED HAND +2 · REROLL +1'}</span>`;
+  if (line.dataset.said !== said) { line.innerHTML = said; line.dataset.said = said; } // it sits in a live region: only news
+  const rail = st.charms.map((id) => `<button class="sigil" type="button" data-charm="${id}" style="--sig: var(--charm-${id})" aria-label="${CHARMS[id].name}: ${CHARMS[id].rule}"></button>`).join('');
+  if ($('charmRail').dataset.key !== st.charms.join()) { $('charmRail').innerHTML = rail; $('charmRail').dataset.key = st.charms.join(); }
+  $('levelStat').classList.toggle('boss', !!boss);
+  $('bossFace').hidden = !boss;
+  if (boss) $('bossFace').style.setProperty('--boss', `var(--boss-${level.boss})`);
+  els.boardWrap.classList.toggle('boss', !!boss);
+}
+
+// A boss's level opens with his card, which stands over the dice: until it goes, or a tap sends it away, nothing plays
+// by accident under it. The rule stays in the run line.
+function showBossCard(level) {
+  const card = $('bossCard');
+  const boss = BOSSES[level.boss];
+  card.innerHTML = `<div><i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><small>BOSS</small><b>${boss.name}</b><em>${boss.rule}</em><small>THRESHOLD ${level.target}</small></span></div>`;
+  card.hidden = false;
+  card.classList.remove('show');
+  void card.offsetWidth; // the animation starts over
+  card.classList.add('show');
+  clearTimeout(app.bossTimer);
+  app.bossTimer = setTimeout(() => { card.hidden = true; }, 1400);
+}
+
+// ---------- the shop (GPT's design, art/ai/2026-11-06-shop-bosses): after the pick, every second and fourth level of an act ----------
+const runOf = (st) => ({ bells: st.bells, bank: st.bank, ups: st.ups, charms: st.charms });
+const sigil = (id) => `<i class="sigil" style="--sig: var(--charm-${id})"></i>`;
+
+function openShop() {
+  const st = S();
+  const level = st.game.level.levelIndex;
+  if (!st.shop) {
+    const h = st.habit;
+    const habits = { rerolls: Math.min(1, h.rerolls / (3 * Math.max(1, h.levels))), holds: Math.min(1, h.holds / (6 * Math.max(1, h.levels))), cards: st.bank.length / BANK_SIZE };
+    st.shop = { level, stock: shopStock({ runSeed: st.runSeed, levelIndex: level, run: runOf(st), plays: st.plays, habits, medal: st.medal }) };
+    logEvent('shop_open', { level, bells: st.bells, stock: st.shop.stock });
+    persist();
+  }
+  app.shopPick = null;
+  clearTimeout(app.endTimer);
+  $('levelEnd').hidden = true;
+  $('levelEnd').dataset.mode = app.modeId; // a reload lands here without the level end: leaving goes on from it
+  renderShop();
+  $('shop').hidden = false;
+}
+
+function placeNeeded(st, good) {
+  if (good.type === 'card' && st.bank.length >= BANK_SIZE) return 'bank';
+  if (good.type === 'charm' && st.charms.length >= CHARM_SLOTS) return 'charm';
+  return null;
+}
+
+function goodHtml(st, good, i) {
+  const pick = app.shopPick && app.shopPick.slot === i;
+  const short = good.price - st.bells;
+  const place = placeNeeded(st, good);
+  const ready = pick && (!place || app.shopPick.replace !== null);
+  const art = good.type === 'card' ? guideTile(good.id, false)
+    : good.type === 'charm' ? sigil(good.id)
+      : `<span class="gdice">${(GUIDE_COMBOS.find(([c]) => c === good.id) || [good.id, []])[1].map((v) => guideDie(v)).join('')}</span>`;
+  const m = good.type === 'up' ? AUTO_MULT[good.id] + (st.ups[good.id] || 0) : 0;
+  const name = good.type === 'card' ? `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}` : good.type === 'charm' ? CHARMS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`;
+  const rule = good.type === 'card' ? 'GOES TO THE BANK' : good.type === 'charm' ? CHARMS[good.id].rule : `×${m} → ×${m + 1} FOR THIS RUN`;
+  const price = good.sold ? '' : ready ? `BUY • ${good.price}` : short > 0 ? `NEED ${short}` : `<i class="bell"></i>${good.price}`;
+  return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><i>${good.tag === 'WILD OFFER' ? '' : good.tag}</i><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
+}
+
+function renderShop() {
+  const st = S();
+  const { stock, level } = st.shop;
+  const pick = app.shopPick;
+  const place = pick ? placeNeeded(st, stock[pick.slot]) : null;
+  $('shopBells').textContent = String(st.bells);
+  $('shopBank').innerHTML = Array.from({ length: BANK_SIZE }, (_, k) => {
+    const kind = st.bank[k];
+    return `<button type="button" class="shop-place${place === 'bank' ? ' swap' : ''}${pick && pick.replace === k && place === 'bank' ? ' gone' : ''}" data-bank="${k}"${place === 'bank' ? '' : ' tabindex="-1"'}>${kind ? guideTile(kind, false) : ''}</button>`;
+  }).join('');
+  $('shopCharmLabel').textContent = `CHARMS ${st.charms.length}/${CHARM_SLOTS}`;
+  $('shopCharms').innerHTML = Array.from({ length: CHARM_SLOTS }, (_, k) => {
+    const id = st.charms[k];
+    return `<button type="button" class="shop-place small${place === 'charm' ? ' swap' : ''}${pick && pick.replace === k && place === 'charm' ? ' gone' : ''}" data-charm-place="${k}"${place === 'charm' ? '' : ' tabindex="-1"'}>${id ? sigil(id) : ''}</button>`;
+  }).join('');
+  const bossId = bossNext(level) ? bossOf(st.runSeed, level + 1) : null;
+  $('shopBoss').classList.toggle('named', !!bossId);
+  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><b>${BOSSES[bossId].name}</b><small>NEXT · ${BOSSES[bossId].rule}</small></span>` : '<small>BOSS RULE REVEALED NEXT SHOP</small>';
+  $('shopList').innerHTML = stock.map((g, i) => goodHtml(st, g, i)).join('');
+  $('shopHint').textContent = place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'CHARM'}` : 'TAP AN OFFER, THEN TAP BUY';
+}
+
+function shopTap(e) {
+  const st = S();
+  if (!st.shop) return;
+  const row = e.target.closest('.ware');
+  const bank = e.target.closest('[data-bank]');
+  const charm = e.target.closest('[data-charm-place]');
+  const pick = app.shopPick;
+  if (bank || charm) {
+    const place = pick ? placeNeeded(st, st.shop.stock[pick.slot]) : null;
+    if (place === (bank ? 'bank' : 'charm')) app.shopPick = { ...pick, replace: Number(bank ? bank.dataset.bank : charm.dataset.charmPlace) };
+  } else if (row) {
+    const slot = Number(row.dataset.slot);
+    const good = st.shop.stock[slot];
+    if (good.sold || good.price > st.bells) return;
+    const ready = pick && pick.slot === slot && (!placeNeeded(st, good) || pick.replace !== null);
+    if (ready && e.target.closest('.price')) { buy(slot); return; }
+    if (!pick || pick.slot !== slot) app.shopPick = { slot, replace: null };
+  } else app.shopPick = null;
+  renderShop();
+}
+
+function buy(slot) {
+  const st = S();
+  const r = buyGood(runOf(st), st.shop.stock, slot, { replace: app.shopPick.replace });
+  if (!r.ok) { toast(r.message, 'bad'); return; }
+  logEvent('shop_buy', { good: st.shop.stock[slot], bells: r.run.bells });
+  Object.assign(st, { bells: r.run.bells, bank: r.run.bank, ups: r.run.ups, charms: r.run.charms });
+  st.shop = { ...st.shop, stock: r.stock };
+  app.shopPick = null;
+  haptic(10);
+  sfx('refund', { vol: 0.8 });
+  renderShop();
+  persist();
+}
+
+function leaveShop() {
+  const st = S();
+  if (!st.shop) return;
+  st.shop = null;
+  $('shop').hidden = true;
+  onNext();
+}
+
+// ---------- the best runs: the shared table on Playgama, this device's runs elsewhere (board.js) ----------
+async function openRuns() {
+  const st = S();
+  const shared = hasBoard();
+  $('runsTitle').textContent = shared ? 'LEADERBOARD' : 'YOUR BEST RUNS';
+  $('runsList').innerHTML = '';
+  $('runsSheet').hidden = false;
+  const rows = shared ? await fetchBoard() : null;
+  const list = rows || st.runs.map((r, k) => ({ rank: k + 1, level: r.level, points: r.score }));
+  const clean = (name) => (name || 'PLAYER').replace(/[<>&]/g, '');
+  $('runsList').innerHTML = list.length ? `<li class="head"><i></i>${shared ? '<span>NAME</span>' : ''}<b>LEVEL</b><em>SCORE</em></li>${list.map((r) => `<li class="${r.me ? 'me' : ''}"><i>${r.rank}</i>${shared ? `<span>${clean(r.name)}</span>` : ''}<b>${r.level}</b><em>${r.points}</em></li>`).join('')}` : '<li class="none">NO RUNS YET</li>';
+  $('runsList').classList.toggle('shared', shared);
 }
 
 // The act strip by LEVEL (owner's pick В13 A, acts.js). It changes only when a level starts, ends or the record does:
@@ -1404,6 +1612,9 @@ const BONUS_INTRO = {
   x3_straight: 'NEW BONUS ×3: TRIPLES A STRAIGHT',
   x3_pairs: 'NEW BONUS ×3: TRIPLES PAIRS AND TWO PAIRS',
   x3_trips: 'NEW BONUS ×3: TRIPLES TRIPS AND FULL HOUSE',
+  x3_kinds: 'NEW BONUS ×3: TRIPLES FOUR AND FIVE OF A KIND',
+  x3_small: 'NEW BONUS ×3: TRIPLES A SMALL STRAIGHT',
+  x4_any: 'NEW BONUS ×4: ANY HAND',
   joker: 'NEW BONUS ★: THE JOKER BECOMES ANY FACE',
   refund: 'NEW BONUS +1: PLAY IT AND GET A REROLL BACK',
 };
@@ -1634,6 +1845,9 @@ const BONUS_WHAT = {
   x3_straight: 'Triples a straight.',
   x3_pairs: 'Triples a pair or two pairs.',
   x3_trips: 'Triples three of a kind or a full house.',
+  x3_kinds: 'Triples four or five of a kind.',
+  x3_small: 'Triples a small straight.',
+  x4_any: 'Multiplies any hand by four.',
   joker: 'Becomes the face your hand needs most.',
   refund: 'Play it and get one reroll back.',
 };
@@ -2621,6 +2835,7 @@ function resetProgress() {
   fresh.runSeed = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   app.modes[app.modeId] = fresh;
   $('help').hidden = true;
+  $('shop').hidden = true;
   newLevel();
   toast(`${M().name} progress reset`, 'good');
 }
@@ -2658,7 +2873,17 @@ function bind() {
     st.ups = withUpgrade(st.ups, b.dataset.cat);
     logEvent('upgrade', { category: b.dataset.cat, ups: st.ups });
     ringNote(5, 0.7);
-    onNext();
+    if (M().id === 'auto' && doorAfter(st.game.level.levelIndex)) openShop();
+    else onNext();
+  });
+  $('shop').addEventListener('click', shopTap);
+  $('shopLeave').addEventListener('click', (e) => { e.stopPropagation(); leaveShop(); });
+  $('bossCard').addEventListener('pointerdown', () => { clearTimeout(app.bossTimer); $('bossCard').hidden = true; });
+  $('runsBtn').addEventListener('click', openRuns);
+  $('runsClose').addEventListener('click', () => { $('runsSheet').hidden = true; });
+  $('charmRail').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-charm]');
+    if (b) toast(`${CHARMS[b.dataset.charm].name}: ${CHARMS[b.dataset.charm].rule}`, 'hint', 2600);
   });
   $('bank').addEventListener('click', (e) => {
     const card = e.target.closest('.cell[data-k]');
@@ -2765,5 +2990,7 @@ function init() {
   window.__diceSnake = { app, version: APP_VERSION, state: () => S(), mode: () => M(), hint: () => E().hintFor(S().game), switchMode, setLook, LOOKS, dice3d: dice3dStatus, setDice3D };
 }
 
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-else init();
+setupBoard().finally(() => {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+});

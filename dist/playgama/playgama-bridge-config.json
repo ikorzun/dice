@@ -1,0 +1,9 @@
+{
+  "saas": {
+    "publicToken": "<THE GAME'S PUBLIC TOKEN: developer.playgama.com, the game's card, Bridge SaaS, Leaderboards>",
+    "leaderboards": { "platforms": ["playgama", "qa_tool"] }
+  },
+  "leaderboards": [
+    { "id": "furthest_level", "isMain": true }
+  ]
+}

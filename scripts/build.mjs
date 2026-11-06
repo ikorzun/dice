@@ -2,9 +2,11 @@
 // Builds two self-contained files from the ES module sources without a bundler dependency:
 //   dist/index.html    – standalone page (open from disk or any static host)
 //   dist/artifact.html – the same page as a claude.ai artifact fragment (title/meta/style/body)
+//   dist/playgama/     – the page for Playgama: the Bridge script first in <head> and its config next to it. Only this
+//                        build waits for the Bridge CDN; the others never load it.
 // Each module becomes its own scope; `import { a } from './x.js'` turns into destructuring
 // from that module's export object, so modules may reuse local names freely.
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { basename, extname } from 'node:path';
 
 const MODULES = [
@@ -23,7 +25,9 @@ const MODULES = [
   'src/engine/recipes3.js',
   'src/engine/uplift3.js',
   'src/engine/upgrades3.js',
+  'src/engine/bosses3.js',
   'src/engine/run3.js',
+  'src/engine/shop3.js',
   'src/ui/dice-model.js',
   'src/ui/dice3d-math.js',
   'src/ui/dice3d.js',
@@ -33,6 +37,7 @@ const MODULES = [
   'src/ui/puppets.js',
   'src/ui/shards.js',
   'src/ui/acts.js',
+  'src/ui/board.js',
   'src/ui/app.js',
 ];
 
@@ -100,7 +105,13 @@ const fontLink = html.match(/<link rel="stylesheet" href="https:\/\/fonts\.googl
 const bodyInner = standalone.match(/<body>([\s\S]*)<\/body>/)[1].trim();
 const fragment = `${title}\n<meta name="claude:viewport-fit-sides" content="cover">\n${fontLink}\n<style>\n${css}</style>\n${bodyInner}\n`;
 
-mkdirSync('dist', { recursive: true });
+const BRIDGE = '<script src="https://bridge.playgama.com/v2/stable/playgama-bridge.js"></script>';
+const playgama = standalone.replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n${BRIDGE}`);
+if (playgama === standalone) throw new Error('index.html has no charset line to put the Bridge script after');
+
+mkdirSync('dist/playgama', { recursive: true });
 writeFileSync('dist/index.html', standalone);
 writeFileSync('dist/artifact.html', fragment);
+writeFileSync('dist/playgama/index.html', playgama);
+copyFileSync('playgama-bridge-config.json', 'dist/playgama/playgama-bridge-config.json');
 console.log(`built dist/index.html (${(standalone.length / 1024).toFixed(1)} KB) and dist/artifact.html (${(fragment.length / 1024).toFixed(1)} KB)`);

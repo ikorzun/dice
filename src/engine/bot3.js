@@ -4,7 +4,7 @@
 // only on the multiset of faces and the kinds of the bonuses that are on, so the greedy bot
 // scores a board by its face counts and memoizes; its lookahead is exact, not sampled.
 
-import { createAutoGame, toggleHold, toggleBonus, reroll, currentHand, playHand, diceCells, isBonus, bonusKind, BANK } from './auto.js';
+import { createAutoGame, toggleHold, toggleBonus, reroll, currentHand, playHand, diceCells, isBonus, bonusKind, bankOpen, handOptionsOf, BANK } from './auto.js';
 import { bestHand, BONUS_KINDS } from './hands.js';
 
 // Release unwanted holds first, then hold the rest (same shape as bot5.setHolds).
@@ -17,7 +17,7 @@ export function setHolds(game, keep) {
 // The bonuses to switch: the board's and, from the level's first reroll, the kept ones still waiting above it.
 const bonusCells = (game) => [
   ...game.cells.map((c, i) => i).filter((i) => isBonus(game, i)),
-  ...(game.stats.rerollsUsed ? game.bank.map((b, k) => (b.used || b.placed ? -1 : BANK + k)).filter((i) => i >= 0) : []),
+  ...(bankOpen(game) ? game.bank.map((b, k) => (b.used || b.placed ? -1 : BANK + k)).filter((i) => i >= 0) : []),
 ];
 const isOff = (game, i) => (i >= BANK ? game.bank[i - BANK].off : game.off[i]);
 const unconditional = (kind) => kind === 'x2_any' || BONUS_KINDS[kind].wild;
@@ -141,7 +141,7 @@ export function playGreedyBot3(level, { rng, config = {}, hand = null, margin = 
     while (game.rerollsLeft > 0) {
       game = setBonuses(game, policy);
       if (finishes(game)) break;
-      const ctx = contextFor(onKinds(game), game.level.ups ? { ...(hand || {}), ups: game.level.ups } : hand); // the run's upgrades too
+      const ctx = contextFor(onKinds(game), handOptionsOf(game) ?? hand); // the run's upgrades, charms and boss too
       const cells = diceCells(game);
       const now = currentHand(game);
       const standing = now.total;

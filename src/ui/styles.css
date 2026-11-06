@@ -32,10 +32,28 @@
   --reveal-fg: var(--fg);
   --spark: var(--accent);
   /* the mockup's art, named once so the build inlines each file once */
+  --bell: url("../../assets/ui/bell.webp");
+  --boss-judge: url("../../assets/ui/bosses/judge.webp");
+  --boss-lowbell: url("../../assets/ui/bosses/lowbell.webp");
+  --boss-hush: url("../../assets/ui/bosses/hush.webp");
+  --boss-shortwind: url("../../assets/ui/bosses/shortwind.webp");
+  --boss-usher: url("../../assets/ui/bosses/usher.webp");
+  --boss-mason: url("../../assets/ui/bosses/mason.webp");
+  --charm-crooked_pip: url("../../assets/ui/charms/crooked_pip.webp");
+  --charm-velvet_grip: url("../../assets/ui/charms/velvet_grip.webp");
+  --charm-quick_pocket: url("../../assets/ui/charms/quick_pocket.webp");
+  --charm-stone_ribbon: url("../../assets/ui/charms/stone_ribbon.webp");
+  --charm-echo_thimble: url("../../assets/ui/charms/echo_thimble.webp");
+  --charm-bellwether: url("../../assets/ui/charms/bellwether.webp");
+  --charm-final_bow: url("../../assets/ui/charms/final_bow.webp");
+  --charm-spare_knuckle: url("../../assets/ui/charms/spare_knuckle.webp");
   --peek-x2_any: url("../../assets/ui/bonuses/peek-x2-any.webp"); /* the dice faces: each character peeks */
   --peek-x3_straight: url("../../assets/ui/bonuses/peek-x3-straight.webp"); /* over the bottom edge */
   --peek-x3_pairs: url("../../assets/ui/bonuses/peek-x3-pairs.webp");     /* (art/bonuses/out/face) */
   --peek-x3_trips: url("../../assets/ui/bonuses/peek-x3-trips.webp");
+  --peek-x3_kinds: url("../../assets/ui/bonuses/peek-x3-kinds.webp");
+  --peek-x3_small: url("../../assets/ui/bonuses/peek-x3-small.webp");
+  --peek-x4_any: url("../../assets/ui/bonuses/peek-x4-any.webp");
   --peek-joker: url("../../assets/ui/bonuses/peek-joker.webp");
   --peek-refund: url("../../assets/ui/bonuses/peek-refund.webp");
   --img-card-arch: url("../../assets/ui/card-arch.svg");   /* the bonus card's arch and back (Figma 1296:657) */
@@ -212,6 +230,7 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .up { display: grid; grid-template-columns: calc(104px * var(--k, 1)) 1fr auto; align-items: center; gap: calc(8px * var(--k, 1)); width: 100%; height: calc(56.7px * var(--k, 1)); padding: 0 calc(15px * var(--k, 1)) 0 calc(12px * var(--k, 1)); border: 0; border-radius: calc(28.4px * var(--k, 1)); background: var(--btn-primary-bg); color: var(--btn-primary-fg); font: 700 calc(16.6px * var(--k, 1))/1 var(--font-display); text-align: left; cursor: pointer; }
 .up .gdice { --gd: calc(16.6px * var(--k, 1)); display: flex; gap: calc(3px * var(--k, 1)); }
 .up b { font-weight: inherit; line-height: calc(14.7px * var(--k, 1)); }
+.up b i { display: block; font-style: normal; font-size: calc(9px * var(--k, 1)); line-height: calc(11px * var(--k, 1)); }
 .up em { font-style: normal; color: inherit; white-space: nowrap; }
 .up:active { transform: scale(.97); }
 /* The bonus bank (owner, 02.11.2026): the bonuses kept from won levels, three places, as small cards of 64 px
@@ -294,7 +313,7 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
    turns over in 2D (scaleX through 0, the back hidden at the half): no 3D layers for Safari to trip on. */
 .cell.bonus { --card: #ffeedb; --card-ink: #000; --card-mult: #e22876; background: var(--card); border: 1px solid rgba(255, 255, 255, .32); box-shadow: inset 0 0 8px rgba(255, 255, 255, .25); color: var(--card-ink); display: block; transition: transform 110ms ease, box-shadow 110ms ease; }
 /* ×3 bonuses and the joker are purple cards with white names (owner, Figma 1296:650, 02.11.2026) */
-.cell.bonus.kind-x3_pairs, .cell.bonus.kind-x3_trips, .cell.bonus.kind-x3_straight, .cell.bonus.kind-joker { --card: #9c52e3; --card-ink: #fff; --card-mult: #9c52e3; --img-card-arch: var(--img-card-arch-purple); border-color: rgba(255, 255, 255, .13); }
+.cell.bonus.kind-x3_pairs, .cell.bonus.kind-x3_trips, .cell.bonus.kind-x3_straight, .cell.bonus.kind-joker, .cell.bonus.kind-x3_kinds, .cell.bonus.kind-x3_small, .cell.bonus.kind-x4_any { --card: #9c52e3; --card-ink: #fff; --card-mult: #9c52e3; --img-card-arch: var(--img-card-arch-purple); border-color: rgba(255, 255, 255, .13); }
 .cell.bonus.pressed { transform: scale(.95); }
 .cell.bonus.on { animation: bonusOn 360ms cubic-bezier(.2, .8, .3, 1.3); } /* only the card moves, never its picture (owner, 02.11.2026) */
 /* switched on: the card keeps its colour inside a lime ring 4 px wide (owner, 02.11.2026) */
@@ -326,6 +345,9 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.bonus.kind-x3_pairs { --peek: var(--peek-x3_pairs); --drop: 4.69%; }
 .cell.bonus.kind-x3_trips { --peek: var(--peek-x3_trips); }
 .cell.bonus.kind-joker { --peek: var(--peek-joker); --drop: 5.34%; }
+.cell.bonus.kind-x3_kinds { --peek: var(--peek-x3_kinds); }
+.cell.bonus.kind-x3_small { --peek: var(--peek-x3_small); }
+.cell.bonus.kind-x4_any { --peek: var(--peek-x4_any); }
 .cell.bonus.kind-refund { --peek: var(--peek-refund); --drop: 6.8%; }
 
 /* Fire: the dice of a played four of a kind, five of a kind or straight burn (owner, 01.11.2026; never on
@@ -943,3 +965,102 @@ body:not([data-look="modern"]) .btn-primary { letter-spacing: .12em; font-size: 
 body:not([data-look="modern"]) .btn-secondary { font-size: 16px; letter-spacing: .08em; }
 body:not([data-look="modern"]) .cell .tag { font-size: 10px; letter-spacing: .1em; }
 body:not([data-look="modern"]) .cell .order { font-size: 12px; }
+
+/* The run's money and rule in the 16 px gap under the counter (GPT's spec, art/ai/2026-11-06-shop-bosses), no added height */
+.bell { display: inline-block; width: 1.25em; height: 1.25em; margin-right: .2em; vertical-align: -.25em; background: var(--bell) center / contain no-repeat; }
+.run-line { position: absolute; left: calc(16px * var(--k, 1)); right: calc(16px * var(--k, 1)); top: 100%; height: calc(16px * var(--k, 1)); display: flex; align-items: center; justify-content: space-between; gap: calc(8px * var(--k, 1)); font: 700 calc(10px * var(--k, 1))/1 var(--font-display); color: #8f8f8f; white-space: nowrap; }
+.run-line .wallet { color: var(--gold); font-size: calc(12px * var(--k, 1)); }
+.run-line.boss { color: #fff; }
+/* The charms: three small sigils beside the bank */
+.charm-rail { flex: none; display: flex; flex-direction: column; justify-content: center; gap: calc(3px * var(--k, 1)); margin-left: calc(7px * var(--k, 1)); }
+.sigil { display: block; flex: none; width: calc(18px * var(--k, 1)); height: calc(18px * var(--k, 1)); border: 0; padding: 0; background: var(--sig) center / contain no-repeat; }
+button.sigil { cursor: pointer; }
+/* A boss's level: his portrait in LEVEL's box in place of the strip, ticks on the board's corners, his card at the start */
+.boss-face { display: block; flex: none; background: var(--boss) center / contain no-repeat; }
+#bossFace { position: absolute; left: calc(48px * var(--k, 1)); top: calc(10px * var(--k, 1)); width: calc(32px * var(--k, 1)); height: calc(32px * var(--k, 1)); }
+#bossFace[hidden] { display: none; }
+#levelStat.boss #actStrip { display: none; }
+.board-wrap.boss::after { content: ''; position: absolute; inset: calc(-4px * var(--k, 1)); pointer-events: none; --t: calc(12px * var(--k, 1)); --w: calc(2px * var(--k, 1)); background:
+  linear-gradient(#fff, #fff) 0 0 / var(--t) var(--w) no-repeat, linear-gradient(#fff, #fff) 0 0 / var(--w) var(--t) no-repeat,
+  linear-gradient(#fff, #fff) 100% 0 / var(--t) var(--w) no-repeat, linear-gradient(#fff, #fff) 100% 0 / var(--w) var(--t) no-repeat,
+  linear-gradient(#fff, #fff) 0 100% / var(--t) var(--w) no-repeat, linear-gradient(#fff, #fff) 0 100% / var(--w) var(--t) no-repeat,
+  linear-gradient(#fff, #fff) 100% 100% / var(--t) var(--w) no-repeat, linear-gradient(#fff, #fff) 100% 100% / var(--w) var(--t) no-repeat; }
+.boss-card { position: fixed; inset: 0; z-index: 15; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; color: #fff; }
+.boss-card > div { display: flex; align-items: center; gap: calc(14px * var(--k, 1)); width: calc(300px * var(--k, 1)); padding: calc(14px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(16px * var(--k, 1)); background: #262626; }
+.boss-card[hidden] { display: none; }
+.boss-card.show > div { animation: bossCard 1400ms cubic-bezier(.2, .8, .2, 1) both; }
+.boss-card .boss-face { width: calc(84px * var(--k, 1)); height: calc(84px * var(--k, 1)); }
+.boss-card span { display: flex; flex-direction: column; gap: calc(4px * var(--k, 1)); min-width: 0; }
+.boss-card b { font-size: calc(16px * var(--k, 1)); line-height: 1.1; font-weight: inherit; }
+.boss-card em { font-style: normal; font-size: calc(12px * var(--k, 1)); line-height: 1.15; color: var(--gold); }
+.boss-card small { font-size: calc(10px * var(--k, 1)); color: #bdbdbd; }
+@keyframes bossCard { 0% { opacity: 0; transform: translateY(calc(12px * var(--k, 1))); } 8% { opacity: 1; transform: none; } 88% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .boss-card.show > div { animation: none; } }
+/* The door nodes and the boss seal on the strip */
+.act-node.door.done .disc { fill: var(--gold); }
+.act-seal i { position: absolute; left: 0; right: 0; top: 18%; font-style: normal; font-size: calc(var(--as) * .19); line-height: 1; text-align: center; }
+.act-seal b { top: .22em; font-size: .86em; }
+/* A cleared level's pay */
+.end-bells { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 calc(8px * var(--k, 1)); margin: calc(8px * var(--k, 1)) 0 0; font: 700 calc(11px * var(--k, 1))/calc(16px * var(--k, 1)) var(--font-display); color: #bdbdbd; }
+.end-bells[hidden] { display: none; }
+.end-bells b { font-weight: inherit; font-size: calc(14px * var(--k, 1)); color: var(--gold); }
+.end-bells em { flex-basis: 100%; font-style: normal; text-align: center; color: var(--gold); }
+/* The shop: one layout for every phone, 640 px at k = 1, and two columns on the desktop */
+.overlay.shop { background: #000; align-items: flex-start; }
+.shop-panel { display: flex; flex-direction: column; gap: calc(7px * var(--k, 1)); width: calc(378px * var(--k, 1)); max-width: 100%; height: 100%; font-family: var(--font-display); font-weight: 700; color: #fff; }
+.shop-head { display: flex; align-items: center; justify-content: space-between; height: calc(38px * var(--k, 1)); }
+.shop-head h2 { margin: 0; font: inherit; font-size: calc(30px * var(--k, 1)); line-height: 1; color: var(--gold); }
+.shop-head .wallet { padding: calc(6px * var(--k, 1)) calc(10px * var(--k, 1)); border: 1px solid var(--gold); border-radius: calc(16px * var(--k, 1)); font-size: calc(13px * var(--k, 1)); line-height: 1; white-space: nowrap; }
+.shop-head .wallet b { color: var(--gold); font-weight: inherit; font-size: calc(16px * var(--k, 1)); }
+.shop-held { display: flex; justify-content: space-between; gap: calc(10px * var(--k, 1)); }
+.shop-held > div > span { display: block; margin-bottom: calc(3px * var(--k, 1)); font-size: calc(10px * var(--k, 1)); line-height: 1; color: #8f8f8f; }
+.shop-places { display: flex; gap: calc(6px * var(--k, 1)); }
+.shop-place { position: relative; width: calc(46px * var(--k, 1)); height: calc(46px * var(--k, 1)); border: 1px solid rgba(255, 255, 255, .16); border-radius: calc(10px * var(--k, 1)); padding: 0; background: #1a1a1a; overflow: hidden; }
+.shop-place.small { width: calc(38px * var(--k, 1)); height: calc(38px * var(--k, 1)); margin-top: calc(4px * var(--k, 1)); display: grid; place-items: center; }
+.shop-place .cell { --kb: calc(.418 * var(--k, 1)); position: absolute; inset: 0; width: 100%; height: 100%; }
+.shop-place .sigil { width: 84%; height: 84%; }
+.shop-place.swap { border: calc(2px * var(--k, 1)) solid #fff; cursor: pointer; }
+.shop-place.gone { border-color: var(--bad); }
+.shop-boss { display: flex; align-items: center; gap: calc(10px * var(--k, 1)); min-height: calc(26px * var(--k, 1)); font-size: calc(11px * var(--k, 1)); color: #8f8f8f; }
+.shop-boss.named { min-height: calc(44px * var(--k, 1)); padding: 0 calc(10px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(12px * var(--k, 1)); color: #fff; }
+.shop-boss .boss-face { width: calc(38px * var(--k, 1)); height: calc(38px * var(--k, 1)); }
+.shop-boss b { display: block; font-weight: inherit; font-size: calc(13px * var(--k, 1)); line-height: 1.1; }
+.shop-boss.named small { display: block; margin-top: calc(2px * var(--k, 1)); font-size: calc(10px * var(--k, 1)); color: var(--gold); }
+.shop-list { flex: 0 1 calc(386px * var(--k, 1)); display: grid; grid-auto-rows: minmax(calc(86px * var(--k, 1)), 1fr); gap: calc(7px * var(--k, 1)); margin: 0; padding: 0; list-style: none; } /* tall phones give the rows the room */
+.ware { position: relative; display: grid; grid-template-columns: calc(64px * var(--k, 1)) minmax(0, 1fr) auto; align-items: center; gap: calc(10px * var(--k, 1)); min-height: calc(86px * var(--k, 1)); padding: calc(6px * var(--k, 1)) calc(10px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(14px * var(--k, 1)); cursor: pointer; }
+.ware.pick { border: calc(2px * var(--k, 1)) solid var(--gold); padding: calc(5px * var(--k, 1)) calc(9px * var(--k, 1)); }
+.ware.poor, .ware.sold { cursor: default; }
+.ware-art { position: relative; display: grid; place-items: center; width: calc(64px * var(--k, 1)); height: calc(64px * var(--k, 1)); }
+.ware-art .cell { --kb: calc(.582 * var(--k, 1)); position: absolute; inset: 0; width: 100%; height: 100%; }
+.ware-art .gdice { --gd: calc(13.5px * var(--k, 1)); display: flex; flex-wrap: wrap; justify-content: center; gap: calc(2px * var(--k, 1)); }
+.ware-art .sigil { width: calc(60px * var(--k, 1)); height: calc(60px * var(--k, 1)); }
+.ware-text { min-width: 0; display: flex; flex-direction: column; gap: calc(2px * var(--k, 1)); min-width: 0; }
+.ware-text i { min-height: calc(10px * var(--k, 1)); font-style: normal; font-size: calc(9px * var(--k, 1)); line-height: calc(10px * var(--k, 1)); color: var(--gold); }
+.ware-text b { font-weight: inherit; font-size: calc(15px * var(--k, 1)); line-height: 1.1; }
+.ware-text small { font-size: calc(10px * var(--k, 1)); line-height: 1.15; color: #bdbdbd; }
+.price { min-width: calc(58px * var(--k, 1)); height: calc(32px * var(--k, 1)); padding: 0 calc(8px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(16px * var(--k, 1)); background: #000; color: var(--gold); font: 700 calc(14px * var(--k, 1))/1 var(--font-display); white-space: nowrap; }
+.ware.poor .price { color: #fff; font-size: calc(11px * var(--k, 1)); }
+.price.buy { border-color: var(--gold); background: var(--gold); color: #000; }
+.sold-stamp { padding: calc(4px * var(--k, 1)) calc(8px * var(--k, 1)); border: 1px solid #fff; background: #000; color: #fff; font-style: normal; font-size: calc(12px * var(--k, 1)); transform: rotate(-8deg); }
+.shop-hint { margin: 0; text-align: center; font-size: calc(11px * var(--k, 1)); line-height: 1.2; color: #bdbdbd; }
+.shop-leave { flex: none; margin-top: auto; height: calc(52px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(26px * var(--k, 1)); font-size: calc(18px * var(--k, 1)); }
+body.wide .overlay.shop { align-items: center; }
+body.wide .shop-panel { display: grid; grid-template-columns: calc(360px * var(--k, 1)) 1fr; column-gap: calc(40px * var(--k, 1)); width: calc(1000px * var(--k, 1)); height: auto; }
+body.wide .shop-head, body.wide .shop-held, body.wide .shop-boss, body.wide .shop-hint { grid-column: 1; }
+body.wide .shop-list { grid-column: 2; grid-row: 1 / span 5; }
+body.wide .shop-leave { grid-column: 2; }
+/* The best runs */
+#runsBtn:not([hidden]) { display: block; margin: calc(6px * var(--k, 1)) auto 0; }
+.runs-card { display: block; }
+.runs-card .btn-play { width: 100%; }
+.runs-card h3 { margin: 0 0 calc(10px * var(--k, 1)); font: 700 calc(22px * var(--k, 1))/1.1 var(--font-display); color: #fff; text-align: center; }
+.runs-list { display: grid; gap: calc(4px * var(--k, 1)); margin: 0 0 calc(12px * var(--k, 1)); padding: 0; list-style: none; font: 700 calc(15px * var(--k, 1))/1.3 var(--font-display); color: #fff; }
+.runs-list li { display: grid; grid-template-columns: calc(30px * var(--k, 1)) 1fr 1fr; gap: calc(10px * var(--k, 1)); }
+.runs-list.shared li { grid-template-columns: calc(30px * var(--k, 1)) minmax(0, 1fr) calc(50px * var(--k, 1)) calc(80px * var(--k, 1)); }
+.runs-list li.head { font-size: calc(10px * var(--k, 1)); color: #8f8f8f; }
+.runs-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.runs-list b { font-weight: inherit; font-variant-numeric: tabular-nums; }
+.runs-list em { text-align: right; }
+.runs-list li.me { color: var(--gold); }
+.runs-list li.none { display: block; text-align: center; color: #8f8f8f; }
+.runs-list i, .runs-list em { font-style: normal; font-variant-numeric: tabular-nums; }

@@ -9,17 +9,18 @@
 import { createRng } from './rng.js';
 import { RECIPES3, RECIPE_QUANTILES, RECIPES3_VERSION } from './recipes3.js';
 import { BONUS_UNLOCKS, unlockedKinds, firstLayout, shuffledCells, placeLayout } from './levels3.js';
-import { createAutoGame, currentHand } from './auto.js';
+import { createAutoGame, currentHand, MIN_DICE } from './auto.js';
 import { UP_LIFT } from './uplift3.js';
+import { bossOf, BOSSES, lockDice } from './bosses3.js';
 
-export const RUN3_VERSION = `run-1/${RECIPES3_VERSION}`;
+export const RUN3_VERSION = `run-2/${RECIPES3_VERSION}`;
 export const RUN3 = Object.freeze({
   base: 240,      // level 1's target before upgrades
   growth: 0.03,   // the ladder over the upgrades' lift: ×e^(growth·k + bend·k²) at level k + 1
-  bend: 0.0008,
+  bend: 0.0024,   // steeper since the shop (06.11.2026): its goods lift scores; the first levels keep their targets
   aimFirst: 0.99, // a typical player's pass chance the layout aims at on levels 1–2 (the tutorial runs on level 1)
   aimStart: 0.985, // on level 3, then falling towards aimFloor, by e every aimFade levels
-  aimFade: 25,
+  aimFade: 12,    // faster since the shop: harder boards from the middle of the run keep a typical player near level 12 (В10)
   aimFloor: 0.5,  // with this curve half the typical players reach level 10–11, half the strong ones 20 (questionnaire В10; run3-sim)
   near: 0.25,     // layouts whose modelled failure is within e^near of the best fit's are drawn at random, for variety
   maxBonuses: 2,  // three bonus cards on one hand reach ×7 and swamp the layout table
@@ -60,32 +61,35 @@ export function percentileOf(q, score) {
 export const typicalChance = (recipe, levelIndex, curve = RUN3) => 1 - percentileOf(recipe.naive, runTarget(levelIndex, curve) / runLift(levelIndex));
 
 // Recipes a level may use: at most two bonus cards of different kinds, all unlocked; a level that unlocks a
-// kind (2–6) must place it.
-export function candidates(levelIndex) {
+// kind (2–6) must place it. minDice: a boss's locks need the dice to fall on.
+export function candidates(levelIndex, minDice = 0) {
   const open = unlockedKinds(levelIndex);
   const newest = levelIndex > 1 && levelIndex <= BONUS_UNLOCKS.length ? open[open.length - 1] : null;
   return RECIPES3.filter((r) => r.kinds.length <= RUN3.maxBonuses && new Set(r.kinds).size === r.kinds.length
-    && r.kinds.every((k) => open.includes(k)) && (!newest || r.kinds.includes(newest)));
+    && r.kinds.every((k) => open.includes(k)) && (!newest || r.kinds.includes(newest)) && r.dice >= minDice);
 }
 
 // Level 1 is the first board; later levels draw among the recipes that fit the level's aim best.
-export function chooseRecipe(levelIndex, rng, curve = RUN3) {
+export function chooseRecipe(levelIndex, rng, curve = RUN3, minDice = 0) {
   if (levelIndex <= 1) return recipeById(curve.firstRecipe);
   const aim = runAim(levelIndex, curve);
   // fit by the ratio of the failure chances: near the top of the curve a few points of chance halve the losses
-  const scored = candidates(levelIndex).map((recipe) => ({ recipe, gap: Math.abs(Math.log((1 - typicalChance(recipe, levelIndex, curve)) / (1 - aim))) }));
+  const scored = candidates(levelIndex, minDice).map((recipe) => ({ recipe, gap: Math.abs(Math.log((1 - typicalChance(recipe, levelIndex, curve)) / (1 - aim))) }));
   const best = Math.min(...scored.map((s) => s.gap));
   const near = scored.filter((s) => s.gap <= best + curve.near);
   return near[rng.int(near.length)].recipe;
 }
 
-// `bank` and `ups` only travel with the level into the game: the level itself never looks at them.
-export function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], ups = {}, curve = RUN3 }) {
+// `bank`, `ups` and `charms` only travel with the level into the game: the level itself never looks at them.
+export function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], ups = {}, charms = [], curve = RUN3 }) {
   const seed = `${runSeed}/A${levelIndex}/run`;
   const rng = createRng(seed);
-  const recipe = chooseRecipe(levelIndex, rng, curve);
+  const boss = bossOf(runSeed, levelIndex);
+  const rule = boss ? BOSSES[boss] : {};
+  const recipe = chooseRecipe(levelIndex, rng, curve, rule.locks ? MIN_DICE + rule.locks : 0);
   const layout = levelIndex <= 1 ? firstLayout() : placeLayout(shuffledCells(rng), recipe.kinds, recipe.blocks);
   const faces = layout.map((c) => (c.type === 'die' ? rng.die() : null));
+  if (rule.locks) lockDice(layout, faces, rule.locks, rng);
   const level = {
     mode: 'auto',
     seed,
@@ -95,12 +99,14 @@ export function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], 
     layout,
     faces,
     target: runTarget(levelIndex, curve),
-    hands: config.hands,
-    rerolls: config.rerolls,
+    hands: rule.hands ?? config.hands,
+    rerolls: rule.rerolls ?? config.rerolls,
+    boss,
     recipe: recipe.id,
     chance: typicalChance(recipe, levelIndex, curve), // the model's, for the log; never shown
     bank: bank.slice(), // the bonuses carried over, kinds
     ups: { ...ups }, // the run's upgrades of the combinations
+    charms: charms.slice(), // the run's charms
     generatorVersion: RUN3_VERSION,
   };
   const opening = currentHand(createAutoGame(level, config));
