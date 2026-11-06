@@ -34,7 +34,7 @@ import { generateRunLevel, runTarget, RUN3_VERSION } from '../engine/run3.js';
 import { upgradeOffer, withUpgrade } from '../engine/upgrades3.js';
 import { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } from './dice3d.js';
 import { createFire } from './fire.js';
-import { SOUNDS, setupSound, setSound, sfx } from './sound.js';
+import { RING_STEP, setupSound, setSound, sfx, hush, ringCount, ringChord, ringNote } from './sound.js';
 import { setupPuppets, animateArt, cheer, WIN_CARD, cardRock } from './puppets.js';
 import { breakLine, holdLine } from './shards.js';
 import { actOf, actHtml } from './acts.js';
@@ -1483,6 +1483,14 @@ function sparkBurst(count, gold) {
   }
 }
 
+// The hand rings die by die in reading order (В8); stronger hands ring richer and, when they win, chord fuller.
+const handRich = (hand) => (FIRE_HANDS.has(hand.category) ? 2 : hand.category === 'pair' ? 0 : 1);
+function ringHand(hand) {
+  const cells = [...hand.cells, ...(hand.jokerCells || [])].sort((a, b) => a - b);
+  ringCount(cells.length, handRich(hand));
+  return cells;
+}
+
 // `remaining` is what the level still needed before this hand (Auto Hand lights the fire when one hand covers it).
 function showReveal(hand, { remaining = Infinity } = {}) {
   const r = $('reveal');
@@ -1495,7 +1503,9 @@ function showReveal(hand, { remaining = Infinity } = {}) {
   // Auto Hand builds the total in visible steps: the combination first, then the bonus dice hit.
   const auto = M().id === 'auto';
   const staged = auto && hand.multiplier > 1 && !reduceMotion;
-  sfx(hand.multiplier > 1 && !staged ? 'bonus' : 'score'); // a staged bonus sounds when it hits
+  const rung = ringHand(hand);
+  if (!reduceMotion) rung.forEach((i, k) => els.cells[i].animate([{ transform: 'none' }, { transform: 'scale(1.06)', offset: 0.35 }, { transform: 'none' }], { duration: 160, delay: k * RING_STEP * 1000, composite: 'add' })); // each die answers its note
+  if (hand.multiplier > 1 && !staged) sfx('mult'); // a staged bonus sounds when it hits
   const fire = auto && remaining > 0 && hand.total >= remaining;
   ptsEl.textContent = `+${staged ? hand.points : hand.total}`;
   multEl.textContent = staged ? base : full;
@@ -1509,15 +1519,23 @@ function showReveal(hand, { remaining = Infinity } = {}) {
   // effect grows with the result: Auto Hand scales the burst by the share of the target
   const sparks = auto ? Math.min(24, 8 + Math.round((16 * hand.total) / Math.max(1, S().game.level.target))) : 10;
   if (hand.points >= 10) sparkBurst(staged ? 8 : sparks, hand.multiplier > 1 && !staged);
-  if (staged) {
-    app.revealTimer = setTimeout(() => {
-      ptsEl.textContent = `+${hand.total}`;
-      multEl.textContent = full;
+  if (staged) { // each multiplying card hits on its own, a step higher; the count shows each step honestly, as in a win
+    const hits = hand.bonuses.map((kind) => BONUS_KINDS[kind].mult).filter((m) => m > 1);
+    let mult = 1;
+    const hit = (k) => {
+      const lastHit = k === hits.length - 1;
+      mult += hits[k] - 1;
+      ptsEl.textContent = `+${lastHit ? hand.total : hand.points * mult}`;
+      multEl.textContent = lastHit ? full : `${base} ×${mult}`;
+      r.classList.remove('hit');
+      void r.offsetWidth;
       r.classList.add('hit');
-      sparkBurst(sparks, true);
+      if (lastHit) sparkBurst(sparks, true);
       haptic(14);
-      sfx('bonus');
-    }, 380);
+      sfx('mult', { rate: 2 ** ((2 * k) / 12) });
+      if (!lastHit) app.revealTimer = setTimeout(hit, RING_STEP * 1000, k + 1);
+    };
+    app.revealTimer = setTimeout(hit, 380, 0);
   }
   $('targetStat').classList.remove('bump');
   void $('targetStat').offsetWidth;
@@ -1651,7 +1669,7 @@ function onTap(i) {
   st.game = r.state;
   pressFeedback(i);
   haptic(r.held ? 12 : 6);
-  sfx(r.held ? 'hold' : 'release');
+  sfx('hold', r.held ? {} : { rate: 0.85, vol: 0.7 }); // let go: the same knock, lower and softer
   logEvent('hold', { cell: i, held: r.held });
   render();
   persist();
@@ -1776,7 +1794,7 @@ async function attemptBank(path, source) {
     const lit = !!app.fire && burning.every((i) => app.fire.burning().includes(i));
     app.fire = app.fire || createFire(els.board);
     app.fire.ignite(burning.map((i) => els.cells[i]));
-    if (!lit) sfx('fire');
+    if (!lit) sfx('fire', { vol: cleared ? 0.5 : 1 }); // under the winning hand's rings
     if (!lit && !cleared) {
       await wait(T.fire);
       if (!stillCurrent(st, modeId)) { app.fire.out(); app.busy = false; return; }
@@ -1807,6 +1825,7 @@ async function attemptBank(path, source) {
     void els.rerollBtn.offsetWidth;
     els.rerollBtn.classList.add('bump');
     sfx('refund');
+    sfx('bird', { at: 0.14 });
   }
   renderPath();
   setPreview(`${hand.label} +${hand.total}`, 'good');
@@ -1929,7 +1948,7 @@ function playWin(hand, g0) {
   rv.querySelector('.mult').textContent = steps.length && !reduceMotion ? formula : handFormula(hand);
   rv.className = 'reveal win fire';
   if (app.fire && FIRE_HANDS.has(hand.category)) app.fire.flare(); // the burning dice flare up with the win
-  sfx('score');
+  const rung = ringHand(hand);
   countUp($('target'), remaining(g0.score, g0), 0, 0, 500);
   setPreview(`${hand.label} +${hand.total}`, 'good');
 
@@ -1943,12 +1962,9 @@ function playWin(hand, g0) {
     play(el, cardFrames(kindOf(i), el.offsetWidth / 118.7), { dur: ACT_MS, fill: 'none' });
   }));
   // the dice of the hand rise with it; with no card, they hop together instead
-  const dice = hand.cells.map((i) => els.cells[i]);
-  if (!reduceMotion && used.length) dice.forEach((el) => play(el, [{ transform: 'none' }, { transform: `translateY(${-5 * s}px) scale(1.045)`, offset: 0.5 }, { transform: `translateY(${-5 * s}px)` }], { dur: 320, start: WIN.lift, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' }));
-  if (!reduceMotion && !used.length) {
-    dice.forEach((el) => play(el, [{ transform: 'none' }, { transform: `translateY(${-8 * s}px) scale(.97, 1.04)`, offset: 0.45 }, { transform: 'scale(1.04, .94)', offset: 0.8 }, { transform: 'none' }], { dur: 333, start: WIN.chip }));
-    at(WIN.chip + 270, () => sfx('drop'));
-  }
+  const dice = rung.map((i) => els.cells[i]); // each rises on its note
+  if (!reduceMotion && used.length) dice.forEach((el, k) => play(el, [{ transform: 'none' }, { transform: `translateY(${-5 * s}px) scale(1.045)`, offset: 0.5 }, { transform: `translateY(${-5 * s}px)` }], { dur: 320, start: WIN.step * k, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' }));
+  if (!reduceMotion && !used.length) dice.forEach((el, k) => play(el, [{ transform: 'none' }, { transform: `translateY(${-8 * s}px) scale(.97, 1.04)`, offset: 0.45 }, { transform: 'scale(1.04, .94)', offset: 0.8 }, { transform: 'none' }], { dur: 333, start: WIN.step * k }));
   let mult = 1;
   steps.forEach((i, k) => at(WIN.chip + WIN.step * k, () => {
     const land = () => { // bonuses add up: the count shows each step honestly
@@ -1959,7 +1975,7 @@ function playWin(hand, g0) {
       rv.classList.remove('hit');
       void rv.offsetWidth;
       rv.classList.add('hit');
-      sfx('bonus');
+      sfx('mult', { rate: 2 ** ((2 * k) / 12) });
       haptic(14);
     };
     const sticker = cardEl(i).querySelector('.x2');
@@ -1994,6 +2010,8 @@ function playWin(hand, g0) {
     line, span, scale: wide ? 1.35 * u : u, power, still: reduceMotion, start: t0,
     medal: last.medal && !reduceMotion ? () => { const r = box(disc); return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: r.width / 2 }; } : null,
     onMedal: () => { // the medal lands: a squash, and a ring rings out from it
+      sfx('medal');
+      ringNote(6, 0.7);
       disc.style.opacity = '';
       play(disc, [{ transform: 'scale(1.12, .88)' }, { transform: 'none' }], { dur: 100, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'none' });
       const r = box(disc);
@@ -2005,9 +2023,16 @@ function playWin(hand, g0) {
       play(ring, [{ width: `${28 * u}px`, height: `${28 * u}px`, opacity: 1 }, { width: `${42 * u}px`, height: `${42 * u}px`, opacity: 0 }], { dur: 160, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' });
     },
   });
+  let broke = false;
+  const breakSound = () => { // the real win sounds once, at the break, and even a tap that skips the moment hears it
+    if (broke) return;
+    broke = true;
+    sfx('crack');
+    ringChord(3 + handRich(hand));
+  };
   at(WIN.snap, () => {
     haptic(18);
-    sfx('win'); // the real win sounds once, at the break
+    breakSound();
     document.querySelector('#actStrip .act-node.current')?.classList.replace('current', 'done'); // the act strip takes the level
     if (extra <= 0) return;
     const chip = document.createElement('span');
@@ -2055,6 +2080,7 @@ function playWin(hand, g0) {
   end.querySelectorAll('.up').forEach((el, k) => {
     if (reduceMotion) { rise(el, 300); return; }
     play(el, [{ opacity: 0, transform: `translateY(${24 * u}px) scale(.97)` }, { opacity: 1, transform: 'none' }], { dur: 320, start: WIN.choices + 60 * k, easing: 'cubic-bezier(0.16, 1.12, 0.3, 1)' });
+    at(WIN.choices + 60 * k, () => ringNote(k + 3, 0.25)); // the upgrades land softly, the count's last notes again
   });
 
   // a tap skips to the pick; that tap does not pick
@@ -2067,6 +2093,8 @@ function playWin(hand, g0) {
     removeEventListener('pointerdown', skip, true);
     timers.forEach(clearTimeout);
     anims.forEach((a) => a.cancel()); // every element back to its own look: the cleared screen as drawn
+    hush();
+    breakSound();
     if (shards) shards.stop();
     extras.forEach((el) => el.remove());
     moved.forEach((el) => { el.style.zIndex = ''; el.style.visibility = ''; });
@@ -2629,6 +2657,7 @@ function bind() {
     if (!b || !st.game || st.game.phase !== 'won' || app.endPlaying || performance.now() < (app.skipUntil || 0)) return; // the tap that skipped the moment does not pick
     st.ups = withUpgrade(st.ups, b.dataset.cat);
     logEvent('upgrade', { category: b.dataset.cat, ups: st.ups });
+    ringNote(5, 0.7);
     onNext();
   });
   $('bank').addEventListener('click', (e) => {
@@ -2716,8 +2745,7 @@ function init() {
   let soundOn = true;
   try { soundOn = localStorage.getItem(SOUND_KEY) !== '0'; } catch { /* ignore */ }
   $('optSound').checked = soundOn;
-  const sounds = Object.fromEntries(SOUNDS.map((n) => [n, cssUrl(`--sfx-${n}`)]));
-  setupSound((n) => sounds[n], soundOn);
+  setupSound((n) => cssUrl(`--sfx-${n}`), soundOn); // read on the first touch: Safari can run this before the stylesheet is in
   setupPuppets((character, part) => cssUrl(`--rig-${character}-${part}`), () => app.busy); // no turn while the dice fly or count
   let d3 = true;
   try { d3 = localStorage.getItem(DICE3D_KEY) !== '0'; } catch { /* ignore */ }

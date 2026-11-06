@@ -11,6 +11,7 @@ takes; the one that starts at once and fills its length wins, then silence is cu
 
     python3 scripts/audio.py check              # the key works? credits left
     python3 scripts/audio.py sfx [name ...]     # make missing effects (named ones anew), then build them
+    python3 scripts/audio.py build name ...     # build effects again from their takes, no credits
 """
 import json, os, ssl, subprocess, sys, time, urllib.error, urllib.request
 
@@ -78,25 +79,67 @@ def credits_left() -> int:
 # ── Effects: name → (seconds, at least 0.5, prompt). One plain event each (the model keeps one event per prompt best).
 # The world: ivory dice with black metal pips on a dark table, illustrated characters on cards, drawn fire. ──
 NO = ' No voices, no words, no music.'
+LUTE = 'A single note plucked on a medieval lute with the fingertip: soft, warm and ringing, with the natural touch of the finger on the string, it rings out naturally.'
+HALL = ' A real acoustic instrument recorded with one microphone in a small stone hall, gentle natural room ambience. No synthesizer. No voices, no words.'
+ROOM = ' A real object recorded with one close microphone in a small stone hall, gentle natural room ambience. No synthesizer. No voices, no words, no music.'
+ONE = ' One strike only, no second hit.'
 SFX = {
-    'roll': (1.0, 'A few ivory dice tossed onto a felt-covered wooden table: a quick rattle, two or three tumbling clacks and a soft settle. Close, crisp, satisfying.' + NO),
-    'hold': (0.5, 'A single crisp light tap of an ivory die being picked on a wooden game board: a short bright satisfying tock.' + NO),
-    'release': (0.5, 'A single soft muted wooden tuk, a little lower and duller: letting go of a game piece. Very short.' + NO),
-    'flip': (0.5, 'A single playing card flipped over quickly on a table: a crisp papery snap.' + NO),
-    'on': (0.6, 'A short bright magical power-up chime with a sparkly shimmer: a bonus card switching on in a cozy fantasy card game.' + NO),
-    'off': (0.5, 'A short soft descending magic fizzle, a gentle blip switching something off. Light, not sad.' + NO),
-    'score': (0.9, 'A satisfying score sound in a fantasy dice game: a bright resonant chime with a short sparkle and a few gold coins clinking.' + NO),
-    'fire': (1.0, 'Fire igniting with a quick whoosh and lively crackling flames, short. Cartoon fantasy game.' + NO),
-    'burn': (0.6, 'A soft quick magical poof: small dice vanishing in a puff of smoke with a tiny sizzle. Short.' + NO),
-    'drop': (0.7, 'A few small ivory dice dropping onto a felt table one after another: quick light clacks. Short.' + NO),
-    'bonus': (1.3, 'A triumphant short fantasy fanfare sting: a bright brassy synth hit with sparkling bells, a big score multiplier won in a card game. Exciting.' + NO),
-    'refund': (0.8, 'A single gold coin flipped and landing on a wooden counter with a bright clink, and a tiny cheeky bird chirp.' + NO),
+    # owner 05.11.2026: all of it real objects from the same table and hall as the lute; the old "chime, sparkly, fizzle, poof,
+    # magical, cartoon" takes lay over 6 kHz, "muted, lower, whoosh" under 200 Hz, where a phone plays nothing
+    'roll': (1.0, 'A handful of small wooden dice thrown onto a thick oak table: quick light wooden knocks tumbling one after another and settling.' + ROOM),
+    'hold': (0.5, 'One small wooden die set down on a thick oak table: a single light wooden knock.' + ONE + ROOM),
+    'flip': (0.5, 'A stiff card of old parchment turned over and laid on an oak table: one soft quick papery flap.' + ROOM),
+    'on': (0.6, 'The small brass clasp of an old book snapping shut: one soft warm click with a short gentle ring.' + ONE + ROOM),
+    'off': (0.5, 'A small wooden latch of an old chest lifted: one light wooden knock.' + ONE + ROOM),
+    'fire': (1.0, 'A pine torch catching fire in a stone hall: a warm rush of flame with crackling wood knocks, full and close, not hissy.' + ROOM),
+    'burn': (0.6, 'A small heap of hot embers collapsing in a stone hearth: a soft dry crumble with a few tiny crackles.' + ROOM),
+    'drop': (0.7, 'Two bone dice dropped one after the other onto a thick oak table: quick light wooden knocks.' + ROOM),
+    'refund': (0.8, 'A heavy old copper coin dropped on a thick oak table: a dull warm knock and a short low rattle as it settles.' + ROOM),
+    'bird': (0.5, 'A small clay water whistle shaped like a bird, with water inside, blown once: one short soft bubbling warble.' + HALL),
     'win': (1.8, 'A short joyful level-complete jingle: a rising arpeggio of warm chimes and a sparkling finish, cozy fantasy card game.' + NO),
+    # the count (owner's pick В8 A, like Balatro; owner 05.11.2026: not synthetic, medieval softness and ringing, softer still,
+    # like real instruments): a lute's own notes, a bronze bowl, a distant bell, a wax seal
+    **{f'lute-{note.lower()}': (1.2, LUTE + f' The note is {note}. One note only, no melody.' + HALL) for note in ('C4', 'G4', 'A4', 'B4', 'C5', 'D5')},
+    'mult': (1.0, 'A small bronze bowl touched softly with a felt mallet: a warm round gentle tone that rings out quietly. One strike only, no second hit.' + HALL),
+    'crack': (0.7, 'A wax seal gently cracked in two between the fingers: a soft dry snap, close and quiet. One strike only, no second hit.' + HALL),
+    'medal': (1.6, 'A bronze chapel bell struck once, heard softly from across a courtyard: warm, round and gentle, with a long natural decay. One strike only, no second hit.' + HALL),
     # the lost run's receipt (owner's pick В12 A, GPT's spec): neutral, dry, no chord and no tail
     'tally': (0.5, 'A single dry mechanical click of a small wooden tally counter: one short flat tick, no ring, no echo.' + NO),
     'stop': (0.5, 'A single muted wooden knock, a game piece set down firmly on a felt table: dull, short, no ring, no tail.' + NO),
     'paper': (0.5, 'A short dry slide of a paper receipt across a wooden table: one quick soft papery swish.' + NO),
 }  # (a menu click came out as a held tone both takes: the buttons tap with 'hold', higher)
+
+# What an effect needs beyond levelling. take: the take chosen by measuring it (the note it was asked for, partials down to
+# -40 dB up to 6 kHz, the high ones falling faster than the low: "pianissimo" in a prompt gave almost pure tones, which is
+# what sounds synthetic); hz: tuned to this pitch, so that all of it is in one key; rate: the same for a bell or a bowl, whose
+# loudest low partial is set on a note of the chord (they have no one pitch); hp, lp: cut below or above this (a phone's
+# speaker cannot play the low, the softness is in taking off the top); attack: seconds, the touch of the string eased in;
+# end, fade: seconds, it stops sooner and softly; influence: how literally the model takes the prompt (one note needs more).
+OBJECT = {'hp': 170, 'lp': 5000, 'influence': 0.85}
+STRING = {'end': 1.0, 'fade': 0.25, 'lp': 3200, 'attack': 0.003, 'influence': 0.85}
+SHAPE = {
+    'lute-c4': {'take': 2, 'hz': 261.63, **STRING},
+    'lute-g4': {'take': 4, 'hz': 392.0, **STRING},
+    'lute-a4': {'take': 1, 'hz': 440.0, **STRING},
+    'lute-b4': {'take': 1, 'hz': 493.88, **STRING},
+    'lute-c5': {'take': 1, 'hz': 523.25, **STRING},
+    'lute-d5': {'take': 1, 'hz': 587.33, **STRING},
+    'mult': {'take': 3, 'rate': 0.984, 'hp': 170, 'influence': 0.85},
+    'crack': {'take': 3, 'hp': 170, 'lp': 5000, 'influence': 0.85},
+    'medal': {'take': 2, 'rate': 0.736, 'lp': 4000, 'influence': 0.85},
+    'stop': {'hp': 170},  # 98 % of it lay under 150 Hz: a phone played nothing of the knock
+    # objects: the take with its energy where the lute's is and a quick start (measured; "bone", "brass" and "silver" came out over 6 kHz, "wooden knocks" and "copper" where a phone plays them)
+    'roll': {'take': 3, **OBJECT, 'lp': 3500},
+    'hold': {'take': 2, **OBJECT},
+    'flip': {'take': 1, **OBJECT},
+    'on': {'take': 1, **OBJECT},
+    'off': {'take': 2, **OBJECT},
+    'fire': {'take': 3, **OBJECT},
+    'burn': {'take': 2, **OBJECT, 'lp': 3500},
+    'drop': {'take': 2, **OBJECT},
+    'refund': {'take': 2, **OBJECT},
+    'bird': {'take': 1, 'hp': 170, 'lp': 4000, 'influence': 0.85},
+}
 
 
 def take(name: str, n: int) -> str:
@@ -118,20 +161,42 @@ def score(x: np.ndarray) -> float:
     return loud.mean() - int(np.argmax(loud)) * 0.03
 
 
+def f0(x: np.ndarray) -> float:
+    """The note's pitch: the strongest autocorrelation peak between 100 and 2500 Hz in the 100 ms after its start."""
+    w = x[:4410] * np.hanning(4410)
+    r = np.fft.irfft(np.abs(np.fft.rfft(w, n=8820)) ** 2)
+    a, b = SR // 2500, SR // 100
+    k = a + int(np.argmax(r[a:b]))
+    return SR / (k + (r[k - 1] - r[k + 1]) / (2 * (r[k - 1] - 2 * r[k] + r[k + 1])))
+
+
 def finish(name: str, x: np.ndarray) -> None:
     """Start 10 ms before the sound first comes within 24 dB of its peak (a game sound must start on its event), end
     where it falls 40 dB under it, level the active part to -18 dBFS RMS with the peak at most -1 dBFS, fade the last
     30 ms, mono MP3 96 kbit/s."""
+    shape = SHAPE.get(name, {})
+    if 'hp' in shape or 'lp' in shape:
+        f = ','.join(([f"highpass=f={shape['hp']},highpass=f={shape['hp']}"] if 'hp' in shape else []) + ([f"lowpass=f={shape['lp']}"] if 'lp' in shape else []))
+        x = np.frombuffer(subprocess.run(['ffmpeg', '-v', 'error', '-f', 'f32le', '-ar', str(SR), '-ac', '1', '-i', '-', '-af', f, '-f', 'f32le', '-'],
+                                         input=x.astype(np.float32).tobytes(), capture_output=True, check=True).stdout, dtype=np.float32)
     win = 441
     rms = np.array([np.sqrt(np.mean(x[i:i + win] ** 2)) for i in range(0, len(x), win)]) + 1e-9
     db = 20 * np.log10(rms)
     start = max(0, int(np.nonzero(db > db.max() - 24)[0][0]) - 1)
     on = np.nonzero(db > db.max() - 40)[0]
     y = x[start * win:min(len(x), (on[-1] + 1) * win)].copy()
+    ratio = shape['hz'] / f0(y) if 'hz' in shape else shape.get('rate')
+    if ratio:
+        y = np.interp(np.arange(0, len(y) - 1, ratio), np.arange(len(y)), y)
+    if 'end' in shape:
+        y = y[:int(shape['end'] * SR)]
     g = min(10 ** (-18 / 20) / (np.sqrt(np.mean(y ** 2)) + 1e-9), 10 ** (-1 / 20) / (np.abs(y).max() + 1e-9))
     y *= g
-    f = min(len(y), int(0.03 * SR))
+    f = min(len(y), int(shape.get('fade', 0.03) * SR))
     y[-f:] *= np.linspace(1, 0, f)
+    if 'attack' in shape:
+        f = int(shape['attack'] * SR)
+        y[:f] *= np.linspace(0, 1, f)
     out = os.path.join(ROOT, 'assets/sfx', f'{name}.mp3')
     os.makedirs(os.path.dirname(out), exist_ok=True)
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'f32le', '-ar', str(SR), '-ac', '1', '-i', '-', '-c:a', 'libmp3lame',
@@ -146,14 +211,18 @@ def sfx(names: list[str]) -> None:
                 continue
             if credits_left() < RESERVE + 2000:
                 sys.exit(f'stopped at {name}: keeping the {RESERVE}-credit reserve')
-            body = {'text': prompt, 'duration_seconds': dur, 'prompt_influence': 0.6, 'model_id': 'eleven_text_to_sound_v2'}
+            body = {'text': prompt, 'duration_seconds': dur, 'prompt_influence': SHAPE.get(name, {}).get('influence', 0.6), 'model_id': 'eleven_text_to_sound_v2'}
             audio = call('POST', '/v1/sound-generation?output_format=mp3_44100_128', body, accept='audio/mpeg')
             os.makedirs(RAW, exist_ok=True)
             open(take(name, n), 'wb').write(audio)
-        takes = [take(name, n) for n in range(1, TAKES + 1) if os.path.exists(take(name, n))]
-        best = max(takes, key=lambda t: score(pcm(t)))
-        finish(name, pcm(best))
-        print(f'{name}: {os.path.basename(best)}', flush=True)
+        build(name)
+
+
+def build(name: str) -> None:
+    takes = [take(name, n) for n in range(1, TAKES + 1) if os.path.exists(take(name, n))]
+    best = take(name, SHAPE[name]['take']) if 'take' in SHAPE.get(name, {}) else max(takes, key=lambda t: score(pcm(t)))
+    finish(name, pcm(best))
+    print(f'{name}: {os.path.basename(best)}', flush=True)
 
 
 if __name__ == '__main__':
@@ -163,5 +232,8 @@ if __name__ == '__main__':
         print(f'key accepted · credits left {left} (reserve for CriminalRussia {RESERVE}, so {left - RESERVE} to spend here)')
     elif cmd == 'sfx':
         sfx(args)
+    elif cmd == 'build':
+        for name in args:
+            build(name)
     else:
         sys.exit(__doc__)

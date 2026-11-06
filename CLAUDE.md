@@ -27,6 +27,7 @@ node scripts/upgrades3.mjs                   # combination upgrades: point share
 node scripts/model-to-js.mjs                 # die model GLB -> src/ui/dice-model.js (generated)
 node scripts/bake-faces.mjs                  # die faces with their matcaps -> assets/dice/ (after any model, matcap or colour change)
 python3 scripts/audio.py sfx [name ...]      # sound effects via ElevenLabs (key in the macOS keychain) -> assets/sfx/
+python3 scripts/audio.py build name ...      # build effects again from their takes, no credits (SHAPE: chosen take, tuning, high-pass)
 npm run serve     # python3 -m http.server 8080 -> http://localhost:8080/ (prototypes/dice-anim/ too)
 ```
 
