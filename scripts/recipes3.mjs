@@ -3,7 +3,8 @@
 // A recipe is (dice, blocks, bonus kinds): positions do not matter, so it fixes the score
 // distribution of a level up to the dice. Writes the generated module src/engine/recipes3.js.
 // Every cell is a die or a card since the owner's word of 09.11.2026 («больше не должно быть пустых или заблокированных
-// ячеек на поле»): blocks are always 0, so a recipe is nine cells of dice and up to two cards.
+// ячеек на поле»): blocks are always 0, so a recipe is nine cells of dice and up to two cards of different kinds (the
+// run never deals two of one kind): 1 + 10 + 45 recipes for the ten heroes.
 // Usage: node scripts/recipes3.mjs [--levels=250] [--seed=recipes-1]
 import { writeFileSync } from 'node:fs';
 import { createRng } from '../src/engine/rng.js';
@@ -15,11 +16,11 @@ const N = Number(args.levels ?? 250);
 const SEED = String(args.seed ?? 'recipes-1');
 const QS = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95];
 
-// Every multiset of `k` kinds, kinds in unlock order.
-function multisets(k, from = 0) {
+// Every set of `k` different kinds, kinds in unlock order.
+function kindSets(k, from = 0) {
   if (k === 0) return [[]];
   const out = [];
-  for (let i = from; i < BONUS_UNLOCKS.length; i++) for (const rest of multisets(k - 1, i)) out.push([BONUS_UNLOCKS[i], ...rest]);
+  for (let i = from; i < BONUS_UNLOCKS.length; i++) for (const rest of kindSets(k - 1, i + 1)) out.push([BONUS_UNLOCKS[i], ...rest]);
   return out;
 }
 
@@ -28,7 +29,7 @@ const recipes = [];
 for (let bonuses = 0; bonuses <= MAX_CARDS; bonuses++) {
   const dice = 9 - bonuses;
   if (dice < MIN_DICE3) continue;
-  for (const kinds of multisets(bonuses)) recipes.push({ id: `${dice}d0x:${kinds.join('+') || '-'}`, dice, blocks: 0, kinds });
+  for (const kinds of kindSets(bonuses)) recipes.push({ id: `${dice}d0x:${kinds.join('+') || '-'}`, dice, blocks: 0, kinds });
 }
 
 const quantiles = (values) => {

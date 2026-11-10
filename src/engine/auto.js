@@ -17,6 +17,7 @@
 
 import { bestHand, BONUS_KINDS } from './hands.js';
 import { createRng } from './rng.js';
+import { BOSSES } from './bosses3.js';
 
 export const AUTO_DEFAULT_CONFIG = Object.freeze({
   hands: 3,          // hands per level, all of them are played
@@ -30,22 +31,29 @@ export const BANK_SIZE = 3; // places in the bank (owner, 02.11.2026); the rest 
 export const MIN_DICE = 6; // every layout keeps this many dice (levels3.js), and so does a kept card coming in
 const waiting = (b) => !b.used && !b.placed; // a banked card still above the board
 const hasCharm = (level, id) => !!level.charms && level.charms.includes(id);
-const hushed = (state) => state.level.boss === 'hush'; // Brother Hush: kept cards stay in the bank for his level
-export const bankOpen = (state) => !!state.stats.rerollsUsed && !hushed(state);
+export const bankOpen = (state) => !!state.stats.rerollsUsed;
+const keeperOf = (level) => (level.boss && BOSSES[level.boss]) || null;
 
-// What the run's charms and the level's boss change in a hand's count (bestHand's `rules`), or null. FINAL BOW goes by
-// the hands left, so a hand's count can change as the level goes on, never between the preview and PLAY.
-export function handRules(level, handsLeft) {
+// What the run's charms and the level's keeper change in a hand's count (bestHand's `rules`), or null; the keeper's word
+// comes last. FINAL BOW goes by the hands left and THE GOLDEN KNIGHT by the hands played, so a hand's count can change as
+// the level goes on, never between the preview and PLAY.
+export function handRules(level, handsLeft, played = 0) {
   const r = {};
   if (hasCharm(level, 'crooked_pip')) r.ones = 6;
   if (hasCharm(level, 'velvet_grip')) r.heldAdd = 1;
   if (hasCharm(level, 'final_bow') && handsLeft === 1) r.sumAdd = 5;
   if (hasCharm(level, 'stone_ribbon')) r.fiveAdd = 5;
-  if (level.boss === 'mason') r.sumAdd = (r.sumAdd || 0) - 5; // his toll on every hand (no cell is ever locked since 09.11.2026)
-  if (level.boss === 'lowbell') r.sixes = 0;
-  if (level.boss === 'judge') r.half = 'straight';
+  const k = keeperOf(level);
+  if (k && k.sumAdd) r.sumAdd = (r.sumAdd || 0) + k.sumAdd; // THE EATER's toll on every hand
+  if (k && k.sixes === 0) r.sixes = 0;
+  if (k && k.ones === 0) r.ones = 0;
+  if (k && k.half) r.half = k.half;
+  if (k && k.firstHalf && played === 0) r.halfSum = true;
   return Object.keys(r).length ? r : null;
 }
+
+// How many dice may be held at once (LOOSE GRIP: three), or Infinity.
+export const holdCap = (state) => (keeperOf(state.level) && keeperOf(state.level).holdCap) || Infinity;
 
 // A card that wakes for the level's last hand (×4 LAST HAND: handsLeft 1, THE LAST USHER's second hand too). Before it, even
 // switched on, the card neither counts nor is used up, so the ×N on the counter never shows it.
@@ -72,7 +80,7 @@ export function createAutoGame(level, configOverrides = {}, attempt = 1) {
   const faces = level.faces.slice();
   // QUICK POCKET: the first kept card is on the board from the start, in place of the last die, while 6 dice stay
   const dice = cells.flatMap((c, i) => (c.type === 'die' ? [i] : []));
-  if (hasCharm(level, 'quick_pocket') && level.boss !== 'hush' && bank.length && dice.length > MIN_DICE) {
+  if (hasCharm(level, 'quick_pocket') && bank.length && dice.length > MIN_DICE) {
     const i = dice[dice.length - 1];
     cells[i] = { type: 'bonus', kind: bank[0].kind, fromBank: 0 };
     faces[i] = null;
@@ -103,7 +111,7 @@ const banked = (state, i) => (i >= BANK ? state.bank[i - BANK] : null);
 // The scoring options of a hand: the experiment's, with the run's upgrades of the combinations (`level.ups`), its
 // charms and the boss.
 export function handOptionsOf(state) {
-  const rules = handRules(state.level, state.handsLeft);
+  const rules = handRules(state.level, state.handsLeft, state.hands.length);
   if (!state.level.ups && !rules) return state.config.handOptions ?? undefined;
   return { ...(state.config.handOptions || {}), ups: state.level.ups, rules };
 }
@@ -131,6 +139,7 @@ export function canReroll(state) {
 export function toggleHold(state, i) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   if (!isDie(state, i)) return reject('NOT_DIE', 'Only dice can be held');
+  if (!state.held[i] && heldCount(state) >= holdCap(state)) return reject('HOLD_CAP', `HOLD ${holdCap(state)} DICE AT MOST`);
   const held = state.held.slice();
   held[i] = !held[i];
   return { ok: true, held: held[i], state: { ...state, held, stats: bump(state, 'holdToggles') } };
@@ -141,7 +150,6 @@ export function toggleBonus(state, i) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   const b = Number.isInteger(i) ? banked(state, i) : null;
   if (b && waiting(b)) {
-    if (hushed(state)) return reject('HUSHED', 'NOT ON THIS LEVEL');
     if (!state.stats.rerollsUsed) return reject('NOT_YET', 'COMES IN ON THE FIRST REROLL');
     const bank = state.bank.map((x, k) => (k === i - BANK ? { ...x, off: !x.off } : x));
     return { ok: true, off: bank[i - BANK].off, state: { ...state, bank, stats: bump(state, 'bonusToggles') } };
@@ -166,7 +174,7 @@ export function reroll(state, rollDie) {
   const bank = state.bank.map((b) => ({ ...b, off: true }));
   const placed = [];
   const rolled = targets.slice();
-  if (!state.stats.rerollsUsed && !hushed(state)) {
+  if (!state.stats.rerollsUsed) {
     let spare = diceCells(state).length - MIN_DICE; // dice the kept cards may take
     bank.forEach((b, k) => {
       if (!waiting(b) || !rolled.length || spare <= 0) return;

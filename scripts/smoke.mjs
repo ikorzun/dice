@@ -422,7 +422,7 @@ for (const vp of viewports) {
   await toLastHand();
   await page.click('#playBtn');
   await page.waitForTimeout(300);
-  const saved = await page.evaluate(() => { const m = JSON.parse(localStorage.getItem('dice-snake.v2')).modes.auto; return { phase: m.game.phase, counted: !!m.lastEnd && m.lastEnd.seed === m.game.level.seed, board: !!(m.lastEnd && m.lastEnd.board) }; });
+  const saved = await page.evaluate(() => { const m = JSON.parse(localStorage.getItem('dicefool-portals.v1')).modes.auto; return { phase: m.game.phase, counted: !!m.lastEnd && m.lastEnd.seed === m.game.level.seed, board: !!(m.lastEnd && m.lastEnd.board) }; });
   if (saved.phase !== 'lost' || !saved.counted || !saved.board) note(vp, `the run was not counted with its board at PLAY: ${JSON.stringify(saved)}`);
   await page.reload();
   await page.waitForSelector('#board .cell');
@@ -465,7 +465,7 @@ for (const vp of viewports) {
     return { bells: st.bells, shown: !$('endBells').hidden, text: $('endBells').textContent, act: $('endAct').textContent, rule: $('upSub').textContent, inside: pick.bottom <= document.querySelector('#upList .up').getBoundingClientRect().top + 0.5 };
   });
   if (paid.bells < 32 || !paid.shown || !/\+\d+ BELLS/.test(paid.text) || !/CLEAR \+2/.test(paid.text)) note(vp, `a cleared level's pay: ${JSON.stringify(paid)}`);
-  if (paid.act !== 'NEXT: SHOP' || !/^BOSS RULE: /.test(paid.rule) || !paid.inside) note(vp, `the pick before a boss: ${JSON.stringify(paid)}`);
+  if (paid.act !== 'NEXT: SHOP' || !/^KEEPER RULE: /.test(paid.rule) || !paid.inside) note(vp, `the pick before a keeper: ${JSON.stringify(paid)}`);
   await sheetAway(); // this level's cards were still turning when the threshold was set to fall
   await page.click('#upList .up');
   await page.waitForSelector('#shop:not([hidden])');
@@ -543,7 +543,7 @@ for (const vp of viewports) {
 
 // Every window, both orientations (Playgama 1.6): the rules, the level's end, the shop and the run's end fit with nothing
 // cut and nothing under a button, on a phone held sideways, a square, a tablet and a low desktop window.
-const KINDS = ['x2_any', 'x3_straight', 'x3_pairs', 'x3_trips', 'joker', 'refund', 'x3_kinds', 'x3_small', 'x4_any'];
+const KINDS = ['x2_any', 'x3_straight', 'x3_pairs', 'x3_trips', 'joker', 'refund', 'x3_kinds', 'x3_small', 'x4_any', 'x3_sixes'];
 const meet = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2;
 const outside = (page, sel) => page.evaluate((sel) => [...document.querySelectorAll(sel)].filter((e) => e.checkVisibility()).map((e) => {
   const r = e.getBoundingClientRect();
@@ -573,7 +573,7 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
     for (const id of ['guide', 'levelEnd', 'shop', 'bonusSheet', 'help', 'runsSheet']) document.getElementById(id).hidden = true;
     st.tips = { bankReroll: true, switchOn: true };
     for (const k of KINDS) { st.tips[`seen:${k}`] = true; st.tips[`sheet:${k}`] = true; }
-    Object.assign(st, { levelIndex: o.level, runSeed: 'smoke-fit', bells: 23, charms: ['crooked_pip'], bank: ['x2_any', 'joker', 'refund'], best: { level: 8, score: 900 }, ups: {}, runMedals: [], game: null, shop: null, runs: [{ level: 8, score: 900 }] });
+    Object.assign(st, { levelIndex: o.level, runSeed: 'smoke-fit', bells: 23, charms: ['crooked_pip'], bank: ['x2_any', 'joker', 'refund'], best: { level: 8, score: 900 }, ups: {}, game: null, shop: null, runs: [{ level: 8, score: 900 }] });
     d.switchMode('auto', { silent: true });
   }, { o, KINDS });
   await setState({ level: 4 });
@@ -661,9 +661,9 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   await ctx.close();
 }
 
-// The knight (×2 ANY HAND) and the skull (JOKER) in one winning hand play their paired act (LORE §6 point 8): each card
-// leans toward the other, on either side (their own victory acts lean them apart), and the moment still ends in the pick.
-for (const [vp, knight, skull] of [[{ w: 390, h: 844 }, 6, 7], [{ w: 390, h: 844 }, 7, 6], [{ w: 1280, h: 800 }, 3, 4]]) {
+// The heroes are still pictures (portals redesign, 10.11.2026): a card shows its portrait inside the card, the longest tag
+// (TWO SIXES) fits it, and every card the winning hand used rises and tilts on its own; the moment still ends in the pick.
+for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) {
   const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => note(vp, `pageerror ${e.message}`));
@@ -675,33 +675,44 @@ for (const [vp, knight, skull] of [[{ w: 390, h: 844 }, 6, 7], [{ w: 390, h: 844
     for (const id of ['guide', 'levelEnd', 'shop', 'bonusSheet', 'help', 'runsSheet']) document.getElementById(id).hidden = true;
     st.tips = { bankReroll: true, switchOn: true };
     for (const k of KINDS) { st.tips[`seen:${k}`] = true; st.tips[`sheet:${k}`] = true; }
-    Object.assign(st, { levelIndex: 1, runSeed: 'smoke-pair', bells: 0, charms: [], bank: [], ups: {}, runMedals: [], game: null, shop: null });
+    Object.assign(st, { levelIndex: 1, runSeed: 'smoke-heroes', bells: 0, charms: [], bank: [], ups: {}, game: null, shop: null });
     d.switchMode('auto', { silent: true });
   }, { KINDS });
   await idle(page);
-  await page.evaluate(({ knight, skull }) => { // a full house with the joker as a six, both cards in the hand
+  await page.evaluate(() => { // two pairs, sixes and threes: the Knight's ×2 and Bigfoot's ×3 both join the hand
     const d = window.__diceSnake; const g = d.state().game;
-    const faces = [6, 6, 3, 3, 1, 1, 5]; // the best hand is 6 6 J 3 3: the joker plays
+    const faces = [6, 6, 3, 3, 1, 2, 5];
     let n = 0;
-    g.cells = g.cells.map((c, i) => (i === knight ? { type: 'bonus', kind: 'x2_any' } : i === skull ? { type: 'bonus', kind: 'joker' } : { type: 'die' }));
-    g.faces = g.cells.map((c, i) => (i === knight || i === skull ? null : faces[n++]));
+    g.cells = g.cells.map((c, i) => (i === 6 ? { type: 'bonus', kind: 'x2_any' } : i === 7 ? { type: 'bonus', kind: 'x3_sixes' } : { type: 'die' }));
+    g.faces = g.cells.map((c, i) => (i === 6 || i === 7 ? null : faces[n++]));
     g.off = g.cells.map((c) => c.type === 'bonus');
     g.held = new Array(9).fill(false);
     g.level.target = 1;
     d.switchMode('auto', { silent: true });
-  }, { knight, skull });
+  });
   await page.waitForTimeout(4500); // the two cards are dealt face down and turn themselves
-  await page.click(`#board .cell:nth-child(${knight + 1})`);
+  const faces = await page.evaluate(() => [6, 7].map((i) => {
+    const card = document.querySelectorAll('#board .cell')[i];
+    const art = card.querySelector('.art');
+    const tag = card.querySelector('.tag');
+    const c = card.getBoundingClientRect();
+    const a = art.getBoundingClientRect();
+    const t = tag.getBoundingClientRect();
+    return { kind: card.className.match(/kind-(\S+)/)?.[1], picture: getComputedStyle(art).backgroundImage !== 'none', inside: a.left >= c.left - 0.5 && a.right <= c.right + 0.5 && a.top >= c.top - 0.5, tag: tag.textContent, tagFits: tag.scrollWidth <= tag.clientWidth + 1 && t.left >= c.left - 0.5 && t.right <= c.right + 0.5, size: Math.round(a.width) };
+  }));
+  for (const f of faces) if (!f.picture || !f.inside || !f.tagFits || f.size < 40) note(vp, `a hero's card: ${JSON.stringify(f)}`);
+  if (faces[1].tag !== 'TWO SIXES') note(vp, `Bigfoot's tag: ${faces[1].tag}`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-16-heroes.png` });
+  await page.click('#board .cell:nth-child(7)');
   await page.waitForTimeout(600);
-  await page.click(`#board .cell:nth-child(${skull + 1})`);
+  await page.click('#board .cell:nth-child(8)');
   await page.waitForTimeout(1200);
-  const tilt = await page.evaluate(({ knight, skull }) => new Promise((resolve) => {
+  const tilt = await page.evaluate(() => new Promise((resolve) => {
     const angle = (i) => { const m = new DOMMatrix(getComputedStyle(document.querySelectorAll('#board .cell')[i]).transform); return (Math.atan2(m.b, m.a) * 180) / Math.PI; };
     document.getElementById('playBtn').click();
-    setTimeout(() => resolve({ knight: angle(knight), skull: angle(skull) }), 420);
-  }), { knight, skull });
-  const toward = skull > knight ? 1 : -1; // the knight tips his top toward the skull, the skull toward him
-  if (!(tilt.knight * toward > 0.5 && tilt.skull * toward < -0.5)) note(vp, `the paired act, knight in ${knight}, skull in ${skull}: cards tilt ${JSON.stringify(tilt)}`);
+    setTimeout(() => resolve({ knight: angle(6), bigfoot: angle(7), hand: window.__diceSnake.state().game.hands.at(-1)?.bonuses }), 420);
+  }));
+  if (!(tilt.knight < -0.5 && tilt.bigfoot < -0.5) || String(tilt.hand) !== 'x2_any,x3_sixes') note(vp, `the winning cards: ${JSON.stringify(tilt)}`);
   await page.waitForFunction(() => document.querySelector('#upList .up') && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
   await ctx.close();
 }

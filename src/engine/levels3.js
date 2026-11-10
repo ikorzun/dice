@@ -1,15 +1,18 @@
 // Seeded level generation for the Auto Hand mode. A level is a layout of nine cells (dice,
 // bonus dice, blocks), the dice faces and a target for three hands. Every layout keeps at
 // least six dice, so the board always holds a hand: six distinct faces contain a straight,
-// otherwise two of them pair up. Bonus kinds unlock one per level; a level that unlocks a
-// kind puts it on the board.
+// otherwise two of them pair up. Each hero's card opens at its level (UNLOCK_LEVEL); a level
+// that opens one puts it on the board.
 
 import { createRng } from './rng.js';
 import { clampTier } from './levels.js';
 import { createAutoGame, currentHand, MIN_DICE } from './auto.js';
 
 export const GENERATOR3_VERSION = 'auto-gen-1';
-export const BONUS_UNLOCKS = Object.freeze(['x2_any', 'x3_straight', 'x3_pairs', 'x3_trips', 'joker', 'refund']);
+export const BONUS_UNLOCKS = Object.freeze(['x2_any', 'x3_straight', 'x3_pairs', 'x3_trips', 'joker', 'refund', 'x3_kinds', 'x3_small', 'x4_any', 'x3_sixes']);
+// The level each hero opens on (portals spec, 10.11.2026): the Knight, Elf, Monkey, Witch, Alien, Dude, Wizard, Wizardgirl,
+// Skeleton and Bigfoot. Level 5 opens nothing (the first keeper), nor 8 (one new idea at a time, digest rule 5).
+export const UNLOCK_LEVEL = Object.freeze({ x2_any: 1, x3_straight: 2, x3_pairs: 3, x3_trips: 4, joker: 6, refund: 7, x3_kinds: 11, x3_small: 16, x4_any: 21, x3_sixes: 26 });
 export const MIN_DICE3 = MIN_DICE;
 
 // Tier levels are the balance reference of the bots, scripts/montecarlo3.mjs and scripts/upgrades3.mjs; the game
@@ -27,7 +30,9 @@ export const TIERS3 = Object.freeze({
   5: Object.freeze({ dice: 7, bonuses: 2, blocks: 0, target: 560 }),
 });
 
-export const unlockedKinds = (levelIndex) => BONUS_UNLOCKS.slice(0, Math.min(Math.max(1, levelIndex), BONUS_UNLOCKS.length));
+export const unlockedKinds = (levelIndex) => BONUS_UNLOCKS.filter((kind) => UNLOCK_LEVEL[kind] <= Math.max(1, levelIndex));
+// The hero a level opens, or null (level 1 deals the Knight on the first board).
+export const newKind = (levelIndex) => (levelIndex > 1 && BONUS_UNLOCKS.find((kind) => UNLOCK_LEVEL[kind] === levelIndex)) || null;
 
 // First board of every run: eight dice and the ×2 in the bottom-right corner, like the gold cell of Poker 5.
 export const firstLayout = () => [...Array.from({ length: 8 }, () => ({ type: 'die' })), { type: 'bonus', kind: 'x2_any' }];
@@ -58,7 +63,7 @@ export function generateAutoLevel({ runSeed, levelIndex, tier, config = {} }) {
   const kinds = unlockedKinds(levelIndex);
   if (levelIndex !== 1) {
     const order = shuffledCells(rng);
-    const newest = levelIndex <= BONUS_UNLOCKS.length ? kinds[kinds.length - 1] : null;
+    const newest = newKind(levelIndex);
     const placed = [];
     for (let b = 0; b < spec.bonuses; b++) placed.push(b === 0 && newest ? newest : kinds[rng.int(kinds.length)]);
     layout = placeLayout(order, placed, spec.blocks);

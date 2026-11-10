@@ -5,12 +5,12 @@ import { levelBells } from '../src/engine/shop3.js';
 import { BOSSES, bossOf } from '../src/engine/bosses3.js';
 
 test('what comes next is said in words, counted in levels still to clear', () => {
-  assert.deepEqual(nextUp(1), { shop: 'SHOP IN 2', boss: 'BOSS IN 4', best: '' });
-  assert.deepEqual(nextUp(2), { shop: 'SHOP NEXT', boss: 'BOSS IN 3', best: '' });
-  assert.deepEqual(nextUp(3), { shop: 'SHOP IN 2', boss: 'BOSS IN 2', best: '' });
-  assert.deepEqual(nextUp(4), { shop: 'SHOP NEXT', boss: 'BOSS NEXT', best: '' });
-  assert.deepEqual(nextUp(6), { shop: 'SHOP IN 2', boss: 'BOSS IN 4', best: '' });
-  assert.deepEqual(nextUp(123), { shop: 'SHOP IN 2', boss: 'BOSS IN 2', best: '' });
+  assert.deepEqual(nextUp(1), { shop: 'SHOP IN 2', boss: 'KEEPER IN 4', best: '' });
+  assert.deepEqual(nextUp(2), { shop: 'SHOP NEXT', boss: 'KEEPER IN 3', best: '' });
+  assert.deepEqual(nextUp(3), { shop: 'SHOP IN 2', boss: 'KEEPER IN 2', best: '' });
+  assert.deepEqual(nextUp(4), { shop: 'SHOP NEXT', boss: 'KEEPER NEXT', best: '' });
+  assert.deepEqual(nextUp(6), { shop: 'SHOP IN 2', boss: 'KEEPER IN 4', best: '' });
+  assert.deepEqual(nextUp(123), { shop: 'SHOP IN 2', boss: 'KEEPER IN 2', best: '' });
 });
 
 test('the record shows until the run passes it', () => {
@@ -29,18 +29,19 @@ test('a cleared level names only what is not the next level', () => {
   assert.equal(afterClear(9), 'NEXT: SHOP');
 });
 
-test('the next boss\'s rule comes with the pick before him, and only then', () => {
+test('the next keeper\'s rule comes with the pick before him, and only then', () => {
   assert.equal(bossRule('seed', 3), '');
-  assert.equal(bossRule('seed', 4), `BOSS RULE: ${BOSSES[bossOf('seed', 5)].rule}`);
+  assert.equal(bossRule('seed', 4), 'KEEPER RULE: EVERY HAND SUMS FIVE LESS'); // level 5 is always THE EATER
   assert.equal(bossRule('seed', 5), '');
-  assert.equal(bossRule('seed', 9), `BOSS RULE: ${BOSSES[bossOf('seed', 10)].rule}`);
+  assert.equal(bossRule('seed', 9), `KEEPER RULE: ${BOSSES[bossOf('seed', 10)].rule}`);
 });
 
 test('a level\'s pay names what earned each amount, and the rule in How matches the pay', () => {
   const pay = (handsLeft, rerollsLeft, boss = null, charms = []) => levelBells({ handsLeft, rerollsLeft, level: { boss, charms } });
   assert.deepEqual(bellsPaid(pay(0, 0)), ['CLEAR +2']);
   assert.deepEqual(bellsPaid(pay(2, 3)), ['CLEAR +2', '2 HANDS LEFT +4', '3 REROLLS LEFT +3']);
-  assert.deepEqual(bellsPaid(pay(1, 1, 'judge', ['bellwether'])), ['CLEAR +2', '1 HAND LEFT +2', '1 REROLL LEFT +1', 'BOSS +3', 'BELLWETHER +2']);
+  assert.deepEqual(bellsPaid(pay(1, 1, 'ghoul_old', ['bellwether'])), ['CLEAR +2', '1 HAND LEFT +2', '1 REROLL LEFT +1', 'KEEPER +3', 'BELLWETHER +2']);
+  assert.deepEqual(bellsPaid(pay(0, 0, 'knight_golden')), ['CLEAR +2', 'KEEPER +8']); // a golden keeper pays 5 more
   const one = pay(1, 1);
   assert.deepEqual(BELLS_RULE, [`CLEAR +${one.clear}`, `EACH HAND LEFT +${one.hand}`, `EACH REROLL LEFT +${one.reroll}`]);
 });

@@ -1,29 +1,33 @@
 // The endless run of the Auto Hand mode (owner, 03.11.2026: «как в Балатро», a missed target ends the run, and
 // levels never end). One curve serves everyone (questionnaire В1 A, 04.11.2026: no hidden adaptation). A level's
-// target follows a fixed ladder by its number, grown with the lift of a player who took an upgrade after every
-// level before it (UP_LIFT). Its layout is drawn from the recipes whose pass chance for a typical player is near
-// the level's aim. That player is modelled as the naive bot's score quantiles (recipes3.js) times that lift.
-// Both depend only on the run seed and the level number: never on how the player did, their bank or their
-// upgrades. The chance model only ranks the layouts; how far players get is measured by scripts/run3-sim.mjs.
+// target is a table by its number (portals spec, 10.11.2026: a typical player to about level 30, a strong one to
+// about 60), and 3.8% a level past it. Its layout is drawn from the recipes whose pass chance for a typical player is
+// near the level's aim. That player is modelled as the naive bot's score quantiles (recipes3.js) times the lift of a
+// player who took an upgrade after every level before it (UP_LIFT). Both depend only on the run seed and the level
+// number: never on how the player did, their bank or their upgrades. The chance model only ranks the layouts; how
+// far players get is measured by scripts/run3-sim.mjs.
 
 import { createRng } from './rng.js';
 import { RECIPES3, RECIPE_QUANTILES, RECIPES3_VERSION } from './recipes3.js';
-import { BONUS_UNLOCKS, unlockedKinds, firstLayout, shuffledCells, placeLayout } from './levels3.js';
+import { unlockedKinds, newKind, firstLayout, shuffledCells, placeLayout } from './levels3.js';
 import { createAutoGame, currentHand } from './auto.js';
 import { UP_LIFT } from './uplift3.js';
 import { bossOf, BOSSES } from './bosses3.js';
 
-export const RUN3_VERSION = `run-2/${RECIPES3_VERSION}`;
+export const RUN3_VERSION = `run-3/${RECIPES3_VERSION}`;
 export const RUN3 = Object.freeze({
-  base: 240,      // level 1's target before upgrades
-  growth: 0.03,   // the ladder over the upgrades' lift: ×e^(growth·k + bend·k²) at level k + 1
-  bend: 0.0024,   // steeper since the shop (06.11.2026): its goods lift scores; the first levels keep their targets
+  // levels 1–60: the spec's anchors (1: 240, 5: 350, 10: 560 … 30: 2050, 40: 3400, 50: 5200, 60: 7600), filled at an even
+  // ratio; no step up on the fifth levels, the keeper is the step
+  targets: Object.freeze([240, 260, 290, 320, 350, 380, 420, 460, 510, 560, 600, 650, 700, 760, 820, 880, 940, 1000, 1070, 1150,
+    1220, 1300, 1380, 1460, 1550, 1640, 1730, 1830, 1940, 2050, 2160, 2270, 2390, 2510, 2640, 2780, 2920, 3070, 3230, 3400,
+    3550, 3700, 3860, 4030, 4200, 4390, 4580, 4780, 4980, 5200, 5400, 5610, 5830, 6050, 6290, 6530, 6780, 7040, 7320, 7600]),
+  past: 1.038,    // each level past the table, rounded to 10
   aimFirst: 0.99, // a typical player's pass chance the layout aims at on levels 1–2 (the tutorial runs on level 1)
-  aimStart: 0.985, // on level 3, then falling towards aimFloor, by e every aimFade levels
-  aimFade: 20,    // slower since the boards lost their locks (09.11.2026): every board is nine dice and cards, so the model's chances moved; a typical player reaches level 10 in two runs of three again (В10)
-  aimFloor: 0.5,  // with this curve half the typical players reach level 10–11, half the strong ones 20 (questionnaire В10; run3-sim)
+  aimStart: 0.99, // on level 3, then falling towards aimFloor, by e every aimFade levels
+  aimFade: 60,    // the spec's first values: boards a typical player passes at 97–99% for twenty-five levels, about 95% at 60
+  aimFloor: 0.93,
   near: 0.25,     // layouts whose modelled failure is within e^near of the best fit's are drawn at random, for variety
-  maxBonuses: 2,  // three bonus cards on one hand reach ×7 and swamp the layout table
+  maxBonuses: 2,  // three hero cards on one hand reach ×7 and swamp the layout table; a third card comes from the bank
   firstRecipe: '8d0x:x2_any',
 });
 
@@ -35,8 +39,9 @@ export function runLift(levelIndex) {
 }
 
 export function runTarget(levelIndex, curve = RUN3) {
-  const k = Math.max(1, levelIndex) - 1;
-  return Math.round((curve.base * runLift(levelIndex) * Math.exp(curve.growth * k + curve.bend * k * k)) / 10) * 10;
+  const n = Math.max(1, levelIndex);
+  const t = curve.targets;
+  return n <= t.length ? t[n - 1] : Math.round((t[t.length - 1] * curve.past ** (n - t.length)) / 10) * 10;
 }
 
 export function runAim(levelIndex, curve = RUN3) {
@@ -60,13 +65,16 @@ export function percentileOf(q, score) {
 // The modelled pass chance of a typical player on the recipe at that level.
 export const typicalChance = (recipe, levelIndex, curve = RUN3) => 1 - percentileOf(recipe.naive, runTarget(levelIndex, curve) / runLift(levelIndex));
 
-// Recipes a level may use: at most two bonus cards of different kinds, all unlocked; a level that unlocks a
-// kind (2–6) must place it. Every recipe is nine cells of dice and cards (no locks since 09.11.2026).
+// Recipes a level may use: at most two hero cards of different kinds, all opened. A level that opens a hero deals it beside
+// the Knight's ×2 ANY HAND (spec: a conditional hero dealt alone leaked runs on the first levels). Letting the aim pick the
+// partner instead measured worse (run3-sim, 10.11.2026: the typical bot's median 20 against 23–24; the model ranks
+// conditional pairs badly, trips beside SMALL passed 82% at level 16 against 89% for the Knight). Every recipe is nine
+// cells of dice and cards (no locks since 09.11.2026).
 export function candidates(levelIndex) {
+  const fresh = newKind(levelIndex);
+  if (fresh) return [recipeById(`7d0x:x2_any+${fresh}`)];
   const open = unlockedKinds(levelIndex);
-  const newest = levelIndex > 1 && levelIndex <= BONUS_UNLOCKS.length ? open[open.length - 1] : null;
-  return RECIPES3.filter((r) => r.kinds.length <= RUN3.maxBonuses && new Set(r.kinds).size === r.kinds.length
-    && r.kinds.every((k) => open.includes(k)) && (!newest || r.kinds.includes(newest)));
+  return RECIPES3.filter((r) => r.kinds.length <= RUN3.maxBonuses && new Set(r.kinds).size === r.kinds.length && r.kinds.every((k) => open.includes(k)));
 }
 
 // Level 1 is the first board; later levels draw among the recipes that fit the level's aim best.

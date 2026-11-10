@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   RUN3, runLift, runTarget, runAim, percentileOf, typicalChance, candidates, chooseRecipe, generateRunLevel, recipeById,
 } from '../src/engine/run3.js';
-import { BONUS_UNLOCKS, unlockedKinds } from '../src/engine/levels3.js';
+import { BONUS_UNLOCKS, UNLOCK_LEVEL, unlockedKinds, newKind } from '../src/engine/levels3.js';
 import { UP_LIFT } from '../src/engine/uplift3.js';
 import { RECIPE_QUANTILES } from '../src/engine/recipes3.js';
 import { MIN_DICE } from '../src/engine/auto.js';
@@ -18,7 +18,15 @@ test('the run never ends: every level asks for more than the one before, faster 
     assert.ok(b > a, `level ${n + 1} asks ${b}, not more than ${a}`);
     if (n % 10 === 0) { assert.ok(b - a >= step, `the steps shrink at level ${n}`); step = b - a; }
   }
-  assert.equal(runTarget(1), Math.round(RUN3.base / 10) * 10); // no upgrade yet on level 1
+});
+
+test('the targets are the spec\'s table of sixty levels, then 3.8% a level', () => {
+  assert.equal(RUN3.targets.length, 60);
+  for (let n = 1; n <= 60; n++) assert.equal(runTarget(n), RUN3.targets[n - 1]);
+  const anchors = { 1: 240, 5: 350, 10: 560, 15: 820, 20: 1150, 25: 1550, 30: 2050, 40: 3400, 50: 5200, 60: 7600 };
+  for (const [n, t] of Object.entries(anchors)) assert.equal(runTarget(Number(n)), t, `level ${n}`);
+  assert.equal(runTarget(61), 7890);
+  assert.equal(runTarget(0), 240);
 });
 
 test('the lift a level is grown with assumes an upgrade after every level before it, past the table too', () => {
@@ -34,7 +42,7 @@ test('the aim: almost sure on the first two levels (the tutorial runs on level 1
   assert.equal(runAim(2), RUN3.aimFirst);
   assert.equal(runAim(3), RUN3.aimStart);
   for (let n = 3; n < 60; n++) assert.ok(runAim(n + 1) < runAim(n) && runAim(n + 1) > RUN3.aimFloor);
-  assert.ok(Math.abs(runAim(1000) - RUN3.aimFloor) < 1e-9);
+  assert.ok(Math.abs(runAim(3000) - RUN3.aimFloor) < 1e-9);
 });
 
 test('percentiles: the quantiles themselves, monotone between and beyond them', () => {
@@ -67,15 +75,24 @@ test('level 1 is the first board: eight dice and the ×2 in the corner', () => {
   assert.equal(level.target, runTarget(1));
 });
 
-test('every level keeps six dice and at most two cards of different unlocked kinds; levels 2–6 place the kind they unlock', () => {
+test('the ten heroes open at their levels, and only there is a new one dealt', () => {
+  assert.equal(BONUS_UNLOCKS.length, 10);
+  assert.deepEqual(BONUS_UNLOCKS.map((k) => UNLOCK_LEVEL[k]), [1, 2, 3, 4, 6, 7, 11, 16, 21, 26]);
+  assert.deepEqual(unlockedKinds(1), ['x2_any']);
+  assert.deepEqual(unlockedKinds(5), ['x2_any', 'x3_straight', 'x3_pairs', 'x3_trips']);
+  assert.equal(unlockedKinds(26).length, 10);
+  assert.deepEqual([1, 2, 5, 8, 11, 26, 27].map(newKind), [null, 'x3_straight', null, null, 'x3_kinds', 'x3_sixes', null]);
+});
+
+test('every level keeps six dice and at most two cards of different opened kinds; a level that opens a hero deals it beside the Knight', () => {
   for (let s = 0; s < 40; s++) {
-    for (let n = 2; n <= 14; n++) {
+    for (let n = 2; n <= 30; n++) {
       const level = generateRunLevel({ runSeed: `kinds${s}`, levelIndex: n });
       const kinds = level.layout.filter((c) => c.type === 'bonus').map((c) => c.kind);
       assert.ok(level.layout.filter((c) => c.type === 'die').length >= MIN_DICE);
       assert.ok(kinds.length <= RUN3.maxBonuses && new Set(kinds).size === kinds.length);
       assert.ok(kinds.every((k) => unlockedKinds(n).includes(k)));
-      if (n <= BONUS_UNLOCKS.length) assert.ok(kinds.includes(BONUS_UNLOCKS[n - 1]), `level ${n} lacks ${BONUS_UNLOCKS[n - 1]}`);
+      if (newKind(n)) assert.deepEqual(kinds.slice().sort(), ['x2_any', newKind(n)].sort(), `level ${n}`);
       assert.deepEqual(recipeById(level.recipe).kinds.slice().sort(), kinds.slice().sort());
     }
   }

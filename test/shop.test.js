@@ -1,26 +1,28 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CHARMS, CHARM_SLOTS, CARD_PRICE, UNLOCKS, unlockedCards, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood, sensibleShopping } from '../src/engine/shop3.js';
+import { CHARMS, CHARM_SLOTS, CARD_PRICE, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood, sensibleShopping } from '../src/engine/shop3.js';
 import { upgradeOffer } from '../src/engine/upgrades3.js';
-import { bossOf, BOSSES, isBossLevel } from '../src/engine/bosses3.js';
+import { bossOf, BOSSES, isBossLevel, FIRST_KEEPER } from '../src/engine/bosses3.js';
 import { generateRunLevel, runTarget } from '../src/engine/run3.js';
-import { handRules, createAutoGame, toggleBonus, reroll, playHand, carryOver, currentHand, toggleHold, BANK, MIN_DICE } from '../src/engine/auto.js';
+import { handRules, createAutoGame, toggleBonus, playHand, currentHand, toggleHold, holdCap, MIN_DICE } from '../src/engine/auto.js';
+import { BONUS_UNLOCKS, unlockedKinds } from '../src/engine/levels3.js';
 import { bestHand } from '../src/engine/hands.js';
 import { createRng } from '../src/engine/rng.js';
 
 const seq = (...f) => { let i = 0; return () => f[i++ % f.length]; };
 const eight = (over = {}) => ({ mode: 'auto', seed: 's', levelIndex: 3, layout: [...Array(8).fill(0).map(() => ({ type: 'die' })), { type: 'block' }], faces: [1, 2, 3, 4, 5, 6, 1, 2, null], target: 50, ...over });
 
-test('doors open after the second and fourth level of each act, the second naming the boss', () => {
+test('doors open after the second and fourth level of each act, the second naming the keeper', () => {
   assert.deepEqual(Array.from({ length: 15 }, (_, k) => k + 1).filter(doorAfter), [2, 4, 7, 9, 12, 14]);
   assert.ok(bossNext(4) && bossNext(9) && !bossNext(2));
   assert.ok(isBossLevel(5) && isBossLevel(10) && !isBossLevel(4));
 });
 
-test('a cleared level pays for what was left unused and for a boss', () => {
+test('a cleared level pays for what was left unused and for a keeper, a golden one 5 more', () => {
   const g = { score: 460, handsLeft: 1, rerollsLeft: 2, level: { target: 340, boss: null, charms: [] } };
   assert.deepEqual(levelBells(g), { clear: 2, hand: 2, reroll: 2, boss: 0, charm: 0, total: 6 });
-  assert.equal(levelBells({ score: 340, handsLeft: 0, rerollsLeft: 0, level: { target: 340, boss: 'judge', charms: ['bellwether'] } }).total, 2 + 3 + 2);
+  assert.equal(levelBells({ score: 340, handsLeft: 0, rerollsLeft: 0, level: { target: 340, boss: 'ghoul_old', charms: ['bellwether'] } }).total, 2 + 3 + 2);
+  assert.equal(levelBells({ score: 340, handsLeft: 0, rerollsLeft: 0, level: { target: 340, boss: 'robot_golden', charms: [] } }).boss, 8);
 });
 
 test('the fit weighs recent hands, the ones fallen short on most, and keeps a floor', () => {
@@ -60,13 +62,13 @@ test('a shelf is one card, one +1 and one charm, seeded, with no charm the playe
   for (const g of a) assert.ok(g.price > 0 && g.tag);
 });
 
-test('the door before a boss offers a charm against it, tagged', () => {
+test('the door before a keeper offers a charm against him, tagged', () => {
   for (let r = 0; r < 40; r++) {
     const runSeed = `z${r}`;
     const stock = shopStock({ runSeed, levelIndex: 4, run: { ups: {}, charms: [] } });
     const boss = BOSSES[bossOf(runSeed, 5)];
     assert.ok(boss.counters.includes(stock[2].id), `${boss.name}: ${stock[2].id}`);
-    assert.equal(stock[2].tag, 'GOOD AGAINST BOSS');
+    assert.equal(stock[2].tag, 'GOOD AGAINST KEEPER');
   }
 });
 
@@ -95,8 +97,11 @@ test('charms in the count', () => {
   assert.equal(bestHand([{ cell: 0, face: 3, held: true }, { cell: 1, face: 3, held: true }], [], { rules: { heldAdd: 1 } }).total, 8 * 2);
   assert.equal(bestHand(dice(3, 3), [], { rules: { sumAdd: 5 } }).total, 11 * 2);
   assert.equal(bestHand(dice(6, 6, 6), [], { rules: { sixes: 0 } }).total, 0);
-  assert.equal(bestHand(dice(1, 2, 3, 4, 5), [], { rules: { half: 'straight' } }).total, 15 * 4);
-  assert.equal(bestHand(dice(2, 3, 4, 5, 6), [], { rules: { half: 'straight' }, ups: { straight: 1 } }).total, 20 * 5); // half of ×9 rounds up: the counter never shows ×4.5
+  assert.equal(bestHand(dice(1, 2, 3, 4, 5), [], { rules: { half: ['straight'] } }).total, 15 * 4);
+  assert.equal(bestHand(dice(2, 3, 4, 5, 6), [], { rules: { half: ['straight'] }, ups: { straight: 1 } }).total, 20 * 5); // half of ×9 rounds up: the counter never shows ×4.5
+  assert.equal(bestHand(dice(1, 1, 1), [], { rules: { ones: 0 } }).total, 0); // a keeper's ones add nothing
+  assert.equal(bestHand(dice(5, 5, 2), [], { rules: { halfSum: true } }).formula, '5 × 2'); // half of 10, shown on the counter
+  assert.equal(bestHand(dice(5, 5, 6, 6, 6), [], { rules: { halfSum: true } }).total, 14 * 5); // half of 28 × FULL HOUSE ×5
 });
 
 test('FINAL BOW counts on the last hand only; SPARE KNUCKLE and ECHO THIMBLE change the rerolls', () => {
@@ -124,11 +129,21 @@ test('STONE RIBBON adds five to five-die hands only; QUICK POCKET starts the fir
   assert.equal(createAutoGame(six, {}).cells.filter((c) => c.type === 'die').length, MIN_DICE, 'six dice stay');
 });
 
-test('a boss comes from the seed alone, none twice in a bag; its rule stands on the level', () => {
-  const seen = [5, 10, 15, 20, 25, 30].map((l) => bossOf('a', l));
-  assert.equal(new Set(seen).size, 6);
+test('a keeper comes from the seed alone: THE EATER first, never one of the last two, each from his level; his rule stands on the level', () => {
   assert.equal(bossOf('a', 7), null);
   assert.equal(bossOf('a', 15), bossOf('a', 15));
+  const met = new Set();
+  for (let r = 0; r < 300; r++) {
+    const run = Array.from({ length: 14 }, (_, k) => bossOf(`k${r}`, 5 * (k + 1)));
+    assert.equal(run[0], FIRST_KEEPER);
+    run.forEach((id, k) => {
+      const level = 5 * (k + 1);
+      assert.ok(BOSSES[id].from <= level && level <= (BOSSES[id].until ?? Infinity), `${id} on level ${level}`);
+      if (k > 0) assert.ok(id !== run[k - 1] && (k < 2 || id !== run[k - 2]), `${id} again on level ${level}`);
+      met.add(id);
+    });
+  }
+  assert.deepEqual([...met].sort(), Object.keys(BOSSES).sort(), 'every keeper comes by level 70');
   for (let r = 0; r < 200; r++) {
     const runSeed = `b${r}`;
     for (const L of [5, 10, 35]) {
@@ -146,44 +161,57 @@ test('a boss comes from the seed alone, none twice in a bag; its rule stands on 
       level.layout.forEach((c, i) => assert.equal(c.type === 'die', level.faces[i] !== null));
     }
   }
-  const mason = { mode: 'auto', seed: 'm', levelIndex: 5, boss: 'mason', charms: [] };
-  assert.equal(handRules(mason, 3).sumAdd, -5); // his toll
-  assert.equal(handRules({ ...mason, charms: ['stone_ribbon'] }, 3).fiveAdd, 5); // the ribbon pays it back on five-die hands
+  const eater = { mode: 'auto', seed: 'm', levelIndex: 5, boss: 'fatman', charms: [] };
+  assert.equal(handRules(eater, 3).sumAdd, -5); // his toll
+  assert.equal(handRules({ ...eater, charms: ['stone_ribbon'] }, 3).fiveAdd, 5); // the ribbon pays it back on five-die hands
+  assert.equal(handRules({ ...eater, boss: 'skeleton_golden', charms: ['crooked_pip'] }, 3).ones, 0); // the keeper's word comes last
 });
 
-test('Brother Hush keeps the bank out: nothing enters, nothing burns', () => {
-  const level = { ...eight({ boss: 'hush', bank: ['joker', 'refund'], target: 9999 }) };
-  let g = createAutoGame(level, {});
-  g = reroll(g, seq(1, 2, 3)).state;
-  assert.ok(!g.cells.some((c) => c.type === 'bonus'));
-  assert.equal(toggleBonus(g, BANK).code, 'HUSHED');
-  g = { ...g, score: 9999, phase: 'won' };
-  assert.deepEqual(carryOver(g), ['joker', 'refund']);
-});
-
-test('Lady Lowbell and the Judge count through the game itself', () => {
-  const g = createAutoGame({ ...eight({ boss: 'lowbell' }), faces: [6, 6, 6, 1, 2, 3, 4, 5, null] }, {});
+test('RED EYE, OLD HORNS and THE GOLDEN BONES count through the game itself', () => {
+  const g = createAutoGame({ ...eight({ boss: 'ghoul' }), faces: [6, 6, 6, 1, 2, 3, 4, 5, null] }, {});
   const h = toggleHold(toggleHold(toggleHold(g, 0).state, 1).state, 2).state;
   assert.equal(currentHand(h).total, 0);
-  const j = createAutoGame({ ...eight({ boss: 'judge' }), faces: [1, 2, 3, 4, 5, 1, 1, 1, null] }, {});
-  const hand = currentHand(j);
-  assert.ok(hand.total <= 15 * 8);
+  const j = createAutoGame({ ...eight({ boss: 'ghoul_old' }), faces: [1, 2, 3, 4, 5, 1, 1, 1, null] }, {});
+  assert.ok(currentHand(j).total <= 15 * 8);
+  const small = createAutoGame({ ...eight({ boss: 'ghoul_old' }), faces: [1, 2, 3, 4, 1, 1, 6, 6, null] }, {});
+  const s4 = toggleHold(toggleHold(toggleHold(toggleHold(small, 0).state, 1).state, 2).state, 3).state;
+  assert.equal(currentHand(s4).category, 'small_straight');
+  assert.equal(currentHand(s4).formula, '10 × 2'); // a small straight's ×3 halves too, rounding up
+  const b = createAutoGame({ ...eight({ boss: 'skeleton_golden' }), faces: [1, 1, 1, 6, 6, 6, 2, 3, null] }, {});
+  const ones = toggleHold(toggleHold(toggleHold(b, 0).state, 1).state, 2).state;
+  assert.equal(currentHand(ones).total, 0);
 });
 
-test('far medals add cards to the shelf, never to a board; every card has a price', () => {
-  assert.deepEqual(unlockedCards(0), []);
-  assert.deepEqual(unlockedCards(10), UNLOCKS.slice(0, 2).map((u) => u.kind));
+test('LOOSE GRIP refuses a fourth hold; THE GOLDEN KNIGHT halves the first hand only', () => {
+  let g = createAutoGame({ ...eight({ boss: 'zombie' }) }, {});
+  assert.equal(holdCap(g), 3);
+  for (const i of [0, 1, 2]) g = toggleHold(g, i).state;
+  const r = toggleHold(g, 3);
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'HOLD_CAP');
+  assert.ok(toggleHold(g, 0).ok, 'letting go is always allowed');
+  assert.equal(holdCap(createAutoGame(eight(), {})), Infinity);
+  let k = createAutoGame({ ...eight({ boss: 'knight_golden', target: 9999 }), faces: [5, 5, 1, 2, 3, 4, 6, 6, null] }, {});
+  k = toggleHold(toggleHold(k, 0).state, 1).state;
+  assert.equal(currentHand(k).formula, '5 × 2');
+  k = playHand(k, seq(5)).state;
+  k = toggleHold(toggleHold(k, 0).state, 1).state;
+  assert.equal(currentHand(k).formula, '10 × 2'); // the second hand counts whole
+});
+
+test('the late heroes come on boards from their levels; the shop sells only opened kinds; every card has a price', () => {
+  for (const k of BONUS_UNLOCKS) assert.ok(CARD_PRICE[k] > 0, k);
   const run = { ups: {}, charms: [] };
-  const seen = (medal) => new Set(Array.from({ length: 300 }, (_, r) => shopStock({ runSeed: `u${r}`, levelIndex: 7, run, medal })[0].id));
-  assert.ok(!seen(0).has('x3_kinds'));
-  assert.ok(seen(5).has('x3_kinds'));
-  assert.ok(seen(15).has('x4_any'));
-  for (const k of seen(15)) assert.ok(CARD_PRICE[k] > 0, k);
-  for (let r = 0; r < 100; r++) for (const c of generateRunLevel({ runSeed: `u${r}`, levelIndex: 20 }).layout) assert.ok(!UNLOCKS.some((u) => u.kind === c.kind));
+  const sold = (levelIndex) => new Set(Array.from({ length: 300 }, (_, r) => shopStock({ runSeed: `u${r}`, levelIndex, run })[0].id));
+  for (const k of sold(9)) assert.ok(unlockedKinds(9).includes(k), k);
+  assert.ok(sold(27).has('x3_sixes'), 'SIXES ×3 is sold once it is open');
   const dice = (...f) => f.map((face, cell) => ({ cell, face, held: false }));
   assert.equal(bestHand(dice(4, 4, 4, 4), [{ cell: 9, kind: 'x3_kinds' }]).bonusMult, 3);
   assert.equal(bestHand(dice(1, 2, 3, 4), [{ cell: 9, kind: 'x3_small' }]).bonusMult, 3);
   assert.equal(bestHand(dice(2, 2), [{ cell: 9, kind: 'x4_any' }]).bonusMult, 4);
+  assert.equal(bestHand(dice(6, 6, 2), [{ cell: 9, kind: 'x3_sixes' }]).bonusMult, 3);
+  assert.equal(bestHand(dice(5, 5, 6), [{ cell: 9, kind: 'x3_sixes' }]).bonusMult, 1); // one six is not two
+  assert.equal(bestHand(dice(6, 1, 1), [{ cell: 9, kind: 'x3_sixes' }, { cell: 10, kind: 'joker' }]).bonusMult, 3); // a joker's six counts
 });
 
 test('the offers carry a tag only when they have a reason', () => {

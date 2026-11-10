@@ -33,12 +33,16 @@
   --spark: var(--accent);
   /* the mockup's art, named once so the build inlines each file once */
   --bell: url("../../assets/ui/bell.webp");
-  --boss-judge: url("../../assets/ui/bosses/judge.webp");
-  --boss-lowbell: url("../../assets/ui/bosses/lowbell.webp");
-  --boss-hush: url("../../assets/ui/bosses/hush.webp");
-  --boss-shortwind: url("../../assets/ui/bosses/shortwind.webp");
-  --boss-usher: url("../../assets/ui/bosses/usher.webp");
-  --boss-mason: url("../../assets/ui/bosses/mason.webp");
+  /* the owner's portraits (New img/Characters, scripts/portraits.py): the keepers of every fifth level */
+  --boss-fatman: url("../../assets/ui/portraits/fatman.webp");
+  --boss-ghoul: url("../../assets/ui/portraits/ghoul.webp");
+  --boss-prisoner: url("../../assets/ui/portraits/prisoner.webp");
+  --boss-robot: url("../../assets/ui/portraits/robot_evil.webp");
+  --boss-ghoul_old: url("../../assets/ui/portraits/ghoul_old.webp");
+  --boss-zombie: url("../../assets/ui/portraits/zombie.webp");
+  --boss-knight_golden: url("../../assets/ui/portraits/knight_golden.webp");
+  --boss-robot_golden: url("../../assets/ui/portraits/robot_golden.webp");
+  --boss-skeleton_golden: url("../../assets/ui/portraits/skeleton_golden.webp");
   --charm-crooked_pip: url("../../assets/ui/charms/crooked_pip.webp");
   --charm-velvet_grip: url("../../assets/ui/charms/velvet_grip.webp");
   --charm-quick_pocket: url("../../assets/ui/charms/quick_pocket.webp");
@@ -47,15 +51,17 @@
   --charm-bellwether: url("../../assets/ui/charms/bellwether.webp");
   --charm-final_bow: url("../../assets/ui/charms/final_bow.webp");
   --charm-spare_knuckle: url("../../assets/ui/charms/spare_knuckle.webp");
-  --peek-x2_any: url("../../assets/ui/bonuses/peek-x2-any.webp"); /* the dice faces: each character peeks */
-  --peek-x3_straight: url("../../assets/ui/bonuses/peek-x3-straight.webp"); /* over the bottom edge */
-  --peek-x3_pairs: url("../../assets/ui/bonuses/peek-x3-pairs.webp");     /* (art/bonuses/out/face) */
-  --peek-x3_trips: url("../../assets/ui/bonuses/peek-x3-trips.webp");
-  --peek-x3_kinds: url("../../assets/ui/bonuses/peek-x3-kinds.webp");
-  --peek-x3_small: url("../../assets/ui/bonuses/peek-x3-small.webp");
-  --peek-x4_any: url("../../assets/ui/bonuses/peek-x4-any.webp");
-  --peek-joker: url("../../assets/ui/bonuses/peek-joker.webp");
-  --peek-refund: url("../../assets/ui/bonuses/peek-refund.webp");
+  /* and the heroes of the cards, still pictures, each bust resting on the arch's bottom */
+  --peek-x2_any: url("../../assets/ui/portraits/knight.webp");
+  --peek-x3_straight: url("../../assets/ui/portraits/elf.webp");
+  --peek-x3_pairs: url("../../assets/ui/portraits/monkey.webp");
+  --peek-x3_trips: url("../../assets/ui/portraits/witch.webp");
+  --peek-joker: url("../../assets/ui/portraits/alien.webp");
+  --peek-refund: url("../../assets/ui/portraits/dude.webp");
+  --peek-x3_kinds: url("../../assets/ui/portraits/wizard.webp");
+  --peek-x3_small: url("../../assets/ui/portraits/wizardgirl.webp");
+  --peek-x4_any: url("../../assets/ui/portraits/skeleton.webp");
+  --peek-x3_sixes: url("../../assets/ui/portraits/bigfoot.webp");
   --img-card-arch: url("../../assets/ui/card-arch.svg");   /* the bonus card's arch and back (Figma 1296:657) */
   --img-card-arch-purple: url("../../assets/ui/card-arch-purple.svg"); /* the purple card's arch (Figma 1296:650) */
   --img-card-back: url("../../assets/ui/card-back.webp");
@@ -81,42 +87,6 @@
   --matcap-ivory: url("../../assets/matcaps/ivory.webp");
   --matcap-clay: url("../../assets/matcaps/clay.webp");
   --matcap-pip: url("../../assets/matcaps/pip.webp"); /* the pressed-in pips: black metal */
-  /* the bonus characters' parts (puppets.js; art/bonuses/anim/cartoon-fix.py) */
-  --rig-knight-head: url("../../assets/ui/bonuses/cartoon/knight-head.webp");
-  --rig-knight-pupilL: url("../../assets/ui/bonuses/cartoon/knight-pupilL.webp");
-  --rig-knight-pupilR: url("../../assets/ui/bonuses/cartoon/knight-pupilR.webp");
-  --rig-knight-flower: url("../../assets/ui/bonuses/cartoon/knight-flower.webp");
-  --rig-knight-gear: url("../../assets/ui/bonuses/cartoon/knight-gear.webp");
-  --rig-bug-head: url("../../assets/ui/bonuses/cartoon/bug-head.webp");
-  --rig-bug-antL: url("../../assets/ui/bonuses/cartoon/bug-antL.webp");
-  --rig-bug-antM: url("../../assets/ui/bonuses/cartoon/bug-antM.webp");
-  --rig-bug-antR: url("../../assets/ui/bonuses/cartoon/bug-antR.webp");
-  --rig-bug-pupilL: url("../../assets/ui/bonuses/cartoon/bug-pupilL.webp");
-  --rig-bug-pupilR: url("../../assets/ui/bonuses/cartoon/bug-pupilR.webp");
-  --rig-bug-legs: url("../../assets/ui/bonuses/cartoon/bug-legs.webp");
-  --rig-bug-staff: url("../../assets/ui/bonuses/cartoon/bug-staff.webp");
-  --rig-pair-tall: url("../../assets/ui/bonuses/cartoon/pair-tall.webp");
-  --rig-pair-kid: url("../../assets/ui/bonuses/cartoon/pair-kid.webp");
-  --rig-pair-kidL: url("../../assets/ui/bonuses/cartoon/pair-kidL.webp");
-  --rig-pair-kidR: url("../../assets/ui/bonuses/cartoon/pair-kidR.webp");
-  --rig-pair-gear: url("../../assets/ui/bonuses/cartoon/pair-gear.webp");
-  --rig-trio-top: url("../../assets/ui/bonuses/cartoon/trio-top.webp");
-  --rig-trio-mid: url("../../assets/ui/bonuses/cartoon/trio-mid.webp");
-  --rig-trio-bot: url("../../assets/ui/bonuses/cartoon/trio-bot.webp");
-  --rig-trio-gear: url("../../assets/ui/bonuses/cartoon/trio-gear.webp");
-  --rig-skull-cavity: url("../../assets/ui/bonuses/cartoon/skull-cavity.webp");
-  --rig-skull-jaw: url("../../assets/ui/bonuses/cartoon/skull-jaw.webp");
-  --rig-skull-head: url("../../assets/ui/bonuses/cartoon/skull-head.webp");
-  --rig-skull-star: url("../../assets/ui/bonuses/cartoon/skull-star.webp");
-  --rig-skull-iris: url("../../assets/ui/bonuses/cartoon/skull-iris.webp");
-  --rig-skull-handL: url("../../assets/ui/bonuses/cartoon/skull-handL.webp");
-  --rig-skull-handR: url("../../assets/ui/bonuses/cartoon/skull-handR.webp");
-  --rig-bird-crest: url("../../assets/ui/bonuses/cartoon/bird-crest.webp");
-  --rig-bird-head: url("../../assets/ui/bonuses/cartoon/bird-head.webp");
-  --rig-bird-beak: url("../../assets/ui/bonuses/cartoon/bird-beak.webp");
-  --rig-bird-earring: url("../../assets/ui/bonuses/cartoon/bird-earring.webp");
-  --rig-bird-gear: url("../../assets/ui/bonuses/cartoon/bird-gear.webp");
-  --rig-bird-glint: url("../../assets/ui/bonuses/cartoon/bird-glint.webp");
   /* sound effects (scripts/audio.py), read by cssUrl in app.js so the build inlines them */
   --sfx-roll: url("../../assets/sfx/roll.mp3");
   --sfx-hold: url("../../assets/sfx/hold.mp3");
@@ -131,7 +101,6 @@
   --sfx-lute-d5: url("../../assets/sfx/lute-d5.mp3");
   --sfx-mult: url("../../assets/sfx/mult.mp3");
   --sfx-crack: url("../../assets/sfx/crack.mp3");
-  --sfx-medal: url("../../assets/sfx/medal.mp3");
   --sfx-fire: url("../../assets/sfx/fire.mp3");
   --sfx-burn: url("../../assets/sfx/burn.mp3");
   --sfx-drop: url("../../assets/sfx/drop.mp3");
@@ -145,7 +114,6 @@
   --sfx-chisel: url("../../assets/sfx/chisel.mp3");
   --sfx-snip: url("../../assets/sfx/snip.mp3");
   --sfx-bellows: url("../../assets/sfx/bellows.mp3");
-  --sfx-flip-hush: url("../../assets/sfx/flip-hush.mp3");
   --sfx-thud: url("../../assets/sfx/thud.mp3");
   color-scheme: dark;
 }
@@ -319,7 +287,7 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
    turns over in 2D (scaleX through 0, the back hidden at the half): no 3D layers for Safari to trip on. */
 .cell.bonus { --card: #ffeedb; --card-ink: #000; --card-mult: #e22876; background: var(--card); border: 1px solid rgba(255, 255, 255, .32); box-shadow: inset 0 0 8px rgba(255, 255, 255, .25); color: var(--card-ink); display: block; transition: transform 110ms ease, box-shadow 110ms ease; }
 /* ×3 bonuses and the joker are purple cards with white names (owner, Figma 1296:650, 02.11.2026) */
-.cell.bonus.kind-x3_pairs, .cell.bonus.kind-x3_trips, .cell.bonus.kind-x3_straight, .cell.bonus.kind-joker, .cell.bonus.kind-x3_kinds, .cell.bonus.kind-x3_small, .cell.bonus.kind-x4_any { --card: #9c52e3; --card-ink: #fff; --card-mult: #9c52e3; --img-card-arch: var(--img-card-arch-purple); border-color: rgba(255, 255, 255, .13); }
+.cell.bonus.kind-x3_pairs, .cell.bonus.kind-x3_trips, .cell.bonus.kind-x3_straight, .cell.bonus.kind-joker, .cell.bonus.kind-x3_kinds, .cell.bonus.kind-x3_small, .cell.bonus.kind-x4_any, .cell.bonus.kind-x3_sixes { --card: #9c52e3; --card-ink: #fff; --card-mult: #9c52e3; --img-card-arch: var(--img-card-arch-purple); border-color: rgba(255, 255, 255, .13); }
 .cell.bonus.pressed { transform: scale(.95); }
 .cell.bonus.on { animation: bonusOn 360ms cubic-bezier(.2, .8, .3, 1.3); } /* only the card moves, never its picture (owner, 02.11.2026) */
 /* switched on: the card keeps its colour inside a lime ring 4 px wide (owner, 02.11.2026) */
@@ -339,22 +307,19 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.bonus.used { border-color: var(--line-strong); color: var(--muted); box-shadow: none; animation: none; }
 .cell.bonus.safe-hint, .cell.bonus.hint { animation: armPulse 650ms ease-in-out infinite; }
 .cell .art { position: absolute; display: none; background: center / 100% 100% no-repeat; pointer-events: none; }
-/* The face (owner, 02.11.2026): the bonus's character peeks over the bottom edge, big, holding on to it;
-   the multiplier on a badge in the corner (none for the joker) */
-.cell.bonus .art { display: block; left: 9.26%; top: 3.7%; width: 79.63%; height: 79.63%; background: var(--peek) center bottom / contain no-repeat; transform: translateY(var(--drop, 0%)); } /* 86 px at 10, 4 */
-.cell.bonus .art.live { background: none; } /* a puppet draws the character (puppets.js) */
-.cell.bonus .art canvas { position: absolute; } /* covers the card; puppets.js sets its box and lays the drawing like the picture it replaces */
-/* The edge each character holds on to sits where the bug's does, on the arch's bottom (owner, 02.11.2026: no gap
-   under the knight, the pair, the skull and the bird): --drop moves the picture down by its own height's share */
-.cell.bonus.kind-x2_any { --peek: var(--peek-x2_any); --drop: 6.7%; }
+/* The face: the hero's portrait, a still picture (portals redesign, 10.11.2026), its bust cut on the arch's bottom and
+   its head inside the card; the multiplier on a badge in the corner (none for the joker) */
+.cell.bonus .art { display: block; left: 9.26%; top: 3.7%; width: 79.63%; height: 74.07%; background: var(--peek) center bottom / contain no-repeat; } /* 80 px from 4 down to the arch's bottom */
+.cell.bonus.kind-x2_any { --peek: var(--peek-x2_any); }
 .cell.bonus.kind-x3_straight { --peek: var(--peek-x3_straight); }
-.cell.bonus.kind-x3_pairs { --peek: var(--peek-x3_pairs); --drop: 4.69%; }
+.cell.bonus.kind-x3_pairs { --peek: var(--peek-x3_pairs); }
 .cell.bonus.kind-x3_trips { --peek: var(--peek-x3_trips); }
-.cell.bonus.kind-joker { --peek: var(--peek-joker); --drop: 5.34%; }
+.cell.bonus.kind-joker { --peek: var(--peek-joker); }
 .cell.bonus.kind-x3_kinds { --peek: var(--peek-x3_kinds); }
 .cell.bonus.kind-x3_small { --peek: var(--peek-x3_small); }
 .cell.bonus.kind-x4_any { --peek: var(--peek-x4_any); }
-.cell.bonus.kind-refund { --peek: var(--peek-refund); --drop: 6.8%; }
+.cell.bonus.kind-refund { --peek: var(--peek-refund); }
+.cell.bonus.kind-x3_sixes { --peek: var(--peek-x3_sixes); }
 
 /* Fire: the dice of a played four of a kind, five of a kind or straight burn (owner, 01.11.2026; never on
    the board before PLAY). A shader in a canvas over the board (fire.js); without WebGL the dice glow. */
@@ -507,11 +472,9 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .muted { color: var(--muted); }
 .small { font-size: 13px; line-height: 1.4; }
 .end-actions { display: grid; gap: 8px; margin-top: 4px; }
-/* Gold is the game's reward colour (the upgrade pick, medals); lime stays for held dice, a switched-on card and PLAY. */
-.medal { display: inline-grid; place-items: center; width: 34px; height: 34px; border: 2px solid var(--gold); border-radius: 50%; color: var(--gold); font: 700 15px/1 var(--font-display); font-style: normal; font-variant-numeric: tabular-nums; }
-.medal.fresh { background: var(--gold); color: var(--btn-primary-fg); }
+/* Gold is the game's reward colour (the upgrade pick, the record); lime stays for held dice, a switched-on card and PLAY. */
 /* A cleared level (owner's pick В11 A «Пробитый порог», 04.11.2026; GPT's production spec, boxes at 402 px in mockup
-   px × --k): on pure black, the white title over the honest score, a rail kept for the medal and the record, then
+   px × --k): on pure black, the white title over the honest score, a rail kept for the record, then
    the pick and what the level paid. On a tall screen the stack sits
    lower (94 px at 874, 16 px at 660). While the moment plays (.playing) the page shows through; the pick waits until it has risen (.waiting). */
 #levelEnd:is(.won, .run-over) { align-items: flex-start; background: #000; padding-top: max(calc(env(safe-area-inset-top, 0px) + 16px), clamp(16px, calc(16px + (100vh - 660px) * .3645), 94px)); }
@@ -525,10 +488,6 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 #levelEnd.won .end-sep { margin: 0 calc(8px * var(--k, 1)); }
 .end-over { grid-column: 1 / -1; justify-self: start; padding: 0 calc(8px * var(--k, 1)); border-radius: calc(11px * var(--k, 1)); background: var(--bad); color: #000; font: 700 calc(11.7px * var(--k, 1))/calc(21.5px * var(--k, 1)) var(--font-display); white-space: nowrap; } /* the pill the line gave it */
 .end-badges { display: flex; align-items: center; height: calc(35.2px * var(--k, 1)); margin-top: calc(7.8px * var(--k, 1)); padding-left: calc(7.8px * var(--k, 1)); }
-.end-medal { display: flex; align-items: center; gap: calc(8px * var(--k, 1)); color: var(--gold); font: 700 calc(15.6px * var(--k, 1))/1 var(--font-display); }
-.end-medal b { font-weight: inherit; }
-/* the medal is the threshold's shards put back together: a yellow disc with black seams and the level's number */
-.end-medal .medal { position: relative; width: calc(35.2px * var(--k, 1)); height: calc(35.2px * var(--k, 1)); border: calc(2px * var(--k, 1)) solid #000; outline: calc(1.5px * var(--k, 1)) solid var(--gold); background: var(--gold) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Cg stroke='%23000' stroke-width='1.2' stroke-linecap='round' fill='none'%3E%3Cpath d='M18 0 L16 9 M36 15 L27 17 M30 33 L24 26 M6 33 L12 26 M0 15 L9 17 M18 36 L19 29'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100%; color: #000; font-size: calc(17.6px * var(--k, 1)); }
 .end-best { margin-left: auto; padding: 0 calc(14px * var(--k, 1)); border: calc(2px * var(--k, 1)) solid var(--gold); border-radius: calc(16.6px * var(--k, 1)); background: #000; color: var(--gold); font: 700 calc(14.7px * var(--k, 1))/calc(29.2px * var(--k, 1)) var(--font-display); white-space: nowrap; }
 .end-hand, .hands li.end-hand { display: grid; grid-template-columns: calc(103.6px * var(--k, 1)) 1fr auto; align-items: center; gap: calc(8px * var(--k, 1)); height: calc(70.4px * var(--k, 1)); margin-top: calc(7.8px * var(--k, 1)); padding: 0 calc(11.7px * var(--k, 1)); border: 1.5px solid #3b3b3b; border-radius: calc(15.6px * var(--k, 1)); --gd: calc(21.5px * var(--k, 1)); }
 .end-hand .gdice { display: flex; gap: calc(3.9px * var(--k, 1)); }
@@ -543,8 +502,6 @@ body.wide #levelEnd.won .panel > * { grid-column: 1; }
 body.wide #levelEnd.won .end-title { margin-top: calc(25px * var(--k, 1)); font-size: calc(42px * var(--k, 1)); line-height: calc(50px * var(--k, 1)); }
 body.wide #levelEnd.won .end-score { height: calc(74px * var(--k, 1)); margin-top: calc(4px * var(--k, 1)); font-size: calc(64px * var(--k, 1)); }
 body.wide .end-badges { height: calc(40px * var(--k, 1)); margin: calc(16px * var(--k, 1)) calc(36px * var(--k, 1)) 0; padding-left: 0; }
-body.wide .end-medal { font-size: calc(17px * var(--k, 1)); }
-body.wide .end-medal .medal { width: calc(40px * var(--k, 1)); height: calc(40px * var(--k, 1)); font-size: calc(20px * var(--k, 1)); }
 body.wide .end-best { font-size: calc(16px * var(--k, 1)); line-height: calc(30px * var(--k, 1)); }
 body.wide .end-hand { height: calc(84px * var(--k, 1)); margin: calc(16px * var(--k, 1)) calc(36px * var(--k, 1)) 0; padding: 0 calc(16px * var(--k, 1)); grid-template-columns: calc(132px * var(--k, 1)) 1fr auto; border-radius: calc(18px * var(--k, 1)); --gd: calc(27px * var(--k, 1)); }
 body.wide .end-hand b { font-size: calc(21px * var(--k, 1)); }
@@ -560,7 +517,6 @@ body.wide .up b { line-height: calc(20px * var(--k, 1)); }
 /* the moment's own layers: the black that spreads over the board from the break, a bonus card's sticker on its way
    to the count, the overshoot at the line; the shards' canvas is above them all */
 .win-black { position: fixed; inset: 0; z-index: 19; background: #000; pointer-events: none; }
-.medal-ring { position: fixed; z-index: 21; border: 2px solid var(--gold); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
 .win-chip { position: fixed; z-index: 21; display: flex; align-items: center; justify-content: center; border-radius: 50%; pointer-events: none; }
 .win-over { position: fixed; z-index: 21; padding: 0 calc(8px * var(--k, 1)); border-radius: calc(12px * var(--k, 1)); background: var(--gold); color: #000; font: 700 calc(12px * var(--k, 1))/calc(22px * var(--k, 1)) var(--font-display); white-space: nowrap; pointer-events: none; }
 .shards-layer { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 22; pointer-events: none; }
@@ -570,7 +526,7 @@ body.wide .up b { line-height: calc(20px * var(--k, 1)); }
    the cleared screen's stack on pure black, its mirror. RUN OVER in red over the level's score with how far it fell
    short; the level and the rerolls left unused beside the board as its last hand was played (drawn like the board,
    whole, then scaled into its corner); the level's three hands in the cleared screen's row, the last outlined red;
-   the run, the record and the gap to it; the run's medals; NEW RUN in white: a restart is not a reward. */
+   the run, the record and the gap to it; NEW RUN in white: a restart is not a reward. */
 #levelEnd.run-over .panel { display: grid; grid-template-columns: calc(244.4px * var(--k, 1)) calc(109.5px * var(--k, 1)); column-gap: calc(7.8px * var(--k, 1)); align-items: start; }
 #levelEnd.run-over .panel > * { grid-column: 1 / -1; }
 #levelEnd.run-over :is(#endBonus, #endSolver, #endTier, #retryBtn) { display: none; }
@@ -600,11 +556,6 @@ body.wide .up b { line-height: calc(20px * var(--k, 1)); }
 .run-stats span:last-child b { color: #9a9a9a; font-size: calc(14.7px * var(--k, 1)); }
 .best-badge { display: inline-block; margin-left: calc(6px * var(--k, 1)); padding: 0 calc(7px * var(--k, 1)); border-radius: calc(5px * var(--k, 1)); background: var(--gold); color: #000; font: 700 calc(12.7px * var(--k, 1))/calc(21.5px * var(--k, 1)) var(--font-display); font-style: normal; vertical-align: middle; }
 .run-gap { margin: 0; height: calc(20px * var(--k, 1)); font: 700 calc(12.7px * var(--k, 1))/calc(20px * var(--k, 1)) var(--font-display); color: #9a9a9a; }
-.medal-rail { display: flex; align-items: center; justify-content: center; gap: calc(23.5px * var(--k, 1)); height: calc(35.2px * var(--k, 1)); margin-top: calc(7.8px * var(--k, 1)); font: 700 calc(11.7px * var(--k, 1))/1 var(--font-display); color: #9a9a9a; }
-.medal-group { display: flex; align-items: center; gap: calc(8px * var(--k, 1)); }
-.medals { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: calc(3.9px * var(--k, 1)); }
-.medals .medal { width: calc(27.4px * var(--k, 1)); height: calc(27.4px * var(--k, 1)); border-width: calc(2px * var(--k, 1)); font-size: calc(12.7px * var(--k, 1)); }
-.medals .none { font-size: calc(16.6px * var(--k, 1)); }
 #levelEnd.run-over .end-actions { margin-top: calc(19.6px * var(--k, 1)); }
 #levelEnd.run-over #nextBtn { height: calc(56.7px * var(--k, 1)); border-radius: calc(28.4px * var(--k, 1)); background: #fff; color: #000; font-size: calc(21.5px * var(--k, 1)); letter-spacing: 0; }
 #levelEnd.run-over.waiting #nextBtn { background: #3b3b3b; color: #9a9a9a; } /* grey until it can be tapped, white from that frame on (GPT's review) */
@@ -639,8 +590,6 @@ body.wide .run-stats span:last-child { margin-top: calc(12px * var(--k, 1)); fon
 body.wide .run-stats span:last-child b { font-size: inherit; color: var(--fg); }
 body.wide .best-badge { font-size: calc(13px * var(--k, 1)); line-height: calc(22px * var(--k, 1)); }
 body.wide .run-gap { margin-top: calc(12px * var(--k, 1)); height: calc(40px * var(--k, 1)); font-size: calc(18px * var(--k, 1)); line-height: calc(40px * var(--k, 1)); }
-body.wide .medal-rail { margin-top: calc(16px * var(--k, 1)); height: calc(48px * var(--k, 1)); font-size: calc(14px * var(--k, 1)); }
-body.wide .medals .medal { width: calc(32px * var(--k, 1)); height: calc(32px * var(--k, 1)); font-size: calc(14px * var(--k, 1)); }
 body.wide #levelEnd.run-over .end-actions { left: calc(588px * var(--k, 1)); top: calc(307px * var(--k, 1)); width: calc(546px * var(--k, 1)); }
 body.wide #levelEnd.run-over #nextBtn { height: calc(96px * var(--k, 1)); border-radius: calc(48px * var(--k, 1)); font-size: calc(30px * var(--k, 1)); }
 body.wide .loss-count { font-size: calc(20px * var(--k, 1)); }
@@ -1039,7 +988,6 @@ body.wide .stat .label, body.wide .hand-name { line-height: calc(17.2px * var(--
 .hands li.end-hand i { font-size: max(11px, calc(10.8px * var(--k, 1))); }
 .run-gap { font-size: max(11px, calc(12.7px * var(--k, 1))); }
 body.wide .run-gap { font-size: max(11px, calc(18px * var(--k, 1))); }
-.end-medal { font-size: max(12px, calc(15.6px * var(--k, 1))); }
 .ware-text i { min-height: 0; font-size: max(11px, calc(10px * var(--k, 1))); line-height: 1.1; }
 .ware-text b { font-size: max(12px, calc(15px * var(--k, 1))); }
 .ware-text small { font-size: max(11px, calc(12px * var(--k, 1))); }
@@ -1059,7 +1007,6 @@ body.wide #handStat .label { font-size: calc(13px * var(--k, 1)); } /* SMALL STR
 .end-next, body.wide #levelEnd.won .end-next { font-size: max(11px, calc(14px * var(--k, 1))); }
 .end-hand small { font-size: max(11px, calc(12.7px * var(--k, 1))); }
 body.wide .end-hand small { font-size: max(11px, calc(16px * var(--k, 1))); }
-body.wide .end-medal { font-size: max(12px, calc(17px * var(--k, 1))); }
 .boss-card b { font-size: max(11px, calc(16px * var(--k, 1))); }
 .runs-card h3 { font-size: max(16px, calc(22px * var(--k, 1))); }
 .runs-list { font-size: max(12px, calc(15px * var(--k, 1))); }

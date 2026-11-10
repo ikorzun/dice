@@ -5,7 +5,7 @@ import {
   createAutoGame, toggleHold, toggleBonus, reroll, currentHand, boardHand, heldHand, playHand, hintFor, canReroll,
   rerollTargets, snapshotGame, restoreGame, diceCells, carryOver, awake, BANK,
 } from '../src/engine/auto.js';
-import { generateAutoLevel, TIERS3, MIN_DICE3, BONUS_UNLOCKS } from '../src/engine/levels3.js';
+import { generateAutoLevel, TIERS3, MIN_DICE3, unlockedKinds, newKind } from '../src/engine/levels3.js';
 
 const D = { type: 'die' };
 const B = (kind) => ({ type: 'bonus', kind });
@@ -269,14 +269,14 @@ test('six dice always hold a hand (exhaustive over 6^6 boards)', () => {
   }
 });
 
-test('levels: deterministic, at least six dice, level 1 has the ×2 in the corner, a new kind appears when unlocked', () => {
+test('levels: deterministic, at least six dice, level 1 has the ×2 in the corner, a new hero appears on the level it opens', () => {
   const a = generateAutoLevel({ runSeed: 'r', levelIndex: 3, tier: 3 });
   const b = generateAutoLevel({ runSeed: 'r', levelIndex: 3, tier: 3 });
   assert.deepEqual(a, b);
   const first = generateAutoLevel({ runSeed: 'r', levelIndex: 1, tier: 1 });
   assert.deepEqual(first.layout[8], { type: 'bonus', kind: 'x2_any' });
   assert.equal(first.layout.filter((c) => c.type === 'die').length, 8);
-  for (let lv = 1; lv <= 8; lv++) {
+  for (let lv = 1; lv <= 27; lv++) {
     for (let tier = 1; tier <= 5; tier++) {
       for (let s = 0; s < 20; s++) {
         const L = generateAutoLevel({ runSeed: `s${s}`, levelIndex: lv, tier });
@@ -284,8 +284,8 @@ test('levels: deterministic, at least six dice, level 1 has the ×2 in the corne
         assert.ok(nDice >= MIN_DICE3);
         assert.equal(L.target, TIERS3[tier].target);
         const kinds = L.layout.filter((c) => c.type === 'bonus').map((c) => c.kind);
-        if (lv <= BONUS_UNLOCKS.length) assert.ok(kinds.includes(BONUS_UNLOCKS[lv - 1]), `level ${lv} tier ${tier} misses ${BONUS_UNLOCKS[lv - 1]}`);
-        for (const k of kinds) assert.ok(BONUS_UNLOCKS.slice(0, Math.max(lv, 1)).includes(k));
+        if (newKind(lv)) assert.ok(kinds.includes(newKind(lv)), `level ${lv} tier ${tier} misses ${newKind(lv)}`);
+        for (const k of kinds) assert.ok(unlockedKinds(lv).includes(k));
         assert.ok(L.openingBest > 0);
         createAutoGame(L, {});
       }
@@ -432,8 +432,8 @@ test('×4 LAST HAND shows on the counter only on the last hand, and is not used 
   assert.equal(r.state.cells[8].type, 'die'); // used: a new die takes its cell
 });
 
-test('×4 LAST HAND under THE LAST USHER wakes on the second hand, the same hand as FINAL BOW', () => {
-  let g = createAutoGame(owlBoard({ hands: 2, boss: 'usher', charms: ['final_bow'] }));
+test('×4 LAST HAND under IRON WARDEN wakes on the second hand, the same hand as FINAL BOW', () => {
+  let g = createAutoGame(owlBoard({ hands: 2, boss: 'robot', charms: ['final_bow'] }));
   g = toggleBonus(g, 8).state;
   const first = currentHand(g);
   assert.equal(first.bonusMult, 1);

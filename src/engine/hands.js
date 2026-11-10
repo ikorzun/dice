@@ -12,7 +12,8 @@ import { PIPS_MULT5, CATEGORY5_LABELS } from './scoring5.js';
 // chasing a straight ×1.54 in expected points); Poker 5 keeps its own table.
 export const AUTO_MULT = Object.freeze({ ...PIPS_MULT5, straight: 8 });
 
-// Unlock order is set by levels3.js; `fits` receives the combination category.
+// The ten heroes of the portals redesign (10.11.2026), each opened by depth in levels3.js. `fits` receives the combination
+// category and the hand's faces (a joker's face among them); without faces it answers whether the category can ever fit.
 export const BONUS_KINDS = Object.freeze({
   x2_any: Object.freeze({ symbol: '×2', label: 'ANY HAND', mult: 2, fits: () => true }),
   x3_straight: Object.freeze({ symbol: '×3', label: 'STRAIGHT', mult: 3, fits: (c) => c === 'straight' }),
@@ -20,11 +21,12 @@ export const BONUS_KINDS = Object.freeze({
   x3_trips: Object.freeze({ symbol: '×3', label: 'TRIPS', mult: 3, fits: (c) => c === 'three_kind' || c === 'full_house' }),
   joker: Object.freeze({ symbol: '★', label: 'JOKER', wild: true }),
   refund: Object.freeze({ symbol: '+1', label: 'REFUND', mult: 1, fits: () => true, refund: 1 }),
-  // unlocked by far medals, sold in the shop only (questionnaire В6; shop3.js UNLOCKS)
   x3_kinds: Object.freeze({ symbol: '×3', label: 'KINDS', mult: 3, fits: (c) => c === 'four_kind' || c === 'five_kind' }),
   x3_small: Object.freeze({ symbol: '×3', label: 'SMALL', mult: 3, fits: (c) => c === 'small_straight' }),
   // MOON OWL sleeps through the first hands: it fits any hand, but counts only on the level's last (`awake` in auto.js)
   x4_any: Object.freeze({ symbol: '×4', label: 'LAST HAND', mult: 4, fits: () => true, last: true }),
+  // Bigfoot: a hand with two sixes or more, a joker standing in for a six counts; no straight ever holds two
+  x3_sixes: Object.freeze({ symbol: '×3', label: 'TWO SIXES', mult: 3, fits: (c, faces) => c !== 'straight' && c !== 'small_straight' && (!faces || faces.filter((f) => f === 6).length >= 2) }),
 });
 
 // Category of a set of dice that is itself a combination (every die counts), or null.
@@ -44,9 +46,10 @@ export function classifyExact(faces) {
   return null;
 }
 
-// The sum of a hand's dice under a charm's or a boss's rules. Faces still decide the combination.
+// The sum of a hand's dice under a charm's or a keeper's rules. Faces still decide the combination. A keeper's ones add
+// nothing whatever a charm says (ones: 0, THE GOLDEN BONES); CROOKED PIP counts a natural one as six.
 function sumOf(picked, jokerFaces, r) {
-  const pip = (f, natural) => (f === 1 && natural && r.ones ? r.ones : f === 6 && r.sixes === 0 ? 0 : f);
+  const pip = (f, natural) => (f === 1 && r.ones === 0 ? 0 : f === 1 && natural && r.ones ? r.ones : f === 6 && r.sixes === 0 ? 0 : f);
   return picked.reduce((s, d) => s + pip(d.face, true) + (d.held ? r.heldAdd || 0 : 0), 0) + jokerFaces.reduce((s, f) => s + pip(f, false), 0) + (r.sumAdd || 0);
 }
 
@@ -69,9 +72,9 @@ const better = (a, b) => {
 // affected. table { base, mult }: score = (category base + pip sum) × mult. straightMult:
 // multiplier of the straight (5 = the Poker 5 table). ups { category: n }: the run's upgrades, +n to that
 // combination's multiplier (owner, 02.11.2026: after a won level the player picks one of three to upgrade). rules:
-// what the run's charms and a boss change in the count (`handRules` in auto.js): ones, what a natural 1 adds to the
-// sum; sixes, what a six adds; heldAdd, the extra for each held die of the hand; sumAdd, the extra on the sum; half,
-// the combination whose multiplier halves.
+// what the run's charms and a keeper change in the count (`handRules` in auto.js): ones, what a natural 1 adds to the
+// sum (0: every one); sixes, what a six adds; heldAdd, the extra for each held die of the hand; sumAdd, the extra on the
+// sum; half, the combinations whose multiplier halves; halfSum, the sum halves (rounding up).
 export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, straightMult = null, ups = null, rules = null } = {}) {
   const jokers = bonuses.filter((b) => BONUS_KINDS[b.kind].wild).map((b) => b.cell);
   const mults = bonuses.filter((b) => !BONUS_KINDS[b.kind].wild);
@@ -91,11 +94,12 @@ export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, s
         const faces = [...picked.map((d) => d.face), ...jokerFaces];
         const category = classifyExact(faces);
         if (!category) continue;
-        // STONE RIBBON adds to the five-die hands; MASON's toll can take a small hand's sum to nothing, never below
-        const base = rules ? Math.max(0, sumOf(picked, jokerFaces, rules) + (rules.fiveAdd && faces.length === 5 ? rules.fiveAdd : 0)) : faces.reduce((s, f) => s + f, 0) + (table ? table.base[category] : 0);
+        // STONE RIBBON adds to the five-die hands; THE EATER's toll can take a small hand's sum to nothing, never below
+        const sum = rules ? Math.max(0, sumOf(picked, jokerFaces, rules) + (rules.fiveAdd && faces.length === 5 ? rules.fiveAdd : 0)) : faces.reduce((s, f) => s + f, 0) + (table ? table.base[category] : 0);
+        const base = rules && rules.halfSum ? Math.ceil(sum / 2) : sum; // THE GOLDEN KNIGHT's first hand: the counter shows the halved sum
         const full = multOf[category] + ((ups && ups[category]) || 0);
-        const mult = rules && rules.half === category ? Math.ceil(full / 2) : full; // the Judge halves it, rounding up: never ×4.5 on the counter
-        const fitting = mults.filter((b) => BONUS_KINDS[b.kind].fits(category));
+        const mult = rules && rules.half && rules.half.includes(category) ? Math.ceil(full / 2) : full; // OLD HORNS halves it, rounding up: never ×4.5 on the counter
+        const fitting = mults.filter((b) => BONUS_KINDS[b.kind].fits(category, faces));
         const applied = stacking === 'single' && fitting.length > 1 ? [fitting.reduce(largest)] : fitting;
         const bonusMult = stacking === 'add'
           ? applied.reduce((m, b) => m + BONUS_KINDS[b.kind].mult - 1, 1)

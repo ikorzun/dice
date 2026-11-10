@@ -27,13 +27,8 @@ export const CHARMS = Object.freeze({
   spare_knuckle: Object.freeze({ name: 'SPARE KNUCKLE', rule: 'ONE MORE REROLL EACH LEVEL', price: 15, serves: [], habit: 'rerolls' }),
 });
 
-export const CARD_PRICE = Object.freeze({ x2_any: 4, x3_straight: 6, x3_pairs: 4, x3_trips: 5, joker: 6, refund: 4, x3_kinds: 5, x3_small: 4, x4_any: 9 });
+export const CARD_PRICE = Object.freeze({ x2_any: 4, x3_straight: 6, x3_pairs: 4, x3_trips: 5, joker: 6, refund: 4, x3_kinds: 5, x3_small: 4, x4_any: 9, x3_sixes: 5 });
 export const UP_PRICE = Object.freeze({ pair: 6, two_pairs: 7, small_straight: 7, three_kind: 7, full_house: 8, four_kind: 8, straight: 10, five_kind: 10 });
-
-// New cards for far levels (questionnaire В6): a medal first won on this device adds a card to the shop for good.
-// They never land on a board: only the shop sells them, so the layouts and the curve stay the same for everyone.
-export const UNLOCKS = Object.freeze([Object.freeze({ medal: 5, kind: 'x3_kinds' }), Object.freeze({ medal: 10, kind: 'x3_small' }), Object.freeze({ medal: 15, kind: 'x4_any' })]);
-export const unlockedCards = (medal) => UNLOCKS.filter((u) => u.medal <= medal).map((u) => u.kind);
 
 // The act's second and fourth levels: 2, 4, 7, 9, 12…
 export const doorAfter = (levelIndex) => (levelIndex - 1) % 5 === 1 || (levelIndex - 1) % 5 === 3;
@@ -45,7 +40,7 @@ export function levelBells(game) {
     clear: 2,
     hand: 2 * game.handsLeft,
     reroll: game.rerollsLeft,
-    boss: game.level.boss ? 3 : 0,
+    boss: game.level.boss ? (BOSSES[game.level.boss].golden ? 8 : 3) : 0, // a golden keeper pays 5 more
     charm: (game.level.charms || []).includes('bellwether') ? 2 : 0,
   };
   return { ...parts, total: Object.values(parts).reduce((a, b) => a + b, 0) };
@@ -84,13 +79,13 @@ function draw(rng, items, weightOf) {
 const cardCats = (kind) => (kind === 'joker' || kind === 'refund' ? ALL : ALL.filter((c) => BONUS_KINDS[kind].fits(c)));
 
 // The shelf after `levelIndex`, seeded: the same run and the same choices bring the same goods. run: { ups, charms };
-// plays and habits ({ rerolls, holds, cards }, 0 to 1): how the player has played so far; medal: the device's furthest.
-export function shopStock({ runSeed, levelIndex, run, plays = [], habits = {}, medal = 0 }) {
+// plays and habits ({ rerolls, holds, cards }, 0 to 1): how the player has played so far.
+export function shopStock({ runSeed, levelIndex, run, plays = [], habits = {} }) {
   const rng = createRng(`${runSeed}/A${levelIndex}/shop`);
   const fit = fitWeights({ plays, ups: run.ups }, levelIndex);
   const sum = (cats) => cats.reduce((s, c) => s + fit[c].weight, 0) / Math.max(1, cats.length);
   const leaned = (cats) => cats.slice().sort((a, b) => fit[b].weight - fit[a].weight)[0];
-  const kind = draw(rng, [...unlockedKinds(levelIndex), ...unlockedCards(medal)], (k) => sum(cardCats(k)));
+  const kind = draw(rng, unlockedKinds(levelIndex), (k) => sum(cardCats(k)));
   const category = draw(rng, ALL, (c) => fit[c].weight);
   const free = Object.keys(CHARMS).filter((id) => !(run.charms || []).includes(id));
   const charmWeight = (id) => 4 + (CHARMS[id].serves.length ? sum(CHARMS[id].serves) : 0) + 12 * (habits[CHARMS[id].habit] || 0);
@@ -100,7 +95,7 @@ export function shopStock({ runSeed, levelIndex, run, plays = [], habits = {}, m
   const habitTag = (h) => ({ rerolls: 'YOU SPEND REROLLS', holds: 'YOU HOLD DICE', cards: 'YOU KEEP CARDS' })[h];
   const charmTag = (id) => {
     const c = CHARMS[id];
-    if (counters.includes(id)) return 'GOOD AGAINST BOSS';
+    if (counters.includes(id)) return 'GOOD AGAINST KEEPER';
     if (c.habit && (habits[c.habit] || 0) >= 0.4) return habitTag(c.habit);
     return 'WILD OFFER'; // a charm names no hand, so a tag naming one would be a riddle over it (its weight still leans)
   };

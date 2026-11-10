@@ -11,8 +11,8 @@
 // player's hand, never quite on the grid; and one stone hall that every instrument sits in. The objects share it: wooden dice
 // on an oak table, a parchment card, a book's brass clasp, a chest's latch, a torch, a copper coin and a wooden bird whistle.
 
-export const SOUNDS = ['roll', 'hold', 'flip', 'on', 'off', 'lute-c4', 'lute-g4', 'lute-a4', 'lute-b4', 'lute-c5', 'lute-d5', 'mult', 'crack', 'medal', 'fire', 'burn', 'drop', 'refund', 'bird', 'win', 'tally', 'stop', 'paper', 'lute-mute', 'chisel', 'snip', 'bellows', 'flip-hush', 'thud'];
-const VOLUME = { roll: 0.4, hold: 0.6, flip: 0.55, on: 0.7, off: 0.4, 'lute-c4': 0.8, 'lute-g4': 0.8, 'lute-a4': 0.8, 'lute-b4': 0.8, 'lute-c5': 0.8, 'lute-d5': 0.8, mult: 0.55, crack: 0.45, medal: 0.4, fire: 0.6, burn: 0.45, drop: 0.4, refund: 0.5, bird: 0.35, win: 0.8, tally: 0.6, stop: 0.7, paper: 0.5, 'lute-mute': 0.45, chisel: 0.55, snip: 0.22, bellows: 0.6, 'flip-hush': 0.45, thud: 0.35 };
+export const SOUNDS = ['roll', 'hold', 'flip', 'on', 'off', 'lute-c4', 'lute-g4', 'lute-a4', 'lute-b4', 'lute-c5', 'lute-d5', 'mult', 'crack', 'fire', 'burn', 'drop', 'refund', 'bird', 'win', 'tally', 'stop', 'paper', 'lute-mute', 'chisel', 'snip', 'bellows', 'thud'];
+const VOLUME = { roll: 0.4, hold: 0.6, flip: 0.55, on: 0.7, off: 0.4, 'lute-c4': 0.8, 'lute-g4': 0.8, 'lute-a4': 0.8, 'lute-b4': 0.8, 'lute-c5': 0.8, 'lute-d5': 0.8, mult: 0.55, crack: 0.45, fire: 0.6, burn: 0.45, drop: 0.4, refund: 0.5, bird: 0.35, win: 0.8, tally: 0.6, stop: 0.7, paper: 0.5, 'lute-mute': 0.45, chisel: 0.55, snip: 0.22, bellows: 0.6, thud: 0.35 };
 
 export const RING_STEP = 1 / 12; // s
 const LADDER = [-5, -3, -1, 2, 4, 7, 9]; // semitones from C5: G major pentatonic, which rests on the chord's C

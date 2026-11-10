@@ -2,5 +2,5 @@
 // UP_SHARES: each combination's share of the greedy bot's points on the tier levels. UP_LIFT[L]: the mean score
 // lift at level L of a sensible upgrader who has won every level before it (index 0 unused).
 
-export const UP_SHARES = Object.freeze({ pair: 0, two_pairs: 0.0705, small_straight: 0.0004, three_kind: 0.0007, full_house: 0.2536, straight: 0.4741, four_kind: 0.0316, five_kind: 0.169 });
-export const UP_LIFT = Object.freeze([1, 1, 1.042, 1.085, 1.128, 1.17, 1.213, 1.255, 1.298, 1.34, 1.383, 1.426, 1.468, 1.51, 1.553, 1.596, 1.639, 1.681, 1.724, 1.767, 1.809, 1.852, 1.895, 1.938, 1.98, 2.023, 2.065, 2.108, 2.151, 2.193, 2.236, 2.278, 2.321, 2.363, 2.406, 2.448, 2.491, 2.533, 2.576, 2.618, 2.661, 2.703, 2.746, 2.789, 2.832, 2.874, 2.917, 2.96, 3.003, 3.045, 3.088, 3.13, 3.173, 3.215, 3.257, 3.3, 3.343, 3.386, 3.428, 3.471, 3.514]);
+export const UP_SHARES = Object.freeze({ pair: 0, two_pairs: 0.0717, small_straight: 0.001, three_kind: 0.001, full_house: 0.2643, straight: 0.4549, four_kind: 0.0427, five_kind: 0.1645 });
+export const UP_LIFT = Object.freeze([1, 1, 1.042, 1.085, 1.127, 1.169, 1.212, 1.254, 1.296, 1.338, 1.381, 1.424, 1.466, 1.508, 1.551, 1.593, 1.635, 1.678, 1.721, 1.763, 1.805, 1.848, 1.89, 1.933, 1.975, 2.017, 2.059, 2.102, 2.145, 2.187, 2.229, 2.272, 2.314, 2.356, 2.398, 2.44, 2.483, 2.525, 2.567, 2.61, 2.652, 2.694, 2.737, 2.78, 2.822, 2.865, 2.907, 2.95, 2.992, 3.034, 3.077, 3.119, 3.161, 3.203, 3.246, 3.288, 3.331, 3.373, 3.416, 3.458, 3.5]);

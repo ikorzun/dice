@@ -4,13 +4,14 @@
 // only on the multiset of faces and the kinds of the bonuses that are on, so the greedy bot
 // scores a board by its face counts and memoizes; its lookahead is exact, not sampled.
 
-import { createAutoGame, toggleHold, toggleBonus, reroll, currentHand, playHand, diceCells, isBonus, bonusKind, bankOpen, handOptionsOf, awake, BANK } from './auto.js';
+import { createAutoGame, toggleHold, toggleBonus, reroll, currentHand, playHand, diceCells, isBonus, bonusKind, bankOpen, handOptionsOf, awake, holdCap, BANK } from './auto.js';
 import { bestHand } from './hands.js';
 
-// Release unwanted holds first, then hold the rest (same shape as bot5.setHolds).
+// Release unwanted holds first, then hold the rest (same shape as bot5.setHolds); under LOOSE GRIP the first three only.
 export function setHolds(game, keep) {
-  for (const i of diceCells(game)) if (game.held[i] && !keep.has(i)) game = toggleHold(game, i).state;
-  for (const i of diceCells(game)) if (!game.held[i] && keep.has(i)) game = toggleHold(game, i).state;
+  const wanted = new Set([...keep].slice(0, holdCap(game)));
+  for (const i of diceCells(game)) if (game.held[i] && !wanted.has(i)) game = toggleHold(game, i).state;
+  for (const i of diceCells(game)) if (!game.held[i] && wanted.has(i)) game = toggleHold(game, i).state;
   return game;
 }
 
@@ -151,7 +152,8 @@ export function playGreedyBot3(level, { rng, config = {}, hand = null, margin = 
       const standing = now.total;
       // on pace for the target (a hand worth its share of what is left), it keeps the hand's dice and only adds to them
       const onPace = standing >= (game.level.target - game.score) / game.handsLeft;
-      const keep = onPace ? cells.reduce((mask, c, k) => (now.cells.includes(c) ? mask | (1 << k) : mask), 0) : 0;
+      const cap = holdCap(game); // LOOSE GRIP: a hand larger than the cap cannot be kept whole
+      const keep = onPace && now.cells.length <= cap ? cells.reduce((mask, c, k) => (now.cells.includes(c) ? mask | (1 << k) : mask), 0) : 0;
       let bestMask = -1;
       let bestEst = standing + margin;
       for (let m = 0; m < (1 << cells.length) - 1; m++) {
@@ -159,6 +161,7 @@ export function playGreedyBot3(level, { rng, config = {}, hand = null, margin = 
         let key = 0;
         let held = 0;
         for (let k = 0; k < cells.length; k++) if ((m >> k) & 1) { key += FACE_KEY[game.faces[cells[k]]]; held++; }
+        if (held > cap) continue;
         const est = ctx.expected(key, cells.length - held);
         if (est > bestEst) { bestEst = est; bestMask = m; }
       }

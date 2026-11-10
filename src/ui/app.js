@@ -26,25 +26,24 @@ import {
   playHand as autoPlayHand, currentHand as autoCurrentHand, hintFor as autoHintFor, markHintUsed as autoMarkHintUsed,
   diceCells as autoDiceCells, canReroll as autoCanReroll, snapshotGame as autoSnapshot, restoreGame as autoRestore,
   isDie as autoIsDie, heldCount as autoHeldCount, rerollTargets as autoRerollTargets, heldHand as autoHeldHand,
-  carryOver as autoCarryOver, awake as autoAwake, BANK, BANK_SIZE, MIN_DICE,
+  carryOver as autoCarryOver, awake as autoAwake, BANK, BANK_SIZE,
 } from '../engine/auto.js';
 import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from '../engine/levels.js';
 import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
 import { generateRunLevel, runTarget, RUN3_VERSION } from '../engine/run3.js';
 import { upgradeOffer, withUpgrade } from '../engine/upgrades3.js';
-import { CHARMS, CHARM_SLOTS, UNLOCKS, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood } from '../engine/shop3.js';
+import { CHARMS, CHARM_SLOTS, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood } from '../engine/shop3.js';
 import { BOSSES, bossOf } from '../engine/bosses3.js';
 import { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } from './dice3d.js';
 import { createFire } from './fire.js';
 import { RING_STEP, setupSound, setSound, setHostSilent, sfx, hush, ringCount, ringChord, ringNote } from './sound.js';
-import { setupPuppets, animateArt, cheer, WIN_CARD, WIN_CARD_PAIR, PAIR_SKULL_START, cardRock } from './puppets.js';
 import { breakLine, holdLine } from './shards.js';
 import { nextUp, afterClear, bossRule, bellsPaid, BELLS_RULE } from './acts.js';
 import { withRun, submitRun, fetchBoard, hasBoard, setupBoard } from './board.js';
 import { setupPlatform, load, save, followHostAudio, gameReady, tellLevel, tell, interstitial } from './platform.js';
 
 const APP_VERSION = '0.2.0';
-const STORAGE_KEY = 'dice-snake.v2';
+const STORAGE_KEY = 'dicefool-portals.v1'; // the portals redesign starts clean: the old game's saves name keepers it no longer has
 const LOOK_KEY = 'dice-snake.look';
 const DICE3D_KEY = 'dice-snake.dice3d';
 const SOUND_KEY = 'dice-snake.sound';
@@ -60,7 +59,6 @@ const LONG_PRESS_MS = 450; // a long press on a bonus die opens its description 
 const CORE_INSET = 0.18; // path hit region = central 64% of a cell (no corner cutting)
 const LOG_LIMIT = 4000;
 const SVG_NS = 'http://www.w3.org/2000/svg';
-const MEDAL_STEP = 5; // a medal for clearing every fifth level of a run (owner's questionnaire В6, 04.11.2026)
 const FIRE_HANDS = new Set(['four_kind', 'five_kind', 'straight']); // ×6 and ×8: their dice burn when played
 
 const reduceMotion = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -280,10 +278,10 @@ const MODES = {
         'Dice, bonus dice and blocks on a 3×3 board. Positions do not matter: PLAY scores the best poker hand among all the dice, or the one you pick: when the dice you hold make a combination, the best of them plays. The counter shows the hand and its points; the board does not mark its dice.',
         'PLAY HAND scores it. Then every die burns and is thrown anew, held or not.',
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
-        'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back). They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus makes way for a new die, or for a bonus waiting above the board.',
+        'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back); deeper in the run ×3 KINDS, ×3 SMALL, ×4 LAST HAND and ×3 TWO SIXES. They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus makes way for a new die, or for a bonus waiting above the board.',
         'Reach the target and the level ends at once; a level has three hands at most. Miss it and the run is over. There is no last level: each asks for more.',
         'A cleared level pays bells: 2, plus 2 for each hand and 1 for each reroll left unused. A shop opens after the second and fourth level of each act: one card, one +1 and one charm. Charms last for the run, three at most.',
-        'Every fifth level is a boss with one rule, named in the shop before it. Beat it for a medal and 3 more bells.',
+        'Every fifth level is a keeper with one rule, named in the shop before it. Beat him for 3 more bells, a golden one for 8.',
         'Bonuses you did not play on a won level are kept for the next level of the run (three at most, the rest burn). They come in on its first reroll, each in place of a die being rerolled while six dice stay on the board; the rest wait above the board from then on: tap one there to switch it on like a card on the board.',
       ],
       scoreTitle: 'SCORING · THE HAND IS THE DICE OF THE COMBINATION',
@@ -324,10 +322,8 @@ function freshModeState(mode) {
     bank: [], // Auto Hand: the bonus kinds kept from won levels for the next ones (owner, 02.11.2026)
     ups: {}, // Auto Hand: the run's upgrades of the combinations, +1 to the multiplier each (owner, 02.11.2026)
     runScore: 0, // Auto Hand: the points of this run's levels; ties of the record break on them (questionnaire В3)
-    runMedals: [], // Auto Hand: this run's medals, { level, fresh } (fresh: first cleared on this device)
     best: null, // Auto Hand: the record on this device, { level, score }: the furthest level a run got to, then points
-    medal: 0, // Auto Hand: the furthest medal level ever cleared (5, 10, 15…)
-    lastEnd: null, // Auto Hand: what the last level end brought (medal, record), for its summary after a reload
+    lastEnd: null, // Auto Hand: what the last level end brought (bells, record), for its summary after a reload
     bells: 0, // Auto Hand: the run's money
     charms: [], // Auto Hand: the run's charms, three at most
     shop: null, // Auto Hand: the open shop, { level, stock }, so a reload finds it as it was
@@ -441,9 +437,7 @@ function serializeMode(st, engine) {
     bank: st.bank,
     ups: st.ups,
     runScore: st.runScore,
-    runMedals: st.runMedals,
     best: st.best,
-    medal: st.medal,
     lastEnd: st.lastEnd,
     bells: st.bells,
     charms: st.charms,
@@ -486,9 +480,7 @@ function hydrateMode(id, saved) {
   st.bank = Array.isArray(saved.bank) ? saved.bank.filter((k) => BONUS_KINDS[k]).slice(0, 3) : [];
   st.ups = saved.ups && typeof saved.ups === 'object' ? Object.fromEntries(Object.entries(saved.ups).filter(([c, n]) => AUTO_MULT[c] && Number.isInteger(n) && n > 0)) : {};
   st.runScore = Number.isFinite(saved.runScore) ? saved.runScore : 0;
-  st.runMedals = Array.isArray(saved.runMedals) ? saved.runMedals.filter((m) => m && Number.isInteger(m.level)) : [];
   st.best = saved.best && Number.isInteger(saved.best.level) && Number.isFinite(saved.best.score) ? { level: saved.best.level, score: saved.best.score } : null;
-  st.medal = Number.isInteger(saved.medal) ? saved.medal : 0;
   st.lastEnd = saved.lastEnd && typeof saved.lastEnd === 'object' ? saved.lastEnd : null;
   st.bells = Number.isInteger(saved.bells) ? saved.bells : 0;
   st.charms = Array.isArray(saved.charms) ? saved.charms.filter((c) => CHARMS[c]).slice(0, CHARM_SLOTS) : [];
@@ -547,7 +539,7 @@ function startGame(level, attempt) {
   });
   $('levelEnd').hidden = true;
   if (level.boss) showBossCard(level); // first: the deal waits for it
-  if (level.boss === 'usher' && !app.hostPaused) sfx('snip', { at: 0.3 }); // his scissors cut the third ticket (under an ad, when it ends)
+  if (level.boss && BOSSES[level.boss].hands && !app.hostPaused) sfx('snip', { at: 0.3 }); // scissors cut the third ticket (under an ad, when it ends)
   render();
   persist(true);
   tellLevel('level_started', level.levelIndex);
@@ -586,8 +578,8 @@ function finishLevel(board) {
   showLevelEnd();
 }
 
-// The run's points, medals and record (owner, 03.11.2026: a missed target ends the run; questionnaire В3: the
-// record is the furthest level, ties broken by points; В6: a medal for every fifth level cleared). `lastEnd`
+// The run's points and record (owner, 03.11.2026: a missed target ends the run; questionnaire В3: the record is the
+// furthest level, ties broken by points; the medals left with the portals redesign, 10.11.2026). `lastEnd`
 // keeps what this level end brought for its summary, which a reload shows again; a lost run's also keeps the board
 // as its last hand was played (the engine has already refilled it), which the run's end shows (owner's pick В12 A).
 function tallyRun(st, g, won, board) {
@@ -599,16 +591,9 @@ function tallyRun(st, g, won, board) {
   if (won) {
     end.bells = levelBells(g);
     st.bells += end.bells.total;
-    if (level % MEDAL_STEP === 0) {
-      end.medal = level;
-      end.fresh = level > st.medal;
-      if (end.fresh) end.unlock = (UNLOCKS.find((u) => u.medal === level) || {}).kind;
-      st.medal = Math.max(st.medal, level);
-      st.runMedals = [...st.runMedals, { level, fresh: end.fresh }];
-    }
     end.passedBest = !!st.best && level === st.best.level; // from here on the run goes further than any before
     if (g.level.boss) tell('boss_defeated');
-    if (end.medal || end.passedBest) tell('player_got_achievement');
+    if (end.passedBest) tell('player_got_achievement');
   } else {
     end.newBest = !st.best || level > st.best.level || (level === st.best.level && st.runScore > st.best.score);
     if (end.newBest) st.best = { level, score: st.runScore };
@@ -713,24 +698,18 @@ function showLevelEnd() {
 // A played hand's sum, multiplier and bonus as the count shows them: 24 × 6 ×2.
 const handFormula = (h) => `${h.formula || h.points}${h.multiplier > 1 ? ` ×${h.multiplier}` : ''}`;
 
-// The run's marks on the level's summary: on a clear, a medal every fifth level and the record passed; when the
+// The run's marks on the level's summary: on a clear, the record passed; when the
 // run is over, the level it got to, why it ended (digest rules 7 and 17: the player sees the cause), its points,
-// the record and its medals.
+// the record.
 function showRunEnd(st, g, won, over) {
   const end = st.lastEnd && st.lastEnd.seed === g.level.seed ? st.lastEnd : {};
-  // a cleared level's rail (owner's pick В11 A): the medal of every fifth level, made of the threshold's shards, and
-  // the record passed; it keeps its place when there is neither
+  // a cleared level's rail (owner's pick В11 A): the record passed; it keeps its place when there is none
   const cleared = M().id === 'auto' && won;
   $('endBadges').hidden = !cleared;
-  $('endMedal').hidden = !(cleared && end.medal);
-  if (cleared && end.medal) {
-    $('endMedalDisc').textContent = String(end.medal);
-    $('endMedalText').textContent = end.fresh ? 'NEW MEDAL' : 'MEDAL';
-  }
   $('endBest').hidden = !(cleared && end.passedBest);
   // a lost run (owner's pick В12 A «Честный чек»): the level and the rerolls left unused, 0 too; the board as its last
   // hand was played; the run's points, the record with the gap to it said plainly (digest rule 18: a near miss is a
-  // fact, not a hook), a small BEST badge and no celebration for a new one (rule 27), the run's medals
+  // fact, not a hook), a small BEST badge and no celebration for a new one (rule 27)
   for (const id of ['runReached', 'runSum']) $(id).hidden = !over;
   $('endBoard').hidden = !(over && end.board); // a save from before the board was kept shows the receipt alone
   if (!over) return;
@@ -749,11 +728,6 @@ function showRunEnd(st, g, won, over) {
   $('runStats').classList.toggle('two', !!end.newBest); // the record with its badge takes the gap's line
   $('runGap').textContent = gap === 1 || gap === 2 ? `${gap} LEVEL${gap > 1 ? 'S' : ''} TO BEST`
     : gap === 0 ? `BEST LEVEL TIED${best.score > st.runScore ? ` · ${best.score - st.runScore} POINTS TO BEST` : ''}` : '';
-  // two medals fit beside the strip; past that the newest and how many
-  const medals = st.runMedals;
-  $('medals').closest('.medal-group').hidden = !medals.length;
-  $('medals').innerHTML = medals.length > 2 ? `<li class="medal">${medals[medals.length - 1].level}</li><li class="none">×${medals.length}</li>`
-      : medals.map((m) => `<li class="medal">${m.level}</li>`).join('');
 }
 
 function onNext() {
@@ -764,13 +738,12 @@ function onNext() {
   if (st.pendingTier != null) st.tier = st.pendingTier;
   st.levelIndex += 1;
   if (app.modeId === 'auto' && st.game.phase === 'lost') {
-    // a missed target ends the run (owner, 03.11.2026): a new one starts at level 1; the record and medals stay
+    // a missed target ends the run (owner, 03.11.2026): a new one starts at level 1; the record stays
     st.runSeed = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     st.levelIndex = 1;
     st.bank = []; // the bank lives for one run
     st.ups = {}; // and so do the upgrades
     st.runScore = 0;
-    st.runMedals = [];
     st.bells = 0;
     st.charms = [];
     st.habit = { rerolls: 0, holds: 0, levels: 0 };
@@ -816,7 +789,7 @@ function switchMode(id, { silent = false } = {}) {
   if (!st.game) newLevel();
   else if (st.game.phase !== 'playing') {
     render();
-    // a reload during the last hand's count left the level unfinished: count it now (record, medal, bank)
+    // a reload during the last hand's count left the level unfinished: count it now (record, bank)
     if (id === 'auto' && !(st.lastEnd && st.lastEnd.seed === st.game.level.seed)) finishLevel();
     else if (st.shop) openShop();
     else showLevelEnd();
@@ -1090,7 +1063,6 @@ function renderCell(i) {
   cell.className = ['cell', ...transient].join(' ');
   cell.querySelector('.x2').textContent = '×2';
   const special = M().id === 'auto' && g.cells && g.cells[i];
-  animateArt(cell.querySelector('.art'), special && special.type === 'bonus' ? special.kind : null); // a living character
   if (M().id === 'auto' && !engine.isOrdinary(g, i)) {
     renderAutoSpecial(g, i, cell, tag);
     return;
@@ -1179,7 +1151,7 @@ function renderAutoSpecial(g, i, cell, tag) {
 // Bonus dice that are off but would multiply the hand on the board (the joker fits any hand).
 function autoIdleBonuses(g, h) {
   if (!h) return [];
-  return g.cells.map((c, i) => i).filter((i) => g.cells[i].type === 'bonus' && g.off[i] && autoAwake(g, g.cells[i].kind) && (BONUS_KINDS[g.cells[i].kind].wild || BONUS_KINDS[g.cells[i].kind].fits(h.category)));
+  return g.cells.map((c, i) => i).filter((i) => g.cells[i].type === 'bonus' && g.off[i] && autoAwake(g, g.cells[i].kind) && (BONUS_KINDS[g.cells[i].kind].wild || BONUS_KINDS[g.cells[i].kind].fits(h.category, h.faces)));
 }
 
 function renderHud() {
@@ -1191,16 +1163,16 @@ function renderHud() {
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
 }
 
-// A boss's level opens with his card, which stands over the dice: until it goes, or a tap sends it away, nothing plays
+// A keeper's level opens with his card, which stands over the dice: until it goes, or a tap sends it away, nothing plays
 // by accident under it, and the cards wait for it (dealCard). Afterwards the rule is in the numbers, and in How.
 const BOSS_CARD_MS = 2000;
 function showBossCard(level) {
   const card = $('bossCard');
   const boss = BOSSES[level.boss];
-  // the player's charms that answer him are named, so SHORTWIND's TWO REROLLS beside REROLL•3 is no contradiction
+  // the player's charms that answer him are named, so THE CONVICT's TWO REROLLS beside REROLL•3 is no contradiction
   const helps = (S().charms || []).filter((id) => boss.counters.includes(id)).map((id) => CHARMS[id].name);
   const answers = helps.length ? `<small class="answer">HELPED BY ${helps.join(', ')}</small>` : '';
-  card.innerHTML = `<div><i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><small>BOSS</small><b>${boss.name}</b><em>${boss.rule}</em>${answers}</span></div>`;
+  card.innerHTML = `<div><i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><small>${boss.golden ? 'GOLDEN KEEPER' : 'KEEPER'}</small><b>${boss.name}</b><em>${boss.rule}</em>${answers}</span></div>`;
   card.hidden = false;
   card.classList.remove('show');
   void card.offsetWidth; // the animation starts over
@@ -1225,7 +1197,7 @@ function openShop() {
   if (!st.shop) {
     const h = st.habit;
     const habits = { rerolls: Math.min(1, h.rerolls / (3 * Math.max(1, h.levels))), holds: Math.min(1, h.holds / (6 * Math.max(1, h.levels))), cards: st.bank.length / BANK_SIZE };
-    st.shop = { level, stock: shopStock({ runSeed: st.runSeed, levelIndex: level, run: runOf(st), plays: st.plays, habits, medal: st.medal }) };
+    st.shop = { level, stock: shopStock({ runSeed: st.runSeed, levelIndex: level, run: runOf(st), plays: st.plays, habits }) };
     logEvent('shop_open', { level, bells: st.bells, stock: st.shop.stock });
     tell('shop_opened');
     persist(true);
@@ -1277,7 +1249,7 @@ function renderShop() {
   }).join('');
   const bossId = bossNext(level) ? bossOf(st.runSeed, level + 1) : null;
   $('shopBoss').hidden = !bossId;
-  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><b>${BOSSES[bossId].name}</b><small>BOSS NEXT · ${BOSSES[bossId].rule}</small></span>` : '';
+  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><b>${BOSSES[bossId].name}</b><small>KEEPER NEXT · ${BOSSES[bossId].rule}</small></span>` : '';
   $('shopList').innerHTML = stock.map((g, i) => goodHtml(st, g, i)).join('');
   // one line, for the moment it matters: how to buy (once), what to replace, what a tapped charm does
   $('shopHint').textContent = app.shopNote || (place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'CHARM'}` : st.tips.firstBuy ? '' : 'TAP AN OFFER, THEN TAP BUY');
@@ -1661,15 +1633,16 @@ function sparkBurst(count, gold) {
 
 // The hand rings die by die in reading order (В8); stronger hands ring richer and, when they win, chord fuller.
 const handRich = (hand) => (FIRE_HANDS.has(hand.category) ? 2 : hand.category === 'pair' ? 0 : 1);
-// A keeper's rule is heard in the count (LORE §2.4): LADY LOWBELL damps a six's note, MASON GRUDGE's chisel and THE CROOKED
-// JUDGE's dull bowl come after the last note.
+// A keeper's rule is heard in the count (LORE §2.4): a face that adds nothing rings damped, a toll's chisel and a halved
+// straight's dull bowl come after the last note.
 function ringHand(hand) {
   const order = [...hand.cells, ...(hand.jokerCells || [])]; // hand.faces follows this order, the jokers' last
   const cells = [...order].sort((a, b) => a - b);
-  const boss = S().game.level.boss;
-  ringCount(cells.length, handRich(hand), boss === 'lowbell' ? cells.map((i) => hand.faces[order.indexOf(i)] === 6) : []);
-  if (boss === 'mason') sfx('chisel', { at: cells.length * RING_STEP });
-  if (boss === 'judge' && hand.category === 'straight') sfx('thud', { at: cells.length * RING_STEP });
+  const k = BOSSES[S().game.level.boss] || {};
+  const nothing = (f) => (k.sixes === 0 && f === 6) || (k.ones === 0 && f === 1);
+  ringCount(cells.length, handRich(hand), cells.map((i) => nothing(hand.faces[order.indexOf(i)])));
+  if (k.sumAdd < 0) sfx('chisel', { at: cells.length * RING_STEP });
+  if (k.half && k.half.includes(hand.category)) sfx('thud', { at: cells.length * RING_STEP });
   return cells;
 }
 
@@ -1731,8 +1704,7 @@ function armBonus(source, cell) {
   if (app.busy || g.phase !== 'playing') return;
   const r = E().toggleBonus(g, cell); // Auto Hand switches the tapped bonus die off/on; Poker 5 and Snake ignore the cell
   if (!r.ok) {
-    if (r.code === 'HUSHED') sfx('flip-hush'); // BROTHER HUSH: the card turns, muffled, and stays
-    toast(r.message, r.code === 'NOT_YET' || r.code === 'HUSHED' ? 'hint' : 'bad');
+    toast(r.message, r.code === 'NOT_YET' ? 'hint' : 'bad');
     return;
   }
   st.game = r.state;
@@ -1824,6 +1796,7 @@ const BONUS_WHAT = {
   x3_kinds: 'Triples four or five of a kind.',
   x3_small: 'Triples a small straight.',
   x4_any: 'Multiplies the last hand of a level by four.',
+  x3_sixes: 'Triples a hand with two sixes or more.',
   joker: 'Becomes the face your hand needs most.',
   refund: 'Play it and get one reroll back.',
 };
@@ -1833,7 +1806,6 @@ function showBonusSheet(kind) {
   S().tips[`sheet:${kind}`] = true;
   app.sheetAt = performance.now(); // the finger that opened it lifts over the backdrop: that is not a close
   $('bonusSheetTile').innerHTML = guideTile(kind, false); // as it lies on the board: off, until tapped
-  animateTiles($('bonusSheetTile'));
   $('bonusSheetName').textContent = BONUS_KINDS[kind].label; // the multiplier is on the card's sticker
   $('bonusSheetWhat').textContent = BONUS_WHAT[kind];
   $('bonusSheet').hidden = false;
@@ -1901,8 +1873,7 @@ async function doReroll(source) {
   renderControls();
   haptic(8);
   sfx('roll');
-  if (g.level.boss === 'shortwind') sfx('bellows'); // SIR SHORTWIND's bellows breathe out
-  if (g.level.boss === 'hush' && !g.stats.rerollsUsed && g.bank.some((b) => !b.used && !b.placed) && autoDiceCells(g).length > MIN_DICE) sfx('flip-hush', { at: 0.12 }); // the kept cards would come in now, and do not
+  if (g.level.boss && BOSSES[g.level.boss].rerolls) sfx('bellows'); // a keeper who took a reroll: the bellows breathe out
   // the kept cards come in on the level's first reroll, each in place of a die (owner, 03.11.2026)
   for (const { cell, from } of r.placed || []) { app.launching.add(from); els.cells[cell].classList.add('arriving'); renderCell(cell); }
   (r.placed || []).forEach(({ cell, from }, n) => flyFromBank(cell, from, { delay: 120 * n }));
@@ -2072,17 +2043,19 @@ async function attemptBank(path, source) {
 // ---------- the won level's moment ----------
 // Owner's pick В11 A «Пробитый порог» (04.11.2026), built to GPT's production spec
 // (art/ai/2026-11-04-win-production/design-2.json). PLAY counts at once over the board while THRESHOLD runs down to
-// 0; each card the hand used plays its character's victory act, and a multiplying card sends its sticker into the
-// count; at 0 the line under THRESHOLD ruptures across the counter into yellow shards (on a medal level five of them
-// fly into the medal); black spreads from the rupture like an ink blot and the cleared screen rises on pure black, the
-// pick tappable after about 1.5 s. Dice never dim, and nothing else moves meanwhile (GPT's review of the build). A tap
-// skips to the pick. The record, the medal and the bank are counted first, so a reload in the middle shows the cleared
+// 0; each card the hand used rises and tilts, and a multiplying card sends its sticker into the count; at 0 the line
+// under THRESHOLD ruptures across the counter into yellow shards; black spreads from the rupture like an ink blot and
+// the cleared screen rises on pure black, the pick tappable after about 1.5 s. Dice never dim, and nothing else moves meanwhile (GPT's review of the build). A tap
+// skips to the pick. The record and the bank are counted first, so a reload in the middle shows the cleared
 // screen. Times are ms from PLAY.
 const WIN = { lift: 80, chip: 167, step: 83, snap: 500, cover: 290, black: 860, title: 840, badges: 940, act: 960, pick: 980, choices: 1040, ready: 1480 };
 const ACT_MS = 16000 / 12; // a victory act: sixteen held drawings, twelve a second
 
-// The card's own motion with its character's act (puppets.js WIN_CARD), one held pose per drawing.
-function cardFrames(kind, sc, keys = WIN_CARD[kind]) {
+// A card the winning hand used rises and tilts, then lands: keys at drawings 1..16 of [drawing, dx px, dy px, rotate°,
+// scale x, scale y] at the phone's card size, held between drawings (the portraits are still pictures since the portals
+// redesign; the card keeps its own motion).
+const CARD_WIN = [[1, 0, 0, 0, 1, 1], [6, 0, -9, -1.5, 1.06, 1.06], [7, 0, -9, -1.5, 1.06, 1.06], [16, 0, 0, 0, 1, 1]];
+function cardFrames(sc, keys = CARD_WIN) {
   const frames = [];
   for (let d = 1; d <= 16; d++) {
     let k = 0;
@@ -2091,7 +2064,7 @@ function cardFrames(kind, sc, keys = WIN_CARD[kind]) {
     const [d1, ...b] = keys[k + 1];
     const f = Math.min(1, Math.max(0, (d - d0) / (d1 - d0)));
     const [dx, dy, rot, sx, sy] = a.map((v, j) => v + (b[j] - v) * f);
-    frames.push({ transform: `translate(${(dx * sc).toFixed(2)}px, ${(dy * sc).toFixed(2)}px) rotate(${(rot + cardRock(kind, d)).toFixed(2)}deg) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`, offset: (d - 1) / 16, easing: 'steps(1, end)' });
+    frames.push({ transform: `translate(${(dx * sc).toFixed(2)}px, ${(dy * sc).toFixed(2)}px) rotate(${rot.toFixed(2)}deg) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`, offset: (d - 1) / 16, easing: 'steps(1, end)' });
   }
   frames.push({ transform: 'none', offset: 1 });
   return frames;
@@ -2117,10 +2090,9 @@ function playWin(hand, g0) {
   const box = (el) => el.getBoundingClientRect();
   app.endPlaying = true;
   for (const cell of els.cells) if (cell.waiting) clearTimeout(cell.dealTimer); // a card still face down waits
-  finishLevel(); // the record, the medal and the bank first: a reload in the middle shows the cleared screen
+  finishLevel(); // the record and the bank first: a reload in the middle shows the cleared screen
   const end = $('levelEnd');
   end.classList.add('waiting');
-  const last = st.lastEnd || {};
   const wide = document.body.classList.contains('wide');
   const s = els.cells[0].offsetWidth / 118.7; // GPT's pixels are the phone's at k = 1.0229
   const u = wide ? s / 1.466 : s; // its desktop pixels are at k = 1, where the board is the phone's × 1.5
@@ -2141,25 +2113,14 @@ function playWin(hand, g0) {
   countUp($('target'), remaining(g0.score, g0), 0, 0, 500);
   setPreview(`${hand.label} +${hand.total}`, 'good');
 
-  // each card the hand used: its character's victory act, the card moving with it, one after another. The knight
-  // (×2 ANY HAND) and the skull (JOKER) in one winning hand play their paired act instead (LORE §6 point 8, the owner's
-  // pick A of 10.11.2026): he dips his tulip to the skull, it answers PAIR_SKULL_START ms later, each card leans to the
-  // other. `toward` is 1 when the skull sits right of the knight; the act is written for that side and mirrored.
+  // each card the hand used rises and tilts, one after another
   const order = used.filter((i) => cardEl(i)).sort((a, b) => a - b);
-  const kn = order.find((i) => kindOf(i) === 'x2_any');
-  const sk = order.find((i) => kindOf(i) === 'joker');
-  const paired = kn !== undefined && sk !== undefined;
-  const mid = (i) => { const r = box(cardEl(i)); return r.left + r.width / 2; };
-  const toward = paired && mid(sk) < mid(kn) ? -1 : 1;
-  order.forEach((i, k) => at(paired && i === sk ? order.indexOf(kn) * WIN.step + PAIR_SKULL_START : WIN.step * k, () => {
+  order.forEach((i, k) => at(WIN.step * k, () => {
+    if (reduceMotion) return;
     const el = cardEl(i);
-    const pair = paired && (i === kn || i === sk);
-    cheer(el.querySelector('.art'), pair ? 'pair' : 'win', pair ? toward : 1);
-    if (reduceMotion || !WIN_CARD[kindOf(i)]) return;
     el.style.zIndex = '2'; // over its neighbours, under the fire and the count
     moved.push(el);
-    const keys = pair ? WIN_CARD_PAIR[kindOf(i)].map(([d, dx, dy, rot, sx, sy]) => [d, dx, dy, rot * toward, sx, sy]) : undefined;
-    play(el, cardFrames(kindOf(i), el.offsetWidth / 118.7, keys), { dur: ACT_MS, fill: 'none' });
+    play(el, cardFrames(el.offsetWidth / 118.7), { dur: ACT_MS, fill: 'none' });
   }));
   // the dice of the hand rise with it; with no card, they hop together instead
   const dice = rung.map((i) => els.cells[i]); // each rises on its note
@@ -2204,25 +2165,7 @@ function playWin(hand, g0) {
   const line = wide ? { x: tb.left + 8 * u, y: tb.bottom - 4 * u, w: tb.width - 16 * u, h: 4 * u } : { x: tb.left + 4 * u, y: tb.bottom - 4 * u, w: tb.width - 8 * u, h: 3 * u };
   const extra = g.score - g.level.target;
   const power = Math.min(1.35, 1 + (extra / g.level.target) * 0.7 + (FIRE_HANDS.has(hand.category) ? 0.1 : 0));
-  const disc = $('endMedalDisc');
-  if (last.medal && !reduceMotion) disc.style.opacity = '0'; // the shards become the medal
-  shards = breakLine({
-    line, span, scale: wide ? 1.35 * u : u, power, still: reduceMotion, start: t0,
-    medal: last.medal && !reduceMotion ? () => { const r = box(disc); return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: r.width / 2 }; } : null,
-    onMedal: () => { // the medal lands: a squash, and a ring rings out from it
-      sfx('medal');
-      ringNote(6, 0.7);
-      disc.style.opacity = '';
-      play(disc, [{ transform: 'scale(1.12, .88)' }, { transform: 'none' }], { dur: 100, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'none' });
-      const r = box(disc);
-      const ring = document.createElement('span');
-      ring.className = 'medal-ring';
-      Object.assign(ring.style, { left: `${r.left + r.width / 2}px`, top: `${r.top + r.height / 2}px`, borderWidth: `${2 * u}px` });
-      document.body.appendChild(ring);
-      extras.push(ring);
-      play(ring, [{ width: `${28 * u}px`, height: `${28 * u}px`, opacity: 1 }, { width: `${42 * u}px`, height: `${42 * u}px`, opacity: 0 }], { dur: 160, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' });
-    },
-  });
+  shards = breakLine({ line, span, scale: wide ? 1.35 * u : u, power, still: reduceMotion, start: t0 });
   let broke = false;
   const breakSound = () => { // the real win sounds once, at the break, and even a tap that skips the moment hears it
     if (broke) return;
@@ -2270,7 +2213,6 @@ function playWin(hand, g0) {
   const rise = (el, start, dy = 8, dur = 260) => el && play(el, reduceMotion ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${dy * u}px) scale(.96)` }, { opacity: 1, transform: 'none' }], { dur: reduceMotion ? 200 : dur, start: reduceMotion ? 300 : start, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
   rise($('endTitle'), WIN.title);
   rise(end.querySelector('.end-score'), WIN.title);
-  rise($('endMedalText'), WIN.badges, 0, 240);
   rise($('endBells'), WIN.badges, 0, 240);
   rise($('endBest'), WIN.badges, 0, 240);
   rise(end.querySelector('.up-head'), WIN.pick, 6, 240);
@@ -2297,7 +2239,6 @@ function playWin(hand, g0) {
     if (shards) shards.stop();
     extras.forEach((el) => el.remove());
     moved.forEach((el) => { el.style.zIndex = ''; el.style.visibility = ''; });
-    disc.style.opacity = '';
     if (app.fire) app.fire.out();
     rv.className = 'reveal';
     end.classList.remove('playing', 'waiting');
@@ -2316,7 +2257,7 @@ function playWin(hand, g0) {
 // level and the rerolls left, the three hands with the last one outlined red, the run and the record), NEW RUN
 // tappable after 1.32 s. No fire, no poses, no chord (digest rule 27). A tap completes the screen and does not start a
 // run. The run and its board are counted first, so a reload in the middle shows the receipt. Times are ms from PLAY.
-const LOSS = { lift: 80, short: 500, shrink: 620, fade: 160, flip: 300, title: 700, head: 760, rows: 780, row: 60, act: 900, sum: 980, medals: 1040, button: 1100, ready: 1320 };
+const LOSS = { lift: 80, short: 500, shrink: 620, fade: 160, flip: 300, title: 700, head: 760, rows: 780, row: 60, act: 900, sum: 980, button: 1100, ready: 1320 };
 
 function playLoss(hand, g0) {
   const st = S();
@@ -2419,7 +2360,7 @@ function playLoss(hand, g0) {
     end.classList.remove('playing');
   });
 
-  // the receipt rises: the title, the score and the facts, the three hands, the run, the medals, NEW RUN
+  // the receipt rises: the title, the score and the facts, the three hands, the run, NEW RUN
   const rise = (el, start, dy = 8) => el && play(el, reduceMotion ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${dy * u}px)` }, { opacity: 1, transform: 'none' }], { dur: reduceMotion ? 500 : 220, start: reduceMotion ? LOSS.short : start, easing: ease });
   for (const el of [$('endTitle'), end.querySelector('.end-score'), $('runReached')]) { // the head shows once the counter has gone (GPT's review)
     if (reduceMotion) { rise(el); continue; }
@@ -2429,7 +2370,6 @@ function playLoss(hand, g0) {
   end.querySelectorAll('#endHands li').forEach((el, k) => rise(el, LOSS.rows + LOSS.row * k));
   rise($('runStats'), LOSS.sum);
   rise($('runGap'), LOSS.sum);
-  play(end.querySelector('.medal-group'), [{ opacity: 0 }, { opacity: 1 }], { dur: reduceMotion ? 500 : 220, start: reduceMotion ? LOSS.short : LOSS.medals, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' });
   rise($('nextBtn'), LOSS.button);
   $('nextBtn').setAttribute('aria-disabled', 'true'); // grey until it can be tapped (GPT's review)
 
@@ -2643,7 +2583,6 @@ const GUIDE_COMBOS = [['pair', [6, 6]], ['two_pairs', [2, 2, 6, 6]], ['small_str
 const GUIDE_BONUSES = { x2_any: 'ANY HAND', x3_straight: 'STRAIGHT', x3_pairs: 'PAIR, TWO PAIRS', x3_trips: 'TRIPS, FULL HOUSE', joker: 'ANY FACE', refund: 'A REROLL BACK' };
 const guideDie = (v, held) => `<i class="gdie" style="--f: var(--face-${v}${held ? '-held' : ''})"></i>`; // the baked faces
 const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="arch"></span><span class="art" data-kind="${kind}"></span><span class="tag">${cardLabel(kind)}</span><span class="x2">${cardSticker(kind)}</span></span>`; // a card face up
-const animateTiles = (root) => root.querySelectorAll('.art[data-kind]').forEach((art) => animateArt(art, art.dataset.kind)); // their characters live too
 
 function openGuide(mode) {
   const guide = $('guide');
@@ -2654,7 +2593,6 @@ function openGuide(mode) {
   $('bonusPic').innerHTML = help
     ? `<ul class="bonus-list">${Object.keys(GUIDE_BONUSES).map((k) => `<li>${guideTile(k, false)}<small>${GUIDE_BONUSES[k]}</small></li>`).join('')}</ul>`
     : `<span class="tap">${guideTile('x2_any', false)}</span><span class="goal"><small>THRESHOLD</small><b>${runTarget(1)}</b><small>IN 3 HANDS</small></span>`;
-  animateTiles($('bonusPic'));
   $('bonusNote').textContent = help ? 'TAP TO SWITCH ON · THEY ADD UP' : 'MISS ONE AND THE RUN IS OVER';
   // How says the one rule no screen shows in words since the card's sheet lost its line (audit, 09.11.2026)
   $('holdNote').innerHTML = help ? 'PLAY THROWS EVERY DIE ANEW<br>A REROLL CLEARS HOLDS AND SWITCHES CARDS OFF' : 'PLAY THROWS EVERY DIE ANEW';
@@ -2679,7 +2617,7 @@ function renderRunFacts() {
   const next = nextUp(g.level.levelIndex, st.best);
   const boss = g.level.boss && BOSSES[g.level.boss];
   $('runFacts').innerHTML = [
-    boss ? fact(`BOSS: ${boss.name}`, boss.rule) : '',
+    boss ? fact(`KEEPER: ${boss.name}`, boss.rule) : '',
     fact([next.shop, next.boss, next.best].filter(Boolean).join(' · ')),
     fact(`${st.bells} BELLS`, BELLS_RULE.map((line) => `<span>${line}</span>`).join('')),
     ...st.charms.map((id) => fact(CHARMS[id].name, CHARMS[id].rule)),
@@ -2982,7 +2920,6 @@ function init() {
   const soundOn = load(SOUND_KEY) !== '0';
   $('optSound').checked = soundOn;
   setupSound((n) => cssUrl(`--sfx-${n}`), soundOn); // read on the first touch: Safari can run this before the stylesheet is in
-  setupPuppets((character, part) => cssUrl(`--rig-${character}-${part}`), () => app.busy); // no turn while the dice fly or count
   const d3 = load(DICE3D_KEY) !== '0';
   app.dice3d = d3;
   if (d3 && !reduceMotion) setTimeout(() => loadDice3D().then(applyRenderedFaces), 800);
@@ -3012,7 +2949,7 @@ function onHost(silent, paused) {
     return;
   }
   if (!$('bossCard').hidden) {
-    if (S().game.level.boss === 'usher') sfx('snip', { at: 0.3 });
+    if (BOSSES[S().game.level.boss].hands) sfx('snip', { at: 0.3 });
     app.bossTimer = setTimeout(hideBossCard, BOSS_CARD_MS);
     return;
   }

@@ -6,7 +6,9 @@ Three rule sets live in one page: **Snake 4+4** (`src/engine/game.js`), **Poker 
 in `run3.js`; rules, calibration and next steps in `docs/MODE3-PLAN.md`). Since the owner's
 Figma mockup (file `0mTCxjPtORKQzV7EZ6kTfE`, section DARK, node 1285:1548) the screen shows Auto
 Hand only, as an endless run that a missed target ends; the other modes keep their code and engines but have no tab
-(`#tabs` hidden, `app.modeId` forced to `auto`). Mockup art lives in `assets/ui/`, the font
+(`#tabs` hidden, `app.modeId` forced to `auto`). This branch (`claude/dicefool-portals`) is the owner's portals redesign
+(MODE3-PLAN §38): his portraits (`New img/Characters`, packed by `scripts/portraits.py` into `assets/ui/portraits/`) are
+the ten heroes of the cards and the nine keepers of every fifth level, still pictures. Mockup art lives in `assets/ui/`, the font
 (Basteleur Bold, OFL) in `assets/fonts/`; the build inlines both into `dist/`. The screen is one
 of two mockups (phone column, or desktop/landscape with the board left of a panel: `body.wide`)
 scaled by `--k`, picked by `fitBoard` in `app.js` for the bigger board: write every size as
@@ -22,7 +24,7 @@ npm run sim       # Snake 4+4 balance report -> docs/simulation-latest.md
 node scripts/montecarlo5.mjs --table=pips --out=docs/simulation5-pips.md   # Poker 5
 npm run sim3      # Auto Hand tiers, bots, experiments -> docs/simulation3-latest.md
 node scripts/recipes3.mjs --levels=400       # Auto Hand layout table -> src/engine/recipes3.js (generated)
-node scripts/run3-sim.mjs --runs=400 --out=docs/simulation3-run.md  # the run's curve: how far the bots get (--unlocks: medal cards in the shop, as in the game)
+node scripts/run3-sim.mjs --runs=400 --out=docs/simulation3-run.md  # the run's curve: how far the bots get, to level 60
 node scripts/upgrades3.mjs                   # combination upgrades: point shares + expected lift -> src/engine/uplift3.js (generated)
 node scripts/model-to-js.mjs                 # die model GLB -> src/ui/dice-model.js (generated)
 node scripts/bake-faces.mjs                  # die faces with their matcaps -> assets/dice/ (after any model, matcap or colour change)
@@ -52,13 +54,13 @@ Locally the CDN loads, so the 3D throw runs in the smoke; it waits for `app.busy
 - `scripts/build.mjs` bundles modules into per-module scopes; it validates import names and
   module order. Dynamic `import()` of CDN URLs (three.js in `src/ui/dice3d.js`) is
   left untouched and must keep its CSS fallback.
-- The won level's moment (`playWin` in `app.js`, `shards.js`, the characters' `win` acts in `puppets.js`) is built to
+- The won level's moment (`playWin` in `app.js`, `shards.js`; the cards rise and tilt, `CARD_WIN`) is built to
   GPT's spec in `art/ai/2026-11-04-win-production` (local, not in git; MODE3-PLAN §20): times are ms from PLAY,
   `finishLevel` runs first so a reload shows the cleared screen, a tap skips to the pick. The lost run's moment
   (`playLoss`, `holdLine` in `shards.js`; `art/ai/2026-11-04-loss-production`, §21) mirrors it: `finishLevel(board)`
   keeps the board as played in `lastEnd.board` (the engine has refilled it), never call `render()` during the moment.
   The play screen is the owner's base and nothing else (MODE3-PLAN §33): a fact goes where it changes a tap (`acts.js`: the pick, the receipt, How's THIS RUN page) or comes by an event and leaves by itself; never add a line, count or icon beside the base, and `npm run smoke` checks every text on it against a list. Name things in words, don't invent icons (the strip of nodes of §22 was an unreadable rebus). GPT Image draws pictures only (tools in `art/ai/tools`, local); design, rules, animation and texts are mine, never GPT's (owner, 10.11.2026: «gpt нужен только для картинок»).
-- The run's economy lives in `shop3.js` (bells, doors, shelf, charms, fit to the player, unlocks) and `bosses3.js` (a boss every fifth level, from the seed alone); `hands.js` counts their `rules`, `auto.js` applies them. Offers may look at the player; targets and layouts never do. Rules and numbers: MODE3-PLAN §25–29.
+- The run's economy lives in `shop3.js` (bells, doors, shelf, charms, fit to the player) and `bosses3.js` (a keeper every fifth level, from the seed alone; each rule is data, never read by the keeper's id); `hands.js` counts their `rules`, `auto.js` applies them. The heroes open by level (`levels3.js` UNLOCK_LEVEL), the targets are a table (`run3.js`), medals are gone. Offers may look at the player; targets and layouts never do. Rules and numbers: MODE3-PLAN §25–29.
 - `src/ui/board.js`: best runs on the device, Playgama's table when the Bridge has one. `dist/playgama/` is the only build that loads the Bridge.
 - `src/ui/platform.js`: the Bridge's required steps on Playgama (start after `initialize()`, one `storage.get`, saves only at progress moments via `persist(true)`, silence on the platform's pause and mute, `game_ready`, an interstitial in `onNext`); the browser's localStorage everywhere else. Never call `localStorage` directly. The Playgama build loads nothing from outside but the Bridge: three.js ships in `vendor/three/` (MIT).
 - Both orientations and every window (MODE3-PLAN §34): the level end and the shop fit themselves to the window (`fitOverlay`), the rules go two-column in low wide windows, text between levels stays ≥ 11 px. `npm run smoke` checks the sideways phone, a square, a tablet and a low desktop window, and the Playgama build against a stand-in Bridge. `?dev` shows the developer's settings.
