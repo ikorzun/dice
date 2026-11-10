@@ -323,6 +323,7 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.bonus.acting { background: var(--card-acting, var(--card)); border-radius: var(--acting-corners, 21.82%); }
 .cell.bonus.acting .arch, .cell.bonus.acting .tag, .cell.bonus.acting .x2 { visibility: hidden; }
 .cell.bonus.acting .art { left: 0; top: -38.18%; width: 100%; height: 138.18%; background-size: auto 100%; border-radius: 0 0 21.82% 21.82% / 0 0 15.79% 15.79%; }
+.cell.bonus.acting::after { content: none; } /* no lime ring meanwhile (owner, 10.11.2026: «выбранные карты не выделяй зеленым по контуру во время увеличения героя») */
 .cell.bonus.kind-x2_any { --peek: var(--peek-x2_any); }
 .cell.bonus.kind-x3_straight { --peek: var(--peek-x3_straight); }
 .cell.bonus.kind-x3_pairs { --peek: var(--peek-x3_pairs); }

@@ -716,11 +716,13 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
   const tilt = await page.evaluate(() => new Promise((resolve) => {
     const cells = document.querySelectorAll('#board .cell');
     const angle = (i) => { const m = new DOMMatrix(getComputedStyle(cells[i]).transform); return (Math.atan2(m.b, m.a) * 180) / Math.PI; };
-    // the acting look (Figma 1327:1705): no name, no multiplier, the portrait about 138% of the card, standing on its bottom
+    // the acting look (Figma 1327:1705): no name, no multiplier, no lime ring, the portrait about 138% of the card, standing
+    // on its bottom
     const acting = (i) => {
       const c = cells[i];
       const art = c.querySelector('.art');
       return c.classList.contains('acting') && getComputedStyle(c.querySelector('.tag')).visibility === 'hidden' && getComputedStyle(c.querySelector('.x2')).visibility === 'hidden'
+        && getComputedStyle(c, '::after').content === 'none'
         && Math.abs(art.offsetHeight / c.clientHeight - 1.3818) < 0.02 && Math.abs(art.offsetTop + art.offsetHeight - c.clientHeight) < 1.5;
     };
     document.getElementById('playBtn').click();
