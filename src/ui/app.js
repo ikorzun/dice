@@ -36,11 +36,12 @@ import { CHARMS, CHARM_SLOTS, UNLOCKS, doorAfter, bossNext, levelBells, fitWeigh
 import { BOSSES, bossOf } from '../engine/bosses3.js';
 import { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } from './dice3d.js';
 import { createFire } from './fire.js';
-import { RING_STEP, setupSound, setSound, sfx, hush, ringCount, ringChord, ringNote } from './sound.js';
+import { RING_STEP, setupSound, setSound, setHostSilent, sfx, hush, ringCount, ringChord, ringNote } from './sound.js';
 import { setupPuppets, animateArt, cheer, WIN_CARD, cardRock } from './puppets.js';
 import { breakLine, holdLine } from './shards.js';
-import { nextUp, afterClear } from './acts.js';
+import { nextUp, afterClear, bossRule, bellsPaid, BELLS_RULE } from './acts.js';
 import { withRun, submitRun, fetchBoard, hasBoard, setupBoard } from './board.js';
+import { setupPlatform, load, save, followHostAudio, gameReady, tellLevel, tell, interstitial } from './platform.js';
 
 const APP_VERSION = '0.2.0';
 const STORAGE_KEY = 'dice-snake.v2';
@@ -295,8 +296,8 @@ const MODES = {
       options: { table: false, small: false, endOnTarget: false, goldCell: false },
     },
     coachText(step, g, hint) {
-      if (step === 'swipe') return `BEST HAND · ${hint.hand.label} ${hint.hand.total} · PRESS PLAY`;
-      return `HAND ${g.hands.length + 1}/${g.hands.length + g.handsLeft} · NEW DICE · HOLD, REROLL OR PLAY`;
+      if (step === 'swipe') return 'PLAY THE HAND';
+      return "NEW DICE EVERY HAND. REROLLS DON'T REFILL";
     },
   },
 };
@@ -342,7 +343,7 @@ const app = {
   modes: { snake4: freshModeState(MODES.snake4), poker5: freshModeState(MODES.poker5), auto: freshModeState(MODES.auto) },
   autoHand: null, // best hand on the Auto Hand board, computed once per render
   fire: null, // the shader fire over the board (fire.js), made on the first strong hand
-  sheetAt: 0, // when the bonus sheet opened (its opening finger must not close it)
+  sheetAt: 0, // when the bonus sheet opened (its opening finger, or a tap meant for PLAY as it came, must not close it)
   sheetQueue: [], // kinds whose sheet waits for the open one to close
   afterGuide: [], // card deals waiting for the guide to uncover the board
   launching: new Set(), // bank places whose card is about to fly to the board (flyFromBank)
@@ -369,7 +370,7 @@ const app = {
 // ---------- 3D physics dice (optional, CDN libraries) ----------
 function setDice3D(on) {
   app.dice3d = !!on;
-  try { localStorage.setItem(DICE3D_KEY, app.dice3d ? '1' : '0'); } catch { /* ignore */ }
+  save(DICE3D_KEY, app.dice3d ? '1' : '0');
   const box = $('optDice3d');
   if (box) box.checked = app.dice3d;
   if (app.dice3d) loadDice3D().then(applyRenderedFaces);
@@ -396,7 +397,7 @@ function setLook(id, { announce = false } = {}) {
   const look = LOOKS.find((l) => l.id === id) || LOOKS[0];
   app.look = look.id;
   document.body.dataset.look = look.id;
-  try { localStorage.setItem(LOOK_KEY, look.id); } catch { /* ignore */ }
+  save(LOOK_KEY, look.id, { now: false });
   const sel = $('optLook');
   if (sel) sel.value = look.id;
   const d3box = $('optDice3d');
@@ -419,7 +420,7 @@ const engineOf = (mode) => mode.engine;
 // ---------- persistence ----------
 function readJson(key) {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = load(key);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -457,14 +458,12 @@ function serializeMode(st, engine) {
   };
 }
 
-function persist() {
+// `flush`: a moment that means progress (a level started or ended, a purchase, a setting, the tutorial done). The
+// browser keeps every save at once; Playgama's storage takes only these (platform.js), the rest wait in memory.
+function persist(flush = false) {
   const data = { version: APP_VERSION, activeMode: app.modeId, modes: {} };
   for (const id of Object.keys(MODES)) data.modes[id] = serializeMode(app.modes[id], MODES[id].engine);
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    /* storage unavailable: the game still works for this session */
-  }
+  save(STORAGE_KEY, JSON.stringify(data), { now: flush });
 }
 
 function hydrateMode(id, saved) {
@@ -547,14 +546,10 @@ function startGame(level, attempt) {
     opening: level.bestNoRerollWithBonus ?? level.openingBest, config: mode.gameConfig(st.settings),
   });
   $('levelEnd').hidden = true;
+  if (level.boss) showBossCard(level); // first: the deal waits for it
   render();
-  persist();
-  autoTips();
-  if (level.boss) showBossCard(level);
-  if (st.game.bank && st.game.bank.length && attempt === 1 && !st.tips.bankReroll) { // the first time the bank fills
-    st.tips.bankReroll = true;
-    toast('KEPT BONUSES COME IN ON THE FIRST REROLL', 'hint', 3600);
-  }
+  persist(true);
+  tellLevel('level_started', level.levelIndex);
 }
 
 function newLevel() {
@@ -585,7 +580,8 @@ function finishLevel(board) {
   logEvent('level_end', summary);
   if (mode.id === 'auto' && !won) logEvent('run_end', { runSeed: st.runSeed, level: g.level.levelIndex, score: st.runScore, best: st.best, newBest: st.lastEnd.newBest });
   st.pendingTier = nextTier(st.tier, won);
-  persist();
+  persist(true);
+  tellLevel(won ? 'level_completed' : 'level_failed', g.level.levelIndex);
   showLevelEnd();
 }
 
@@ -610,6 +606,8 @@ function tallyRun(st, g, won, board) {
       st.runMedals = [...st.runMedals, { level, fresh: end.fresh }];
     }
     end.passedBest = !!st.best && level === st.best.level; // from here on the run goes further than any before
+    if (g.level.boss) tell('boss_defeated');
+    if (end.medal || end.passedBest) tell('player_got_achievement');
   } else {
     end.newBest = !st.best || level > st.best.level || (level === st.best.level && st.runScore > st.best.score);
     if (end.newBest) st.best = { level, score: st.runScore };
@@ -617,6 +615,7 @@ function tallyRun(st, g, won, board) {
     st.runs = withRun(st.runs, { level, score: st.runScore });
     submitRun(level, st.runScore);
     st.quickRuns = level <= 3 ? st.quickRuns + 1 : 0;
+    tell('run_over');
     st.plays = g.hands.map((h) => ({ category: h.category, cleared: false, level: 0 })); // the next run's shelf remembers what ended this one
   }
   st.lastEnd = end;
@@ -638,18 +637,19 @@ function showLevelEnd() {
   showRunEnd(st, g, won, over);
   $('endScore').textContent = g.score;
   $('endTarget').textContent = g.level.target;
-  // honestly how far the total went past the threshold, or how far it fell short (owner's pick В12 A)
-  $('endOver').textContent = over ? `SHORT BY ${remaining(g.score, g)}` : `+${g.score - g.level.target} OVER`;
-  $('endOver').classList.toggle('short', over);
-  $('endOver').hidden = !over && (!cleared || g.score <= g.level.target);
-  const last = g.hands[g.hands.length - 1]; // the hand that broke the threshold, in one row
-  $('endHand').hidden = !cleared || !last;
-  if (cleared && last) $('endHand').innerHTML = `<span class="gdice">${last.faces.map((v) => guideDie(v)).join('')}</span><span><b>${last.label}</b><small>${handFormula(last)}</small></span><span class="pts">${last.total}</span>`;
-  $('endAct').hidden = !cleared;
-  if (cleared) $('endAct').textContent = afterClear(g.level.levelIndex);
+  // how far the total fell short (owner's pick В12 A); a cleared level pays nothing for going over, so says nothing of it
+  $('endOver').textContent = over ? `SHORT BY ${remaining(g.score, g)}` : '';
+  $('endOver').hidden = !over;
+  // what comes after this level, in words: a shop, and before a boss his rule, read before the pick it bears on
+  const next = cleared ? afterClear(g.level.levelIndex) : '';
+  $('endAct').hidden = !next;
+  $('endAct').textContent = next;
+  const rule = cleared ? bossRule(st.runSeed, g.level.levelIndex) : '';
+  $('upSub').textContent = rule || '+1 FOR THIS RUN';
+  $('upSub').classList.toggle('boss', !!rule);
   const paid = cleared && st.lastEnd && st.lastEnd.seed === g.level.seed ? st.lastEnd.bells : null;
   $('endBells').hidden = !paid;
-  if (paid) $('endBells').innerHTML = `<b><i class="bell"></i>+${paid.total}</b>${[['CLEAR', paid.clear], ['HANDS', paid.hand], ['REROLLS', paid.reroll], ['BOSS', paid.boss], ['CHARM', paid.charm]].filter(([, v]) => v).map(([n, v]) => `<span>${n} ${v}</span>`).join('')}${st.lastEnd.unlock ? `<em>NEW CARD IN THE SHOP: ${BONUS_KINDS[st.lastEnd.unlock].symbol} ${BONUS_KINDS[st.lastEnd.unlock].label}</em>` : ''}`;
+  if (paid) $('endBells').innerHTML = `<b><i class="bell"></i>+${paid.total} BELLS</b>${bellsPaid(paid).length > 1 ? bellsPaid(paid).map((line) => `<span>${line}</span>`).join('') : ''}${st.lastEnd.unlock ? `<em>NEW CARD UNLOCKED: ${BONUS_KINDS[st.lastEnd.unlock].symbol} ${BONUS_KINDS[st.lastEnd.unlock].label}</em>` : ''}`;
   const list = $('endHands');
   list.innerHTML = '';
   // a lost run's receipt: the level's three hands in the cleared screen's row, the last one, which ended the run,
@@ -694,17 +694,19 @@ function showLevelEnd() {
   // a cleared level goes on through its upgrade (owner, 03.11.2026: RETRY confused); a missed one ends the run
   $('retryBtn').hidden = won || mode.id === 'auto';
   $('runsBtn').hidden = !over;
-  $('upList').innerHTML = offer.map((cat) => {
+  const tags = offer.map((cat) => fitTag(cat, fit, true));
+  const telling = !tags.every(Boolean); // on all three a tag sets none apart
+  $('upList').innerHTML = offer.map((cat, n) => {
     const m = AUTO_MULT[cat] + (st.ups[cat] || 0);
     const dice = (GUIDE_COMBOS.find(([c]) => c === cat) || [cat, []])[1];
-    const tag = fitTag(cat, fit, true);
+    const tag = telling ? tags[n] : '';
     return `<button class="up" type="button" data-cat="${cat}"><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}${tag ? `<i>${tag}</i>` : ''}</b><em>×${m} → ×${m + 1}</em></button>`;
   }).join('');
   $('levelEnd').dataset.mode = app.modeId;
   clearTimeout(app.endTimer);
   const forMode = app.modeId;
   // Auto Hand opens the summary at once: the level's last hand plays its moment over the board as the summary rises
-  app.endTimer = setTimeout(() => { if (app.modeId === forMode) $('levelEnd').hidden = false; }, mode.id === 'auto' ? 0 : T.endDelay);
+  app.endTimer = setTimeout(() => { if (app.modeId === forMode) { $('levelEnd').hidden = false; fitOverlay($('levelEnd')); } }, mode.id === 'auto' ? 0 : T.endDelay);
 }
 
 // A played hand's sum, multiplier and bonus as the count shows them: 24 × 6 ×2.
@@ -748,8 +750,8 @@ function showRunEnd(st, g, won, over) {
     : gap === 0 ? `BEST LEVEL TIED${best.score > st.runScore ? ` · ${best.score - st.runScore} POINTS TO BEST` : ''}` : '';
   // two medals fit beside the strip; past that the newest and how many
   const medals = st.runMedals;
-  $('medals').innerHTML = !medals.length ? '<li class="none">0</li>'
-    : medals.length > 2 ? `<li class="medal">${medals[medals.length - 1].level}</li><li class="none">×${medals.length}</li>`
+  $('medals').closest('.medal-group').hidden = !medals.length;
+  $('medals').innerHTML = medals.length > 2 ? `<li class="medal">${medals[medals.length - 1].level}</li><li class="none">×${medals.length}</li>`
       : medals.map((m) => `<li class="medal">${m.level}</li>`).join('');
 }
 
@@ -757,6 +759,7 @@ function onNext() {
   const st = S();
   if ($('levelEnd').dataset.mode !== app.modeId || !st.game || st.game.phase === 'playing') return;
   if (app.endPlaying || performance.now() < (app.skipUntil || 0)) return; // the tap that completed the receipt does not start a run
+  interstitial(); // a natural pause between levels: on Playgama the Bridge decides whether an ad shows now
   if (st.pendingTier != null) st.tier = st.pendingTier;
   st.levelIndex += 1;
   if (app.modeId === 'auto' && st.game.phase === 'lost') {
@@ -817,7 +820,10 @@ function switchMode(id, { silent = false } = {}) {
     else if (st.shop) openShop();
     else showLevelEnd();
   }
-  else render();
+  else {
+    if (id === 'auto' && st.game.level.boss) showBossCard(st.game.level); // nothing else on the board says who he is
+    render();
+  }
   if (!st.onboarded) openGuide('intro');
   if (!silent && from !== id) logEvent('mode_switch', { from, to: id });
   persist();
@@ -829,7 +835,7 @@ function coachStart(source) {
   st.coach = { active: true, done: { hold: false, reroll: false } };
   logEvent('tutorial_start', { source });
   render();
-  persist();
+  persist(true); // the tutorial starts: a reload must not bring the title back
 }
 
 function coachStop(reason) {
@@ -839,8 +845,9 @@ function coachStop(reason) {
   st.coached = true;
   app.coachTargets = null;
   stopGhost();
+  els.cells.forEach((c) => c.classList.remove('hint'));
   logEvent('tutorial_end', { reason });
-  render();
+  coachRender(); // not render(): this can come as a hand starts, and the board is drawn when its count has ended
   persist();
 }
 
@@ -849,7 +856,9 @@ function coachOnEvent(type, data) {
   if (!st.coach.active) return;
   if (type === 'hold' && data.held) st.coach.done.hold = true;
   if (type === 'reroll' || type === 'bank') { st.coach.done.hold = true; st.coach.done.reroll = true; }
-  if (type === 'level_end') coachStop('complete');
+  // the last line has said its one thing once the player moves on (the bank that follows the first hand is not that)
+  const moved = ['hold', 'bonus', 'reroll', 'bank'].includes(type);
+  if (type === 'level_end' || (M().id === 'auto' && moved && E().handsPlayed(st.game) > (type === 'bank' ? 1 : 0))) coachStop('complete');
 }
 
 function coachCurrentStep() {
@@ -921,9 +930,14 @@ function coachRender() {
   const st = S();
   const g = st.game;
   const mode = M();
+  // a card's sheet goes first: the line and the finger wait until it closes (closeBonusSheet)
+  if (mode.id === 'auto' && (!$('bonusSheet').hidden || els.cells.some((c, i) => c.waiting && g.cells[i].type === 'bonus' && !cardSeen(g.cells[i].kind)))) {
+    bar.hidden = true;
+    stopGhost();
+    return;
+  }
   const hint = E().hintFor(g);
   let text = '';
-  let index = 1;
   let targets = [];
   let ghostPath = null;
   if (step === 'hold' && mode.id === 'auto') {
@@ -938,33 +952,28 @@ function coachRender() {
     targets = [c];
     ghostPath = [c];
   } else if (step === 'reroll') {
-    index = 2;
-    if (mode.id === 'auto') text = E().canReroll(g) ? 'REROLL: THE REST CHANGE, THEN HOLDS CLEAR' : 'EVERY DIE IS HELD: RELEASE ONE, THEN REROLL';
+    if (mode.id === 'auto') text = E().canReroll(g) ? 'REROLL THE REST' : 'EVERY DIE IS HELD: RELEASE ONE, THEN REROLL';
     else text = E().canReroll(g)
       ? 'NOW PRESS REROLL. ONLY THE DICE WITHOUT HOLD CHANGE.'
       : 'EVERY DIE IS HELD. TAP ONE TO RELEASE IT, THEN PRESS REROLL.';
   } else if (step === 'swipe' && mode.id === 'auto' && autoIdleBonuses(g, hint.hand).length) {
     // bonus dice start off: first switch the one that fits on, then play
-    index = 3;
     const b = autoIdleBonuses(g, hint.hand)[0];
     text = `TAP ${BONUS_KINDS[g.cells[b].kind].symbol} TO SWITCH IT ON, THEN PLAY`;
     targets = [b];
     ghostPath = [b];
   } else if (step === 'swipe') {
-    index = 3;
     text = mode.coachText('swipe', g, hint);
-    targets = hint.cells;
+    targets = mode.id === 'auto' ? [] : hint.cells; // Auto Hand never marks its hand (owner, 01.11.2026)
     ghostPath = hint.cells;
   } else {
-    index = 4;
     text = mode.coachText('last', g, hint);
-    targets = hint.cells;
+    targets = mode.id === 'auto' ? [] : hint.cells;
     ghostPath = mode.bonus === 'cell' && g.bonus.available ? null : hint.cells;
   }
   if (mode.id === 'auto' && step !== 'hold' && !(ghostPath && ghostPath.length === 1)) ghostPath = null; // nothing to drag: the hand is already red
   bar.hidden = false;
   els.preview.hidden = true;
-  $('coachStep').textContent = `${index} / 4`;
   $('coachText').textContent = text;
   els.rerollBtn.classList.toggle('pulse', step === 'reroll');
   els.playBtn.classList.toggle('pulse', mode.id === 'auto' && step === 'swipe' && !autoIdleBonuses(g, hint.hand).length);
@@ -1018,8 +1027,7 @@ function buildBoard() {
 // (node 1287:1641): the 589.5 px board left of a 440 px panel, 82.5 px apart, 1112 × 580.5 px with
 // the mockup's 84 px around it. The layout that gives the bigger board wins; k is then as large as
 // the window allows, and every size in styles.css is a multiple of it, so the rows keep the
-// mockup's proportions at any size. On the phone the tutorial line, when it shows, takes its height
-// first; on desktop it sits above the panel.
+// mockup's proportions at any size. Nothing takes height from them: the tutorial's line lies over the header row.
 const MOCKUP = Object.freeze({ width: 393, rows: 597, board: 360 }); // Figma 1285:1244: 64 + 16 + 360 + 16 + 45 + 16 + 80
 const DESKTOP = Object.freeze({ width: 1134 + 2 * 73, height: 546 + 2 * 73, board: 546 }); // Figma 1287:1641: 546 + 42 + 546, 73 px round
 function fitBoard() {
@@ -1030,13 +1038,31 @@ function fitBoard() {
   const desk = Math.min(width / DESKTOP.width, height / DESKTOP.height);
   const wide = DESKTOP.board * desk > MOCKUP.board * phone;
   document.body.classList.toggle('wide', wide);
-  const coach = $('coach');
-  const coachHeight = !wide && !coach.hidden ? coach.offsetHeight + 16 * phone : 0;
-  const k = wide ? desk : Math.min(width / MOCKUP.width, (height - coachHeight) / MOCKUP.rows);
+  const k = wide ? desk : phone;
   els.app.style.setProperty('--k', Math.max(0.4, k).toFixed(4));
   document.documentElement.style.setProperty('--k', Math.max(0.4, k).toFixed(4)); // the overlays scale with it too
   app.cellRects = null;
 }
+
+// An overlay drawn in --k like the play screen (the level's end, the shop) takes the room it has. Where its shape differs
+// from the play screen's (the shop on a phone held sideways, the run's end on a tablet or in a square window) it grows to
+// fill the window, by half at most, or shrinks until nothing is cut (Playgama 1.6.1, 1.6.2, 1.6.7).
+function fitOverlay(el) {
+  if (!el || el.hidden) return;
+  el.style.removeProperty('--k');
+  const panel = el.querySelector(':scope > .panel, :scope > .shop-panel');
+  if (!panel) return;
+  const k = parseFloat(document.documentElement.style.getPropertyValue('--k')) || 1;
+  const cs = getComputedStyle(el);
+  const roomW = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const roomH = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const w = panel.offsetWidth;
+  const h = Math.max(panel.offsetHeight, panel.scrollHeight);
+  if (!w || !h) return;
+  const ratio = Math.min(roomW / w, roomH / h, 1.5);
+  if (ratio < 0.99 || ratio > 1.04) el.style.setProperty('--k', (k * ratio).toFixed(4));
+}
+const fitOverlays = () => { fitOverlay($('levelEnd')); fitOverlay($('shop')); };
 
 // While the first hand is three dice long in Snake 4+4, mark which fourth dice keep a legal second hand.
 function computeSafeNext() {
@@ -1162,41 +1188,30 @@ function renderHud() {
   if (!app.scoreAnim) $('target').textContent = String(remaining(g.score, g));
   for (const el of document.querySelectorAll('.level-text')) el.textContent = String(g.level.levelIndex); // no last level (owner, 03.11.2026)
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
-  renderNext();
-  renderRun();
-}
-
-// What the run carries, in the gaps of the column (no added height): the bells and what a level pays, or the boss's
-// rule all through his level; the charms beside the bank; the boss's portrait in LEVEL's box and ticks on the board.
-function renderRun() {
-  const st = S();
-  const level = st.game.level;
-  const boss = M().id === 'auto' && level.boss ? BOSSES[level.boss] : null;
-  const line = $('runLine');
-  line.hidden = M().id !== 'auto' || (level.levelIndex === 1 && !st.bells);
-  line.classList.toggle('boss', !!boss);
-  const said = `<span class="wallet"><i class="bell"></i>${st.bells} BELLS</span><span>${boss ? `BOSS · ${boss.rule}` : 'UNUSED HAND +2 · REROLL +1'}</span>`;
-  if (line.dataset.said !== said) { line.innerHTML = said; line.dataset.said = said; } // it sits in a live region: only news
-  const rail = st.charms.map((id) => `<button class="sigil" type="button" data-charm="${id}" style="--sig: var(--charm-${id})" aria-label="${CHARMS[id].name}: ${CHARMS[id].rule}"></button>`).join('');
-  if ($('charmRail').dataset.key !== st.charms.join()) { $('charmRail').innerHTML = rail; $('charmRail').dataset.key = st.charms.join(); }
-  $('levelStat').classList.toggle('boss', !!boss);
-  $('bossFace').hidden = !boss;
-  if (boss) $('bossFace').style.setProperty('--boss', `var(--boss-${level.boss})`);
-  els.boardWrap.classList.toggle('boss', !!boss);
 }
 
 // A boss's level opens with his card, which stands over the dice: until it goes, or a tap sends it away, nothing plays
-// by accident under it. The rule stays in the run line.
+// by accident under it, and the cards wait for it (dealCard). Afterwards the rule is in the numbers, and in How.
+const BOSS_CARD_MS = 2000;
 function showBossCard(level) {
   const card = $('bossCard');
   const boss = BOSSES[level.boss];
-  card.innerHTML = `<div><i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><small>BOSS</small><b>${boss.name}</b><em>${boss.rule}</em><small>THRESHOLD ${level.target}</small></span></div>`;
+  // the player's charms that answer him are named, so SHORTWIND's TWO REROLLS beside REROLL•3 is no contradiction
+  const helps = (S().charms || []).filter((id) => boss.counters.includes(id)).map((id) => CHARMS[id].name);
+  const answers = helps.length ? `<small class="answer">HELPED BY ${helps.join(', ')}</small>` : '';
+  card.innerHTML = `<div><i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><small>BOSS</small><b>${boss.name}</b><em>${boss.rule}</em>${answers}</span></div>`;
   card.hidden = false;
   card.classList.remove('show');
   void card.offsetWidth; // the animation starts over
   card.classList.add('show');
   clearTimeout(app.bossTimer);
-  app.bossTimer = setTimeout(() => { card.hidden = true; }, 1400);
+  if (!app.hostPaused) app.bossTimer = setTimeout(hideBossCard, BOSS_CARD_MS); // under an ad it waits (onHost)
+}
+
+function hideBossCard() {
+  clearTimeout(app.bossTimer);
+  $('bossCard').hidden = true;
+  app.afterGuide.splice(0).forEach((start) => start()); // the deal that waited for it
 }
 
 // ---------- the shop (GPT's design, art/ai/2026-11-06-shop-bosses): after the pick, every second and fourth level of an act ----------
@@ -1211,14 +1226,17 @@ function openShop() {
     const habits = { rerolls: Math.min(1, h.rerolls / (3 * Math.max(1, h.levels))), holds: Math.min(1, h.holds / (6 * Math.max(1, h.levels))), cards: st.bank.length / BANK_SIZE };
     st.shop = { level, stock: shopStock({ runSeed: st.runSeed, levelIndex: level, run: runOf(st), plays: st.plays, habits, medal: st.medal }) };
     logEvent('shop_open', { level, bells: st.bells, stock: st.shop.stock });
-    persist();
+    tell('shop_opened');
+    persist(true);
   }
   app.shopPick = null;
+  app.shopNote = '';
   clearTimeout(app.endTimer);
   $('levelEnd').hidden = true;
   $('levelEnd').dataset.mode = app.modeId; // a reload lands here without the level end: leaving goes on from it
   renderShop();
   $('shop').hidden = false;
+  fitOverlay($('shop'));
 }
 
 function placeNeeded(st, good) {
@@ -1237,9 +1255,9 @@ function goodHtml(st, good, i) {
       : `<span class="gdice">${(GUIDE_COMBOS.find(([c]) => c === good.id) || [good.id, []])[1].map((v) => guideDie(v)).join('')}</span>`;
   const m = good.type === 'up' ? AUTO_MULT[good.id] + (st.ups[good.id] || 0) : 0;
   const name = good.type === 'card' ? `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}` : good.type === 'charm' ? CHARMS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`;
-  const rule = good.type === 'card' ? 'GOES TO THE BANK' : good.type === 'charm' ? CHARMS[good.id].rule : `×${m} → ×${m + 1} FOR THIS RUN`;
-  const price = good.sold ? '' : ready ? `BUY • ${good.price}` : short > 0 ? `NEED ${short}` : `<i class="bell"></i>${good.price}`;
-  return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><i>${good.tag === 'WILD OFFER' ? '' : good.tag}</i><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
+  const rule = good.type === 'card' ? BONUS_WHAT[good.id].toUpperCase().replace('.', '') : good.type === 'charm' ? CHARMS[good.id].rule : `×${m} → ×${m + 1} FOR THIS RUN`;
+  const price = good.sold ? '' : ready ? `BUY • ${good.price}` : `<i class="bell"></i>${good.price}`;
+  return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><i>${good.sold || good.tag === 'WILD OFFER' ? '' : good.tag}</i><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
 }
 
 function renderShop() {
@@ -1252,16 +1270,17 @@ function renderShop() {
     const kind = st.bank[k];
     return `<button type="button" class="shop-place${place === 'bank' ? ' swap' : ''}${pick && pick.replace === k && place === 'bank' ? ' gone' : ''}" data-bank="${k}"${place === 'bank' ? '' : ' tabindex="-1"'}>${kind ? guideTile(kind, false) : ''}</button>`;
   }).join('');
-  $('shopCharmLabel').textContent = `CHARMS ${st.charms.length}/${CHARM_SLOTS}`;
   $('shopCharms').innerHTML = Array.from({ length: CHARM_SLOTS }, (_, k) => {
     const id = st.charms[k];
     return `<button type="button" class="shop-place small${place === 'charm' ? ' swap' : ''}${pick && pick.replace === k && place === 'charm' ? ' gone' : ''}" data-charm-place="${k}"${place === 'charm' ? '' : ' tabindex="-1"'}>${id ? sigil(id) : ''}</button>`;
   }).join('');
   const bossId = bossNext(level) ? bossOf(st.runSeed, level + 1) : null;
-  $('shopBoss').classList.toggle('named', !!bossId);
-  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><b>${BOSSES[bossId].name}</b><small>NEXT · ${BOSSES[bossId].rule}</small></span>` : '<small>BOSS RULE REVEALED NEXT SHOP</small>';
+  $('shopBoss').hidden = !bossId;
+  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><b>${BOSSES[bossId].name}</b><small>BOSS NEXT · ${BOSSES[bossId].rule}</small></span>` : '';
   $('shopList').innerHTML = stock.map((g, i) => goodHtml(st, g, i)).join('');
-  $('shopHint').textContent = place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'CHARM'}` : 'TAP AN OFFER, THEN TAP BUY';
+  // one line, for the moment it matters: how to buy (once), what to replace, what a tapped charm does
+  $('shopHint').textContent = app.shopNote || (place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'CHARM'}` : st.tips.firstBuy ? '' : 'TAP AN OFFER, THEN TAP BUY');
+  if (!$('shop').hidden) fitOverlay($('shop')); // a note or a sold stamp can change its height
 }
 
 function shopTap(e) {
@@ -1271,13 +1290,17 @@ function shopTap(e) {
   const bank = e.target.closest('[data-bank]');
   const charm = e.target.closest('[data-charm-place]');
   const pick = app.shopPick;
+  app.shopNote = '';
   if (bank || charm) {
     const place = pick ? placeNeeded(st, st.shop.stock[pick.slot]) : null;
     if (place === (bank ? 'bank' : 'charm')) app.shopPick = { ...pick, replace: Number(bank ? bank.dataset.bank : charm.dataset.charmPlace) };
+    const owned = charm && CHARMS[st.charms[Number(charm.dataset.charmPlace)]];
+    if (owned) app.shopNote = `${owned.name}: ${owned.rule}`;
   } else if (row) {
     const slot = Number(row.dataset.slot);
     const good = st.shop.stock[slot];
-    if (good.sold || good.price > st.bells) return;
+    if (!good.sold && good.price > st.bells) app.shopNote = `NEED ${good.price - st.bells} MORE`;
+    if (good.sold || good.price > st.bells) { renderShop(); return; }
     const ready = pick && pick.slot === slot && (!placeNeeded(st, good) || pick.replace !== null);
     if (ready && e.target.closest('.price')) { buy(slot); return; }
     if (!pick || pick.slot !== slot) app.shopPick = { slot, replace: null };
@@ -1292,11 +1315,12 @@ function buy(slot) {
   logEvent('shop_buy', { good: st.shop.stock[slot], bells: r.run.bells });
   Object.assign(st, { bells: r.run.bells, bank: r.run.bank, ups: r.run.ups, charms: r.run.charms });
   st.shop = { ...st.shop, stock: r.stock };
+  st.tips.firstBuy = true;
   app.shopPick = null;
   haptic(10);
   sfx('refund', { vol: 0.8 });
   renderShop();
-  persist();
+  persist(true);
 }
 
 function leaveShop() {
@@ -1319,16 +1343,6 @@ async function openRuns() {
   const clean = (name) => (name || 'PLAYER').replace(/[<>&]/g, '');
   $('runsList').innerHTML = list.length ? `<li class="head"><i></i>${shared ? '<span>NAME</span>' : ''}<b>LEVEL</b><em>SCORE</em></li>${list.map((r) => `<li class="${r.me ? 'me' : ''}"><i>${r.rank}</i>${shared ? `<span>${clean(r.name)}</span>` : ''}<b>${r.level}</b><em>${r.points}</em></li>`).join('')}` : '<li class="none">NO RUNS YET</li>';
   $('runsList').classList.toggle('shared', shared);
-}
-
-// By LEVEL, in words: the next shop, the next boss and the record (acts.js).
-function renderNext() {
-  const st = S();
-  const next = nextUp(st.game.level.levelIndex, st.best);
-  const said = `<b>${next.shop}</b><b>${next.boss}</b>`;
-  if ($('nextUp').dataset.said !== said) { $('nextUp').innerHTML = said; $('nextUp').dataset.said = said; }
-  $('levelBest').textContent = next.best;
-  $('levelBest').hidden = !next.best;
 }
 
 const remaining = (score, g) => Math.max(0, g.level.target - score);
@@ -1592,44 +1606,6 @@ function toast(message, mood = '', ms = 1700) {
   app.toastTimer = setTimeout(() => { t.hidden = true; }, ms);
 }
 
-// Auto Hand tips, each shown once per mode at the moment it matters: a level that brings a new
-// bonus kind names it; the first time a switched-off bonus would multiply the hand, say how to use it.
-const BONUS_INTRO = {
-  x2_any: 'NEW BONUS ×2: DOUBLES ANY HAND',
-  x3_straight: 'NEW BONUS ×3: TRIPLES A STRAIGHT',
-  x3_pairs: 'NEW BONUS ×3: TRIPLES PAIRS AND TWO PAIRS',
-  x3_trips: 'NEW BONUS ×3: TRIPLES TRIPS AND FULL HOUSE',
-  x3_kinds: 'NEW BONUS ×3: TRIPLES FOUR AND FIVE OF A KIND',
-  x3_small: 'NEW BONUS ×3: TRIPLES A SMALL STRAIGHT',
-  x4_any: 'NEW BONUS ×4: ANY HAND',
-  joker: 'NEW BONUS ★: THE JOKER BECOMES ANY FACE',
-  refund: 'NEW BONUS +1: PLAY IT AND GET A REROLL BACK',
-};
-function autoTips() {
-  const st = S();
-  const g = st.game;
-  if (M().id !== 'auto' || !g || g.phase !== 'playing' || st.coach.active || !$('guide').hidden) return;
-  const fresh = g.cells.map((c, i) => i).find((i) => g.cells[i].type === 'bonus' && !st.tips[`new:${g.cells[i].kind}`]);
-  if (fresh !== undefined) {
-    st.tips[`new:${g.cells[fresh].kind}`] = true;
-    // the ×2 of level 1 is taught by the board and the tutorial; later kinds get a line
-    if (g.level.levelIndex > 1) {
-      // a kind never seen gets its sheet when its card turns over; a seen one a line
-      if (cardSeen(g.cells[fresh].kind)) toast(BONUS_INTRO[g.cells[fresh].kind], 'hint', 3200);
-      flashCells([fresh], 'safe-hint', 1600);
-    }
-    persist();
-    return;
-  }
-  const idle = autoIdleBonuses(g, app.autoHand);
-  if (!st.tips.switchOn && g.level.levelIndex > 1 && idle.length) {
-    st.tips.switchOn = true;
-    toast(`BONUS DICE START OFF: TAP ${BONUS_KINDS[g.cells[idle[0]].kind].symbol} TO USE IT`, 'hint', 3200);
-    flashCells([idle[0]], 'safe-hint', 1600);
-    persist();
-  }
-}
-
 function flashCells(cells, cls, ms) {
   cells.forEach((i) => els.cells[i].classList.add(cls));
   setTimeout(() => cells.forEach((i) => els.cells[i].classList.remove(cls)), ms);
@@ -1746,7 +1722,7 @@ function armBonus(source, cell) {
   const g = st.game;
   if (app.busy || g.phase !== 'playing') return;
   const r = E().toggleBonus(g, cell); // Auto Hand switches the tapped bonus die off/on; Poker 5 and Snake ignore the cell
-  if (!r.ok) { toast(r.message, 'bad'); return; }
+  if (!r.ok) { toast(r.message, r.code === 'NOT_YET' || r.code === 'HUSHED' ? 'hint' : 'bad'); return; }
   st.game = r.state;
   haptic(10);
   sfx((cell >= BANK ? st.game.bank[cell - BANK].off : st.game.off && st.game.off[cell]) ? 'off' : 'on');
@@ -1789,7 +1765,7 @@ function dealCard(g, i) {
   const deal = {};
   cell.deal = deal;
   const start = () => { if (cell.deal === deal) cell.dealTimer = setTimeout(() => turnCard(i), DEAL_FIRST_MS + DEAL_NEXT_MS * order); };
-  if ($('guide').hidden && S().onboarded) start(); // a first visit draws the board just before its guide opens
+  if ($('guide').hidden && S().onboarded && $('bossCard').hidden && !app.hostPaused) start(); // a first visit draws the board just before its guide opens; a boss's card goes first; an ad first ends
   else app.afterGuide.push(start);
 }
 
@@ -1825,6 +1801,7 @@ function closeBonusSheet() {
   $('bonusSheet').hidden = true;
   const next = app.sheetQueue.shift();
   if (next) setTimeout(() => showBonusSheet(next), 250);
+  else if (S().game.phase === 'playing' && !app.busy) render(); // the tutorial's line and finger come now
 }
 
 const BONUS_WHAT = {
@@ -1843,11 +1820,12 @@ const BONUS_WHAT = {
 function showBonusSheet(kind) {
   S().tips[`sheet:${kind}`] = true;
   app.sheetAt = performance.now(); // the finger that opened it lifts over the backdrop: that is not a close
-  $('bonusSheetTile').innerHTML = guideTile(kind, true);
+  $('bonusSheetTile').innerHTML = guideTile(kind, false); // as it lies on the board: off, until tapped
   animateTiles($('bonusSheetTile'));
   $('bonusSheetName').textContent = BONUS_KINDS[kind].label; // the multiplier is on the card's sticker
   $('bonusSheetWhat').textContent = BONUS_WHAT[kind];
   $('bonusSheet').hidden = false;
+  coachRender();
   persist();
 }
 
@@ -1874,11 +1852,9 @@ function onTap(i) {
   logEvent('hold', { cell: i, held: r.held });
   render();
   persist();
-  if (r.held && engine.heldCount(st.game) === engine.remainingCells(st.game).length && !st.allHeldToastShown) {
+  if (M().id !== 'auto' && r.held && engine.heldCount(st.game) === engine.remainingCells(st.game).length && !st.allHeldToastShown) {
     st.allHeldToastShown = true;
-    toast(M().id === 'auto'
-      ? 'Every die is held: REROLL has nothing to change. Release some, or press PLAY HAND.'
-      : `Hold only protects dice from REROLL. To play a hand, press a die and drag through ${M().handSize}.`, 'hint');
+    toast(`Hold only protects dice from REROLL. To play a hand, press a die and drag through ${M().handSize}.`, 'hint');
   }
 }
 
@@ -1949,7 +1925,6 @@ async function doReroll(source) {
   if (!stillCurrent(st, modeId)) return;
   render();
   persist();
-  autoTips();
 }
 
 async function attemptBank(path, source) {
@@ -2077,7 +2052,6 @@ async function attemptBank(path, source) {
   render();
   persist();
   if (st.game.phase !== 'playing') finishLevel();
-  else autoTips();
 }
 
 // ---------- the won level's moment ----------
@@ -2089,7 +2063,7 @@ async function attemptBank(path, source) {
 // pick tappable after about 1.5 s. Dice never dim, and nothing else moves meanwhile (GPT's review of the build). A tap
 // skips to the pick. The record, the medal and the bank are counted first, so a reload in the middle shows the cleared
 // screen. Times are ms from PLAY.
-const WIN = { lift: 80, chip: 167, step: 83, snap: 500, cover: 290, black: 860, title: 840, hand: 900, badges: 940, act: 960, pick: 980, choices: 1040, ready: 1480 };
+const WIN = { lift: 80, chip: 167, step: 83, snap: 500, cover: 290, black: 860, title: 840, badges: 940, act: 960, pick: 980, choices: 1040, ready: 1480 };
 const ACT_MS = 16000 / 12; // a victory act: sixteen held drawings, twelve a second
 
 // The card's own motion with its character's act (puppets.js WIN_CARD), one held pose per drawing.
@@ -2267,12 +2241,12 @@ function playWin(hand, g0) {
     for (const el of extras) if (el.classList.contains('win-black') || el.classList.contains('win-over')) el.remove();
   });
 
-  // the cleared screen rises: the title and the score, the hand, the badges, the pick, the three choices
+  // the cleared screen rises: the title and the score, the badges, the pick, the three choices
   const rise = (el, start, dy = 8, dur = 260) => el && play(el, reduceMotion ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${dy * u}px) scale(.96)` }, { opacity: 1, transform: 'none' }], { dur: reduceMotion ? 200 : dur, start: reduceMotion ? 300 : start, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
   rise($('endTitle'), WIN.title);
   rise(end.querySelector('.end-score'), WIN.title);
-  rise($('endHand'), WIN.hand, 6, 240);
   rise($('endMedalText'), WIN.badges, 0, 240);
+  rise($('endBells'), WIN.badges, 0, 240);
   rise($('endBest'), WIN.badges, 0, 240);
   rise(end.querySelector('.up-head'), WIN.pick, 6, 240);
   rise(end.querySelector('.up-sub'), WIN.pick, 6, 240);
@@ -2391,7 +2365,10 @@ function playLoss(hand, g0) {
     document.body.appendChild(pill);
     extras.push(pill);
     const pb = box(pill);
-    pill.style.left = `${wide ? lineBox.x + lineBox.w + 6 * u : lineBox.x + (lineBox.w - pb.width) / 2}px`; // under the line on the phone, after it on the desktop
+    // under the line on the phone, after it on the desktop, but never over LEVEL beside it (a long shortfall from level 15)
+    const room = wide ? box($('levelStat')).left - 4 * u : innerWidth;
+    const after = lineBox.x + lineBox.w + 6 * u;
+    pill.style.left = `${wide ? (after + pb.width <= room ? after : Math.max(4, Math.min(room, innerWidth) - pb.width)) : lineBox.x + (lineBox.w - pb.width) / 2}px`;
     pill.style.top = `${wide ? lineBox.y + 3 * u - pb.height : lineBox.y + 4.6 * u}px`;
     play(pill, reduceMotion ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { dur: reduceMotion ? 500 : 160, easing: ease });
   });
@@ -2646,7 +2623,7 @@ const animateTiles = (root) => root.querySelectorAll('.art[data-kind]').forEach(
 function openGuide(mode) {
   const guide = $('guide');
   const ups = mode === 'help' ? S().ups || {} : {}; // the Bible shows the run's multipliers, upgrades in yellow
-  $('combos').innerHTML = GUIDE_COMBOS.map(([cat, dice]) => `<li><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}</b><em${ups[cat] ? ' class="up"' : ''}>×${AUTO_MULT[cat] + (ups[cat] || 0)}</em></li>`).join('');
+  $('combos').innerHTML = GUIDE_COMBOS.map(([cat, dice]) => `<li><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}</b><em${ups[cat] ? ' class="raised"' : ''}>×${AUTO_MULT[cat] + (ups[cat] || 0)}</em></li>`).join('');
   $('holdPic').innerHTML = `<span class="grp"><span>${[6, 6, 6].map((v) => guideDie(v, true)).join('')}</span><small>TAP = HOLD</small></span><span class="grp roll"><span>${[2, 4].map((v) => guideDie(v)).join('')}</span><small>REROLL</small></span>`;
   const help = mode === 'help';
   $('bonusPic').innerHTML = help
@@ -2654,12 +2631,34 @@ function openGuide(mode) {
     : `<span class="tap">${guideTile('x2_any', false)}</span><span class="goal"><small>THRESHOLD</small><b>${runTarget(1)}</b><small>IN 3 HANDS</small></span>`;
   animateTiles($('bonusPic'));
   $('bonusNote').textContent = help ? 'TAP TO SWITCH ON · THEY ADD UP' : 'MISS ONE AND THE RUN IS OVER';
-  app.guide = { mode, page: help ? 1 : 0 };
+  // How says the one rule no screen shows in words since the card's sheet lost its line (audit, 09.11.2026)
+  $('holdNote').innerHTML = help ? 'PLAY THROWS EVERY DIE ANEW<br>A REROLL CLEARS HOLDS AND SWITCHES CARDS OFF' : 'PLAY THROWS EVERY DIE ANEW';
+  // How opens on what the run holds, once it holds anything; the rules follow it
+  const run = help && (S().bells > 0 || S().charms.length > 0 || !!S().game.level.boss);
+  if (run) renderRunFacts();
+  const first = run ? 0 : help ? 1 : 0;
+  app.guide = { mode, run, first, page: first };
   guide.classList.toggle('help', help);
+  guide.classList.toggle('run', run);
   $('guideSkip').textContent = help ? 'CLOSE' : 'SKIP';
   $('guideSettings').hidden = !help;
   showGuidePage(app.guide.page);
   guide.hidden = false;
+}
+
+// What the run holds right now: everything that left the play screen is one tap away here (How's first page).
+function renderRunFacts() {
+  const st = S();
+  const g = st.game;
+  const fact = (name, rule) => `<li><b>${name}</b>${rule ? `<small>${rule}</small>` : ''}</li>`;
+  const next = nextUp(g.level.levelIndex, st.best);
+  const boss = g.level.boss && BOSSES[g.level.boss];
+  $('runFacts').innerHTML = [
+    boss ? fact(`BOSS: ${boss.name}`, boss.rule) : '',
+    fact([next.shop, next.boss, next.best].filter(Boolean).join(' · ')),
+    fact(`${st.bells} BELLS`, BELLS_RULE.map((line) => `<span>${line}</span>`).join('')),
+    ...st.charms.map((id) => fact(CHARMS[id].name, CHARMS[id].rule)),
+  ].join('');
 }
 
 // The guide's REROLL dice throw like the game's (owner, 02.11.2026): the same 3D roll, about every 2 s
@@ -2701,13 +2700,16 @@ async function guideRollLoop(token) {
 }
 
 function showGuidePage(page) {
+  const { mode, run } = app.guide;
+  const help = mode === 'help';
+  const title = page === 0 && !help; // How has the run's page in the title's place
   app.guide.page = page;
   if (page === 2) guideRolls();
-  $('guide').querySelectorAll('.guide-page').forEach((el) => { el.hidden = Number(el.dataset.page) !== page; });
-  $('guideDots').querySelectorAll('i').forEach((dot, k) => dot.classList.toggle('on', k === page - 1));
-  $('guideDots').hidden = page === 0;
-  $('guideSkip').hidden = page === 0;
-  $('guideNext').textContent = page === 0 ? 'PLAY' : page < 3 ? 'NEXT' : app.guide.mode === 'help' ? 'GOT IT' : "LET'S ROLL";
+  $('guide').querySelectorAll('.guide-page').forEach((el) => { el.hidden = Number(el.dataset.page) !== (page === 0 && help ? 4 : page); });
+  $('guideDots').querySelectorAll('i').forEach((dot, k) => dot.classList.toggle('on', k === (run ? page : page - 1)));
+  $('guideDots').hidden = title;
+  $('guideSkip').hidden = title;
+  $('guideNext').textContent = title ? 'PLAY' : page < 3 ? 'NEXT' : help ? 'GOT IT' : "LET'S ROLL";
 }
 
 function guideNext() {
@@ -2733,7 +2735,7 @@ function closeGuide(tutorial) {
     return;
   }
   st.coached = true;
-  persist();
+  persist(true);
 }
 
 function renderScoreTable() {
@@ -2790,7 +2792,7 @@ function applySettings() {
   st.settings.autoBonusOnFinalHand = $('optAutoBonus').checked;
   logEvent('settings', { ...st.settings });
   if (mode.help.options.small) renderScoreTable();
-  persist();
+  persist(true);
 }
 
 async function exportLog() {
@@ -2834,6 +2836,7 @@ function bind() {
   board.addEventListener('lostpointercapture', (e) => { if (app.gesture && app.gesture.id === e.pointerId) onPointerCancel(e); });
   board.addEventListener('contextmenu', (e) => e.preventDefault());
   board.addEventListener('keydown', (e) => {
+    if (!$('bossCard').hidden) return;
     const cell = e.target.closest && e.target.closest('.cell');
     if (!cell) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(Number(cell.dataset.index)); }
@@ -2862,20 +2865,19 @@ function bind() {
   });
   $('shop').addEventListener('click', shopTap);
   $('shopLeave').addEventListener('click', (e) => { e.stopPropagation(); leaveShop(); });
-  $('bossCard').addEventListener('pointerdown', () => { clearTimeout(app.bossTimer); $('bossCard').hidden = true; });
+  // a press holds the card up and its click sends it away: gone sooner, the click would land on the button under it
+  $('bossCard').addEventListener('click', hideBossCard);
+  $('bossCard').addEventListener('pointerdown', () => { clearTimeout(app.bossTimer); $('bossCard').classList.remove('show'); }); // nor does it fade under the finger
+  for (const type of ['pointerup', 'pointercancel']) $('bossCard').addEventListener(type, () => { app.bossTimer = setTimeout(hideBossCard, 300); });
   $('runsBtn').addEventListener('click', openRuns);
   $('runsClose').addEventListener('click', () => { $('runsSheet').hidden = true; });
-  $('charmRail').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-charm]');
-    if (b) toast(`${CHARMS[b.dataset.charm].name}: ${CHARMS[b.dataset.charm].rule}`, 'hint', 2600);
-  });
   $('bank').addEventListener('click', (e) => {
     const card = e.target.closest('.cell[data-k]');
     if (card) armBonus('bank', BANK + Number(card.dataset.k));
   });
   $('optSound').addEventListener('change', () => {
     setSound($('optSound').checked);
-    try { localStorage.setItem(SOUND_KEY, $('optSound').checked ? '1' : '0'); } catch { /* ignore */ }
+    save(SOUND_KEY, $('optSound').checked ? '1' : '0');
   });
   // every other button taps: the dice, cards, PLAY and REROLL have sounds of their own
   document.addEventListener('click', (e) => {
@@ -2889,8 +2891,7 @@ function bind() {
   $('resetBtn').addEventListener('click', resetProgress);
   $('nextBtn').addEventListener('click', onNext);
   $('retryBtn').addEventListener('click', onRetry);
-  $('bonusSheetOk').addEventListener('click', closeBonusSheet);
-  $('bonusSheet').addEventListener('click', (e) => { if (e.target === e.currentTarget && performance.now() - app.sheetAt > 500) closeBonusSheet(); });
+  $('bonusSheet').addEventListener('click', (e) => { if ((e.target === e.currentTarget || e.target.closest('#bonusSheetTile, #bonusSheetOk')) && performance.now() - app.sheetAt > 500) closeBonusSheet(); });
   $('guideNext').addEventListener('click', guideNext);
   $('guideSkip').addEventListener('click', () => closeGuide(false));
   $('guideSettings').addEventListener('click', () => { guideGone(); openHelp(); });
@@ -2900,23 +2901,24 @@ function bind() {
     const dx = swipeX == null ? 0 : e.clientX - swipeX;
     swipeX = null;
     if (dx < -50 && app.guide.page < 3) showGuidePage(app.guide.page + 1);
-    if (dx > 50 && app.guide.page > (app.guide.mode === 'help' ? 1 : 0)) showGuidePage(app.guide.page - 1);
+    if (dx > 50 && app.guide.page > app.guide.first) showGuidePage(app.guide.page - 1);
   });
-  $('coachSkip').addEventListener('click', () => coachStop('skipped'));
+  $('coachSkip').addEventListener('click', () => { coachStop('skipped'); if (!app.busy) render(); });
   $('tutorialBtn').addEventListener('click', () => { if (app.busy) return; $('help').hidden = true; coachStart('help'); });
   window.addEventListener('keydown', (e) => {
+    if (!$('bossCard').hidden) { if (e.key === 'Enter' || e.key === ' ') e.preventDefault(); return; }
     if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
-    if (e.key === 'r' || e.key === 'R') doReroll('key');
-    if (e.key === 'h' || e.key === 'H') onHint();
-    if (e.key === 'Escape') { $('help').hidden = true; if (!$('bonusSheet').hidden) closeBonusSheet(); if (app.guide && app.guide.mode === 'help') $('guide').hidden = true; if (!app.busy) { clearPath(); render(); } }
+    if (M().id !== 'auto') { // the old modes' keys: Auto Hand never marks its hand (owner, 01.11.2026), and its REROLL is the button
+      if (e.key === 'r' || e.key === 'R') doReroll('key');
+      if (e.key === 'h' || e.key === 'H') onHint();
+    }
   });
-  const refit = () => { fitBoard(); };
+  const refit = () => { fitBoard(); fitOverlays(); };
   window.addEventListener('resize', refit);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', refit);
   if (typeof ResizeObserver === 'function') {
     const ro = new ResizeObserver(refit);
     ro.observe(els.app);
-    ro.observe($('coach')); // the tutorial line takes height from the board while it shows
   }
 }
 
@@ -2943,7 +2945,8 @@ function tryMatcap() {
 
 function init() {
   tryMatcap();
-  for (const id of ['app', 'board', 'boardWrap', 'preview', 'playBtn', 'rerollBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast', 'bones', 'bonesLabel', 'handStat', 'multSticker']) els[id] = $(id);
+  if (new URLSearchParams(location.search).has('dev')) for (const el of document.querySelectorAll('.dev')) el.hidden = false; // the developer's tuning and data
+  for (const id of ['app', 'board', 'preview', 'playBtn', 'rerollBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast', 'bones', 'bonesLabel', 'handStat', 'multSticker']) els[id] = $(id);
   els.tabs = Array.from(document.querySelectorAll('.tab'));
   els.controls = document.querySelector('.controls');
   // the snake modes share the scoring paragraphs written in index.html; Auto Hand brings its own
@@ -2951,13 +2954,11 @@ function init() {
   buildBoard();
   bind();
   setLook('modern'); // the mockup's black screen; the other looks have no switch any more
-  let soundOn = true;
-  try { soundOn = localStorage.getItem(SOUND_KEY) !== '0'; } catch { /* ignore */ }
+  const soundOn = load(SOUND_KEY) !== '0';
   $('optSound').checked = soundOn;
   setupSound((n) => cssUrl(`--sfx-${n}`), soundOn); // read on the first touch: Safari can run this before the stylesheet is in
   setupPuppets((character, part) => cssUrl(`--rig-${character}-${part}`), () => app.busy); // no turn while the dice fly or count
-  let d3 = true;
-  try { d3 = localStorage.getItem(DICE3D_KEY) !== '0'; } catch { /* ignore */ }
+  const d3 = load(DICE3D_KEY) !== '0';
   app.dice3d = d3;
   if (d3 && !reduceMotion) setTimeout(() => loadDice3D().then(applyRenderedFaces), 800);
   const saved = readJson(STORAGE_KEY);
@@ -2974,7 +2975,30 @@ function init() {
   window.__diceSnake = { app, version: APP_VERSION, state: () => S(), mode: () => M(), hint: () => E().hintFor(S().game), switchMode, setLook, LOOKS, dice3d: dice3dStatus, setDice3D };
 }
 
-setupBoard().finally(() => {
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
+// The platform pauses the game (an ad between levels, another tab): the sound goes, and the new level's deal and its
+// boss's card wait under the ad instead of playing out unseen (Playgama 2.1.6). On its return they go on.
+function onHost(silent, paused) {
+  setHostSilent(silent);
+  if (paused === !!app.hostPaused) return;
+  app.hostPaused = paused;
+  if (paused) {
+    clearTimeout(app.bossTimer);
+    for (const cell of els.cells) if (cell.waiting) clearTimeout(cell.dealTimer);
+    return;
+  }
+  if (!$('bossCard').hidden) { app.bossTimer = setTimeout(hideBossCard, BOSS_CARD_MS); return; }
+  const g = S().game;
+  if (g && g.phase === 'playing' && $('guide').hidden) els.cells.forEach((cell, i) => { if (cell.waiting) dealCard(g, i); });
+}
+
+// On Playgama the Bridge and the saves come first (its required steps); everywhere else this resolves at once.
+function start() {
+  init();
+  followHostAudio(onHost);
+  requestAnimationFrame(() => requestAnimationFrame(gameReady)); // the first screen is up and takes taps
+}
+
+setupPlatform([STORAGE_KEY, SOUND_KEY, DICE3D_KEY, LOOK_KEY]).then(setupBoard).finally(() => {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
 });

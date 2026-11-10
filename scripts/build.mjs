@@ -3,7 +3,8 @@
 //   dist/index.html    – standalone page (open from disk or any static host)
 //   dist/artifact.html – the same page as a claude.ai artifact fragment (title/meta/style/body)
 //   dist/playgama/     – the page for Playgama: the Bridge script first in <head> and its config next to it. Only this
-//                        build waits for the Bridge CDN; the others never load it.
+//                        build waits for the Bridge CDN; the others never load it. Nothing else comes from outside:
+//                        three.js ships in vendor/ next to the page (Playgama 1.2.5).
 // Each module becomes its own scope; `import { a } from './x.js'` turns into destructuring
 // from that module's export object, so modules may reuse local names freely.
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs';
@@ -37,6 +38,7 @@ const MODULES = [
   'src/ui/puppets.js',
   'src/ui/shards.js',
   'src/ui/acts.js',
+  'src/ui/platform.js',
   'src/ui/board.js',
   'src/ui/app.js',
 ];
@@ -101,17 +103,24 @@ if (css.includes('</style')) throw new Error('"</style" inside styles.css would 
 const standalone = html.replace(cssTag, () => `<style>\n${css}</style>`).replace(jsTag, () => `<script>\n${bundle}\n</script>`);
 
 const title = html.match(/<title>[^<]*<\/title>/)[0];
-const fontLink = html.match(/<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com[^>]*>/)?.[0] ?? '';
+// The Google Fonts of the old looks: every glyph the game shows is in Basteleur, which is inlined, so no page loads them.
+const noFonts = (page) => page.replace(/\s*<link rel="(?:preconnect|stylesheet)" href="https:\/\/fonts\.googleapis\.com[^>]*>/g, '');
 const bodyInner = standalone.match(/<body>([\s\S]*)<\/body>/)[1].trim();
-const fragment = `${title}\n<meta name="claude:viewport-fit-sides" content="cover">\n${fontLink}\n<style>\n${css}</style>\n${bodyInner}\n`;
+const fragment = `${title}\n<meta name="claude:viewport-fit-sides" content="cover">\n<style>\n${css}</style>\n${bodyInner}\n`;
 
 const BRIDGE = '<script src="https://bridge.playgama.com/v2/stable/playgama-bridge.js"></script>';
-const playgama = standalone.replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n${BRIDGE}`);
-if (playgama === standalone) throw new Error('index.html has no charset line to put the Bridge script after');
+const THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+const THREE_LOCAL = './vendor/three.module.min.js'; // vendor/three: three@0.160.0 from npm, MIT
+const page = noFonts(standalone);
+if (!page.includes(THREE_CDN)) throw new Error('dice3d.js no longer loads three@0.160.0: update the vendored copy');
+const playgama = page.replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n${BRIDGE}`).split(THREE_CDN).join(THREE_LOCAL);
+if (!playgama.includes(BRIDGE)) throw new Error('index.html has no charset line to put the Bridge script after');
+if (/https:\/\/(?!bridge\.playgama\.com)[^"'\s)]*\.(?:js|css|woff2?|otf|ttf|png|webp|mp3|json)\b/.test(playgama.replace(/<!--[\s\S]*?-->/g, ''))) throw new Error('the Playgama page still loads something from outside its archive');
 
-mkdirSync('dist/playgama', { recursive: true });
-writeFileSync('dist/index.html', standalone);
+mkdirSync('dist/playgama/vendor', { recursive: true });
+writeFileSync('dist/index.html', page);
 writeFileSync('dist/artifact.html', fragment);
 writeFileSync('dist/playgama/index.html', playgama);
 copyFileSync('playgama-bridge-config.json', 'dist/playgama/playgama-bridge-config.json');
-console.log(`built dist/index.html (${(standalone.length / 1024).toFixed(1)} KB) and dist/artifact.html (${(fragment.length / 1024).toFixed(1)} KB)`);
+copyFileSync('vendor/three/three.module.min.js', 'dist/playgama/vendor/three.module.min.js');
+console.log(`built dist/index.html (${(page.length / 1024).toFixed(1)} KB) and dist/artifact.html (${(fragment.length / 1024).toFixed(1)} KB)`);

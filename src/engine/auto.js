@@ -40,6 +40,8 @@ export function handRules(level, handsLeft) {
   if (hasCharm(level, 'crooked_pip')) r.ones = 6;
   if (hasCharm(level, 'velvet_grip')) r.heldAdd = 1;
   if (hasCharm(level, 'final_bow') && handsLeft === 1) r.sumAdd = 5;
+  if (hasCharm(level, 'stone_ribbon')) r.fiveAdd = 5;
+  if (level.boss === 'mason') r.sumAdd = (r.sumAdd || 0) - 5; // his toll on every hand (no cell is ever locked since 09.11.2026)
   if (level.boss === 'lowbell') r.sixes = 0;
   if (level.boss === 'judge') r.half = 'straight';
   return Object.keys(r).length ? r : null;
@@ -64,12 +66,6 @@ export function createAutoGame(level, configOverrides = {}, attempt = 1) {
     return { kind, off: true, used: false, placed: false };
   });
   const faces = level.faces.slice();
-  // STONE RIBBON: the board's first lock is a die instead, its face drawn from the level alone
-  const lock = hasCharm(level, 'stone_ribbon') ? cells.findIndex((c) => c.type === 'block') : -1;
-  if (lock >= 0) {
-    cells[lock] = { type: 'die' };
-    faces[lock] = createRng(`${level.seed}/ribbon`).die();
-  }
   // QUICK POCKET: the first kept card is on the board from the start, in place of the last die, while 6 dice stay
   const dice = cells.flatMap((c, i) => (c.type === 'die' ? [i] : []));
   if (hasCharm(level, 'quick_pocket') && level.boss !== 'hush' && bank.length && dice.length > MIN_DICE) {
@@ -141,8 +137,8 @@ export function toggleBonus(state, i) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   const b = Number.isInteger(i) ? banked(state, i) : null;
   if (b && waiting(b)) {
-    if (hushed(state)) return reject('HUSHED', 'Bank cards do not enter this level');
-    if (!state.stats.rerollsUsed) return reject('NOT_YET', 'Kept bonuses come in on the first reroll');
+    if (hushed(state)) return reject('HUSHED', 'NOT ON THIS LEVEL');
+    if (!state.stats.rerollsUsed) return reject('NOT_YET', 'COMES IN ON THE FIRST REROLL');
     const bank = state.bank.map((x, k) => (k === i - BANK ? { ...x, off: !x.off } : x));
     return { ok: true, off: bank[i - BANK].off, state: { ...state, bank, stats: bump(state, 'bonusToggles') } };
   }

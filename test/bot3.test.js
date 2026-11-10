@@ -18,7 +18,7 @@ test('auto bots play legal levels: up to three hands (the target ends it), hands
       assert.ok(st.handsLeft === 0 || (won && score >= level.target)); // early only on a win
       assert.equal(score, st.hands.reduce((s, h) => s + h.total, 0));
       assert.equal(won, score >= level.target);
-      assert.ok(st.rerollsLeft >= 0 && st.rerollsLeft <= 3);
+      assert.ok(st.rerollsLeft >= 0 && st.rerollsLeft <= 3 + level.layout.filter((c) => c.type === 'bonus' && c.kind === 'refund').length); // a REFUND gives one back
       for (const h of st.hands) {
         assert.equal(h.cells.length + h.jokerCells.length, SIZE[h.category]);
         for (const i of [...h.bonusCells, ...h.jokerCells]) assert.equal(st.cells[i].type, 'die'); // the bots keep no bank

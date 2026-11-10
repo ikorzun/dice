@@ -4,6 +4,8 @@
 // outside it, and the Bridge script only ships in the Playgama build): the screen shows the best runs on this device.
 // The table around the player, not a top 100 (digest rule 22: low places in a global table demotivate).
 
+import { platformBridge } from './platform.js';
+
 export const BOARD_ID = 'furthest_level';
 const STEP = 1e7;
 export const RUNS_KEPT = 5; // the best runs a device keeps
@@ -30,13 +32,12 @@ export function around(entries, id, reach = 2) {
 let api = null;
 let me = null;
 
-// Waits for the Bridge when the page has it (the Playgama build, its script first in <head>); a page without it, or a
+// The Bridge once platform.js has it ready (the Playgama build, its script first in <head>); a page without it, or a
 // platform with no table, plays on with the device's runs.
-export async function setupBoard() {
-  const { bridge } = window;
+export function setupBoard() {
+  const bridge = platformBridge();
   if (!bridge) return;
   try {
-    await Promise.race([bridge.initialize(), new Promise((_, no) => { setTimeout(no, 5000); })]); // the game never waits on a platform for long
     if (bridge.leaderboards.type === 'in_game') { api = bridge.leaderboards; me = bridge.player.id; }
   } catch { api = null; }
 }

@@ -11,8 +11,6 @@
 <meta name="theme-color" content="#000000">
 <title>Dicefool</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=Cinzel:wght@600;800&family=Uncial+Antiqua&family=Pirata+One&family=MedievalSharp&family=IM+Fell+English:ital@0;1&display=swap">
 <style>
 /* Layout after the owner's Figma mockup (DARK, 01.11.2026): a black screen with the header
    LEVEL · THRESHOLD · rules, the 3×3 board, the BONES · MULTIPLY · TOTAL counter and two round
@@ -241,6 +239,7 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .upgrades { margin: 14px 0 4px; }
 .up-head { margin: 0; font: 700 calc(23.5px * var(--k, 1))/calc(31.3px * var(--k, 1)) var(--font-display); color: var(--accent); text-align: center; text-wrap: balance; }
 .up-sub { margin: 0 0 calc(11.7px * var(--k, 1)); font: 700 calc(11.7px * var(--k, 1))/calc(17.6px * var(--k, 1)) var(--font-display); color: #8f8f8f; text-align: center; }
+.up-sub.boss { font-size: calc(14px * var(--k, 1)); color: #fff; } /* the next boss's rule: it bears on this pick */
 .up-list { display: grid; gap: calc(9.8px * var(--k, 1)); }
 /* GPT's spec (04.11.2026): dice | name | ×m → ×m+1 on a 370 px pill at 402 px; the longest name wraps to two lines */
 .up { display: grid; grid-template-columns: calc(104px * var(--k, 1)) 1fr auto; align-items: center; gap: calc(8px * var(--k, 1)); width: 100%; height: calc(56.7px * var(--k, 1)); padding: 0 calc(15px * var(--k, 1)) 0 calc(12px * var(--k, 1)); border: 0; border-radius: calc(28.4px * var(--k, 1)); background: var(--btn-primary-bg); color: var(--btn-primary-fg); font: 700 calc(16.6px * var(--k, 1))/1 var(--font-display); text-align: left; cursor: pointer; }
@@ -269,13 +268,12 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
     0.070em 0em 0 var(--hold), 0.065em 0.027em 0 var(--hold), 0.049em 0.049em 0 var(--hold), 0.027em 0.065em 0 var(--hold), 0em 0.070em 0 var(--hold), -0.027em 0.065em 0 var(--hold), -0.049em 0.049em 0 var(--hold), -0.065em 0.027em 0 var(--hold), -0.070em 0em 0 var(--hold), -0.065em -0.027em 0 var(--hold), -0.049em -0.049em 0 var(--hold), -0.027em -0.065em 0 var(--hold), 0em -0.070em 0 var(--hold), 0.027em -0.065em 0 var(--hold), 0.049em -0.049em 0 var(--hold), 0.065em -0.027em 0 var(--hold);
 }
 
-/* Coach (interactive tutorial) */
-.coach { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--gold); border-radius: 12px; min-height: 52px; }
-.coach-step { font: 700 13px/1 var(--font-display); letter-spacing: .14em; color: var(--gold); white-space: nowrap; }
-.coach-text { font: 700 16px/1.15 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--fg); min-width: 0; }
+/* Coach (interactive tutorial): one line lying over the header row, so the owner's rows keep their size (06.11.2026) */
+.coach { position: absolute; z-index: 5; top: max(16px, env(safe-area-inset-top, 0px)); left: calc(env(safe-area-inset-left, 0px) + 12px * var(--k, 1)); right: calc(env(safe-area-inset-right, 0px) + 12px * var(--k, 1)); height: calc(64px * var(--k, 1)); display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 0 calc(10px * var(--k, 1)); border: 1px solid var(--gold); border-radius: 12px; background: #000; }
+.coach-text { font: 700 max(11px, calc(15px * var(--k, 1)))/1.15 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--fg); min-width: 0; }
 .coach-skip { height: 30px; padding: 0 10px; }
 .ghost { position: absolute; width: 17%; height: 17%; border-radius: 50%; background: rgba(255, 255, 255, .28); border: 3px solid var(--fg); box-shadow: 0 0 0 7px rgba(255, 255, 255, .14), 0 4px 14px rgba(0, 0, 0, .6); pointer-events: none; z-index: 7; transform: translate(-50%, -50%); opacity: 0; }
-.btn-primary.pulse, .btn-secondary.pulse { animation: pulseBtn 1.1s ease-in-out infinite; }
+.btn-primary.pulse, .btn-secondary.pulse, .btn-play.pulse, .btn-dark.pulse { animation: pulseBtn 1.1s ease-in-out infinite; }
 @keyframes pulseBtn { 0%, 100% { box-shadow: 0 0 0 0 rgba(243, 197, 79, 0); } 50% { box-shadow: 0 0 0 6px rgba(243, 197, 79, .55); } }
 
 
@@ -441,7 +439,7 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 
 .reveal { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; z-index: 6; opacity: 0; white-space: nowrap; }
 .reveal .cat { font: 700 calc(26px * var(--kb, 1))/1 var(--font-display); letter-spacing: .14em; color: var(--reveal-fg); text-shadow: 0 2px 12px #000, 0 0 2px #000; }
-.reveal .pts { font: 700 calc(70px * var(--kb, 1))/1 var(--font-display); color: var(--path); text-shadow: 0 2px 16px #000; font-variant-numeric: tabular-nums; }
+.reveal .pts { font: 700 calc(70px * var(--kb, 1))/1 var(--font-display); color: var(--reveal-fg, #fff); text-shadow: 0 2px 16px #000; font-variant-numeric: tabular-nums; } /* white: red is the lost run's colour (audit question 9, 09.11.2026); a card's hit and fire turn it yellow */
 .reveal .mult { font: 700 calc(22px * var(--kb, 1))/1 var(--font-display); letter-spacing: .1em; color: var(--gold); text-shadow: 0 2px 10px #000; }
 .reveal.show { animation: reveal 950ms ease-out forwards; }
 /* Auto Hand: the bonus step lands as a hit; the fire marks a hand that alone covers the rest of the target */
@@ -489,11 +487,12 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .btn-ghost.on { color: var(--bg); background: var(--fg); border-color: var(--fg); }
 
 /* Toast */
-.toast { pointer-events: none; position: absolute; left: 50%; bottom: calc(220px * var(--k, 1)); transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); padding: 10px 14px; border-radius: 10px; background: var(--panel-bg); border: 1px solid var(--line-strong); color: var(--fg); font: 700 15px/1.2 var(--font-display); letter-spacing: .06em; text-align: center; z-index: 8; animation: toastIn 180ms ease-out; }
+/* A line by an event lies over the header row: never over the dice, the counter or the buttons a decision rests on */
+.toast { pointer-events: none; position: absolute; z-index: 8; top: max(16px, env(safe-area-inset-top, 0px)); left: calc(env(safe-area-inset-left, 0px) + 12px * var(--k, 1)); right: calc(env(safe-area-inset-right, 0px) + 12px * var(--k, 1)); height: calc(64px * var(--k, 1)); display: flex; align-items: center; justify-content: center; padding: 0 10px; border-radius: 12px; background: #000; border: 1px solid var(--line-strong); color: var(--fg); font: 700 max(11px, calc(15px * var(--k, 1)))/1.2 var(--font-display); letter-spacing: .06em; text-align: center; animation: toastIn 180ms ease-out; }
 .toast.bad { border-color: var(--bad); color: var(--bad); }
 .toast.good { border-color: var(--good); color: var(--good); }
 .toast.hint { border-color: var(--gold); color: var(--gold); }
-@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* Overlays */
 .overlay { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, .93); display: flex; align-items: center; justify-content: center; padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -520,8 +519,8 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .medal { display: inline-grid; place-items: center; width: 34px; height: 34px; border: 2px solid var(--gold); border-radius: 50%; color: var(--gold); font: 700 15px/1 var(--font-display); font-style: normal; font-variant-numeric: tabular-nums; }
 .medal.fresh { background: var(--gold); color: var(--btn-primary-fg); }
 /* A cleared level (owner's pick В11 A «Пробитый порог», 04.11.2026; GPT's production spec, boxes at 402 px in mockup
-   px × --k): on pure black, the white title over the honest score and how far past the threshold it went, a rail
-   kept for the medal and the record, the winning hand in one row, then the pick. On a tall screen the stack sits
+   px × --k): on pure black, the white title over the honest score, a rail kept for the medal and the record, then
+   the pick and what the level paid. On a tall screen the stack sits
    lower (94 px at 874, 16 px at 660). While the moment plays (.playing) the page shows through; the pick waits until it has risen (.waiting). */
 #levelEnd:is(.won, .run-over) { align-items: flex-start; background: #000; padding-top: max(calc(env(safe-area-inset-top, 0px) + 16px), clamp(16px, calc(16px + (100vh - 660px) * .3645), 94px)); }
 @supports (height: 100svh) { #levelEnd:is(.won, .run-over) { padding-top: max(calc(env(safe-area-inset-top, 0px) + 16px), clamp(16px, calc(16px + (100svh - 660px) * .3645), 94px)); } }
@@ -532,7 +531,7 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 #levelEnd.won .end-title { font-size: calc(30.3px * var(--k, 1)); line-height: calc(37.1px * var(--k, 1)); letter-spacing: 0; }
 #levelEnd.won .end-score { display: flex; align-items: center; justify-content: center; height: calc(58.7px * var(--k, 1)); font-size: calc(46.9px * var(--k, 1)); line-height: 1; }
 #levelEnd.won .end-sep { margin: 0 calc(8px * var(--k, 1)); }
-.end-over { margin-left: calc(10px * var(--k, 1)); padding: 0 calc(9px * var(--k, 1)); border-radius: calc(14px * var(--k, 1)); background: var(--gold); color: #000; font: 700 calc(13.7px * var(--k, 1))/calc(27.4px * var(--k, 1)) var(--font-display); white-space: nowrap; }
+.end-over { grid-column: 1 / -1; justify-self: start; padding: 0 calc(8px * var(--k, 1)); border-radius: calc(11px * var(--k, 1)); background: var(--bad); color: #000; font: 700 calc(11.7px * var(--k, 1))/calc(21.5px * var(--k, 1)) var(--font-display); white-space: nowrap; } /* the pill the line gave it */
 .end-badges { display: flex; align-items: center; height: calc(35.2px * var(--k, 1)); margin-top: calc(7.8px * var(--k, 1)); padding-left: calc(7.8px * var(--k, 1)); }
 .end-medal { display: flex; align-items: center; gap: calc(8px * var(--k, 1)); color: var(--gold); font: 700 calc(15.6px * var(--k, 1))/1 var(--font-display); }
 .end-medal b { font-weight: inherit; }
@@ -551,7 +550,6 @@ body.wide #levelEnd.won .panel { width: calc(1134px * var(--k, 1)); height: calc
 body.wide #levelEnd.won .panel > * { grid-column: 1; }
 body.wide #levelEnd.won .end-title { margin-top: calc(25px * var(--k, 1)); font-size: calc(42px * var(--k, 1)); line-height: calc(50px * var(--k, 1)); }
 body.wide #levelEnd.won .end-score { height: calc(74px * var(--k, 1)); margin-top: calc(4px * var(--k, 1)); font-size: calc(64px * var(--k, 1)); }
-body.wide .end-over { font-size: calc(17px * var(--k, 1)); line-height: calc(34px * var(--k, 1)); border-radius: calc(17px * var(--k, 1)); padding: 0 calc(12px * var(--k, 1)); }
 body.wide .end-badges { height: calc(40px * var(--k, 1)); margin: calc(16px * var(--k, 1)) calc(36px * var(--k, 1)) 0; padding-left: 0; }
 body.wide .end-medal { font-size: calc(17px * var(--k, 1)); }
 body.wide .end-medal .medal { width: calc(40px * var(--k, 1)); height: calc(40px * var(--k, 1)); font-size: calc(20px * var(--k, 1)); }
@@ -588,7 +586,6 @@ body.wide .up b { line-height: calc(20px * var(--k, 1)); }
 #levelEnd.run-over .end-score { grid-column: 1; display: grid; grid-template-columns: auto auto auto; justify-content: start; align-content: center; align-items: center; row-gap: calc(4px * var(--k, 1)); height: calc(58.7px * var(--k, 1)); font-size: calc(33.2px * var(--k, 1)); line-height: 1; white-space: nowrap; } /* GPT's 38 px score and its chip side by side are 315 px in a 250 px box: the chip goes under the score */
 #levelEnd.run-over .end-sep { margin: 0 calc(6px * var(--k, 1)); color: #9a9a9a; }
 #levelEnd.run-over #endTarget { color: #9a9a9a; }
-.end-over.short { grid-column: 1 / -1; justify-self: start; margin-left: 0; background: var(--bad); font-size: calc(11.7px * var(--k, 1)); line-height: calc(21.5px * var(--k, 1)); border-radius: calc(11px * var(--k, 1)); padding: 0 calc(8px * var(--k, 1)); } /* the pill the line gave it */
 #levelEnd.run-over .run-reached { grid-column: 1; display: flex; align-items: center; gap: calc(6px * var(--k, 1)); height: calc(43px * var(--k, 1)); margin: calc(7.8px * var(--k, 1)) 0 0; padding: 0 calc(11.7px * var(--k, 1)); border: 1.5px solid #3b3b3b; border-radius: calc(13.7px * var(--k, 1)); font: 700 calc(10.8px * var(--k, 1))/1 var(--font-display); color: #9a9a9a; white-space: nowrap; }
 .run-reached b { font-size: calc(16.6px * var(--k, 1)); color: var(--fg); font-variant-numeric: tabular-nums; }
 .run-reached i { font-style: normal; margin: 0 calc(2px * var(--k, 1)); }
@@ -633,7 +630,7 @@ body.wide #levelEnd.run-over .panel { position: relative; display: block; width:
 body.wide #levelEnd.run-over .panel > * { position: absolute; margin: 0; }
 body.wide #levelEnd.run-over .end-title { left: 0; top: 0; width: calc(546px * var(--k, 1)); font-size: calc(40px * var(--k, 1)); line-height: calc(48px * var(--k, 1)); }
 body.wide #levelEnd.run-over .end-score { left: 0; top: calc(48px * var(--k, 1)); width: calc(366px * var(--k, 1)); height: calc(76px * var(--k, 1)); font-size: calc(54px * var(--k, 1)); }
-body.wide .end-over.short { font-size: calc(14px * var(--k, 1)); line-height: calc(32px * var(--k, 1)); border-radius: calc(16px * var(--k, 1)); padding: 0 calc(11px * var(--k, 1)); }
+body.wide .end-over { font-size: calc(14px * var(--k, 1)); line-height: calc(32px * var(--k, 1)); border-radius: calc(16px * var(--k, 1)); padding: 0 calc(11px * var(--k, 1)); }
 body.wide #levelEnd.run-over .run-reached { left: 0; top: calc(132px * var(--k, 1)); width: calc(366px * var(--k, 1)); height: calc(48px * var(--k, 1)); font-size: calc(13px * var(--k, 1)); }
 body.wide .run-reached b { font-size: calc(20px * var(--k, 1)); }
 body.wide #levelEnd.run-over .end-board { left: calc(384px * var(--k, 1)); top: calc(54px * var(--k, 1)); width: calc(162px * var(--k, 1)); height: calc(162px * var(--k, 1)); --kb: calc(var(--k, 1) * 1.5); --board: calc(546px * var(--k, 1)); --mini: .29670; }
@@ -658,7 +655,6 @@ body.wide .loss-count { font-size: calc(20px * var(--k, 1)); }
 body.wide .loss-count em { font-size: calc(36px * var(--k, 1)); }
 body.wide .loss-count small { font-size: calc(16px * var(--k, 1)); }
 body.wide .loss-short { font-size: calc(14px * var(--k, 1)); line-height: calc(28px * var(--k, 1)); border-radius: calc(14px * var(--k, 1)); padding: 0 calc(10px * var(--k, 1)); }
-#levelStat { position: relative; }
 body.wide #levelEnd.won .panel { position: relative; }
 .lead { margin: 0; font-size: 16px; line-height: 1.45; }
 .rules { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--fg); }
@@ -689,15 +685,16 @@ body.wide .app {
   height: auto; /* as tall as the board: the buttons' 1fr row takes what the tile leaves */
   display: grid;
   grid-template-columns: calc(546px * var(--k, 1)) calc(546px * var(--k, 1));
-  grid-template-rows: auto auto auto 1fr;
-  grid-template-areas: "board coach" "board hud" "board counter" "board controls";
+  grid-template-rows: auto auto 1fr;
+  grid-template-areas: "board hud" "board counter" "board controls";
   column-gap: calc(42px * var(--k, 1));
   row-gap: 0;
   justify-content: center;
 }
 body.wide .board-wrap { grid-area: board; --board: calc(546px * var(--k, 1)); }
 body.wide .board { gap: calc(12px * var(--k, 1)); }
-body.wide .coach { grid-area: coach; margin-bottom: calc(12px * var(--k, 1)); }
+body.wide .coach { grid-area: hud; inset: 0; height: auto; border-radius: calc(40px * var(--k, 1)) calc(40px * var(--k, 1)) 0 0; background: var(--tile); }
+body.wide .toast { grid-area: hud; inset: 0; height: auto; border-radius: calc(40px * var(--k, 1)) calc(40px * var(--k, 1)) 0 0; background: var(--tile); }
 body.wide .hud { grid-area: hud; height: auto; align-items: center; justify-content: space-between; padding: calc(30px * var(--k, 1)) calc(32px * var(--k, 1)) calc(24px * var(--k, 1)); background: var(--tile); border-radius: calc(40px * var(--k, 1)) calc(40px * var(--k, 1)) 0 0; }
 body.wide .bank { gap: calc(8px * var(--k, 1)); }
 body.wide .book { flex: none; height: auto; font-size: calc(28px * var(--k, 1)); }
@@ -720,7 +717,7 @@ body.wide .controls .cnt::before { content: '×'; }
 
 /* Basteleur is wide and the mockup sets it without tracking: the rules above were spaced for a
    condensed face */
-.end-title, .btn-primary, .btn-secondary, .btn-ghost, .coach-step, .coach-text, .toast, .preview, .reveal .cat, .reveal .mult,
+.end-title, .btn-primary, .btn-secondary, .btn-ghost, .coach-text, .toast, .preview, .reveal .cat, .reveal .mult,
 .end-note, .hands li, .sheet-panel h3, .score-table th, .cell .tag, .tab { letter-spacing: 0; }
 .end-title { font-size: 34px; }
 
@@ -755,7 +752,7 @@ body.wide .controls .cnt::before { content: '×'; }
 .combos .gdice { display: flex; gap: 3px; }
 .combos b { font: 700 clamp(14px, 3.9vmin, 18px)/1 var(--font-display); text-align: left; }
 .combos em { font: 700 clamp(20px, 5.6vmin, 28px)/1 var(--font-display); font-style: normal; color: var(--accent); }
-.combos em.up { color: var(--hold); } /* raised by the run's upgrades */
+.combos em.raised { color: var(--hold); } /* raised by the run's upgrades */
 @media (max-height: 600px) { .combos { gap: 4px; } .combos li { padding-block: 3px; } } /* eight rows on a 568 px phone since the small straight */
 .hold-pic { display: flex; gap: clamp(16px, 5vmin, 28px); align-items: flex-start; --gd: clamp(48px, 15vmin, 72px); }
 .hold-pic .grp { display: flex; flex-direction: column; align-items: center; gap: 10px; }
@@ -925,28 +922,16 @@ body:not([data-look="modern"]) .btn-secondary { font-size: 16px; letter-spacing:
 body:not([data-look="modern"]) .cell .tag { font-size: 10px; letter-spacing: .1em; }
 body:not([data-look="modern"]) .cell .order { font-size: 12px; }
 
-/* The run's money and rule in the 16 px gap under the counter (GPT's spec, art/ai/2026-11-06-shop-bosses), no added height */
+/* The bells and the charms' marks, for the receipts and the shop */
 .bell { display: inline-block; width: 1.25em; height: 1.25em; margin-right: .2em; vertical-align: -.25em; background: var(--bell) center / contain no-repeat; }
-.run-line { position: absolute; left: calc(16px * var(--k, 1)); right: calc(16px * var(--k, 1)); top: 100%; height: calc(16px * var(--k, 1)); display: flex; align-items: center; justify-content: space-between; gap: calc(8px * var(--k, 1)); font: 700 calc(10px * var(--k, 1))/1 var(--font-display); color: #8f8f8f; white-space: nowrap; }
-.run-line .wallet { color: var(--gold); font-size: calc(12px * var(--k, 1)); }
-.run-line.boss { color: #fff; }
-/* The charms: three small sigils beside the bank */
-.charm-rail { flex: none; display: flex; flex-direction: column; justify-content: center; gap: calc(3px * var(--k, 1)); margin-left: calc(7px * var(--k, 1)); }
 .sigil { display: block; flex: none; width: calc(18px * var(--k, 1)); height: calc(18px * var(--k, 1)); border: 0; padding: 0; background: var(--sig) center / contain no-repeat; }
-button.sigil { cursor: pointer; }
-/* A boss's level: his portrait in LEVEL's box in place of the strip, ticks on the board's corners, his card at the start */
+/* A boss's level opens with his card over the dice: LEVEL and THRESHOLD stay in view under it, the whole screen waits */
 .boss-face { display: block; flex: none; background: var(--boss) center / contain no-repeat; }
-#bossFace { position: absolute; left: calc(48px * var(--k, 1)); top: calc(10px * var(--k, 1)); width: calc(32px * var(--k, 1)); height: calc(32px * var(--k, 1)); }
-#bossFace[hidden] { display: none; }
-.board-wrap.boss::after { content: ''; position: absolute; inset: calc(-4px * var(--k, 1)); pointer-events: none; --t: calc(12px * var(--k, 1)); --w: calc(2px * var(--k, 1)); background:
-  linear-gradient(#fff, #fff) 0 0 / var(--t) var(--w) no-repeat, linear-gradient(#fff, #fff) 0 0 / var(--w) var(--t) no-repeat,
-  linear-gradient(#fff, #fff) 100% 0 / var(--t) var(--w) no-repeat, linear-gradient(#fff, #fff) 100% 0 / var(--w) var(--t) no-repeat,
-  linear-gradient(#fff, #fff) 0 100% / var(--t) var(--w) no-repeat, linear-gradient(#fff, #fff) 0 100% / var(--w) var(--t) no-repeat,
-  linear-gradient(#fff, #fff) 100% 100% / var(--t) var(--w) no-repeat, linear-gradient(#fff, #fff) 100% 100% / var(--w) var(--t) no-repeat; }
-.boss-card { position: fixed; inset: 0; z-index: 15; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; color: #fff; }
-.boss-card > div { display: flex; align-items: center; gap: calc(14px * var(--k, 1)); width: calc(300px * var(--k, 1)); padding: calc(14px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(16px * var(--k, 1)); background: #262626; }
+.boss-card { position: absolute; inset: 0; z-index: 15; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; color: #fff; }
+.boss-card::before { content: ''; position: fixed; inset: 0; }
+.boss-card > div { position: relative; display: flex; align-items: center; gap: calc(14px * var(--k, 1)); width: calc(300px * var(--k, 1)); padding: calc(14px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(16px * var(--k, 1)); background: #262626; }
 .boss-card[hidden] { display: none; }
-.boss-card.show > div { animation: bossCard 1400ms cubic-bezier(.2, .8, .2, 1) both; }
+.boss-card.show > div { animation: bossCard 2000ms cubic-bezier(.2, .8, .2, 1) both; }
 .boss-card .boss-face { width: calc(84px * var(--k, 1)); height: calc(84px * var(--k, 1)); }
 .boss-card span { display: flex; flex-direction: column; gap: calc(4px * var(--k, 1)); min-width: 0; }
 .boss-card b { font-size: calc(16px * var(--k, 1)); line-height: 1.1; font-weight: inherit; }
@@ -957,7 +942,8 @@ button.sigil { cursor: pointer; }
 /* A cleared level's pay */
 .end-bells { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 calc(8px * var(--k, 1)); margin: calc(8px * var(--k, 1)) 0 0; font: 700 calc(11px * var(--k, 1))/calc(16px * var(--k, 1)) var(--font-display); color: #bdbdbd; }
 .end-bells[hidden] { display: none; }
-.end-bells b { font-weight: inherit; font-size: calc(14px * var(--k, 1)); color: var(--gold); }
+.end-bells b { flex-basis: 100%; text-align: center; font-weight: inherit; font-size: calc(14px * var(--k, 1)); color: var(--gold); }
+.end-bells span { white-space: nowrap; }
 .end-bells em { flex-basis: 100%; font-style: normal; text-align: center; color: var(--gold); }
 /* The shop: one layout for every phone, 640 px at k = 1, and two columns on the desktop */
 .overlay.shop { background: #000; align-items: flex-start; }
@@ -975,11 +961,10 @@ button.sigil { cursor: pointer; }
 .shop-place .sigil { width: 84%; height: 84%; }
 .shop-place.swap { border: calc(2px * var(--k, 1)) solid #fff; cursor: pointer; }
 .shop-place.gone { border-color: var(--bad); }
-.shop-boss { display: flex; align-items: center; gap: calc(10px * var(--k, 1)); min-height: calc(26px * var(--k, 1)); font-size: calc(11px * var(--k, 1)); color: #8f8f8f; }
-.shop-boss.named { min-height: calc(44px * var(--k, 1)); padding: 0 calc(10px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(12px * var(--k, 1)); color: #fff; }
+.shop-boss { display: flex; align-items: center; gap: calc(10px * var(--k, 1)); min-height: calc(44px * var(--k, 1)); padding: 0 calc(10px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(12px * var(--k, 1)); color: #fff; }
 .shop-boss .boss-face { width: calc(38px * var(--k, 1)); height: calc(38px * var(--k, 1)); }
 .shop-boss b { display: block; font-weight: inherit; font-size: calc(13px * var(--k, 1)); line-height: 1.1; }
-.shop-boss.named small { display: block; margin-top: calc(2px * var(--k, 1)); font-size: calc(10px * var(--k, 1)); color: var(--gold); }
+.shop-boss small { display: block; margin-top: calc(2px * var(--k, 1)); font-size: calc(10px * var(--k, 1)); color: var(--gold); }
 .shop-list { flex: 0 1 calc(386px * var(--k, 1)); display: grid; grid-auto-rows: minmax(calc(86px * var(--k, 1)), 1fr); gap: calc(7px * var(--k, 1)); margin: 0; padding: 0; list-style: none; } /* tall phones give the rows the room */
 .ware { position: relative; display: grid; grid-template-columns: calc(64px * var(--k, 1)) minmax(0, 1fr) auto; align-items: center; gap: calc(10px * var(--k, 1)); min-height: calc(86px * var(--k, 1)); padding: calc(6px * var(--k, 1)) calc(10px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(14px * var(--k, 1)); cursor: pointer; }
 .ware.pick { border: calc(2px * var(--k, 1)) solid var(--gold); padding: calc(5px * var(--k, 1)) calc(9px * var(--k, 1)); }
@@ -991,12 +976,12 @@ button.sigil { cursor: pointer; }
 .ware-text { min-width: 0; display: flex; flex-direction: column; gap: calc(2px * var(--k, 1)); min-width: 0; }
 .ware-text i { min-height: calc(10px * var(--k, 1)); font-style: normal; font-size: calc(9px * var(--k, 1)); line-height: calc(10px * var(--k, 1)); color: var(--gold); }
 .ware-text b { font-weight: inherit; font-size: calc(15px * var(--k, 1)); line-height: 1.1; }
-.ware-text small { font-size: calc(10px * var(--k, 1)); line-height: 1.15; color: #bdbdbd; }
+.ware-text small { font-size: calc(12px * var(--k, 1)); line-height: 1.15; color: #bdbdbd; }
 .price { min-width: calc(58px * var(--k, 1)); height: calc(32px * var(--k, 1)); padding: 0 calc(8px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(16px * var(--k, 1)); background: #000; color: var(--gold); font: 700 calc(14px * var(--k, 1))/1 var(--font-display); white-space: nowrap; }
-.ware.poor .price { color: #fff; font-size: calc(11px * var(--k, 1)); }
+.ware.poor .price { color: #8f8f8f; }
 .price.buy { border-color: var(--gold); background: var(--gold); color: #000; }
 .sold-stamp { padding: calc(4px * var(--k, 1)) calc(8px * var(--k, 1)); border: 1px solid #fff; background: #000; color: #fff; font-style: normal; font-size: calc(12px * var(--k, 1)); transform: rotate(-8deg); }
-.shop-hint { margin: 0; text-align: center; font-size: calc(11px * var(--k, 1)); line-height: 1.2; color: #bdbdbd; }
+.shop-hint { min-height: calc(2 * 1.2 * 11px * var(--k, 1)); margin: 0; text-align: center; font-size: calc(11px * var(--k, 1)); line-height: 1.2; color: #bdbdbd; }
 .shop-leave { flex: none; margin-top: auto; height: calc(52px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(26px * var(--k, 1)); font-size: calc(18px * var(--k, 1)); }
 body.wide .overlay.shop { align-items: center; }
 body.wide .shop-panel { display: grid; grid-template-columns: calc(360px * var(--k, 1)) 1fr; column-gap: calc(40px * var(--k, 1)); width: calc(1000px * var(--k, 1)); height: auto; }
@@ -1018,19 +1003,95 @@ body.wide .shop-leave { grid-column: 2; }
 .runs-list li.me { color: var(--gold); }
 .runs-list li.none { display: block; text-align: center; color: #8f8f8f; }
 .runs-list i, .runs-list em { font-style: normal; font-variant-numeric: tabular-nums; }
-/* By LEVEL, in words (owner, 06.11.2026: the strip of nodes was «нечитаемые ребус»): the next shop and boss beside the
-   number, the record on the label's row. No added height */
-.next-up, .level-best { position: absolute; right: calc(6px * var(--k, 1)); font: 700 max(7px, calc(11px * var(--k, 1)))/max(9px, calc(14px * var(--k, 1))) var(--font-display); white-space: nowrap; }
-.next-up { bottom: 0; display: flex; flex-direction: column; align-items: flex-start; color: #fff; }
-.next-up b { font-weight: inherit; }
-.level-best { top: 0; color: var(--gold); }
-.level-best[hidden] { display: none; }
-#levelStat.boss .next-up { display: none; }
-body.wide .next-up { right: 0; bottom: auto; top: calc(67px * var(--k, 1)); align-items: flex-end; }
-body.wide .level-best { right: calc(64px * var(--k, 1)); top: calc(2px * var(--k, 1)); }
 .end-next { margin: calc(14px * var(--k, 1)) 0 0; text-align: center; font: 700 calc(14px * var(--k, 1))/1.2 var(--font-display); color: #fff; }
 .end-next[hidden] { display: none; }
 body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(--k, 1)); top: calc(429px * var(--k, 1)); width: calc(240px * var(--k, 1)); margin: 0; }
+/* How's first page, once the run holds anything: everything that left the play screen */
+.guide:not(.run) .guide-dots i:last-child { display: none; }
+.run-facts { width: 100%; margin: 0; padding: 0; list-style: none; display: grid; gap: clamp(10px, 2.4vh, 18px); font-family: var(--font-display); font-weight: 700; }
+.run-facts b { display: block; font-weight: inherit; font-size: clamp(16px, 4.6vmin, 20px); line-height: 1.15; color: var(--fg); }
+.run-facts small { display: block; margin-top: 3px; font-size: clamp(12px, 3.4vmin, 14px); line-height: 1.2; color: var(--muted); }
+.run-facts small span { display: inline-block; margin: 0 5px; white-space: nowrap; }
+@media (max-height: 480px) { /* nothing scrolls */
+  .run-facts { grid-template-columns: 1fr 1fr; gap: 3px 16px; }
+  .run-facts b { font-size: 14px; }
+  .run-facts small { margin-top: 1px; font-size: 11px; }
+}
+
+/* ---------- Every window, both orientations (09.11.2026; Playgama 1.6) ----------
+   Text between levels never falls under 11 px, however far the window scales the screen down (a phone held sideways
+   scales the desktop frame to about two thirds). The owner's base keeps its sizes; only its smallest labels get a floor
+   where the scale would leave them under 9 px. */
+.up-sub { font-size: max(11px, calc(11.7px * var(--k, 1))); line-height: 1.5; }
+.up b i { font-size: max(11px, calc(10px * var(--k, 1))); line-height: 1.15; }
+.end-bells { font-size: max(11px, calc(11px * var(--k, 1))); line-height: 1.45; }
+.end-bells b { font-size: max(13px, calc(14px * var(--k, 1))); }
+.end-over { font-size: max(11px, calc(11.7px * var(--k, 1))); }
+body.wide .end-over { font-size: max(11px, calc(14px * var(--k, 1))); }
+#levelEnd.run-over .run-reached { font-size: max(9px, calc(10.8px * var(--k, 1))); }
+body.wide #levelEnd.run-over .run-reached { font-size: max(11px, calc(13px * var(--k, 1))); }
+body.wide .run-reached b { font-size: max(13px, calc(20px * var(--k, 1))); }
+.shop-head .wallet b { font-size: max(13px, calc(16px * var(--k, 1))); }
+.shop-boss { flex: none; }
+body.wide .stat .label, body.wide .hand-name { line-height: calc(17.2px * var(--k, 1)); }
+.hands li.end-hand i { font-size: max(10px, calc(10.8px * var(--k, 1))); }
+.run-gap { font-size: max(11px, calc(12.7px * var(--k, 1))); }
+.end-medal { font-size: max(12px, calc(15.6px * var(--k, 1))); }
+.ware-text i { min-height: 0; font-size: max(11px, calc(10px * var(--k, 1))); line-height: 1.1; }
+.ware-text b { font-size: max(12px, calc(15px * var(--k, 1))); }
+.ware-text small { font-size: max(11px, calc(12px * var(--k, 1))); }
+.shop-held > div > span { font-size: max(10px, calc(10px * var(--k, 1))); }
+.shop-head .wallet { font-size: max(11px, calc(13px * var(--k, 1))); }
+.shop-boss b { font-size: max(12px, calc(13px * var(--k, 1))); }
+.shop-boss small { font-size: max(11px, calc(10.5px * var(--k, 1))); }
+.shop-hint { min-height: calc(2.4 * max(11px, calc(11px * var(--k, 1)))); font-size: max(11px, calc(11px * var(--k, 1))); }
+.price { font-size: max(12px, calc(14px * var(--k, 1))); }
+.boss-card em { font-size: max(11px, calc(12px * var(--k, 1))); }
+.boss-card small { font-size: max(10px, calc(10px * var(--k, 1))); }
+.stat .label { font-size: max(9px, calc(11px * var(--k, 1))); }
+body.wide .stat .label { font-size: max(9px, calc(13px * var(--k, 1))); }
+body.wide #handStat .label { font-size: calc(13px * var(--k, 1)); } /* SMALL STRAIGHT needs its third of the row; the hand row under it says it larger */
+.hand-name { font-size: max(9px, calc(12px * var(--k, 1))); }
+.up-sub.boss, body.wide .up-sub, body.wide .up-sub.boss { font-size: max(11px, calc(14px * var(--k, 1))); line-height: 1.5; }
+.end-next, body.wide #levelEnd.won .end-next { font-size: max(11px, calc(14px * var(--k, 1))); }
+.end-hand small { font-size: max(10px, calc(12.7px * var(--k, 1))); }
+body.wide .end-hand small { font-size: max(10px, calc(16px * var(--k, 1))); }
+body.wide .end-medal { font-size: max(12px, calc(17px * var(--k, 1))); }
+.boss-card b { font-size: max(11px, calc(16px * var(--k, 1))); }
+.runs-card h3 { font-size: max(16px, calc(22px * var(--k, 1))); }
+.runs-list { font-size: max(12px, calc(15px * var(--k, 1))); }
+.runs-list li { grid-template-columns: max(24px, calc(30px * var(--k, 1))) 1fr 1fr; }
+.runs-list li.head { font-size: max(10px, calc(10px * var(--k, 1))); }
+
+/* A phone held sideways, a square or any low wide window: each page of the rules puts its words on the left and its
+   picture on the right, the button under the words, so nothing runs under the button or the bar. */
+@media (min-aspect-ratio: 1/1) and (max-height: 820px) {
+  .guide { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); grid-template-rows: auto minmax(0, 1fr) auto auto; column-gap: clamp(20px, 5vw, 64px); align-items: center; width: 100%; }
+  .guide > * { width: auto; }
+  .guide-bar { grid-column: 1 / -1; grid-row: 1; }
+  .guide-page:not([hidden]) { display: contents; }
+  .guide-page > * { grid-column: 2; grid-row: 2 / span 3; min-height: 0; max-height: 100%; animation: pageIn 225ms ease-out; }
+  .guide-page > :is(.guide-head, .game-name) { grid-column: 1; grid-row: 2; align-self: end; text-align: center; }
+  .guide-page > .guide-note { grid-column: 1; grid-row: 3; align-self: start; padding-top: 10px; text-align: center; }
+  .guide-actions { grid-column: 1; grid-row: 4; padding-top: 8px; }
+  .guide-title > .title-art { align-self: stretch; height: 100%; }
+  .guide-title > .game-name { align-self: center; margin: 0; font-size: clamp(40px, min(16vmin, 10vw), 110px); }
+  .guide-head { font-size: clamp(20px, min(6.4vmin, 4.4vw), 38px); }
+  .guide-note { font-size: clamp(12px, min(3.6vmin, 2.4vw), 18px); }
+  .combos { align-self: center; --gd: clamp(14px, 3.8vmin, 26px); }
+  .combos li { grid-template-columns: calc(5 * var(--gd) + 8px) minmax(0, 1fr) auto; gap: 8px; padding-inline: 10px; }
+  .combos b { min-width: 0; font-size: clamp(12px, 3.4vmin, 18px); }
+  .hold-pic { --gd: clamp(30px, 8vmin, 64px); gap: clamp(12px, 3vmin, 28px); }
+  .run-facts { align-self: center; }
+}
+@media (orientation: portrait) and (max-height: 700px) {
+  .guide.help .combos { gap: 3px; --gd: clamp(16px, 4.6vmin, 24px); }
+  .guide.help .combos li { padding-block: 2px; }
+  .guide.help .guide-page { gap: 8px; }
+}
+
+.boss-card .answer { margin-top: calc(2px * var(--k, 1)); color: #fff; } /* a charm held against him */
+.boss-card > div { width: min(100%, max(230px, calc(300px * var(--k, 1)))); } /* on a phone held sideways the floors of its text need the room */
 </style>
 </head>
 <body>
@@ -1045,24 +1106,21 @@ body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(-
   <header class="hud">
     <div class="stat" id="levelHud"><span class="label">LEVEL</span><span class="value level-text">1</span></div>
     <div class="bank" id="bank" aria-label="Bonus bank: bonuses kept from earlier levels"></div>
-    <div class="charm-rail" id="charmRail" aria-label="Charms of this run"></div>
     <button class="book" id="helpBtn" type="button" aria-label="How to play"><i></i>How</button>
   </header>
   <div class="preview" id="preview" aria-live="polite" hidden></div>
   <div class="coach" id="coach" hidden>
-    <span class="coach-step" id="coachStep">1 / 4</span>
     <span class="coach-text" id="coachText"></span>
     <button class="btn-ghost coach-skip" id="coachSkip" type="button">SKIP</button>
   </div>
-  <section class="board-wrap" id="boardWrap">
+  <section class="board-wrap">
     <div class="board rendered" id="board" aria-label="3 by 3 dice board"></div>
     <div class="boss-card" id="bossCard" hidden></div>
   </section>
   <section class="counter" aria-live="polite">
-    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span><span class="level-best" id="levelBest" hidden></span><span class="next-up" id="nextUp"></span><i class="boss-face" id="bossFace" hidden></i></div>
+    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span></div>
     <div class="stat mid" id="handStat"><span class="label" id="bonesLabel">BONES</span><span class="value"><span id="bones">0</span><span class="sticker" id="multSticker"></span><span id="handTotal">0</span></span></div>
     <div class="stat mid" id="targetStat"><span class="label">THRESHOLD</span><span class="value" id="target">0</span></div>
-    <div class="run-line" id="runLine" hidden></div>
     <div class="hand-row" id="handRow"><span class="gdice" id="handDice"></span><span class="hand-name"><b id="handName"></b><em id="handMult"></em></span></div>
   </section>
   <section class="controls">
@@ -1094,9 +1152,8 @@ body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(-
          left unused, then the board as its last hand was played -->
     <p class="run-reached" id="runReached" hidden><span>LEVEL</span><b id="runLevel">1</b><i>·</i><span>REROLLS LEFT</span><b id="runRerolls">0</b></p>
     <div class="end-board" id="endBoard" hidden></div>
-    <!-- a cleared level (owner's pick В11 A, 04.11.2026): a rail for the medal and the record, then the winning hand -->
+    <!-- a cleared level (owner's pick В11 A, 04.11.2026): a rail for the medal and the record -->
     <div class="end-badges" id="endBadges" hidden><span class="end-medal" id="endMedal" hidden><i class="medal fresh" id="endMedalDisc">5</i><b id="endMedalText">NEW MEDAL</b></span><span class="end-best" id="endBest" hidden>NEW BEST</span></div>
-    <div class="end-hand" id="endHand" hidden></div>
     <ul class="hands" id="endHands"></ul>
     <p class="end-note" id="endBonus"></p>
     <p class="end-note muted" id="endSolver"></p>
@@ -1108,7 +1165,7 @@ body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(-
     </div>
     <div class="upgrades" id="upgrades" hidden>
       <p class="up-head">PICK AN UPGRADE</p>
-      <p class="up-sub">+1 FOR THIS RUN</p>
+      <p class="up-sub" id="upSub">+1 FOR THIS RUN</p>
       <div class="up-list" id="upList"></div>
     </div>
     <p class="end-next" id="endAct" hidden></p>
@@ -1126,11 +1183,11 @@ body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(-
     <header class="shop-head"><h2>SHOP</h2><span class="wallet"><i class="bell"></i><b id="shopBells">0</b> BELLS</span></header>
     <div class="shop-held">
       <div><span>BANK</span><div class="shop-places" id="shopBank"></div></div>
-      <div><span id="shopCharmLabel">CHARMS 0/3</span><div class="shop-places" id="shopCharms"></div></div>
+      <div><span>CHARMS</span><div class="shop-places" id="shopCharms"></div></div>
     </div>
     <div class="shop-boss" id="shopBoss"></div>
     <ul class="shop-list" id="shopList"></ul>
-    <p class="shop-hint" id="shopHint">TAP AN OFFER, THEN TAP BUY</p>
+    <p class="shop-hint" id="shopHint"></p>
     <button class="btn-dark shop-leave" id="shopLeave" type="button">LEAVE SHOP</button>
   </div>
 </section>
@@ -1145,7 +1202,7 @@ body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(-
 
 <section class="overlay guide" id="guide" hidden>
   <div class="guide-bar">
-    <span class="guide-dots" id="guideDots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="guide-dots" id="guideDots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
     <button class="guide-skip" id="guideSkip" type="button">SKIP</button>
   </div>
   <div class="guide-page guide-title" data-page="0">
@@ -1160,12 +1217,16 @@ body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(-
   <div class="guide-page" data-page="2">
     <h2 class="guide-head">HOLD THE KEEPERS.<br>REROLL THE REST.</h2>
     <div class="hold-pic" id="holdPic"></div>
-    <p class="guide-note">PLAY THROWS EVERY DIE ANEW</p>
+    <p class="guide-note" id="holdNote">PLAY THROWS EVERY DIE ANEW</p>
   </div>
   <div class="guide-page" data-page="3">
     <h2 class="guide-head">SWITCH ON BONUSES.<br>BEAT THE THRESHOLD.</h2>
     <div class="bonus-pic" id="bonusPic"></div>
     <p class="guide-note" id="bonusNote"></p>
+  </div>
+  <div class="guide-page" data-page="4">
+    <h2 class="guide-head">THIS RUN</h2>
+    <ul class="run-facts" id="runFacts"></ul>
   </div>
   <div class="guide-actions">
     <button class="btn-play" id="guideNext" type="button">PLAY</button>
@@ -1180,7 +1241,7 @@ body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(-
       <h3 id="bonusSheetName"></h3>
       <p id="bonusSheetWhat"></p>
     </div>
-    <p class="sheet-note">ON FOR ONE THROW · USED, A NEW DIE TAKES ITS PLACE · BONUSES ADD UP</p>
+    <p class="sheet-note">TAP THE CARD TO SWITCH IT ON</p>
     <button class="btn-play" id="bonusSheetOk" type="button">GOT IT</button>
   </div>
 </section>
@@ -1205,7 +1266,10 @@ body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(-
       </select>
     </label>
     <label class="opt"><input type="checkbox" id="optSound" checked> Sound effects</label>
-    <label class="opt"><input type="checkbox" id="optDice3d" checked> 3D physics dice on REROLL (three.js + cannon-es from the CDN; falls back to the flat tumble offline)</label>
+    <label class="opt"><input type="checkbox" id="optDice3d" checked> 3D dice</label>
+    <button class="btn-secondary" id="tutorialBtn" type="button">SHOW TUTORIAL AGAIN</button>
+    <!-- the tuning and data blocks are for the developer: shown with ?dev in the address (audit question 5, 09.11.2026) -->
+    <div class="dev" hidden>
     <h3>EXPERIMENTS</h3>
     <label class="opt"><input type="checkbox" id="optHoldCap"> Hold cap: at most 3 held dice per reroll</label>
     <label class="opt" id="optTableRow">Score table
@@ -1216,7 +1280,6 @@ body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(-
     <label class="opt" id="optGoldRow"><input type="checkbox" id="optGold" checked> Gold ×2 cell replaces one die (off: nine dice, ×2 badge only)</label>
     <label class="opt"><input type="checkbox" id="optAutoBonus" checked> Auto-apply an unused ×2 to the final hand</label>
     <p class="muted small">Changes apply from the next level.</p>
-    <button class="btn-secondary" id="tutorialBtn" type="button">SHOW TUTORIAL AGAIN</button>
     <h3>DATA</h3>
     <p class="muted small" id="runInfo"></p>
     <p class="muted small" id="difficultyRule"></p>
@@ -1225,6 +1288,7 @@ body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(-
       <button class="btn-secondary" id="resetBtn" type="button">RESET THIS MODE</button>
     </div>
     <textarea id="logOut" class="log-out" readonly hidden aria-label="Event log JSON"></textarea>
+    </div>
     <button class="btn-primary" id="closeHelpBtn" type="button">CLOSE</button>
   </div>
 </section>
@@ -2540,8 +2604,10 @@ function bestHand(dice, bonuses = [], { stacking = 'add', table = null, straight
         const faces = [...picked.map((d) => d.face), ...jokerFaces];
         const category = classifyExact(faces);
         if (!category) continue;
-        const base = rules ? sumOf(picked, jokerFaces, rules) : faces.reduce((s, f) => s + f, 0) + (table ? table.base[category] : 0);
-        const mult = (multOf[category] + ((ups && ups[category]) || 0)) * (rules && rules.half === category ? 0.5 : 1);
+        // STONE RIBBON adds to the five-die hands; MASON's toll can take a small hand's sum to nothing, never below
+        const base = rules ? Math.max(0, sumOf(picked, jokerFaces, rules) + (rules.fiveAdd && faces.length === 5 ? rules.fiveAdd : 0)) : faces.reduce((s, f) => s + f, 0) + (table ? table.base[category] : 0);
+        const full = multOf[category] + ((ups && ups[category]) || 0);
+        const mult = rules && rules.half === category ? Math.ceil(full / 2) : full; // the Judge halves it, rounding up: never ×4.5 on the counter
         const fitting = mults.filter((b) => BONUS_KINDS[b.kind].fits(category));
         const applied = stacking === 'single' && fitting.length > 1 ? [fitting.reduce(largest)] : fitting;
         const bonusMult = stacking === 'add'
@@ -2616,6 +2682,8 @@ function handRules(level, handsLeft) {
   if (hasCharm(level, 'crooked_pip')) r.ones = 6;
   if (hasCharm(level, 'velvet_grip')) r.heldAdd = 1;
   if (hasCharm(level, 'final_bow') && handsLeft === 1) r.sumAdd = 5;
+  if (hasCharm(level, 'stone_ribbon')) r.fiveAdd = 5;
+  if (level.boss === 'mason') r.sumAdd = (r.sumAdd || 0) - 5; // his toll on every hand (no cell is ever locked since 09.11.2026)
   if (level.boss === 'lowbell') r.sixes = 0;
   if (level.boss === 'judge') r.half = 'straight';
   return Object.keys(r).length ? r : null;
@@ -2640,12 +2708,6 @@ function createAutoGame(level, configOverrides = {}, attempt = 1) {
     return { kind, off: true, used: false, placed: false };
   });
   const faces = level.faces.slice();
-  // STONE RIBBON: the board's first lock is a die instead, its face drawn from the level alone
-  const lock = hasCharm(level, 'stone_ribbon') ? cells.findIndex((c) => c.type === 'block') : -1;
-  if (lock >= 0) {
-    cells[lock] = { type: 'die' };
-    faces[lock] = createRng(`${level.seed}/ribbon`).die();
-  }
   // QUICK POCKET: the first kept card is on the board from the start, in place of the last die, while 6 dice stay
   const dice = cells.flatMap((c, i) => (c.type === 'die' ? [i] : []));
   if (hasCharm(level, 'quick_pocket') && level.boss !== 'hush' && bank.length && dice.length > MIN_DICE) {
@@ -2717,8 +2779,8 @@ function toggleBonus(state, i) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   const b = Number.isInteger(i) ? banked(state, i) : null;
   if (b && waiting(b)) {
-    if (hushed(state)) return reject('HUSHED', 'Bank cards do not enter this level');
-    if (!state.stats.rerollsUsed) return reject('NOT_YET', 'Kept bonuses come in on the first reroll');
+    if (hushed(state)) return reject('HUSHED', 'NOT ON THIS LEVEL');
+    if (!state.stats.rerollsUsed) return reject('NOT_YET', 'COMES IN ON THE FIRST REROLL');
     const bank = state.bank.map((x, k) => (k === i - BANK ? { ...x, off: !x.off } : x));
     return { ok: true, off: bank[i - BANK].off, state: { ...state, bank, stats: bump(state, 'bonusToggles') } };
   }
@@ -3117,12 +3179,13 @@ const MIN_DICE3 = MIN_DICE;
 // greedy score distributions of scripts/montecarlo3.mjs (--tierLevels=1000 --seed=check1000; the
 // default 300-level report is docs/simulation3-latest.md). Not monotone: tier 2 (a block) scores
 // lower than tier 1, tier 3 (two bonus dice) higher than the tiers around it.
+// Since 09.11.2026 no cell is ever locked or empty (owner): every tier is nine cells of dice and cards.
 const TIERS3 = Object.freeze({
   1: Object.freeze({ dice: 8, bonuses: 1, blocks: 0, target: 490 }),
-  2: Object.freeze({ dice: 7, bonuses: 1, blocks: 1, target: 440 }),
-  3: Object.freeze({ dice: 6, bonuses: 2, blocks: 1, target: 500 }),
-  4: Object.freeze({ dice: 6, bonuses: 1, blocks: 2, target: 420 }),
-  5: Object.freeze({ dice: 6, bonuses: 1, blocks: 2, target: 430 }),
+  2: Object.freeze({ dice: 8, bonuses: 1, blocks: 0, target: 490 }),
+  3: Object.freeze({ dice: 7, bonuses: 2, blocks: 0, target: 560 }),
+  4: Object.freeze({ dice: 8, bonuses: 1, blocks: 0, target: 490 }),
+  5: Object.freeze({ dice: 7, bonuses: 2, blocks: 0, target: 560 }),
 });
 
 const unlockedKinds = (levelIndex) => BONUS_UNLOCKS.slice(0, Math.min(Math.max(1, levelIndex), BONUS_UNLOCKS.length));
@@ -3192,97 +3255,13 @@ const __mod_recipes3 = (() => {
 const RECIPES3_VERSION = 'recipes-1/400';
 const RECIPE_QUANTILES = Object.freeze([0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]);
 const RECIPES3 = Object.freeze([
-  Object.freeze({ id: '6d3x:-', dice: 6, blocks: 3, kinds: Object.freeze([]), greedy: Object.freeze([161, 190, 222, 245, 267, 290, 310, 340, 370, 415, 439]), naive: Object.freeze([138, 160, 189, 211, 230, 250, 267, 287, 315, 361, 384]) }),
-  Object.freeze({ id: '6d2x:x2_any', dice: 6, blocks: 2, kinds: Object.freeze(['x2_any']), greedy: Object.freeze([198, 228, 279, 327, 390, 452, 495, 540, 575, 615, 665]), naive: Object.freeze([225, 242, 290, 320, 352, 381, 410, 445, 480, 530, 568]) }),
-  Object.freeze({ id: '6d2x:x3_straight', dice: 6, blocks: 2, kinds: Object.freeze(['x3_straight']), greedy: Object.freeze([108, 138, 213, 534, 595, 640, 670, 706, 744, 770, 785]), naive: Object.freeze([138, 160, 194, 221, 247, 285, 329, 515, 595, 670, 710]) }),
-  Object.freeze({ id: '6d2x:x3_pairs', dice: 6, blocks: 2, kinds: Object.freeze(['x3_pairs']), greedy: Object.freeze([276, 318, 357, 377, 392, 408, 425, 446, 464, 493, 520]), naive: Object.freeze([222, 241, 277, 304, 328, 348, 365, 383, 406, 440, 478]) }),
-  Object.freeze({ id: '6d2x:x3_trips', dice: 6, blocks: 2, kinds: Object.freeze(['x3_trips']), greedy: Object.freeze([281, 324, 405, 459, 499, 541, 570, 595, 616, 664, 705]), naive: Object.freeze([219, 262, 313, 360, 400, 440, 472, 505, 546, 580, 630]) }),
-  Object.freeze({ id: '6d2x:joker', dice: 6, blocks: 2, kinds: Object.freeze(['joker']), greedy: Object.freeze([222, 248, 280, 310, 330, 358, 380, 400, 425, 455, 480]), naive: Object.freeze([255, 284, 311, 330, 350, 369, 385, 400, 428, 464, 480]) }),
-  Object.freeze({ id: '6d2x:refund', dice: 6, blocks: 2, kinds: Object.freeze(['refund']), greedy: Object.freeze([248, 279, 318, 340, 365, 385, 400, 420, 440, 470, 505]), naive: Object.freeze([180, 205, 241, 261, 284, 301, 320, 342, 372, 400, 440]) }),
-  Object.freeze({ id: '6d1x:x2_any+x2_any', dice: 6, blocks: 1, kinds: Object.freeze(['x2_any','x2_any']), greedy: Object.freeze([227, 252, 294, 363, 425, 555, 665, 715, 760, 840, 880]), naive: Object.freeze([291, 320, 369, 392, 426, 475, 515, 560, 634, 720, 780]) }),
-  Object.freeze({ id: '6d1x:x2_any+x3_straight', dice: 6, blocks: 1, kinds: Object.freeze(['x2_any','x3_straight']), greedy: Object.freeze([142, 174, 230, 363, 720, 790, 838, 880, 920, 950, 1000]), naive: Object.freeze([241, 272, 314, 375, 424, 514, 660, 723, 770, 860, 904]) }),
-  Object.freeze({ id: '6d1x:x2_any+x3_pairs', dice: 6, blocks: 1, kinds: Object.freeze(['x2_any','x3_pairs']), greedy: Object.freeze([366, 410, 466, 500, 530, 553, 569, 584, 616, 658, 700]), naive: Object.freeze([310, 344, 382, 416, 440, 467, 489, 511, 540, 588, 624]) }),
-  Object.freeze({ id: '6d1x:x2_any+x3_trips', dice: 6, blocks: 1, kinds: Object.freeze(['x2_any','x3_trips']), greedy: Object.freeze([384, 476, 568, 615, 660, 695, 730, 760, 800, 840, 875]), naive: Object.freeze([369, 404, 455, 490, 520, 560, 609, 648, 690, 755, 820]) }),
-  Object.freeze({ id: '6d1x:x2_any+joker', dice: 6, blocks: 1, kinds: Object.freeze(['x2_any','joker']), greedy: Object.freeze([342, 385, 435, 485, 506, 534, 560, 585, 615, 645, 720]), naive: Object.freeze([405, 430, 470, 496, 520, 550, 574, 600, 640, 656, 704]) }),
-  Object.freeze({ id: '6d1x:x2_any+refund', dice: 6, blocks: 1, kinds: Object.freeze(['x2_any','refund']), greedy: Object.freeze([303, 360, 455, 510, 538, 560, 575, 600, 655, 720, 760]), naive: Object.freeze([270, 300, 327, 360, 388, 414, 440, 470, 500, 544, 575]) }),
-  Object.freeze({ id: '6d1x:x3_straight+x3_straight', dice: 6, blocks: 1, kinds: Object.freeze(['x3_straight','x3_straight']), greedy: Object.freeze([112, 131, 186, 725, 910, 985, 1020, 1060, 1090, 1120, 1160]), naive: Object.freeze([139, 169, 198, 225, 245, 278, 340, 831, 938, 1025, 1065]) }),
-  Object.freeze({ id: '6d1x:x3_straight+x3_pairs', dice: 6, blocks: 1, kinds: Object.freeze(['x3_straight','x3_pairs']), greedy: Object.freeze([223, 257, 348, 606, 682, 722, 748, 780, 802, 820, 838]), naive: Object.freeze([224, 256, 292, 322, 348, 388, 541, 643, 702, 762, 788]) }),
-  Object.freeze({ id: '6d1x:x3_straight+x3_trips', dice: 6, blocks: 1, kinds: Object.freeze(['x3_straight','x3_trips']), greedy: Object.freeze([218, 336, 483, 586, 759, 835, 890, 920, 960, 1005, 1030]), naive: Object.freeze([221, 264, 346, 402, 456, 534, 625, 720, 789, 879, 930]) }),
-  Object.freeze({ id: '6d1x:x3_straight+joker', dice: 6, blocks: 1, kinds: Object.freeze(['x3_straight','joker']), greedy: Object.freeze([187, 228, 541, 630, 679, 710, 735, 760, 780, 800, 840]), naive: Object.freeze([275, 305, 435, 614, 670, 705, 720, 750, 780, 800, 840]) }),
-  Object.freeze({ id: '6d1x:x3_straight+refund', dice: 6, blocks: 1, kinds: Object.freeze(['x3_straight','refund']), greedy: Object.freeze([174, 312, 576, 651, 682, 720, 750, 762, 800, 840, 880]), naive: Object.freeze([188, 210, 244, 275, 310, 370, 536, 630, 665, 715, 750]) }),
-  Object.freeze({ id: '6d1x:x3_pairs+x3_pairs', dice: 6, blocks: 1, kinds: Object.freeze(['x3_pairs','x3_pairs']), greedy: Object.freeze([366, 440, 480, 515, 530, 550, 560, 590, 620, 650, 670]), naive: Object.freeze([310, 335, 370, 401, 436, 460, 485, 505, 545, 575, 620]) }),
-  Object.freeze({ id: '6d1x:x3_pairs+x3_trips', dice: 6, blocks: 1, kinds: Object.freeze(['x3_pairs','x3_trips']), greedy: Object.freeze([345, 426, 507, 544, 580, 606, 631, 666, 687, 730, 760]), naive: Object.freeze([306, 349, 412, 450, 485, 515, 546, 574, 616, 653, 706]) }),
-  Object.freeze({ id: '6d1x:x3_pairs+joker', dice: 6, blocks: 1, kinds: Object.freeze(['x3_pairs','joker']), greedy: Object.freeze([348, 378, 404, 426, 444, 462, 478, 498, 518, 543, 580]), naive: Object.freeze([338, 364, 392, 413, 430, 453, 468, 482, 502, 518, 560]) }),
-  Object.freeze({ id: '6d1x:x3_pairs+refund', dice: 6, blocks: 1, kinds: Object.freeze(['x3_pairs','refund']), greedy: Object.freeze([356, 392, 422, 442, 453, 470, 482, 500, 518, 558, 578]), naive: Object.freeze([261, 283, 316, 344, 362, 387, 403, 424, 444, 478, 500]) }),
-  Object.freeze({ id: '6d1x:x3_trips+x3_trips', dice: 6, blocks: 1, kinds: Object.freeze(['x3_trips','x3_trips']), greedy: Object.freeze([334, 435, 590, 650, 705, 754, 798, 840, 885, 940, 975]), naive: Object.freeze([290, 348, 430, 482, 540, 577, 629, 695, 755, 840, 910]) }),
-  Object.freeze({ id: '6d1x:x3_trips+joker', dice: 6, blocks: 1, kinds: Object.freeze(['x3_trips','joker']), greedy: Object.freeze([369, 441, 540, 585, 610, 634, 650, 670, 700, 725, 740]), naive: Object.freeze([430, 459, 500, 530, 565, 590, 610, 645, 670, 710, 740]) }),
-  Object.freeze({ id: '6d1x:x3_trips+refund', dice: 6, blocks: 1, kinds: Object.freeze(['x3_trips','refund']), greedy: Object.freeze([388, 455, 520, 565, 595, 616, 640, 664, 685, 724, 740]), naive: Object.freeze([280, 325, 380, 420, 460, 489, 525, 554, 586, 630, 655]) }),
-  Object.freeze({ id: '6d1x:joker+joker', dice: 6, blocks: 1, kinds: Object.freeze(['joker','joker']), greedy: Object.freeze([257, 286, 328, 352, 369, 390, 415, 430, 460, 480, 505]), naive: Object.freeze([370, 385, 416, 440, 460, 480, 480, 480, 490, 520, 560]) }),
-  Object.freeze({ id: '6d1x:joker+refund', dice: 6, blocks: 1, kinds: Object.freeze(['joker','refund']), greedy: Object.freeze([304, 341, 372, 395, 410, 426, 440, 460, 480, 520, 560]), naive: Object.freeze([300, 320, 350, 374, 390, 405, 424, 440, 464, 480, 520]) }),
-  Object.freeze({ id: '6d1x:refund+refund', dice: 6, blocks: 1, kinds: Object.freeze(['refund','refund']), greedy: Object.freeze([318, 348, 380, 400, 420, 440, 455, 475, 490, 520, 560]), naive: Object.freeze([224, 250, 274, 300, 319, 335, 355, 374, 400, 432, 455]) }),
-  Object.freeze({ id: '6d0x:x2_any+x2_any+x2_any', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x2_any','x2_any']), greedy: Object.freeze([246, 288, 373, 433, 538, 695, 830, 895, 935, 1000, 1150]), naive: Object.freeze([385, 402, 448, 496, 556, 600, 660, 720, 784, 880, 935]) }),
-  Object.freeze({ id: '6d0x:x2_any+x2_any+x3_straight', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x2_any','x3_straight']), greedy: Object.freeze([197, 234, 328, 860, 956, 1025, 1056, 1085, 1120, 1135, 1200]), naive: Object.freeze([305, 355, 435, 515, 615, 682, 745, 795, 882, 995, 1075]) }),
-  Object.freeze({ id: '6d0x:x2_any+x2_any+x3_pairs', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x2_any','x3_pairs']), greedy: Object.freeze([454, 520, 590, 615, 650, 671, 708, 744, 784, 843, 930]), naive: Object.freeze([390, 415, 460, 500, 535, 571, 598, 642, 672, 750, 804]) }),
-  Object.freeze({ id: '6d0x:x2_any+x2_any+x3_trips', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x2_any','x3_trips']), greedy: Object.freeze([465, 611, 695, 750, 810, 850, 885, 932, 975, 1020, 1060]), naive: Object.freeze([444, 495, 547, 620, 660, 705, 742, 800, 885, 940, 985]) }),
-  Object.freeze({ id: '6d0x:x2_any+x2_any+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x2_any','joker']), greedy: Object.freeze([421, 480, 582, 627, 672, 705, 750, 775, 800, 920, 985]), naive: Object.freeze([531, 575, 625, 680, 712, 745, 760, 800, 800, 840, 880]) }),
-  Object.freeze({ id: '6d0x:x2_any+x2_any+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x2_any','refund']), greedy: Object.freeze([345, 400, 570, 645, 692, 735, 760, 800, 840, 929, 985]), naive: Object.freeze([351, 375, 409, 442, 475, 518, 565, 605, 645, 715, 760]) }),
-  Object.freeze({ id: '6d0x:x2_any+x3_straight+x3_straight', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x3_straight','x3_straight']), greedy: Object.freeze([132, 167, 216, 890, 1032, 1174, 1214, 1250, 1280, 1280, 1335]), naive: Object.freeze([250, 265, 312, 349, 384, 444, 845, 992, 1045, 1170, 1230]) }),
-  Object.freeze({ id: '6d0x:x2_any+x3_straight+x3_pairs', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x3_straight','x3_pairs']), greedy: Object.freeze([276, 387, 744, 820, 864, 896, 930, 958, 973, 998, 1024]), naive: Object.freeze([317, 359, 414, 467, 540, 668, 733, 768, 816, 882, 922]) }),
-  Object.freeze({ id: '6d0x:x2_any+x3_straight+x3_trips', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x3_straight','x3_trips']), greedy: Object.freeze([438, 564, 725, 884, 980, 1014, 1048, 1095, 1140, 1184, 1200]), naive: Object.freeze([387, 445, 530, 594, 671, 760, 850, 924, 985, 1080, 1150]) }),
-  Object.freeze({ id: '6d0x:x2_any+x3_straight+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x3_straight','joker']), greedy: Object.freeze([288, 358, 682, 783, 865, 905, 920, 940, 960, 1000, 1040]), naive: Object.freeze([404, 480, 665, 784, 840, 880, 920, 940, 960, 1000, 1024]) }),
-  Object.freeze({ id: '6d0x:x2_any+x3_straight+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x3_straight','refund']), greedy: Object.freeze([261, 378, 764, 805, 860, 900, 935, 960, 960, 1000, 1040]), naive: Object.freeze([268, 304, 375, 460, 613, 678, 720, 765, 828, 885, 930]) }),
-  Object.freeze({ id: '6d0x:x2_any+x3_pairs+x3_pairs', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x3_pairs','x3_pairs']), greedy: Object.freeze([456, 500, 556, 606, 628, 644, 660, 680, 708, 728, 771]), naive: Object.freeze([395, 426, 460, 486, 520, 552, 586, 612, 652, 710, 750]) }),
-  Object.freeze({ id: '6d0x:x2_any+x3_pairs+x3_trips', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x3_pairs','x3_trips']), greedy: Object.freeze([474, 554, 630, 682, 732, 760, 782, 804, 840, 882, 900]), naive: Object.freeze([430, 486, 538, 570, 610, 646, 684, 708, 760, 810, 860]) }),
-  Object.freeze({ id: '6d0x:x2_any+x3_pairs+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x3_pairs','joker']), greedy: Object.freeze([468, 516, 554, 576, 598, 610, 628, 660, 678, 720, 758]), naive: Object.freeze([494, 526, 558, 587, 606, 624, 642, 660, 678, 722, 758]) }),
-  Object.freeze({ id: '6d0x:x2_any+x3_pairs+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x3_pairs','refund']), greedy: Object.freeze([496, 522, 544, 570, 584, 604, 624, 642, 672, 720, 748]), naive: Object.freeze([334, 374, 411, 434, 460, 488, 513, 539, 568, 618, 660]) }),
-  Object.freeze({ id: '6d0x:x2_any+x3_trips+x3_trips', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x3_trips','x3_trips']), greedy: Object.freeze([406, 546, 740, 830, 890, 950, 990, 1030, 1072, 1120, 1160]), naive: Object.freeze([392, 464, 578, 644, 710, 755, 814, 875, 955, 1040, 1080]) }),
-  Object.freeze({ id: '6d0x:x2_any+x3_trips+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x3_trips','joker']), greedy: Object.freeze([494, 628, 685, 724, 745, 780, 800, 825, 855, 880, 920]), naive: Object.freeze([572, 610, 659, 688, 720, 750, 768, 796, 830, 870, 900]) }),
-  Object.freeze({ id: '6d0x:x2_any+x3_trips+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','x3_trips','refund']), greedy: Object.freeze([532, 580, 632, 684, 720, 754, 774, 800, 848, 880, 900]), naive: Object.freeze([399, 445, 485, 540, 580, 615, 649, 690, 740, 795, 850]) }),
-  Object.freeze({ id: '6d0x:x2_any+joker+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','joker','joker']), greedy: Object.freeze([434, 446, 491, 514, 543, 575, 600, 640, 675, 700, 735]), naive: Object.freeze([555, 585, 614, 640, 640, 640, 640, 680, 720, 720, 775]) }),
-  Object.freeze({ id: '6d0x:x2_any+joker+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','joker','refund']), greedy: Object.freeze([445, 470, 520, 550, 560, 580, 600, 624, 655, 720, 760]), naive: Object.freeze([425, 460, 500, 535, 565, 588, 608, 640, 640, 680, 720]) }),
-  Object.freeze({ id: '6d0x:x2_any+refund+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x2_any','refund','refund']), greedy: Object.freeze([414, 494, 530, 560, 590, 615, 640, 670, 700, 750, 775]), naive: Object.freeze([298, 318, 350, 385, 409, 444, 480, 505, 550, 600, 630]) }),
-  Object.freeze({ id: '6d0x:x3_straight+x3_straight+x3_straight', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','x3_straight','x3_straight']), greedy: Object.freeze([114, 132, 170, 999, 1160, 1320, 1370, 1400, 1424, 1440, 1480]), naive: Object.freeze([150, 165, 199, 228, 260, 289, 936, 1105, 1290, 1384, 1440]) }),
-  Object.freeze({ id: '6d0x:x3_straight+x3_straight+x3_pairs', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','x3_straight','x3_pairs']), greedy: Object.freeze([204, 264, 400, 904, 1029, 1086, 1104, 1122, 1140, 1158, 1184]), naive: Object.freeze([223, 256, 300, 330, 373, 458, 884, 1010, 1052, 1102, 1122]) }),
-  Object.freeze({ id: '6d0x:x3_straight+x3_straight+x3_trips', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','x3_straight','x3_trips']), greedy: Object.freeze([195, 303, 561, 1000, 1125, 1200, 1232, 1275, 1310, 1350, 1380]), naive: Object.freeze([226, 294, 365, 427, 480, 571, 921, 1060, 1145, 1215, 1290]) }),
-  Object.freeze({ id: '6d0x:x3_straight+x3_straight+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','x3_straight','joker']), greedy: Object.freeze([192, 260, 860, 916, 1006, 1045, 1080, 1100, 1120, 1160, 1200]), naive: Object.freeze([267, 294, 354, 840, 982, 1040, 1070, 1095, 1120, 1140, 1200]) }),
-  Object.freeze({ id: '6d0x:x3_straight+x3_straight+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','x3_straight','refund']), greedy: Object.freeze([168, 204, 819, 916, 985, 1048, 1095, 1120, 1120, 1200, 1200]), naive: Object.freeze([188, 200, 230, 261, 289, 329, 758, 935, 1000, 1056, 1090]) }),
-  Object.freeze({ id: '6d0x:x3_straight+x3_pairs+x3_pairs', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','x3_pairs','x3_pairs']), greedy: Object.freeze([390, 480, 720, 805, 850, 880, 910, 920, 940, 970, 990]), naive: Object.freeze([310, 362, 429, 480, 540, 630, 735, 792, 834, 890, 930]) }),
-  Object.freeze({ id: '6d0x:x3_straight+x3_pairs+x3_trips', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','x3_pairs','x3_trips']), greedy: Object.freeze([447, 513, 624, 708, 822, 885, 930, 970, 1005, 1047, 1068]), naive: Object.freeze([362, 391, 466, 537, 591, 659, 730, 798, 876, 957, 1002]) }),
-  Object.freeze({ id: '6d0x:x3_straight+x3_pairs+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','x3_pairs','joker']), greedy: Object.freeze([334, 591, 690, 742, 784, 802, 820, 828, 838, 878, 900]), naive: Object.freeze([427, 504, 682, 737, 764, 784, 800, 818, 838, 838, 878]) }),
-  Object.freeze({ id: '6d0x:x3_straight+x3_pairs+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','x3_pairs','refund']), greedy: Object.freeze([334, 617, 700, 753, 784, 802, 802, 820, 838, 878, 882]), naive: Object.freeze([276, 305, 344, 380, 455, 612, 682, 718, 748, 800, 813]) }),
-  Object.freeze({ id: '6d0x:x3_straight+x3_trips+x3_trips', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','x3_trips','x3_trips']), greedy: Object.freeze([466, 610, 771, 890, 995, 1070, 1135, 1190, 1224, 1299, 1320]), naive: Object.freeze([320, 406, 550, 645, 730, 800, 880, 959, 1045, 1155, 1220]) }),
-  Object.freeze({ id: '6d0x:x3_straight+x3_trips+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','x3_trips','joker']), greedy: Object.freeze([496, 540, 648, 830, 909, 945, 970, 1000, 1030, 1060, 1060]), naive: Object.freeze([486, 603, 750, 820, 870, 895, 925, 960, 1000, 1044, 1060]) }),
-  Object.freeze({ id: '6d0x:x3_straight+x3_trips+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','x3_trips','refund']), greedy: Object.freeze([466, 565, 786, 855, 900, 930, 970, 990, 1020, 1045, 1065]), naive: Object.freeze([309, 355, 422, 495, 564, 650, 750, 815, 865, 945, 985]) }),
-  Object.freeze({ id: '6d0x:x3_straight+joker+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','joker','joker']), greedy: Object.freeze([522, 552, 600, 682, 710, 755, 770, 800, 810, 840, 880]), naive: Object.freeze([720, 735, 760, 785, 800, 800, 800, 800, 840, 880, 880]) }),
-  Object.freeze({ id: '6d0x:x3_straight+joker+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','joker','refund']), greedy: Object.freeze([355, 570, 654, 700, 760, 775, 800, 800, 840, 880, 880]), naive: Object.freeze([309, 350, 560, 672, 705, 734, 760, 784, 800, 800, 840]) }),
-  Object.freeze({ id: '6d0x:x3_straight+refund+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x3_straight','refund','refund']), greedy: Object.freeze([570, 624, 666, 688, 730, 760, 784, 800, 825, 880, 880]), naive: Object.freeze([224, 249, 285, 320, 370, 580, 640, 670, 690, 750, 765]) }),
-  Object.freeze({ id: '6d0x:x3_pairs+x3_pairs+x3_pairs', dice: 6, blocks: 0, kinds: Object.freeze(['x3_pairs','x3_pairs','x3_pairs']), greedy: Object.freeze([458, 530, 596, 630, 662, 694, 704, 738, 757, 782, 782]), naive: Object.freeze([336, 391, 446, 507, 540, 572, 600, 654, 682, 720, 762]) }),
-  Object.freeze({ id: '6d0x:x3_pairs+x3_pairs+x3_trips', dice: 6, blocks: 0, kinds: Object.freeze(['x3_pairs','x3_pairs','x3_trips']), greedy: Object.freeze([522, 564, 620, 660, 695, 730, 755, 786, 810, 850, 880]), naive: Object.freeze([415, 456, 515, 555, 595, 630, 666, 700, 730, 790, 834]) }),
-  Object.freeze({ id: '6d0x:x3_pairs+x3_pairs+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x3_pairs','x3_pairs','joker']), greedy: Object.freeze([420, 506, 550, 570, 590, 610, 625, 650, 650, 690, 730]), naive: Object.freeze([486, 510, 540, 560, 580, 590, 610, 630, 650, 670, 700]) }),
-  Object.freeze({ id: '6d0x:x3_pairs+x3_pairs+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x3_pairs','x3_pairs','refund']), greedy: Object.freeze([465, 504, 550, 565, 585, 604, 625, 650, 670, 700, 730]), naive: Object.freeze([335, 380, 414, 440, 460, 490, 520, 540, 570, 620, 650]) }),
-  Object.freeze({ id: '6d0x:x3_pairs+x3_trips+x3_trips', dice: 6, blocks: 0, kinds: Object.freeze(['x3_pairs','x3_trips','x3_trips']), greedy: Object.freeze([456, 562, 683, 758, 808, 845, 883, 920, 958, 1008, 1033]), naive: Object.freeze([392, 442, 522, 588, 640, 690, 745, 796, 850, 918, 974]) }),
-  Object.freeze({ id: '6d0x:x3_pairs+x3_trips+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x3_pairs','x3_trips','joker']), greedy: Object.freeze([502, 572, 612, 643, 663, 678, 702, 718, 742, 770, 805]), naive: Object.freeze([481, 507, 552, 586, 606, 627, 655, 682, 710, 747, 763]) }),
-  Object.freeze({ id: '6d0x:x3_pairs+x3_trips+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x3_pairs','x3_trips','refund']), greedy: Object.freeze([468, 506, 577, 612, 643, 667, 688, 718, 745, 768, 790]), naive: Object.freeze([376, 412, 454, 487, 525, 553, 580, 613, 644, 688, 718]) }),
-  Object.freeze({ id: '6d0x:x3_pairs+joker+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x3_pairs','joker','joker']), greedy: Object.freeze([370, 406, 440, 464, 478, 498, 518, 533, 558, 598, 598]), naive: Object.freeze([420, 443, 468, 482, 500, 518, 518, 528, 558, 598, 598]) }),
-  Object.freeze({ id: '6d0x:x3_pairs+joker+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x3_pairs','joker','refund']), greedy: Object.freeze([406, 423, 446, 464, 482, 500, 518, 524, 558, 580, 598]), naive: Object.freeze([383, 402, 432, 448, 466, 482, 495, 518, 518, 558, 578]) }),
-  Object.freeze({ id: '6d0x:x3_pairs+refund+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x3_pairs','refund','refund']), greedy: Object.freeze([422, 440, 464, 482, 500, 515, 520, 540, 562, 580, 598]), naive: Object.freeze([294, 318, 349, 370, 386, 406, 426, 446, 468, 500, 518]) }),
-  Object.freeze({ id: '6d0x:x3_trips+x3_trips+x3_trips', dice: 6, blocks: 0, kinds: Object.freeze(['x3_trips','x3_trips','x3_trips']), greedy: Object.freeze([418, 565, 740, 850, 935, 995, 1055, 1135, 1190, 1240, 1300]), naive: Object.freeze([228, 324, 440, 580, 675, 765, 844, 915, 1036, 1135, 1229]) }),
-  Object.freeze({ id: '6d0x:x3_trips+x3_trips+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x3_trips','x3_trips','joker']), greedy: Object.freeze([625, 704, 785, 825, 858, 900, 920, 950, 980, 1005, 1030]), naive: Object.freeze([540, 614, 666, 725, 770, 814, 850, 895, 930, 980, 1000]) }),
-  Object.freeze({ id: '6d0x:x3_trips+x3_trips+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x3_trips','x3_trips','refund']), greedy: Object.freeze([490, 580, 686, 770, 810, 865, 885, 920, 970, 1000, 1020]), naive: Object.freeze([364, 426, 515, 580, 625, 670, 720, 779, 850, 915, 970]) }),
-  Object.freeze({ id: '6d0x:x3_trips+joker+joker', dice: 6, blocks: 0, kinds: Object.freeze(['x3_trips','joker','joker']), greedy: Object.freeze([430, 516, 600, 635, 664, 685, 700, 720, 740, 770, 800]), naive: Object.freeze([575, 600, 625, 645, 665, 684, 700, 715, 740, 760, 790]) }),
-  Object.freeze({ id: '6d0x:x3_trips+joker+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x3_trips','joker','refund']), greedy: Object.freeze([486, 544, 590, 630, 655, 680, 710, 725, 740, 785, 805]), naive: Object.freeze([455, 481, 529, 570, 605, 624, 645, 669, 700, 730, 750]) }),
-  Object.freeze({ id: '6d0x:x3_trips+refund+refund', dice: 6, blocks: 0, kinds: Object.freeze(['x3_trips','refund','refund']), greedy: Object.freeze([464, 500, 565, 595, 630, 655, 680, 710, 730, 760, 790]), naive: Object.freeze([339, 391, 427, 460, 495, 525, 550, 586, 619, 665, 710]) }),
-  Object.freeze({ id: '6d0x:joker+joker+joker', dice: 6, blocks: 0, kinds: Object.freeze(['joker','joker','joker']), greedy: Object.freeze([298, 325, 366, 386, 408, 425, 442, 465, 495, 530, 560]), naive: Object.freeze([435, 464, 480, 480, 500, 520, 520, 560, 560, 600, 624]) }),
-  Object.freeze({ id: '6d0x:joker+joker+refund', dice: 6, blocks: 0, kinds: Object.freeze(['joker','joker','refund']), greedy: Object.freeze([325, 365, 405, 425, 440, 460, 475, 495, 520, 540, 560]), naive: Object.freeze([400, 430, 464, 480, 480, 480, 480, 505, 520, 560, 584]) }),
-  Object.freeze({ id: '6d0x:joker+refund+refund', dice: 6, blocks: 0, kinds: Object.freeze(['joker','refund','refund']), greedy: Object.freeze([368, 385, 400, 425, 440, 455, 466, 480, 520, 555, 560]), naive: Object.freeze([320, 350, 375, 395, 410, 434, 450, 480, 480, 520, 540]) }),
-  Object.freeze({ id: '6d0x:refund+refund+refund', dice: 6, blocks: 0, kinds: Object.freeze(['refund','refund','refund']), greedy: Object.freeze([365, 390, 424, 439, 455, 464, 480, 505, 530, 560, 600]), naive: Object.freeze([253, 275, 309, 330, 348, 367, 380, 400, 425, 464, 500]) }),
-  Object.freeze({ id: '7d2x:-', dice: 7, blocks: 2, kinds: Object.freeze([]), greedy: Object.freeze([250, 275, 320, 350, 368, 385, 405, 420, 439, 470, 505]), naive: Object.freeze([195, 221, 250, 275, 291, 314, 330, 352, 376, 415, 440]) }),
-  Object.freeze({ id: '7d1x:x2_any', dice: 7, blocks: 1, kinds: Object.freeze(['x2_any']), greedy: Object.freeze([306, 342, 417, 490, 535, 560, 580, 600, 640, 695, 725]), naive: Object.freeze([305, 335, 378, 415, 440, 470, 496, 520, 550, 600, 624]) }),
-  Object.freeze({ id: '7d1x:x3_straight', dice: 7, blocks: 1, kinds: Object.freeze(['x3_straight']), greedy: Object.freeze([192, 234, 576, 651, 690, 720, 745, 764, 800, 800, 840]), naive: Object.freeze([220, 245, 272, 300, 334, 416, 605, 665, 715, 754, 784]) }),
-  Object.freeze({ id: '7d1x:x3_pairs', dice: 7, blocks: 1, kinds: Object.freeze(['x3_pairs']), greedy: Object.freeze([366, 388, 423, 442, 452, 464, 482, 498, 518, 548, 562]), naive: Object.freeze([290, 314, 348, 367, 381, 397, 415, 434, 462, 488, 518]) }),
-  Object.freeze({ id: '7d1x:x3_trips', dice: 7, blocks: 1, kinds: Object.freeze(['x3_trips']), greedy: Object.freeze([460, 509, 549, 576, 600, 626, 650, 671, 700, 724, 760]), naive: Object.freeze([350, 392, 440, 460, 499, 530, 560, 590, 624, 664, 685]) }),
-  Object.freeze({ id: '7d1x:joker', dice: 7, blocks: 1, kinds: Object.freeze(['joker']), greedy: Object.freeze([325, 345, 380, 410, 420, 435, 455, 470, 480, 520, 560]), naive: Object.freeze([310, 344, 370, 399, 410, 425, 440, 464, 480, 480, 520]) }),
-  Object.freeze({ id: '7d1x:refund', dice: 7, blocks: 1, kinds: Object.freeze(['refund']), greedy: Object.freeze([334, 365, 395, 415, 430, 440, 460, 480, 495, 520, 560]), naive: Object.freeze([245, 280, 307, 329, 345, 360, 376, 399, 416, 460, 480]) }),
+  Object.freeze({ id: '9d0x:-', dice: 9, blocks: 0, kinds: Object.freeze([]), greedy: Object.freeze([368, 395, 430, 455, 464, 480, 480, 520, 544, 560, 600]), naive: Object.freeze([320, 340, 369, 385, 400, 420, 440, 450, 480, 504, 544]) }),
+  Object.freeze({ id: '8d0x:x2_any', dice: 8, blocks: 0, kinds: Object.freeze(['x2_any']), greedy: Object.freeze([424, 504, 560, 600, 615, 640, 640, 680, 720, 760, 800]), naive: Object.freeze([370, 410, 450, 480, 520, 545, 570, 600, 640, 680, 720]) }),
+  Object.freeze({ id: '8d0x:x3_straight', dice: 8, blocks: 0, kinds: Object.freeze(['x3_straight']), greedy: Object.freeze([345, 625, 705, 744, 760, 775, 800, 800, 816, 864, 880]), naive: Object.freeze([273, 305, 345, 456, 635, 685, 720, 744, 760, 800, 824]) }),
+  Object.freeze({ id: '8d0x:x3_pairs', dice: 8, blocks: 0, kinds: Object.freeze(['x3_pairs']), greedy: Object.freeze([405, 424, 460, 482, 493, 500, 518, 522, 558, 580, 598]), naive: Object.freeze([342, 370, 397, 416, 437, 448, 466, 482, 500, 522, 558]) }),
+  Object.freeze({ id: '8d0x:x3_trips', dice: 8, blocks: 0, kinds: Object.freeze(['x3_trips']), greedy: Object.freeze([525, 570, 610, 640, 660, 680, 694, 715, 735, 760, 790]), naive: Object.freeze([435, 465, 500, 535, 560, 590, 619, 640, 665, 705, 725]) }),
+  Object.freeze({ id: '8d0x:joker', dice: 8, blocks: 0, kinds: Object.freeze(['joker']), greedy: Object.freeze([365, 400, 424, 440, 455, 464, 480, 504, 520, 560, 560]), naive: Object.freeze([380, 395, 425, 440, 464, 480, 480, 480, 520, 560, 560]) }),
+  Object.freeze({ id: '8d0x:refund', dice: 8, blocks: 0, kinds: Object.freeze(['refund']), greedy: Object.freeze([400, 424, 440, 460, 480, 480, 520, 535, 560, 560, 600]), naive: Object.freeze([306, 330, 352, 374, 392, 405, 424, 440, 464, 496, 520]) }),
   Object.freeze({ id: '7d0x:x2_any+x2_any', dice: 7, blocks: 0, kinds: Object.freeze(['x2_any','x2_any']), greedy: Object.freeze([355, 408, 535, 670, 725, 759, 780, 800, 880, 945, 990]), naive: Object.freeze([395, 432, 482, 530, 575, 615, 640, 680, 734, 768, 800]) }),
   Object.freeze({ id: '7d0x:x2_any+x3_straight', dice: 7, blocks: 0, kinds: Object.freeze(['x2_any','x3_straight']), greedy: Object.freeze([216, 358, 815, 870, 905, 934, 944, 960, 960, 1010, 1040]), naive: Object.freeze([322, 365, 415, 480, 635, 730, 780, 840, 880, 944, 960]) }),
   Object.freeze({ id: '7d0x:x2_any+x3_pairs', dice: 7, blocks: 0, kinds: Object.freeze(['x2_any','x3_pairs']), greedy: Object.freeze([486, 512, 538, 564, 584, 598, 618, 640, 660, 704, 740]), naive: Object.freeze([387, 417, 448, 488, 508, 532, 552, 578, 602, 644, 678]) }),
@@ -3304,13 +3283,6 @@ const RECIPES3 = Object.freeze([
   Object.freeze({ id: '7d0x:joker+joker', dice: 7, blocks: 0, kinds: Object.freeze(['joker','joker']), greedy: Object.freeze([337, 360, 400, 424, 440, 455, 480, 504, 520, 560, 560]), naive: Object.freeze([416, 440, 464, 480, 480, 480, 480, 520, 530, 560, 560]) }),
   Object.freeze({ id: '7d0x:joker+refund', dice: 7, blocks: 0, kinds: Object.freeze(['joker','refund']), greedy: Object.freeze([386, 405, 425, 440, 444, 460, 480, 495, 520, 560, 570]), naive: Object.freeze([350, 380, 408, 430, 440, 464, 480, 480, 480, 520, 560]) }),
   Object.freeze({ id: '7d0x:refund+refund', dice: 7, blocks: 0, kinds: Object.freeze(['refund','refund']), greedy: Object.freeze([385, 410, 435, 455, 475, 480, 505, 520, 544, 560, 600]), naive: Object.freeze([285, 305, 335, 355, 365, 384, 400, 416, 439, 465, 485]) }),
-  Object.freeze({ id: '8d1x:-', dice: 8, blocks: 1, kinds: Object.freeze([]), greedy: Object.freeze([312, 345, 386, 415, 425, 440, 450, 466, 480, 520, 560]), naive: Object.freeze([267, 290, 320, 339, 355, 375, 390, 405, 424, 460, 480]) }),
-  Object.freeze({ id: '8d0x:x2_any', dice: 8, blocks: 0, kinds: Object.freeze(['x2_any']), greedy: Object.freeze([424, 504, 560, 600, 615, 640, 640, 680, 720, 760, 800]), naive: Object.freeze([370, 410, 450, 480, 520, 545, 570, 600, 640, 680, 720]) }),
-  Object.freeze({ id: '8d0x:x3_straight', dice: 8, blocks: 0, kinds: Object.freeze(['x3_straight']), greedy: Object.freeze([345, 625, 705, 744, 760, 775, 800, 800, 816, 864, 880]), naive: Object.freeze([273, 305, 345, 456, 635, 685, 720, 744, 760, 800, 824]) }),
-  Object.freeze({ id: '8d0x:x3_pairs', dice: 8, blocks: 0, kinds: Object.freeze(['x3_pairs']), greedy: Object.freeze([405, 424, 460, 482, 493, 500, 518, 522, 558, 580, 598]), naive: Object.freeze([342, 370, 397, 416, 437, 448, 466, 482, 500, 522, 558]) }),
-  Object.freeze({ id: '8d0x:x3_trips', dice: 8, blocks: 0, kinds: Object.freeze(['x3_trips']), greedy: Object.freeze([525, 570, 610, 640, 660, 680, 694, 715, 735, 760, 790]), naive: Object.freeze([435, 465, 500, 535, 560, 590, 619, 640, 665, 705, 725]) }),
-  Object.freeze({ id: '8d0x:joker', dice: 8, blocks: 0, kinds: Object.freeze(['joker']), greedy: Object.freeze([365, 400, 424, 440, 455, 464, 480, 504, 520, 560, 560]), naive: Object.freeze([380, 395, 425, 440, 464, 480, 480, 480, 520, 560, 560]) }),
-  Object.freeze({ id: '8d0x:refund', dice: 8, blocks: 0, kinds: Object.freeze(['refund']), greedy: Object.freeze([400, 424, 440, 460, 480, 480, 520, 535, 560, 560, 600]), naive: Object.freeze([306, 330, 352, 374, 392, 405, 424, 440, 464, 496, 520]) }),
 ]);
 
 return { RECIPES3_VERSION, RECIPE_QUANTILES, RECIPES3 };
@@ -3321,8 +3293,8 @@ const __mod_uplift3 = (() => {
 // UP_SHARES: each combination's share of the greedy bot's points on the tier levels. UP_LIFT[L]: the mean score
 // lift at level L of a sensible upgrader who has won every level before it (index 0 unused).
 
-const UP_SHARES = Object.freeze({ pair: 0.0008, two_pairs: 0.0859, small_straight: 0.006, three_kind: 0.0087, full_house: 0.314, straight: 0.4223, four_kind: 0.046, five_kind: 0.1163 });
-const UP_LIFT = Object.freeze([1, 1, 1.045, 1.09, 1.135, 1.179, 1.224, 1.269, 1.314, 1.358, 1.403, 1.449, 1.493, 1.538, 1.583, 1.628, 1.673, 1.718, 1.763, 1.808, 1.853, 1.898, 1.943, 1.988, 2.032, 2.077, 2.121, 2.166, 2.212, 2.256, 2.301, 2.346, 2.391, 2.435, 2.48, 2.524, 2.569, 2.614, 2.658, 2.704, 2.748, 2.793, 2.838, 2.883, 2.928, 2.973, 3.018, 3.063, 3.108, 3.153, 3.197, 3.242, 3.287, 3.332, 3.377, 3.422, 3.467, 3.512, 3.556, 3.601, 3.646]);
+const UP_SHARES = Object.freeze({ pair: 0.0002, two_pairs: 0.0702, small_straight: 0.0009, three_kind: 0.0013, full_house: 0.2741, straight: 0.461, four_kind: 0.031, five_kind: 0.1614 });
+const UP_LIFT = Object.freeze([1, 1, 1.043, 1.086, 1.129, 1.171, 1.215, 1.257, 1.3, 1.343, 1.386, 1.429, 1.472, 1.515, 1.558, 1.601, 1.644, 1.687, 1.731, 1.773, 1.816, 1.859, 1.903, 1.945, 1.989, 2.031, 2.074, 2.117, 2.16, 2.203, 2.246, 2.289, 2.332, 2.375, 2.417, 2.46, 2.503, 2.546, 2.589, 2.632, 2.674, 2.717, 2.761, 2.804, 2.847, 2.89, 2.933, 2.976, 3.019, 3.062, 3.105, 3.148, 3.191, 3.233, 3.276, 3.319, 3.363, 3.406, 3.449, 3.492, 3.535]);
 
 return { UP_SHARES, UP_LIFT };
 })();
@@ -3383,11 +3355,11 @@ const { createRng } = __mod_rng;
 const BAG = ['judge', 'lowbell', 'hush', 'shortwind', 'usher', 'mason'];
 const BOSSES = Object.freeze({
   judge: Object.freeze({ name: 'THE CROOKED JUDGE', rule: 'STRAIGHTS SCORE HALF', counters: Object.freeze(['velvet_grip']) }),
-  lowbell: Object.freeze({ name: 'LADY LOWBELL', rule: 'SIXES ADD ZERO TO HAND SUMS', counters: Object.freeze(['crooked_pip']) }),
+  lowbell: Object.freeze({ name: 'LADY LOWBELL', rule: 'SIXES ADD ZERO', counters: Object.freeze(['crooked_pip']) }),
   hush: Object.freeze({ name: 'BROTHER HUSH', rule: 'BANK CARDS DO NOT ENTER', counters: Object.freeze(['spare_knuckle', 'final_bow']) }),
   shortwind: Object.freeze({ name: 'SIR SHORTWIND', rule: 'START WITH TWO REROLLS', counters: Object.freeze(['spare_knuckle', 'echo_thimble']), rerolls: 2 }),
   usher: Object.freeze({ name: 'THE LAST USHER', rule: 'START WITH TWO HANDS', counters: Object.freeze(['final_bow', 'quick_pocket']), hands: 2 }),
-  mason: Object.freeze({ name: 'MASON GRUDGE', rule: 'TWO MORE STONE LOCKS', counters: Object.freeze(['stone_ribbon']), locks: 2 }),
+  mason: Object.freeze({ name: 'MASON GRUDGE', rule: 'EVERY HAND SUMS FIVE LESS', counters: Object.freeze(['stone_ribbon', 'final_bow']) }),
 });
 
 const isBossLevel = (levelIndex) => levelIndex > 0 && levelIndex % 5 === 0;
@@ -3405,17 +3377,9 @@ function bossOf(runSeed, levelIndex) {
   return bag[n % BAG.length];
 }
 
-// Mason's two locks fall on dice of a board that has eight (run3.js draws such a layout for him): six stay.
-function lockDice(layout, faces, count, rng) {
-  const dice = layout.flatMap((c, i) => (c.type === 'die' ? [i] : []));
-  for (let k = 0; k < count; k++) {
-    const i = dice.splice(rng.int(dice.length), 1)[0];
-    layout[i] = { type: 'block' };
-    faces[i] = null;
-  }
-}
 
-return { BOSSES, isBossLevel, bossOf, lockDice };
+
+return { BOSSES, isBossLevel, bossOf };
 })();
 // ---- src/engine/run3.js ----
 const __mod_run3 = (() => {
@@ -3430,9 +3394,9 @@ const __mod_run3 = (() => {
 const { createRng } = __mod_rng;
 const { RECIPES3, RECIPE_QUANTILES, RECIPES3_VERSION } = __mod_recipes3;
 const { BONUS_UNLOCKS, unlockedKinds, firstLayout, shuffledCells, placeLayout } = __mod_levels3;
-const { createAutoGame, currentHand, MIN_DICE } = __mod_auto;
+const { createAutoGame, currentHand } = __mod_auto;
 const { UP_LIFT } = __mod_uplift3;
-const { bossOf, BOSSES, lockDice } = __mod_bosses3;
+const { bossOf, BOSSES } = __mod_bosses3;
 
 const RUN3_VERSION = `run-2/${RECIPES3_VERSION}`;
 const RUN3 = Object.freeze({
@@ -3441,7 +3405,7 @@ const RUN3 = Object.freeze({
   bend: 0.0024,   // steeper since the shop (06.11.2026): its goods lift scores; the first levels keep their targets
   aimFirst: 0.99, // a typical player's pass chance the layout aims at on levels 1–2 (the tutorial runs on level 1)
   aimStart: 0.985, // on level 3, then falling towards aimFloor, by e every aimFade levels
-  aimFade: 12,    // faster since the shop: harder boards from the middle of the run keep a typical player near level 12 (В10)
+  aimFade: 20,    // slower since the boards lost their locks (09.11.2026): every board is nine dice and cards, so the model's chances moved; a typical player reaches level 10 in two runs of three again (В10)
   aimFloor: 0.5,  // with this curve half the typical players reach level 10–11, half the strong ones 20 (questionnaire В10; run3-sim)
   near: 0.25,     // layouts whose modelled failure is within e^near of the best fit's are drawn at random, for variety
   maxBonuses: 2,  // three bonus cards on one hand reach ×7 and swamp the layout table
@@ -3482,20 +3446,27 @@ function percentileOf(q, score) {
 const typicalChance = (recipe, levelIndex, curve = RUN3) => 1 - percentileOf(recipe.naive, runTarget(levelIndex, curve) / runLift(levelIndex));
 
 // Recipes a level may use: at most two bonus cards of different kinds, all unlocked; a level that unlocks a
-// kind (2–6) must place it. minDice: a boss's locks need the dice to fall on.
-function candidates(levelIndex, minDice = 0) {
+// kind (2–6) must place it. Every recipe is nine cells of dice and cards (no locks since 09.11.2026).
+function candidates(levelIndex) {
   const open = unlockedKinds(levelIndex);
   const newest = levelIndex > 1 && levelIndex <= BONUS_UNLOCKS.length ? open[open.length - 1] : null;
   return RECIPES3.filter((r) => r.kinds.length <= RUN3.maxBonuses && new Set(r.kinds).size === r.kinds.length
-    && r.kinds.every((k) => open.includes(k)) && (!newest || r.kinds.includes(newest)) && r.dice >= minDice);
+    && r.kinds.every((k) => open.includes(k)) && (!newest || r.kinds.includes(newest)));
 }
 
 // Level 1 is the first board; later levels draw among the recipes that fit the level's aim best.
-function chooseRecipe(levelIndex, rng, curve = RUN3, minDice = 0) {
+function chooseRecipe(levelIndex, rng, curve = RUN3) {
   if (levelIndex <= 1) return recipeById(curve.firstRecipe);
   const aim = runAim(levelIndex, curve);
   // fit by the ratio of the failure chances: near the top of the curve a few points of chance halve the losses
-  const scored = candidates(levelIndex, minDice).map((recipe) => ({ recipe, gap: Math.abs(Math.log((1 - typicalChance(recipe, levelIndex, curve)) / (1 - aim))) }));
+  const all = candidates(levelIndex);
+  // deep in a run (strong players, level 18 on) no board lets a typical player reach the aim and every chance sits on the
+  // model's floor: the boards would be drawn at random, rich and poor alike. There the richest boards are drawn instead.
+  if (all.every((r) => typicalChance(r, levelIndex, curve) <= 0.0011)) {
+    const rich = [...all].sort((a, b) => b.naive[5] - a.naive[5]).slice(0, 3);
+    return rich[rng.int(rich.length)];
+  }
+  const scored = all.map((recipe) => ({ recipe, gap: Math.abs(Math.log((1 - typicalChance(recipe, levelIndex, curve)) / (1 - aim))) }));
   const best = Math.min(...scored.map((s) => s.gap));
   const near = scored.filter((s) => s.gap <= best + curve.near);
   return near[rng.int(near.length)].recipe;
@@ -3507,10 +3478,9 @@ function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], ups = {
   const rng = createRng(seed);
   const boss = bossOf(runSeed, levelIndex);
   const rule = boss ? BOSSES[boss] : {};
-  const recipe = chooseRecipe(levelIndex, rng, curve, rule.locks ? MIN_DICE + rule.locks : 0);
+  const recipe = chooseRecipe(levelIndex, rng, curve);
   const layout = levelIndex <= 1 ? firstLayout() : placeLayout(shuffledCells(rng), recipe.kinds, recipe.blocks);
   const faces = layout.map((c) => (c.type === 'die' ? rng.die() : null));
-  if (rule.locks) lockDice(layout, faces, rule.locks, rng);
   const level = {
     mode: 'auto',
     seed,
@@ -3561,8 +3531,8 @@ const ALL = UP_CATEGORIES;
 const CHARMS = Object.freeze({
   crooked_pip: Object.freeze({ name: 'CROOKED PIP', rule: 'ONES COUNT AS SIX IN HAND SUMS', price: 9, serves: ['full_house', 'straight', 'two_pairs'] }),
   velvet_grip: Object.freeze({ name: 'VELVET GRIP', rule: 'HELD DICE ADD ONE TO HAND SUM', price: 8, serves: ['pair', 'three_kind', 'five_kind'], habit: 'holds' }),
-  quick_pocket: Object.freeze({ name: 'QUICK POCKET', rule: 'FIRST KEPT CARD STARTS ON BOARD', price: 8, serves: [], habit: 'cards' }),
-  stone_ribbon: Object.freeze({ name: 'STONE RIBBON', rule: 'ONE STONE LOCK BECOMES A DIE', price: 7, serves: ['full_house', 'straight', 'five_kind'] }),
+  quick_pocket: Object.freeze({ name: 'QUICK POCKET', rule: 'FIRST BANK CARD STARTS ON BOARD', price: 8, serves: [], habit: 'cards' }),
+  stone_ribbon: Object.freeze({ name: 'STONE RIBBON', rule: 'FIVE-DIE HANDS ADD FIVE', price: 7, serves: ['full_house', 'straight', 'five_kind'] }),
   echo_thimble: Object.freeze({ name: 'ECHO THIMBLE', rule: 'REFUND GIVES BACK TWO REROLLS', price: 7, serves: [], habit: 'rerolls' }),
   bellwether: Object.freeze({ name: 'BELLWETHER', rule: 'TWO MORE BELLS EACH CLEARED LEVEL', price: 9, serves: [] }),
   final_bow: Object.freeze({ name: 'FINAL BOW', rule: 'LAST HAND ADDS FIVE TO SUM', price: 8, serves: ALL }),
@@ -3605,12 +3575,11 @@ function fitWeights({ plays = [], ups = {} }, levelIndex) {
 }
 
 // The tag of a combination offered: the reason it came up, or none for an offer with no such reason.
-const plural = (c) => `${CATEGORY5_LABELS[c]}${/(pair|straight|house)$/.test(c) ? 'S' : ''}`;
+const plural = (c) => (c === 'pair' ? 'PAIRS' : `${CATEGORY5_LABELS[c]}${/(straight|house)$/.test(c) ? 'S' : ''}`);
 function fitTag(category, fit, brief = false) {
   const f = fit[category];
   if (!f || f.played + f.short < 0.3) return brief ? '' : 'WILD OFFER';
-  if (brief) return f.short > f.played ? 'SHORT ON THIS' : 'YOU PLAY THIS'; // on the pick, beside the name
-  return f.short > f.played ? `SHORT ON ${plural(category)}` : `YOU PLAY ${plural(category)}`;
+  return brief ? 'YOU PLAY THIS' : `YOU PLAY ${plural(category)}`; // on the pick, beside the name
 }
 
 function draw(rng, items, weightOf) {
@@ -3645,10 +3614,10 @@ function shopStock({ runSeed, levelIndex, run, plays = [], habits = {}, medal = 
     const c = CHARMS[id];
     if (counters.includes(id)) return 'GOOD AGAINST BOSS';
     if (c.habit && (habits[c.habit] || 0) >= 0.4) return habitTag(c.habit);
-    return c.serves.length && c.serves.length < ALL.length ? fitTag(leaned(c.serves), fit) : 'WILD OFFER';
+    return 'WILD OFFER'; // a charm names no hand, so a tag naming one would be a riddle over it (its weight still leans)
   };
   const stock = [
-    { type: 'card', id: kind, price: CARD_PRICE[kind], tag: fitTag(leaned(cardCats(kind)), fit) },
+    { type: 'card', id: kind, price: CARD_PRICE[kind], tag: cardCats(kind).length < ALL.length ? fitTag(leaned(cardCats(kind)), fit) : 'WILD OFFER' },
     { type: 'up', id: category, price: UP_PRICE[category], tag: fitTag(category, fit) },
   ];
   if (charm) stock.push({ type: 'charm', id: charm, price: CHARMS[charm].price, tag: charmTag(charm) });
@@ -4498,6 +4467,7 @@ let ctx = null;
 let out = null;
 let urlOf = () => null;
 let enabled = true;
+let hostSilent = false; // the platform mutes or pauses the game: an ad, another tab (Playgama 2.1.6, 3.3.4)
 const bufs = {};
 let room = null; // the hall every instrument sits in
 const DRY = new Set(['tally', 'stop', 'paper']); // the lost run's receipt: no hall, no tail (GPT's spec)
@@ -4522,14 +4492,14 @@ function hall() {
 
 function unlock() {
   if (ctx) {
-    if (ctx.state !== 'running' && ctx.state !== 'closed' && !document.hidden) ctx.resume(); // suspended, or iOS 'interrupted'
+    if (ctx.state !== 'running' && ctx.state !== 'closed' && !document.hidden && !hostSilent) ctx.resume(); // suspended, or iOS 'interrupted'
     return;
   }
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   ctx = new AC();
   out = ctx.createGain();
-  out.gain.value = enabled ? 1 : 0;
+  out.gain.value = enabled && !hostSilent ? 1 : 0;
   const limiter = ctx.createDynamicsCompressor(); // a chord's voices stack: they must not clip
   limiter.threshold.value = -6;
   limiter.knee.value = 6;
@@ -4565,19 +4535,28 @@ function setupSound(urls, on) {
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return;
     if (document.hidden) ctx.suspend();
-    else ctx.resume();
+    else if (!hostSilent) ctx.resume();
   });
 }
 
 function setSound(on) {
   enabled = on;
-  if (out) out.gain.setTargetAtTime(on ? 1 : 0, ctx.currentTime, 0.05);
+  if (out) out.gain.setTargetAtTime(on && !hostSilent ? 1 : 0, ctx.currentTime, 0.05);
+}
+
+// Silent while the platform says so, whatever the player's own setting; the setting comes back with it.
+function setHostSilent(silent) {
+  hostSilent = !!silent;
+  if (!ctx) return;
+  out.gain.setTargetAtTime(enabled && !hostSilent ? 1 : 0, ctx.currentTime, 0.02);
+  if (hostSilent) ctx.suspend();
+  else if (!document.hidden) ctx.resume();
 }
 
 // at: seconds from now, on the audio clock (timers jitter on a phone, an 83 ms rhythm would limp). spread: false keeps the pitch.
 function sfx(name, { vol = 1, rate = 1, at = 0, spread = true } = {}) {
   const b = bufs[name];
-  if (!b || !enabled || ctx.state !== 'running') return;
+  if (!b || !enabled || hostSilent || ctx.state !== 'running') return;
   const src = ctx.createBufferSource();
   const gain = ctx.createGain();
   src.buffer = b;
@@ -4613,7 +4592,7 @@ function ringNote(step, vol) { // one note of the ladder, in the last hand's key
   pluck({ at: 0, semis: LADDER[step], vol });
 }
 
-return { SOUNDS, RING_STEP, string, ladder, chord, setupSound, setSound, sfx, hush, ringCount, ringChord, ringNote };
+return { SOUNDS, RING_STEP, string, ladder, chord, setupSound, setSound, setHostSilent, sfx, hush, ringCount, ringChord, ringNote };
 })();
 // ---- src/ui/rig.js ----
 const __mod_rig = (() => {
@@ -5712,17 +5691,18 @@ return { breakLine, holdLine };
 })();
 // ---- src/ui/acts.js ----
 const __mod_acts = (() => {
-// What comes next, in words. The owner, 06.11.2026, of the strip of nodes, doors and a seal that stood here: «для человека
-// это нечитаемые ребус». An icon nobody has learnt has to be decoded; a word is read (NN/g on icon usability, digest rule 1).
+// What comes next and what the run holds, in words. The owner, 06.11.2026, of the strip of nodes that stood by LEVEL:
+// «для человека это нечитаемые ребус»; of the words that replaced it: «тоже перегружено... показывать только в те моменты,
+// когда требует внимания». So none of this is on the board: a cleared level says what follows, How says the rest.
 // Worked out from the level and the record alone, so a reload says the same.
 
 const { doorAfter } = __mod_shop3;
-const { isBossLevel } = __mod_bosses3;
+const { BOSSES, bossOf, isBossLevel } = __mod_bosses3;
 
 const until = (from, test) => { let n = 0; while (!test(from + n)) n += 1; return n; };
 const ahead = (name, levels) => (levels <= 1 ? `${name} NEXT` : `${name} IN ${levels}`);
 
-// levels: how many more levels end before it comes. best: the record, shown until the run has passed it.
+// For How. levels: how many more levels end before it comes. best: the record, until the run has passed it.
 function nextUp(level, best = null) {
   return {
     shop: ahead('SHOP', until(level, doorAfter) + 1),
@@ -5731,14 +5711,137 @@ function nextUp(level, best = null) {
   };
 }
 
-// What the cleared level leads to, after the pick.
-function afterClear(level) {
-  const boss = isBossLevel(level + 1);
-  if (doorAfter(level)) return boss ? 'NEXT: SHOP, THEN BOSS' : 'NEXT: SHOP';
-  return boss ? 'NEXT: BOSS' : `NEXT: LEVEL ${level + 1}`;
+// What the cleared level leads to, after the pick: only a shop has to be said (a boss's rule stands above the pick).
+const afterClear = (level) => (doorAfter(level) ? 'NEXT: SHOP' : '');
+
+// Before a boss, his rule: it bears on the pick, so it is read above it (digest rule 24).
+const bossRule = (runSeed, level) => (isBossLevel(level + 1) ? `BOSS RULE: ${BOSSES[bossOf(runSeed, level + 1)].rule}` : '');
+
+// A level's pay (levelBells in shop3.js), each amount with what earned it: «HANDS LEFT +4» alone read as four hands.
+const left = (n, name) => `${n} ${name}${n > 1 ? 'S' : ''} LEFT`;
+const bellsPaid = (paid) => [['CLEAR', paid.clear], [left(paid.hand / 2, 'HAND'), paid.hand], [left(paid.reroll, 'REROLL'), paid.reroll], ['BOSS', paid.boss], ['BELLWETHER', paid.charm]]
+  .filter(([, n]) => n).map(([name, n]) => `${name} +${n}`);
+const BELLS_RULE = ['CLEAR +2', 'EACH HAND LEFT +2', 'EACH REROLL LEFT +1'];
+
+return { nextUp, afterClear, bossRule, bellsPaid, BELLS_RULE };
+})();
+// ---- src/ui/platform.js ----
+const __mod_platform = (() => {
+// The host platform. On Playgama (the build whose page loads the Bridge script first in <head>) the game follows the
+// Bridge's required steps: it starts after `bridge.initialize()`, reads every saved key in one `storage.get` before
+// the first frame, writes only at moments that mean progress (a level started or ended, a purchase, a setting), stays
+// silent while the platform mutes or pauses it, sends `game_ready` once the first screen can be tapped, and asks for
+// an interstitial at every level change (the Bridge decides whether one shows). Everywhere else the browser keeps the
+// saves in localStorage at once, as before, and the calls below do nothing.
+
+let bridge = null;
+let hosted = false; // the page loaded the Bridge: never fall back to the browser's storage (Playgama 3.2.1)
+let readOnly = false; // the saves could not be read: writing now would put a fresh game over the player's run
+const cache = new Map();
+const dirty = new Set();
+
+const within = (promise, ms) => Promise.race([promise, new Promise((_, no) => { setTimeout(() => no(new Error('timeout')), ms); })]);
+
+// Waits for the Bridge and the saves when the page has it; a page without it, or a Bridge that does not answer in
+// time, plays on with the browser's storage (the game never waits on a platform for long).
+async function setupPlatform(keys) {
+  const b = window.bridge;
+  if (!b) return false;
+  hosted = true;
+  try {
+    await within(b.initialize(), 15000);
+  } catch {
+    return false; // no platform: the game plays with its saves in memory only
+  }
+  bridge = b;
+  try {
+    if (!b.storage) throw new Error('no storage');
+    const values = await within(b.storage.get(keys), 15000);
+    keys.forEach((key, k) => {
+      const v = Array.isArray(values) ? values[k] : values && values[key];
+      if (v != null) cache.set(key, typeof v === 'string' ? v : JSON.stringify(v));
+    });
+  } catch {
+    readOnly = true; // the game starts fresh but keeps its hands off the player's saves
+  }
+  // the language comes from the platform only (Playgama 3.4.2); the game speaks English, its default and fallback
+  document.documentElement.lang = 'en';
+  const save = () => flushSaves();
+  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  window.addEventListener('pagehide', save);
+  return true;
 }
 
-return { nextUp, afterClear };
+const onPlatform = () => !!bridge;
+const platformBridge = () => bridge;
+
+function load(key) {
+  if (hosted) return cache.has(key) ? cache.get(key) : null;
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+// `now`: progress that matters (Playgama's storage takes few, meaningful writes); otherwise the value waits in memory
+// for the next such moment, the page being hidden, or the platform pausing the game.
+function save(key, value, { now = true } = {}) {
+  if (!hosted) {
+    try { localStorage.setItem(key, value); } catch { /* storage unavailable: the game still works for this session */ }
+    return;
+  }
+  if (cache.get(key) !== value) {
+    cache.set(key, value);
+    dirty.add(key);
+  }
+  if (now) flushSaves();
+}
+
+function flushSaves() {
+  if (!bridge || readOnly || !dirty.size) return;
+  const keys = [...dirty];
+  dirty.clear();
+  bridge.storage.set(keys, keys.map((k) => cache.get(k))).catch(() => { for (const k of keys) dirty.add(k); });
+}
+
+// `apply(silent, paused)`: silent while the platform mutes the game or pauses it; paused while an ad, another tab or a
+// minimised window has the screen (the game's own timers wait then).
+function followHostAudio(apply) {
+  if (!bridge) return;
+  let audio = bridge.platform.isAudioEnabled !== false;
+  let paused = false;
+  const tell = () => apply(!audio || paused, paused);
+  const { EVENT_NAME: EV } = bridge;
+  bridge.platform.on(EV.AUDIO_STATE_CHANGED, (on) => { audio = !!on; tell(); });
+  bridge.platform.on(EV.PAUSE_STATE_CHANGED, (on) => { paused = !!on; if (paused) flushSaves(); tell(); });
+  if (bridge.advertisement && bridge.advertisement.interstitialState === 'opened') paused = true;
+  tell();
+}
+
+function gameReady() {
+  if (bridge) Promise.resolve(bridge.platform.sendMessage('game_ready')).catch(() => {});
+}
+
+// level_started, level_completed, level_failed: the platforms that relay them use them for analytics.
+function tellLevel(message, level) {
+  if (bridge) { try { Promise.resolve(bridge.platform.sendMessage(message, { level: String(level) })).catch(() => {}); } catch { /* not relayed here */ } }
+}
+
+// A moment worth counting: a built-in message (player_got_achievement) or one of the game's own for the Bridge's
+// analytics (shop_opened, boss_defeated, run_over).
+function tell(message) {
+  if (!bridge) return;
+  try {
+    const sent = message === 'player_got_achievement' ? bridge.platform.sendMessage(message) : bridge.platform.sendCustomMessage(message);
+    Promise.resolve(sent).catch(() => {});
+  } catch { /* an older Bridge without it */ }
+}
+
+// A natural pause between levels: the Bridge decides whether an ad shows now (its own delay between ads).
+function interstitial() {
+  if (bridge && bridge.advertisement && bridge.advertisement.isInterstitialSupported) {
+    try { bridge.advertisement.showInterstitial(); } catch { /* the game goes on without it */ }
+  }
+}
+
+return { setupPlatform, onPlatform, platformBridge, load, save, flushSaves, followHostAudio, gameReady, tellLevel, tell, interstitial };
 })();
 // ---- src/ui/board.js ----
 const __mod_board = (() => {
@@ -5747,6 +5850,8 @@ const __mod_board = (() => {
 // Until the game is released on Playgama there is no shared table (`bridge.leaderboards.type` is `not_available`
 // outside it, and the Bridge script only ships in the Playgama build): the screen shows the best runs on this device.
 // The table around the player, not a top 100 (digest rule 22: low places in a global table demotivate).
+
+const { platformBridge } = __mod_platform;
 
 const BOARD_ID = 'furthest_level';
 const STEP = 1e7;
@@ -5774,13 +5879,12 @@ function around(entries, id, reach = 2) {
 let api = null;
 let me = null;
 
-// Waits for the Bridge when the page has it (the Playgama build, its script first in <head>); a page without it, or a
+// The Bridge once platform.js has it ready (the Playgama build, its script first in <head>); a page without it, or a
 // platform with no table, plays on with the device's runs.
-async function setupBoard() {
-  const { bridge } = window;
+function setupBoard() {
+  const bridge = platformBridge();
   if (!bridge) return;
   try {
-    await Promise.race([bridge.initialize(), new Promise((_, no) => { setTimeout(no, 5000); })]); // the game never waits on a platform for long
     if (bridge.leaderboards.type === 'in_game') { api = bridge.leaderboards; me = bridge.player.id; }
   } catch { api = null; }
 }
@@ -5824,11 +5928,12 @@ const { CHARMS, CHARM_SLOTS, UNLOCKS, doorAfter, bossNext, levelBells, fitWeight
 const { BOSSES, bossOf } = __mod_bosses3;
 const { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } = __mod_dice3d;
 const { createFire } = __mod_fire;
-const { RING_STEP, setupSound, setSound, sfx, hush, ringCount, ringChord, ringNote } = __mod_sound;
+const { RING_STEP, setupSound, setSound, setHostSilent, sfx, hush, ringCount, ringChord, ringNote } = __mod_sound;
 const { setupPuppets, animateArt, cheer, WIN_CARD, cardRock } = __mod_puppets;
 const { breakLine, holdLine } = __mod_shards;
-const { nextUp, afterClear } = __mod_acts;
+const { nextUp, afterClear, bossRule, bellsPaid, BELLS_RULE } = __mod_acts;
 const { withRun, submitRun, fetchBoard, hasBoard, setupBoard } = __mod_board;
+const { setupPlatform, load, save, followHostAudio, gameReady, tellLevel, tell, interstitial } = __mod_platform;
 
 const APP_VERSION = '0.2.0';
 const STORAGE_KEY = 'dice-snake.v2';
@@ -6083,8 +6188,8 @@ const MODES = {
       options: { table: false, small: false, endOnTarget: false, goldCell: false },
     },
     coachText(step, g, hint) {
-      if (step === 'swipe') return `BEST HAND · ${hint.hand.label} ${hint.hand.total} · PRESS PLAY`;
-      return `HAND ${g.hands.length + 1}/${g.hands.length + g.handsLeft} · NEW DICE · HOLD, REROLL OR PLAY`;
+      if (step === 'swipe') return 'PLAY THE HAND';
+      return "NEW DICE EVERY HAND. REROLLS DON'T REFILL";
     },
   },
 };
@@ -6130,7 +6235,7 @@ const app = {
   modes: { snake4: freshModeState(MODES.snake4), poker5: freshModeState(MODES.poker5), auto: freshModeState(MODES.auto) },
   autoHand: null, // best hand on the Auto Hand board, computed once per render
   fire: null, // the shader fire over the board (fire.js), made on the first strong hand
-  sheetAt: 0, // when the bonus sheet opened (its opening finger must not close it)
+  sheetAt: 0, // when the bonus sheet opened (its opening finger, or a tap meant for PLAY as it came, must not close it)
   sheetQueue: [], // kinds whose sheet waits for the open one to close
   afterGuide: [], // card deals waiting for the guide to uncover the board
   launching: new Set(), // bank places whose card is about to fly to the board (flyFromBank)
@@ -6157,7 +6262,7 @@ const app = {
 // ---------- 3D physics dice (optional, CDN libraries) ----------
 function setDice3D(on) {
   app.dice3d = !!on;
-  try { localStorage.setItem(DICE3D_KEY, app.dice3d ? '1' : '0'); } catch { /* ignore */ }
+  save(DICE3D_KEY, app.dice3d ? '1' : '0');
   const box = $('optDice3d');
   if (box) box.checked = app.dice3d;
   if (app.dice3d) loadDice3D().then(applyRenderedFaces);
@@ -6184,7 +6289,7 @@ function setLook(id, { announce = false } = {}) {
   const look = LOOKS.find((l) => l.id === id) || LOOKS[0];
   app.look = look.id;
   document.body.dataset.look = look.id;
-  try { localStorage.setItem(LOOK_KEY, look.id); } catch { /* ignore */ }
+  save(LOOK_KEY, look.id, { now: false });
   const sel = $('optLook');
   if (sel) sel.value = look.id;
   const d3box = $('optDice3d');
@@ -6207,7 +6312,7 @@ const engineOf = (mode) => mode.engine;
 // ---------- persistence ----------
 function readJson(key) {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = load(key);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -6245,14 +6350,12 @@ function serializeMode(st, engine) {
   };
 }
 
-function persist() {
+// `flush`: a moment that means progress (a level started or ended, a purchase, a setting, the tutorial done). The
+// browser keeps every save at once; Playgama's storage takes only these (platform.js), the rest wait in memory.
+function persist(flush = false) {
   const data = { version: APP_VERSION, activeMode: app.modeId, modes: {} };
   for (const id of Object.keys(MODES)) data.modes[id] = serializeMode(app.modes[id], MODES[id].engine);
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    /* storage unavailable: the game still works for this session */
-  }
+  save(STORAGE_KEY, JSON.stringify(data), { now: flush });
 }
 
 function hydrateMode(id, saved) {
@@ -6335,14 +6438,10 @@ function startGame(level, attempt) {
     opening: level.bestNoRerollWithBonus ?? level.openingBest, config: mode.gameConfig(st.settings),
   });
   $('levelEnd').hidden = true;
+  if (level.boss) showBossCard(level); // first: the deal waits for it
   render();
-  persist();
-  autoTips();
-  if (level.boss) showBossCard(level);
-  if (st.game.bank && st.game.bank.length && attempt === 1 && !st.tips.bankReroll) { // the first time the bank fills
-    st.tips.bankReroll = true;
-    toast('KEPT BONUSES COME IN ON THE FIRST REROLL', 'hint', 3600);
-  }
+  persist(true);
+  tellLevel('level_started', level.levelIndex);
 }
 
 function newLevel() {
@@ -6373,7 +6472,8 @@ function finishLevel(board) {
   logEvent('level_end', summary);
   if (mode.id === 'auto' && !won) logEvent('run_end', { runSeed: st.runSeed, level: g.level.levelIndex, score: st.runScore, best: st.best, newBest: st.lastEnd.newBest });
   st.pendingTier = nextTier(st.tier, won);
-  persist();
+  persist(true);
+  tellLevel(won ? 'level_completed' : 'level_failed', g.level.levelIndex);
   showLevelEnd();
 }
 
@@ -6398,6 +6498,8 @@ function tallyRun(st, g, won, board) {
       st.runMedals = [...st.runMedals, { level, fresh: end.fresh }];
     }
     end.passedBest = !!st.best && level === st.best.level; // from here on the run goes further than any before
+    if (g.level.boss) tell('boss_defeated');
+    if (end.medal || end.passedBest) tell('player_got_achievement');
   } else {
     end.newBest = !st.best || level > st.best.level || (level === st.best.level && st.runScore > st.best.score);
     if (end.newBest) st.best = { level, score: st.runScore };
@@ -6405,6 +6507,7 @@ function tallyRun(st, g, won, board) {
     st.runs = withRun(st.runs, { level, score: st.runScore });
     submitRun(level, st.runScore);
     st.quickRuns = level <= 3 ? st.quickRuns + 1 : 0;
+    tell('run_over');
     st.plays = g.hands.map((h) => ({ category: h.category, cleared: false, level: 0 })); // the next run's shelf remembers what ended this one
   }
   st.lastEnd = end;
@@ -6426,18 +6529,19 @@ function showLevelEnd() {
   showRunEnd(st, g, won, over);
   $('endScore').textContent = g.score;
   $('endTarget').textContent = g.level.target;
-  // honestly how far the total went past the threshold, or how far it fell short (owner's pick В12 A)
-  $('endOver').textContent = over ? `SHORT BY ${remaining(g.score, g)}` : `+${g.score - g.level.target} OVER`;
-  $('endOver').classList.toggle('short', over);
-  $('endOver').hidden = !over && (!cleared || g.score <= g.level.target);
-  const last = g.hands[g.hands.length - 1]; // the hand that broke the threshold, in one row
-  $('endHand').hidden = !cleared || !last;
-  if (cleared && last) $('endHand').innerHTML = `<span class="gdice">${last.faces.map((v) => guideDie(v)).join('')}</span><span><b>${last.label}</b><small>${handFormula(last)}</small></span><span class="pts">${last.total}</span>`;
-  $('endAct').hidden = !cleared;
-  if (cleared) $('endAct').textContent = afterClear(g.level.levelIndex);
+  // how far the total fell short (owner's pick В12 A); a cleared level pays nothing for going over, so says nothing of it
+  $('endOver').textContent = over ? `SHORT BY ${remaining(g.score, g)}` : '';
+  $('endOver').hidden = !over;
+  // what comes after this level, in words: a shop, and before a boss his rule, read before the pick it bears on
+  const next = cleared ? afterClear(g.level.levelIndex) : '';
+  $('endAct').hidden = !next;
+  $('endAct').textContent = next;
+  const rule = cleared ? bossRule(st.runSeed, g.level.levelIndex) : '';
+  $('upSub').textContent = rule || '+1 FOR THIS RUN';
+  $('upSub').classList.toggle('boss', !!rule);
   const paid = cleared && st.lastEnd && st.lastEnd.seed === g.level.seed ? st.lastEnd.bells : null;
   $('endBells').hidden = !paid;
-  if (paid) $('endBells').innerHTML = `<b><i class="bell"></i>+${paid.total}</b>${[['CLEAR', paid.clear], ['HANDS', paid.hand], ['REROLLS', paid.reroll], ['BOSS', paid.boss], ['CHARM', paid.charm]].filter(([, v]) => v).map(([n, v]) => `<span>${n} ${v}</span>`).join('')}${st.lastEnd.unlock ? `<em>NEW CARD IN THE SHOP: ${BONUS_KINDS[st.lastEnd.unlock].symbol} ${BONUS_KINDS[st.lastEnd.unlock].label}</em>` : ''}`;
+  if (paid) $('endBells').innerHTML = `<b><i class="bell"></i>+${paid.total} BELLS</b>${bellsPaid(paid).length > 1 ? bellsPaid(paid).map((line) => `<span>${line}</span>`).join('') : ''}${st.lastEnd.unlock ? `<em>NEW CARD UNLOCKED: ${BONUS_KINDS[st.lastEnd.unlock].symbol} ${BONUS_KINDS[st.lastEnd.unlock].label}</em>` : ''}`;
   const list = $('endHands');
   list.innerHTML = '';
   // a lost run's receipt: the level's three hands in the cleared screen's row, the last one, which ended the run,
@@ -6482,17 +6586,19 @@ function showLevelEnd() {
   // a cleared level goes on through its upgrade (owner, 03.11.2026: RETRY confused); a missed one ends the run
   $('retryBtn').hidden = won || mode.id === 'auto';
   $('runsBtn').hidden = !over;
-  $('upList').innerHTML = offer.map((cat) => {
+  const tags = offer.map((cat) => fitTag(cat, fit, true));
+  const telling = !tags.every(Boolean); // on all three a tag sets none apart
+  $('upList').innerHTML = offer.map((cat, n) => {
     const m = AUTO_MULT[cat] + (st.ups[cat] || 0);
     const dice = (GUIDE_COMBOS.find(([c]) => c === cat) || [cat, []])[1];
-    const tag = fitTag(cat, fit, true);
+    const tag = telling ? tags[n] : '';
     return `<button class="up" type="button" data-cat="${cat}"><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}${tag ? `<i>${tag}</i>` : ''}</b><em>×${m} → ×${m + 1}</em></button>`;
   }).join('');
   $('levelEnd').dataset.mode = app.modeId;
   clearTimeout(app.endTimer);
   const forMode = app.modeId;
   // Auto Hand opens the summary at once: the level's last hand plays its moment over the board as the summary rises
-  app.endTimer = setTimeout(() => { if (app.modeId === forMode) $('levelEnd').hidden = false; }, mode.id === 'auto' ? 0 : T.endDelay);
+  app.endTimer = setTimeout(() => { if (app.modeId === forMode) { $('levelEnd').hidden = false; fitOverlay($('levelEnd')); } }, mode.id === 'auto' ? 0 : T.endDelay);
 }
 
 // A played hand's sum, multiplier and bonus as the count shows them: 24 × 6 ×2.
@@ -6536,8 +6642,8 @@ function showRunEnd(st, g, won, over) {
     : gap === 0 ? `BEST LEVEL TIED${best.score > st.runScore ? ` · ${best.score - st.runScore} POINTS TO BEST` : ''}` : '';
   // two medals fit beside the strip; past that the newest and how many
   const medals = st.runMedals;
-  $('medals').innerHTML = !medals.length ? '<li class="none">0</li>'
-    : medals.length > 2 ? `<li class="medal">${medals[medals.length - 1].level}</li><li class="none">×${medals.length}</li>`
+  $('medals').closest('.medal-group').hidden = !medals.length;
+  $('medals').innerHTML = medals.length > 2 ? `<li class="medal">${medals[medals.length - 1].level}</li><li class="none">×${medals.length}</li>`
       : medals.map((m) => `<li class="medal">${m.level}</li>`).join('');
 }
 
@@ -6545,6 +6651,7 @@ function onNext() {
   const st = S();
   if ($('levelEnd').dataset.mode !== app.modeId || !st.game || st.game.phase === 'playing') return;
   if (app.endPlaying || performance.now() < (app.skipUntil || 0)) return; // the tap that completed the receipt does not start a run
+  interstitial(); // a natural pause between levels: on Playgama the Bridge decides whether an ad shows now
   if (st.pendingTier != null) st.tier = st.pendingTier;
   st.levelIndex += 1;
   if (app.modeId === 'auto' && st.game.phase === 'lost') {
@@ -6605,7 +6712,10 @@ function switchMode(id, { silent = false } = {}) {
     else if (st.shop) openShop();
     else showLevelEnd();
   }
-  else render();
+  else {
+    if (id === 'auto' && st.game.level.boss) showBossCard(st.game.level); // nothing else on the board says who he is
+    render();
+  }
   if (!st.onboarded) openGuide('intro');
   if (!silent && from !== id) logEvent('mode_switch', { from, to: id });
   persist();
@@ -6617,7 +6727,7 @@ function coachStart(source) {
   st.coach = { active: true, done: { hold: false, reroll: false } };
   logEvent('tutorial_start', { source });
   render();
-  persist();
+  persist(true); // the tutorial starts: a reload must not bring the title back
 }
 
 function coachStop(reason) {
@@ -6627,8 +6737,9 @@ function coachStop(reason) {
   st.coached = true;
   app.coachTargets = null;
   stopGhost();
+  els.cells.forEach((c) => c.classList.remove('hint'));
   logEvent('tutorial_end', { reason });
-  render();
+  coachRender(); // not render(): this can come as a hand starts, and the board is drawn when its count has ended
   persist();
 }
 
@@ -6637,7 +6748,9 @@ function coachOnEvent(type, data) {
   if (!st.coach.active) return;
   if (type === 'hold' && data.held) st.coach.done.hold = true;
   if (type === 'reroll' || type === 'bank') { st.coach.done.hold = true; st.coach.done.reroll = true; }
-  if (type === 'level_end') coachStop('complete');
+  // the last line has said its one thing once the player moves on (the bank that follows the first hand is not that)
+  const moved = ['hold', 'bonus', 'reroll', 'bank'].includes(type);
+  if (type === 'level_end' || (M().id === 'auto' && moved && E().handsPlayed(st.game) > (type === 'bank' ? 1 : 0))) coachStop('complete');
 }
 
 function coachCurrentStep() {
@@ -6709,9 +6822,14 @@ function coachRender() {
   const st = S();
   const g = st.game;
   const mode = M();
+  // a card's sheet goes first: the line and the finger wait until it closes (closeBonusSheet)
+  if (mode.id === 'auto' && (!$('bonusSheet').hidden || els.cells.some((c, i) => c.waiting && g.cells[i].type === 'bonus' && !cardSeen(g.cells[i].kind)))) {
+    bar.hidden = true;
+    stopGhost();
+    return;
+  }
   const hint = E().hintFor(g);
   let text = '';
-  let index = 1;
   let targets = [];
   let ghostPath = null;
   if (step === 'hold' && mode.id === 'auto') {
@@ -6726,33 +6844,28 @@ function coachRender() {
     targets = [c];
     ghostPath = [c];
   } else if (step === 'reroll') {
-    index = 2;
-    if (mode.id === 'auto') text = E().canReroll(g) ? 'REROLL: THE REST CHANGE, THEN HOLDS CLEAR' : 'EVERY DIE IS HELD: RELEASE ONE, THEN REROLL';
+    if (mode.id === 'auto') text = E().canReroll(g) ? 'REROLL THE REST' : 'EVERY DIE IS HELD: RELEASE ONE, THEN REROLL';
     else text = E().canReroll(g)
       ? 'NOW PRESS REROLL. ONLY THE DICE WITHOUT HOLD CHANGE.'
       : 'EVERY DIE IS HELD. TAP ONE TO RELEASE IT, THEN PRESS REROLL.';
   } else if (step === 'swipe' && mode.id === 'auto' && autoIdleBonuses(g, hint.hand).length) {
     // bonus dice start off: first switch the one that fits on, then play
-    index = 3;
     const b = autoIdleBonuses(g, hint.hand)[0];
     text = `TAP ${BONUS_KINDS[g.cells[b].kind].symbol} TO SWITCH IT ON, THEN PLAY`;
     targets = [b];
     ghostPath = [b];
   } else if (step === 'swipe') {
-    index = 3;
     text = mode.coachText('swipe', g, hint);
-    targets = hint.cells;
+    targets = mode.id === 'auto' ? [] : hint.cells; // Auto Hand never marks its hand (owner, 01.11.2026)
     ghostPath = hint.cells;
   } else {
-    index = 4;
     text = mode.coachText('last', g, hint);
-    targets = hint.cells;
+    targets = mode.id === 'auto' ? [] : hint.cells;
     ghostPath = mode.bonus === 'cell' && g.bonus.available ? null : hint.cells;
   }
   if (mode.id === 'auto' && step !== 'hold' && !(ghostPath && ghostPath.length === 1)) ghostPath = null; // nothing to drag: the hand is already red
   bar.hidden = false;
   els.preview.hidden = true;
-  $('coachStep').textContent = `${index} / 4`;
   $('coachText').textContent = text;
   els.rerollBtn.classList.toggle('pulse', step === 'reroll');
   els.playBtn.classList.toggle('pulse', mode.id === 'auto' && step === 'swipe' && !autoIdleBonuses(g, hint.hand).length);
@@ -6806,8 +6919,7 @@ function buildBoard() {
 // (node 1287:1641): the 589.5 px board left of a 440 px panel, 82.5 px apart, 1112 × 580.5 px with
 // the mockup's 84 px around it. The layout that gives the bigger board wins; k is then as large as
 // the window allows, and every size in styles.css is a multiple of it, so the rows keep the
-// mockup's proportions at any size. On the phone the tutorial line, when it shows, takes its height
-// first; on desktop it sits above the panel.
+// mockup's proportions at any size. Nothing takes height from them: the tutorial's line lies over the header row.
 const MOCKUP = Object.freeze({ width: 393, rows: 597, board: 360 }); // Figma 1285:1244: 64 + 16 + 360 + 16 + 45 + 16 + 80
 const DESKTOP = Object.freeze({ width: 1134 + 2 * 73, height: 546 + 2 * 73, board: 546 }); // Figma 1287:1641: 546 + 42 + 546, 73 px round
 function fitBoard() {
@@ -6818,13 +6930,31 @@ function fitBoard() {
   const desk = Math.min(width / DESKTOP.width, height / DESKTOP.height);
   const wide = DESKTOP.board * desk > MOCKUP.board * phone;
   document.body.classList.toggle('wide', wide);
-  const coach = $('coach');
-  const coachHeight = !wide && !coach.hidden ? coach.offsetHeight + 16 * phone : 0;
-  const k = wide ? desk : Math.min(width / MOCKUP.width, (height - coachHeight) / MOCKUP.rows);
+  const k = wide ? desk : phone;
   els.app.style.setProperty('--k', Math.max(0.4, k).toFixed(4));
   document.documentElement.style.setProperty('--k', Math.max(0.4, k).toFixed(4)); // the overlays scale with it too
   app.cellRects = null;
 }
+
+// An overlay drawn in --k like the play screen (the level's end, the shop) takes the room it has. Where its shape differs
+// from the play screen's (the shop on a phone held sideways, the run's end on a tablet or in a square window) it grows to
+// fill the window, by half at most, or shrinks until nothing is cut (Playgama 1.6.1, 1.6.2, 1.6.7).
+function fitOverlay(el) {
+  if (!el || el.hidden) return;
+  el.style.removeProperty('--k');
+  const panel = el.querySelector(':scope > .panel, :scope > .shop-panel');
+  if (!panel) return;
+  const k = parseFloat(document.documentElement.style.getPropertyValue('--k')) || 1;
+  const cs = getComputedStyle(el);
+  const roomW = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const roomH = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const w = panel.offsetWidth;
+  const h = Math.max(panel.offsetHeight, panel.scrollHeight);
+  if (!w || !h) return;
+  const ratio = Math.min(roomW / w, roomH / h, 1.5);
+  if (ratio < 0.99 || ratio > 1.04) el.style.setProperty('--k', (k * ratio).toFixed(4));
+}
+const fitOverlays = () => { fitOverlay($('levelEnd')); fitOverlay($('shop')); };
 
 // While the first hand is three dice long in Snake 4+4, mark which fourth dice keep a legal second hand.
 function computeSafeNext() {
@@ -6950,41 +7080,30 @@ function renderHud() {
   if (!app.scoreAnim) $('target').textContent = String(remaining(g.score, g));
   for (const el of document.querySelectorAll('.level-text')) el.textContent = String(g.level.levelIndex); // no last level (owner, 03.11.2026)
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
-  renderNext();
-  renderRun();
-}
-
-// What the run carries, in the gaps of the column (no added height): the bells and what a level pays, or the boss's
-// rule all through his level; the charms beside the bank; the boss's portrait in LEVEL's box and ticks on the board.
-function renderRun() {
-  const st = S();
-  const level = st.game.level;
-  const boss = M().id === 'auto' && level.boss ? BOSSES[level.boss] : null;
-  const line = $('runLine');
-  line.hidden = M().id !== 'auto' || (level.levelIndex === 1 && !st.bells);
-  line.classList.toggle('boss', !!boss);
-  const said = `<span class="wallet"><i class="bell"></i>${st.bells} BELLS</span><span>${boss ? `BOSS · ${boss.rule}` : 'UNUSED HAND +2 · REROLL +1'}</span>`;
-  if (line.dataset.said !== said) { line.innerHTML = said; line.dataset.said = said; } // it sits in a live region: only news
-  const rail = st.charms.map((id) => `<button class="sigil" type="button" data-charm="${id}" style="--sig: var(--charm-${id})" aria-label="${CHARMS[id].name}: ${CHARMS[id].rule}"></button>`).join('');
-  if ($('charmRail').dataset.key !== st.charms.join()) { $('charmRail').innerHTML = rail; $('charmRail').dataset.key = st.charms.join(); }
-  $('levelStat').classList.toggle('boss', !!boss);
-  $('bossFace').hidden = !boss;
-  if (boss) $('bossFace').style.setProperty('--boss', `var(--boss-${level.boss})`);
-  els.boardWrap.classList.toggle('boss', !!boss);
 }
 
 // A boss's level opens with his card, which stands over the dice: until it goes, or a tap sends it away, nothing plays
-// by accident under it. The rule stays in the run line.
+// by accident under it, and the cards wait for it (dealCard). Afterwards the rule is in the numbers, and in How.
+const BOSS_CARD_MS = 2000;
 function showBossCard(level) {
   const card = $('bossCard');
   const boss = BOSSES[level.boss];
-  card.innerHTML = `<div><i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><small>BOSS</small><b>${boss.name}</b><em>${boss.rule}</em><small>THRESHOLD ${level.target}</small></span></div>`;
+  // the player's charms that answer him are named, so SHORTWIND's TWO REROLLS beside REROLL•3 is no contradiction
+  const helps = (S().charms || []).filter((id) => boss.counters.includes(id)).map((id) => CHARMS[id].name);
+  const answers = helps.length ? `<small class="answer">HELPED BY ${helps.join(', ')}</small>` : '';
+  card.innerHTML = `<div><i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><small>BOSS</small><b>${boss.name}</b><em>${boss.rule}</em>${answers}</span></div>`;
   card.hidden = false;
   card.classList.remove('show');
   void card.offsetWidth; // the animation starts over
   card.classList.add('show');
   clearTimeout(app.bossTimer);
-  app.bossTimer = setTimeout(() => { card.hidden = true; }, 1400);
+  if (!app.hostPaused) app.bossTimer = setTimeout(hideBossCard, BOSS_CARD_MS); // under an ad it waits (onHost)
+}
+
+function hideBossCard() {
+  clearTimeout(app.bossTimer);
+  $('bossCard').hidden = true;
+  app.afterGuide.splice(0).forEach((start) => start()); // the deal that waited for it
 }
 
 // ---------- the shop (GPT's design, art/ai/2026-11-06-shop-bosses): after the pick, every second and fourth level of an act ----------
@@ -6999,14 +7118,17 @@ function openShop() {
     const habits = { rerolls: Math.min(1, h.rerolls / (3 * Math.max(1, h.levels))), holds: Math.min(1, h.holds / (6 * Math.max(1, h.levels))), cards: st.bank.length / BANK_SIZE };
     st.shop = { level, stock: shopStock({ runSeed: st.runSeed, levelIndex: level, run: runOf(st), plays: st.plays, habits, medal: st.medal }) };
     logEvent('shop_open', { level, bells: st.bells, stock: st.shop.stock });
-    persist();
+    tell('shop_opened');
+    persist(true);
   }
   app.shopPick = null;
+  app.shopNote = '';
   clearTimeout(app.endTimer);
   $('levelEnd').hidden = true;
   $('levelEnd').dataset.mode = app.modeId; // a reload lands here without the level end: leaving goes on from it
   renderShop();
   $('shop').hidden = false;
+  fitOverlay($('shop'));
 }
 
 function placeNeeded(st, good) {
@@ -7025,9 +7147,9 @@ function goodHtml(st, good, i) {
       : `<span class="gdice">${(GUIDE_COMBOS.find(([c]) => c === good.id) || [good.id, []])[1].map((v) => guideDie(v)).join('')}</span>`;
   const m = good.type === 'up' ? AUTO_MULT[good.id] + (st.ups[good.id] || 0) : 0;
   const name = good.type === 'card' ? `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}` : good.type === 'charm' ? CHARMS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`;
-  const rule = good.type === 'card' ? 'GOES TO THE BANK' : good.type === 'charm' ? CHARMS[good.id].rule : `×${m} → ×${m + 1} FOR THIS RUN`;
-  const price = good.sold ? '' : ready ? `BUY • ${good.price}` : short > 0 ? `NEED ${short}` : `<i class="bell"></i>${good.price}`;
-  return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><i>${good.tag === 'WILD OFFER' ? '' : good.tag}</i><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
+  const rule = good.type === 'card' ? BONUS_WHAT[good.id].toUpperCase().replace('.', '') : good.type === 'charm' ? CHARMS[good.id].rule : `×${m} → ×${m + 1} FOR THIS RUN`;
+  const price = good.sold ? '' : ready ? `BUY • ${good.price}` : `<i class="bell"></i>${good.price}`;
+  return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><i>${good.sold || good.tag === 'WILD OFFER' ? '' : good.tag}</i><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
 }
 
 function renderShop() {
@@ -7040,16 +7162,17 @@ function renderShop() {
     const kind = st.bank[k];
     return `<button type="button" class="shop-place${place === 'bank' ? ' swap' : ''}${pick && pick.replace === k && place === 'bank' ? ' gone' : ''}" data-bank="${k}"${place === 'bank' ? '' : ' tabindex="-1"'}>${kind ? guideTile(kind, false) : ''}</button>`;
   }).join('');
-  $('shopCharmLabel').textContent = `CHARMS ${st.charms.length}/${CHARM_SLOTS}`;
   $('shopCharms').innerHTML = Array.from({ length: CHARM_SLOTS }, (_, k) => {
     const id = st.charms[k];
     return `<button type="button" class="shop-place small${place === 'charm' ? ' swap' : ''}${pick && pick.replace === k && place === 'charm' ? ' gone' : ''}" data-charm-place="${k}"${place === 'charm' ? '' : ' tabindex="-1"'}>${id ? sigil(id) : ''}</button>`;
   }).join('');
   const bossId = bossNext(level) ? bossOf(st.runSeed, level + 1) : null;
-  $('shopBoss').classList.toggle('named', !!bossId);
-  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><b>${BOSSES[bossId].name}</b><small>NEXT · ${BOSSES[bossId].rule}</small></span>` : '<small>BOSS RULE REVEALED NEXT SHOP</small>';
+  $('shopBoss').hidden = !bossId;
+  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><b>${BOSSES[bossId].name}</b><small>BOSS NEXT · ${BOSSES[bossId].rule}</small></span>` : '';
   $('shopList').innerHTML = stock.map((g, i) => goodHtml(st, g, i)).join('');
-  $('shopHint').textContent = place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'CHARM'}` : 'TAP AN OFFER, THEN TAP BUY';
+  // one line, for the moment it matters: how to buy (once), what to replace, what a tapped charm does
+  $('shopHint').textContent = app.shopNote || (place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'CHARM'}` : st.tips.firstBuy ? '' : 'TAP AN OFFER, THEN TAP BUY');
+  if (!$('shop').hidden) fitOverlay($('shop')); // a note or a sold stamp can change its height
 }
 
 function shopTap(e) {
@@ -7059,13 +7182,17 @@ function shopTap(e) {
   const bank = e.target.closest('[data-bank]');
   const charm = e.target.closest('[data-charm-place]');
   const pick = app.shopPick;
+  app.shopNote = '';
   if (bank || charm) {
     const place = pick ? placeNeeded(st, st.shop.stock[pick.slot]) : null;
     if (place === (bank ? 'bank' : 'charm')) app.shopPick = { ...pick, replace: Number(bank ? bank.dataset.bank : charm.dataset.charmPlace) };
+    const owned = charm && CHARMS[st.charms[Number(charm.dataset.charmPlace)]];
+    if (owned) app.shopNote = `${owned.name}: ${owned.rule}`;
   } else if (row) {
     const slot = Number(row.dataset.slot);
     const good = st.shop.stock[slot];
-    if (good.sold || good.price > st.bells) return;
+    if (!good.sold && good.price > st.bells) app.shopNote = `NEED ${good.price - st.bells} MORE`;
+    if (good.sold || good.price > st.bells) { renderShop(); return; }
     const ready = pick && pick.slot === slot && (!placeNeeded(st, good) || pick.replace !== null);
     if (ready && e.target.closest('.price')) { buy(slot); return; }
     if (!pick || pick.slot !== slot) app.shopPick = { slot, replace: null };
@@ -7080,11 +7207,12 @@ function buy(slot) {
   logEvent('shop_buy', { good: st.shop.stock[slot], bells: r.run.bells });
   Object.assign(st, { bells: r.run.bells, bank: r.run.bank, ups: r.run.ups, charms: r.run.charms });
   st.shop = { ...st.shop, stock: r.stock };
+  st.tips.firstBuy = true;
   app.shopPick = null;
   haptic(10);
   sfx('refund', { vol: 0.8 });
   renderShop();
-  persist();
+  persist(true);
 }
 
 function leaveShop() {
@@ -7107,16 +7235,6 @@ async function openRuns() {
   const clean = (name) => (name || 'PLAYER').replace(/[<>&]/g, '');
   $('runsList').innerHTML = list.length ? `<li class="head"><i></i>${shared ? '<span>NAME</span>' : ''}<b>LEVEL</b><em>SCORE</em></li>${list.map((r) => `<li class="${r.me ? 'me' : ''}"><i>${r.rank}</i>${shared ? `<span>${clean(r.name)}</span>` : ''}<b>${r.level}</b><em>${r.points}</em></li>`).join('')}` : '<li class="none">NO RUNS YET</li>';
   $('runsList').classList.toggle('shared', shared);
-}
-
-// By LEVEL, in words: the next shop, the next boss and the record (acts.js).
-function renderNext() {
-  const st = S();
-  const next = nextUp(st.game.level.levelIndex, st.best);
-  const said = `<b>${next.shop}</b><b>${next.boss}</b>`;
-  if ($('nextUp').dataset.said !== said) { $('nextUp').innerHTML = said; $('nextUp').dataset.said = said; }
-  $('levelBest').textContent = next.best;
-  $('levelBest').hidden = !next.best;
 }
 
 const remaining = (score, g) => Math.max(0, g.level.target - score);
@@ -7380,44 +7498,6 @@ function toast(message, mood = '', ms = 1700) {
   app.toastTimer = setTimeout(() => { t.hidden = true; }, ms);
 }
 
-// Auto Hand tips, each shown once per mode at the moment it matters: a level that brings a new
-// bonus kind names it; the first time a switched-off bonus would multiply the hand, say how to use it.
-const BONUS_INTRO = {
-  x2_any: 'NEW BONUS ×2: DOUBLES ANY HAND',
-  x3_straight: 'NEW BONUS ×3: TRIPLES A STRAIGHT',
-  x3_pairs: 'NEW BONUS ×3: TRIPLES PAIRS AND TWO PAIRS',
-  x3_trips: 'NEW BONUS ×3: TRIPLES TRIPS AND FULL HOUSE',
-  x3_kinds: 'NEW BONUS ×3: TRIPLES FOUR AND FIVE OF A KIND',
-  x3_small: 'NEW BONUS ×3: TRIPLES A SMALL STRAIGHT',
-  x4_any: 'NEW BONUS ×4: ANY HAND',
-  joker: 'NEW BONUS ★: THE JOKER BECOMES ANY FACE',
-  refund: 'NEW BONUS +1: PLAY IT AND GET A REROLL BACK',
-};
-function autoTips() {
-  const st = S();
-  const g = st.game;
-  if (M().id !== 'auto' || !g || g.phase !== 'playing' || st.coach.active || !$('guide').hidden) return;
-  const fresh = g.cells.map((c, i) => i).find((i) => g.cells[i].type === 'bonus' && !st.tips[`new:${g.cells[i].kind}`]);
-  if (fresh !== undefined) {
-    st.tips[`new:${g.cells[fresh].kind}`] = true;
-    // the ×2 of level 1 is taught by the board and the tutorial; later kinds get a line
-    if (g.level.levelIndex > 1) {
-      // a kind never seen gets its sheet when its card turns over; a seen one a line
-      if (cardSeen(g.cells[fresh].kind)) toast(BONUS_INTRO[g.cells[fresh].kind], 'hint', 3200);
-      flashCells([fresh], 'safe-hint', 1600);
-    }
-    persist();
-    return;
-  }
-  const idle = autoIdleBonuses(g, app.autoHand);
-  if (!st.tips.switchOn && g.level.levelIndex > 1 && idle.length) {
-    st.tips.switchOn = true;
-    toast(`BONUS DICE START OFF: TAP ${BONUS_KINDS[g.cells[idle[0]].kind].symbol} TO USE IT`, 'hint', 3200);
-    flashCells([idle[0]], 'safe-hint', 1600);
-    persist();
-  }
-}
-
 function flashCells(cells, cls, ms) {
   cells.forEach((i) => els.cells[i].classList.add(cls));
   setTimeout(() => cells.forEach((i) => els.cells[i].classList.remove(cls)), ms);
@@ -7534,7 +7614,7 @@ function armBonus(source, cell) {
   const g = st.game;
   if (app.busy || g.phase !== 'playing') return;
   const r = E().toggleBonus(g, cell); // Auto Hand switches the tapped bonus die off/on; Poker 5 and Snake ignore the cell
-  if (!r.ok) { toast(r.message, 'bad'); return; }
+  if (!r.ok) { toast(r.message, r.code === 'NOT_YET' || r.code === 'HUSHED' ? 'hint' : 'bad'); return; }
   st.game = r.state;
   haptic(10);
   sfx((cell >= BANK ? st.game.bank[cell - BANK].off : st.game.off && st.game.off[cell]) ? 'off' : 'on');
@@ -7577,7 +7657,7 @@ function dealCard(g, i) {
   const deal = {};
   cell.deal = deal;
   const start = () => { if (cell.deal === deal) cell.dealTimer = setTimeout(() => turnCard(i), DEAL_FIRST_MS + DEAL_NEXT_MS * order); };
-  if ($('guide').hidden && S().onboarded) start(); // a first visit draws the board just before its guide opens
+  if ($('guide').hidden && S().onboarded && $('bossCard').hidden && !app.hostPaused) start(); // a first visit draws the board just before its guide opens; a boss's card goes first; an ad first ends
   else app.afterGuide.push(start);
 }
 
@@ -7613,6 +7693,7 @@ function closeBonusSheet() {
   $('bonusSheet').hidden = true;
   const next = app.sheetQueue.shift();
   if (next) setTimeout(() => showBonusSheet(next), 250);
+  else if (S().game.phase === 'playing' && !app.busy) render(); // the tutorial's line and finger come now
 }
 
 const BONUS_WHAT = {
@@ -7631,11 +7712,12 @@ const BONUS_WHAT = {
 function showBonusSheet(kind) {
   S().tips[`sheet:${kind}`] = true;
   app.sheetAt = performance.now(); // the finger that opened it lifts over the backdrop: that is not a close
-  $('bonusSheetTile').innerHTML = guideTile(kind, true);
+  $('bonusSheetTile').innerHTML = guideTile(kind, false); // as it lies on the board: off, until tapped
   animateTiles($('bonusSheetTile'));
   $('bonusSheetName').textContent = BONUS_KINDS[kind].label; // the multiplier is on the card's sticker
   $('bonusSheetWhat').textContent = BONUS_WHAT[kind];
   $('bonusSheet').hidden = false;
+  coachRender();
   persist();
 }
 
@@ -7662,11 +7744,9 @@ function onTap(i) {
   logEvent('hold', { cell: i, held: r.held });
   render();
   persist();
-  if (r.held && engine.heldCount(st.game) === engine.remainingCells(st.game).length && !st.allHeldToastShown) {
+  if (M().id !== 'auto' && r.held && engine.heldCount(st.game) === engine.remainingCells(st.game).length && !st.allHeldToastShown) {
     st.allHeldToastShown = true;
-    toast(M().id === 'auto'
-      ? 'Every die is held: REROLL has nothing to change. Release some, or press PLAY HAND.'
-      : `Hold only protects dice from REROLL. To play a hand, press a die and drag through ${M().handSize}.`, 'hint');
+    toast(`Hold only protects dice from REROLL. To play a hand, press a die and drag through ${M().handSize}.`, 'hint');
   }
 }
 
@@ -7737,7 +7817,6 @@ async function doReroll(source) {
   if (!stillCurrent(st, modeId)) return;
   render();
   persist();
-  autoTips();
 }
 
 async function attemptBank(path, source) {
@@ -7865,7 +7944,6 @@ async function attemptBank(path, source) {
   render();
   persist();
   if (st.game.phase !== 'playing') finishLevel();
-  else autoTips();
 }
 
 // ---------- the won level's moment ----------
@@ -7877,7 +7955,7 @@ async function attemptBank(path, source) {
 // pick tappable after about 1.5 s. Dice never dim, and nothing else moves meanwhile (GPT's review of the build). A tap
 // skips to the pick. The record, the medal and the bank are counted first, so a reload in the middle shows the cleared
 // screen. Times are ms from PLAY.
-const WIN = { lift: 80, chip: 167, step: 83, snap: 500, cover: 290, black: 860, title: 840, hand: 900, badges: 940, act: 960, pick: 980, choices: 1040, ready: 1480 };
+const WIN = { lift: 80, chip: 167, step: 83, snap: 500, cover: 290, black: 860, title: 840, badges: 940, act: 960, pick: 980, choices: 1040, ready: 1480 };
 const ACT_MS = 16000 / 12; // a victory act: sixteen held drawings, twelve a second
 
 // The card's own motion with its character's act (puppets.js WIN_CARD), one held pose per drawing.
@@ -8055,12 +8133,12 @@ function playWin(hand, g0) {
     for (const el of extras) if (el.classList.contains('win-black') || el.classList.contains('win-over')) el.remove();
   });
 
-  // the cleared screen rises: the title and the score, the hand, the badges, the pick, the three choices
+  // the cleared screen rises: the title and the score, the badges, the pick, the three choices
   const rise = (el, start, dy = 8, dur = 260) => el && play(el, reduceMotion ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${dy * u}px) scale(.96)` }, { opacity: 1, transform: 'none' }], { dur: reduceMotion ? 200 : dur, start: reduceMotion ? 300 : start, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
   rise($('endTitle'), WIN.title);
   rise(end.querySelector('.end-score'), WIN.title);
-  rise($('endHand'), WIN.hand, 6, 240);
   rise($('endMedalText'), WIN.badges, 0, 240);
+  rise($('endBells'), WIN.badges, 0, 240);
   rise($('endBest'), WIN.badges, 0, 240);
   rise(end.querySelector('.up-head'), WIN.pick, 6, 240);
   rise(end.querySelector('.up-sub'), WIN.pick, 6, 240);
@@ -8179,7 +8257,10 @@ function playLoss(hand, g0) {
     document.body.appendChild(pill);
     extras.push(pill);
     const pb = box(pill);
-    pill.style.left = `${wide ? lineBox.x + lineBox.w + 6 * u : lineBox.x + (lineBox.w - pb.width) / 2}px`; // under the line on the phone, after it on the desktop
+    // under the line on the phone, after it on the desktop, but never over LEVEL beside it (a long shortfall from level 15)
+    const room = wide ? box($('levelStat')).left - 4 * u : innerWidth;
+    const after = lineBox.x + lineBox.w + 6 * u;
+    pill.style.left = `${wide ? (after + pb.width <= room ? after : Math.max(4, Math.min(room, innerWidth) - pb.width)) : lineBox.x + (lineBox.w - pb.width) / 2}px`;
     pill.style.top = `${wide ? lineBox.y + 3 * u - pb.height : lineBox.y + 4.6 * u}px`;
     play(pill, reduceMotion ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], { dur: reduceMotion ? 500 : 160, easing: ease });
   });
@@ -8434,7 +8515,7 @@ const animateTiles = (root) => root.querySelectorAll('.art[data-kind]').forEach(
 function openGuide(mode) {
   const guide = $('guide');
   const ups = mode === 'help' ? S().ups || {} : {}; // the Bible shows the run's multipliers, upgrades in yellow
-  $('combos').innerHTML = GUIDE_COMBOS.map(([cat, dice]) => `<li><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}</b><em${ups[cat] ? ' class="up"' : ''}>×${AUTO_MULT[cat] + (ups[cat] || 0)}</em></li>`).join('');
+  $('combos').innerHTML = GUIDE_COMBOS.map(([cat, dice]) => `<li><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}</b><em${ups[cat] ? ' class="raised"' : ''}>×${AUTO_MULT[cat] + (ups[cat] || 0)}</em></li>`).join('');
   $('holdPic').innerHTML = `<span class="grp"><span>${[6, 6, 6].map((v) => guideDie(v, true)).join('')}</span><small>TAP = HOLD</small></span><span class="grp roll"><span>${[2, 4].map((v) => guideDie(v)).join('')}</span><small>REROLL</small></span>`;
   const help = mode === 'help';
   $('bonusPic').innerHTML = help
@@ -8442,12 +8523,34 @@ function openGuide(mode) {
     : `<span class="tap">${guideTile('x2_any', false)}</span><span class="goal"><small>THRESHOLD</small><b>${runTarget(1)}</b><small>IN 3 HANDS</small></span>`;
   animateTiles($('bonusPic'));
   $('bonusNote').textContent = help ? 'TAP TO SWITCH ON · THEY ADD UP' : 'MISS ONE AND THE RUN IS OVER';
-  app.guide = { mode, page: help ? 1 : 0 };
+  // How says the one rule no screen shows in words since the card's sheet lost its line (audit, 09.11.2026)
+  $('holdNote').innerHTML = help ? 'PLAY THROWS EVERY DIE ANEW<br>A REROLL CLEARS HOLDS AND SWITCHES CARDS OFF' : 'PLAY THROWS EVERY DIE ANEW';
+  // How opens on what the run holds, once it holds anything; the rules follow it
+  const run = help && (S().bells > 0 || S().charms.length > 0 || !!S().game.level.boss);
+  if (run) renderRunFacts();
+  const first = run ? 0 : help ? 1 : 0;
+  app.guide = { mode, run, first, page: first };
   guide.classList.toggle('help', help);
+  guide.classList.toggle('run', run);
   $('guideSkip').textContent = help ? 'CLOSE' : 'SKIP';
   $('guideSettings').hidden = !help;
   showGuidePage(app.guide.page);
   guide.hidden = false;
+}
+
+// What the run holds right now: everything that left the play screen is one tap away here (How's first page).
+function renderRunFacts() {
+  const st = S();
+  const g = st.game;
+  const fact = (name, rule) => `<li><b>${name}</b>${rule ? `<small>${rule}</small>` : ''}</li>`;
+  const next = nextUp(g.level.levelIndex, st.best);
+  const boss = g.level.boss && BOSSES[g.level.boss];
+  $('runFacts').innerHTML = [
+    boss ? fact(`BOSS: ${boss.name}`, boss.rule) : '',
+    fact([next.shop, next.boss, next.best].filter(Boolean).join(' · ')),
+    fact(`${st.bells} BELLS`, BELLS_RULE.map((line) => `<span>${line}</span>`).join('')),
+    ...st.charms.map((id) => fact(CHARMS[id].name, CHARMS[id].rule)),
+  ].join('');
 }
 
 // The guide's REROLL dice throw like the game's (owner, 02.11.2026): the same 3D roll, about every 2 s
@@ -8489,13 +8592,16 @@ async function guideRollLoop(token) {
 }
 
 function showGuidePage(page) {
+  const { mode, run } = app.guide;
+  const help = mode === 'help';
+  const title = page === 0 && !help; // How has the run's page in the title's place
   app.guide.page = page;
   if (page === 2) guideRolls();
-  $('guide').querySelectorAll('.guide-page').forEach((el) => { el.hidden = Number(el.dataset.page) !== page; });
-  $('guideDots').querySelectorAll('i').forEach((dot, k) => dot.classList.toggle('on', k === page - 1));
-  $('guideDots').hidden = page === 0;
-  $('guideSkip').hidden = page === 0;
-  $('guideNext').textContent = page === 0 ? 'PLAY' : page < 3 ? 'NEXT' : app.guide.mode === 'help' ? 'GOT IT' : "LET'S ROLL";
+  $('guide').querySelectorAll('.guide-page').forEach((el) => { el.hidden = Number(el.dataset.page) !== (page === 0 && help ? 4 : page); });
+  $('guideDots').querySelectorAll('i').forEach((dot, k) => dot.classList.toggle('on', k === (run ? page : page - 1)));
+  $('guideDots').hidden = title;
+  $('guideSkip').hidden = title;
+  $('guideNext').textContent = title ? 'PLAY' : page < 3 ? 'NEXT' : help ? 'GOT IT' : "LET'S ROLL";
 }
 
 function guideNext() {
@@ -8521,7 +8627,7 @@ function closeGuide(tutorial) {
     return;
   }
   st.coached = true;
-  persist();
+  persist(true);
 }
 
 function renderScoreTable() {
@@ -8578,7 +8684,7 @@ function applySettings() {
   st.settings.autoBonusOnFinalHand = $('optAutoBonus').checked;
   logEvent('settings', { ...st.settings });
   if (mode.help.options.small) renderScoreTable();
-  persist();
+  persist(true);
 }
 
 async function exportLog() {
@@ -8622,6 +8728,7 @@ function bind() {
   board.addEventListener('lostpointercapture', (e) => { if (app.gesture && app.gesture.id === e.pointerId) onPointerCancel(e); });
   board.addEventListener('contextmenu', (e) => e.preventDefault());
   board.addEventListener('keydown', (e) => {
+    if (!$('bossCard').hidden) return;
     const cell = e.target.closest && e.target.closest('.cell');
     if (!cell) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(Number(cell.dataset.index)); }
@@ -8650,20 +8757,19 @@ function bind() {
   });
   $('shop').addEventListener('click', shopTap);
   $('shopLeave').addEventListener('click', (e) => { e.stopPropagation(); leaveShop(); });
-  $('bossCard').addEventListener('pointerdown', () => { clearTimeout(app.bossTimer); $('bossCard').hidden = true; });
+  // a press holds the card up and its click sends it away: gone sooner, the click would land on the button under it
+  $('bossCard').addEventListener('click', hideBossCard);
+  $('bossCard').addEventListener('pointerdown', () => { clearTimeout(app.bossTimer); $('bossCard').classList.remove('show'); }); // nor does it fade under the finger
+  for (const type of ['pointerup', 'pointercancel']) $('bossCard').addEventListener(type, () => { app.bossTimer = setTimeout(hideBossCard, 300); });
   $('runsBtn').addEventListener('click', openRuns);
   $('runsClose').addEventListener('click', () => { $('runsSheet').hidden = true; });
-  $('charmRail').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-charm]');
-    if (b) toast(`${CHARMS[b.dataset.charm].name}: ${CHARMS[b.dataset.charm].rule}`, 'hint', 2600);
-  });
   $('bank').addEventListener('click', (e) => {
     const card = e.target.closest('.cell[data-k]');
     if (card) armBonus('bank', BANK + Number(card.dataset.k));
   });
   $('optSound').addEventListener('change', () => {
     setSound($('optSound').checked);
-    try { localStorage.setItem(SOUND_KEY, $('optSound').checked ? '1' : '0'); } catch { /* ignore */ }
+    save(SOUND_KEY, $('optSound').checked ? '1' : '0');
   });
   // every other button taps: the dice, cards, PLAY and REROLL have sounds of their own
   document.addEventListener('click', (e) => {
@@ -8677,8 +8783,7 @@ function bind() {
   $('resetBtn').addEventListener('click', resetProgress);
   $('nextBtn').addEventListener('click', onNext);
   $('retryBtn').addEventListener('click', onRetry);
-  $('bonusSheetOk').addEventListener('click', closeBonusSheet);
-  $('bonusSheet').addEventListener('click', (e) => { if (e.target === e.currentTarget && performance.now() - app.sheetAt > 500) closeBonusSheet(); });
+  $('bonusSheet').addEventListener('click', (e) => { if ((e.target === e.currentTarget || e.target.closest('#bonusSheetTile, #bonusSheetOk')) && performance.now() - app.sheetAt > 500) closeBonusSheet(); });
   $('guideNext').addEventListener('click', guideNext);
   $('guideSkip').addEventListener('click', () => closeGuide(false));
   $('guideSettings').addEventListener('click', () => { guideGone(); openHelp(); });
@@ -8688,23 +8793,24 @@ function bind() {
     const dx = swipeX == null ? 0 : e.clientX - swipeX;
     swipeX = null;
     if (dx < -50 && app.guide.page < 3) showGuidePage(app.guide.page + 1);
-    if (dx > 50 && app.guide.page > (app.guide.mode === 'help' ? 1 : 0)) showGuidePage(app.guide.page - 1);
+    if (dx > 50 && app.guide.page > app.guide.first) showGuidePage(app.guide.page - 1);
   });
-  $('coachSkip').addEventListener('click', () => coachStop('skipped'));
+  $('coachSkip').addEventListener('click', () => { coachStop('skipped'); if (!app.busy) render(); });
   $('tutorialBtn').addEventListener('click', () => { if (app.busy) return; $('help').hidden = true; coachStart('help'); });
   window.addEventListener('keydown', (e) => {
+    if (!$('bossCard').hidden) { if (e.key === 'Enter' || e.key === ' ') e.preventDefault(); return; }
     if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
-    if (e.key === 'r' || e.key === 'R') doReroll('key');
-    if (e.key === 'h' || e.key === 'H') onHint();
-    if (e.key === 'Escape') { $('help').hidden = true; if (!$('bonusSheet').hidden) closeBonusSheet(); if (app.guide && app.guide.mode === 'help') $('guide').hidden = true; if (!app.busy) { clearPath(); render(); } }
+    if (M().id !== 'auto') { // the old modes' keys: Auto Hand never marks its hand (owner, 01.11.2026), and its REROLL is the button
+      if (e.key === 'r' || e.key === 'R') doReroll('key');
+      if (e.key === 'h' || e.key === 'H') onHint();
+    }
   });
-  const refit = () => { fitBoard(); };
+  const refit = () => { fitBoard(); fitOverlays(); };
   window.addEventListener('resize', refit);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', refit);
   if (typeof ResizeObserver === 'function') {
     const ro = new ResizeObserver(refit);
     ro.observe(els.app);
-    ro.observe($('coach')); // the tutorial line takes height from the board while it shows
   }
 }
 
@@ -8731,7 +8837,8 @@ function tryMatcap() {
 
 function init() {
   tryMatcap();
-  for (const id of ['app', 'board', 'boardWrap', 'preview', 'playBtn', 'rerollBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast', 'bones', 'bonesLabel', 'handStat', 'multSticker']) els[id] = $(id);
+  if (new URLSearchParams(location.search).has('dev')) for (const el of document.querySelectorAll('.dev')) el.hidden = false; // the developer's tuning and data
+  for (const id of ['app', 'board', 'preview', 'playBtn', 'rerollBtn', 'bankLastBtn', 'hintBtn', 'pathModeBtn', 'helpBtn', 'tapbar', 'undoBtn', 'bankTapBtn', 'rerollPips', 'toast', 'bones', 'bonesLabel', 'handStat', 'multSticker']) els[id] = $(id);
   els.tabs = Array.from(document.querySelectorAll('.tab'));
   els.controls = document.querySelector('.controls');
   // the snake modes share the scoring paragraphs written in index.html; Auto Hand brings its own
@@ -8739,13 +8846,11 @@ function init() {
   buildBoard();
   bind();
   setLook('modern'); // the mockup's black screen; the other looks have no switch any more
-  let soundOn = true;
-  try { soundOn = localStorage.getItem(SOUND_KEY) !== '0'; } catch { /* ignore */ }
+  const soundOn = load(SOUND_KEY) !== '0';
   $('optSound').checked = soundOn;
   setupSound((n) => cssUrl(`--sfx-${n}`), soundOn); // read on the first touch: Safari can run this before the stylesheet is in
   setupPuppets((character, part) => cssUrl(`--rig-${character}-${part}`), () => app.busy); // no turn while the dice fly or count
-  let d3 = true;
-  try { d3 = localStorage.getItem(DICE3D_KEY) !== '0'; } catch { /* ignore */ }
+  const d3 = load(DICE3D_KEY) !== '0';
   app.dice3d = d3;
   if (d3 && !reduceMotion) setTimeout(() => loadDice3D().then(applyRenderedFaces), 800);
   const saved = readJson(STORAGE_KEY);
@@ -8762,9 +8867,32 @@ function init() {
   window.__diceSnake = { app, version: APP_VERSION, state: () => S(), mode: () => M(), hint: () => E().hintFor(S().game), switchMode, setLook, LOOKS, dice3d: dice3dStatus, setDice3D };
 }
 
-setupBoard().finally(() => {
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
+// The platform pauses the game (an ad between levels, another tab): the sound goes, and the new level's deal and its
+// boss's card wait under the ad instead of playing out unseen (Playgama 2.1.6). On its return they go on.
+function onHost(silent, paused) {
+  setHostSilent(silent);
+  if (paused === !!app.hostPaused) return;
+  app.hostPaused = paused;
+  if (paused) {
+    clearTimeout(app.bossTimer);
+    for (const cell of els.cells) if (cell.waiting) clearTimeout(cell.dealTimer);
+    return;
+  }
+  if (!$('bossCard').hidden) { app.bossTimer = setTimeout(hideBossCard, BOSS_CARD_MS); return; }
+  const g = S().game;
+  if (g && g.phase === 'playing' && $('guide').hidden) els.cells.forEach((cell, i) => { if (cell.waiting) dealCard(g, i); });
+}
+
+// On Playgama the Bridge and the saves come first (its required steps); everywhere else this resolves at once.
+function start() {
+  init();
+  followHostAudio(onHost);
+  requestAnimationFrame(() => requestAnimationFrame(gameReady)); // the first screen is up and takes taps
+}
+
+setupPlatform([STORAGE_KEY, SOUND_KEY, DICE3D_KEY, LOOK_KEY]).then(setupBoard).finally(() => {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
 });
 
 return {  };

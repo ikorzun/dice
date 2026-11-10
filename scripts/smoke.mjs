@@ -47,6 +47,22 @@ const state = (page) => page.evaluate(() => {
 });
 // A 3D throw (when the CDN is reachable) outlasts the CSS tumble: wait until the game is free again.
 const idle = (page) => page.waitForFunction(() => !window.__diceSnake.app.busy, null, { timeout: 10000 });
+const gotIt = async (page) => { await page.waitForTimeout(550); await page.click('#bonusSheetOk'); }; // a sheet answers half a second after it comes
+
+// The play screen is the owner's base and nothing else (owner, 06.11.2026): every text on it outside the board.
+const BASE_TEXT = new Set(['bank', 'toast', 'levelStat', 'levelText', 'bonesLabel', 'bones', 'handTotal', 'multSticker', 'targetStat', 'target', 'playBtn', 'rerollBtn', 'helpBtn', 'handName', 'handMult']);
+const extras = (page) => page.evaluate((base) => {
+  const walker = document.createTreeWalker(document.getElementById('app'), NodeFilter.SHOW_TEXT);
+  const found = [];
+  while (walker.nextNode()) {
+    const text = walker.currentNode.textContent.trim();
+    const el = walker.currentNode.parentElement;
+    if (!text || el.closest('#board') || !el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
+    const id = el.closest('[id]').id;
+    if (!base.includes(id)) found.push(`${id}: ${text}`);
+  }
+  return found;
+}, [...BASE_TEXT]);
 
 const browser = await chromium.launch();
 for (const vp of viewports) {
@@ -88,7 +104,8 @@ for (const vp of viewports) {
   const sheet = await page.evaluate(() => ({ open: !document.getElementById('bonusSheet').hidden, name: document.getElementById('bonusSheetName').textContent, off: window.__diceSnake.state().game.off[8] }));
   if (!sheet.open || !/ANY HAND/.test(sheet.name) || !sheet.off) note(vp, `bonus sheet: ${JSON.stringify(sheet)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-0-bonus-sheet.png` });
-  await page.click('#bonusSheetOk');
+  if (await page.evaluate(() => { window.__diceSnake.app.sheetAt = performance.now(); document.getElementById('bonusSheetOk').click(); return document.getElementById('bonusSheet').hidden; })) note(vp, 'GOT IT closed the sheet the moment it came');
+  await gotIt(page);
   await page.waitForTimeout(150);
   let a = await auto();
   if (a.mode !== 'auto') note(vp, `mode on screen: ${a.mode}`);
@@ -138,6 +155,9 @@ for (const vp of viewports) {
   // board on the phone; Figma 1287:1641: a 546 px board on the desktop)
   const k = await page.evaluate(() => parseFloat(getComputedStyle(document.getElementById('app')).getPropertyValue('--k')));
   if (!(k > 0.4) || Math.abs(layout.board - (layout.wide ? 546 : 360) * k) > 1) note(vp, `board ${layout.board.toFixed(1)}px does not follow k=${k}`);
+  // the tutorial's line lies over the header row: it takes no height from the owner's rows
+  const line = await page.evaluate(() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect(); const c = box('#coach'); const h = box('.hud'); return { shown: !document.getElementById('coach').hidden, top: c.top - h.top, bottom: c.bottom - h.bottom, left: c.left - h.left, right: c.right - h.right }; });
+  if (!line.shown || Math.abs(line.top) > 1 || Math.abs(line.bottom) > 1) note(vp, `the tutorial's line is not over the header row: ${JSON.stringify(line)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-1-start.png` });
   // dragging does not play a hand
   await swipe(page, a.hand.cells.slice(0, 3));
@@ -171,7 +191,7 @@ for (const vp of viewports) {
   const multiplier = layout.wide ? (await text('#handMult')).replace('MULTI ', '') : on.sticker;
   if (!/\bon\b/.test(on.cell) || multiplier !== on.whole || (!layout.wide && on.shown === 'none') || !/\bon\b/.test(on.stat)) note(vp, `bonus on: ${JSON.stringify({ ...on, multiplier })}`);
   const playPulse = await page.$eval('#playBtn', (b) => b.classList.contains('pulse'));
-  if (!playPulse || !/PRESS PLAY/.test(await text('#coachText'))) note(vp, `tutorial play step: pulse=${playPulse}, "${await text('#coachText')}"`);
+  if (!playPulse || !/PLAY THE HAND/.test(await text('#coachText'))) note(vp, `tutorial play step: pulse=${playPulse}, "${await text('#coachText')}"`);
   // off again keeps it for later, on again uses it
   await tap(page, 8);
   if (!(await auto()).off[8]) note(vp, 'tapping the bonus again did not switch it off');
@@ -218,6 +238,8 @@ for (const vp of viewports) {
   const hidden = await page.$$eval('#board .cell.die', (els) => els.filter((e) => Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
   if (hidden.length) note(vp, `dice invisible after the hand: [${hidden}]`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-6-after-first.png` });
+  // the tutorial's last line says its one thing and goes with the player's next move
+  if (b.phase === 'playing' && !/NEW DICE EVERY HAND/.test(await text('#coachText'))) note(vp, `the tutorial's last line: ${await text('#coachText')}`);
   // the level ends at the target (owner, 01.11.2026) or after the third hand
   for (let h = 0; h < 2 && (await auto()).phase === 'playing'; h++) {
     await page.click('#playBtn');
@@ -251,17 +273,19 @@ for (const vp of viewports) {
   await page.waitForTimeout(200);
   a = await auto();
   if ((await text('#levelText')) !== (firstWon ? '2' : '1')) note(vp, `level text after level 1: ${await text('#levelText')}`);
-  // beside LEVEL, in words: the next shop and boss, on screen, adding no height
-  const said = await page.evaluate(() => { const s = document.getElementById('nextUp'); const r = s.getBoundingClientRect(); return { text: [...s.children].map((b) => b.textContent).join(' / '), right: r.right, bottom: r.bottom }; });
-  if (said.text !== (firstWon ? 'SHOP NEXT / BOSS IN 3' : 'SHOP IN 2 / BOSS IN 4') || said.right > vp.w || said.bottom > vp.h) note(vp, `the words by LEVEL: ${JSON.stringify(said)}`);
   if (a.cells.filter((t) => t === 'die').length < 6) note(vp, `level 2 has ${a.cells.filter((t) => t === 'die').length} dice`);
   // level 2: its cards are dealt face down and turn over one by one, 2 s apart; each new kind's sheet follows
   const dealt = await page.$$eval('#board .cell.bonus', (els) => els.map((e) => e.classList.contains('face-down')));
   if (firstWon && (!dealt.length || dealt.some((d) => !d))) note(vp, `level 2 cards not dealt face down: ${dealt}`);
+  // level 2 without the tutorial: the same rows, and nothing but the base on them
+  const plain = await page.$eval('#board', (e) => e.getBoundingClientRect().width);
+  if (Math.abs(plain - layout.board) > 0.5) note(vp, `the board is ${plain} without the tutorial, ${layout.board} with it`);
+  const said = await extras(page);
+  if (said.length) note(vp, `more than the base on the play screen: ${said}`);
   for (let n = 0; n < 2 && dealt.length; n++) {
     const got = await page.waitForFunction(() => !document.getElementById('bonusSheet').hidden, null, { timeout: 4500 }).then(() => true, () => false);
     if (!got) break;
-    await page.click('#bonusSheetOk');
+    await gotIt(page);
   }
   await page.waitForTimeout(400);
   const turned = await page.$$eval('#board .cell.bonus', (els) => els.filter((e) => e.classList.contains('face-down')).length);
@@ -269,14 +293,13 @@ for (const vp of viewports) {
   const invisible = await page.$$eval('#board .cell.die', (els) => els.filter((e) => e.classList.contains('bank-pop') || Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
   if (invisible.length) note(vp, `dice invisible after a new level: [${invisible}]`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-8-level2.png` });
-  // the Bible: the guide's pages without the title, every bonus, then the settings
+  // the Bible: the run's page once it has bells, the guide's pages without the title, every bonus, then the settings
   await page.click('#helpBtn');
   await page.waitForTimeout(300);
   const bible = await page.evaluate(() => ({ open: !document.getElementById('guide').hidden, page: [...document.querySelectorAll('.guide-page')].findIndex((el) => !el.hidden), close: document.getElementById('guideSkip').textContent }));
-  if (!bible.open || bible.page !== 1 || bible.close !== 'CLOSE') note(vp, `Bible: ${JSON.stringify(bible)}`);
+  if (!bible.open || bible.page !== (firstWon ? 4 : 1) || bible.close !== 'CLOSE') note(vp, `Bible: ${JSON.stringify(bible)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-9-help.png` });
-  await page.click('#guideNext');
-  await page.click('#guideNext');
+  for (let n = firstWon ? 0 : 1; n < 3; n++) await page.click('#guideNext');
   if ((await page.$$eval('.bonus-list li', (l) => l.length)) !== 6) note(vp, 'the Bible does not show the six bonus dice');
   await page.click('#guideSettings');
   await page.waitForTimeout(100);
@@ -295,7 +318,7 @@ for (const vp of viewports) {
   // with the board as its last hand was played, the last hand outlined red, NEW RUN white, nothing of the moment left
   await idle(page);
   const reachedLevel = after.level;
-  const sheetAway = async () => { if (!(await page.$eval('#bonusSheet', (el) => el.hidden))) await page.click('#bonusSheetOk'); };
+  const sheetAway = async () => { if (!(await page.$eval('#bonusSheet', (el) => el.hidden))) await gotIt(page); };
   const toLastHand = async () => {
     await page.evaluate(() => { window.__diceSnake.state().game.level.target = 99999; });
     while ((await auto()).handsLeft > 1) {
@@ -370,12 +393,12 @@ for (const vp of viewports) {
     const ups = [...document.querySelectorAll('#upList .up')].map((b) => { const r = b.getBoundingClientRect(); return { bottom: r.bottom, right: r.right, opacity: getComputedStyle(b).opacity }; });
     return {
       cls: $('levelEnd').className, title: $('endTitle').textContent, color: getComputedStyle($('endTitle')).color, over: $('endOver').hidden ? null : $('endOver').textContent,
-      hand: !$('endHand').hidden, ups, left: document.querySelectorAll('.win-black, .win-chip, .win-over, .shards-layer').length, busy: window.__diceSnake.app.busy,
+      ups, left: document.querySelectorAll('.win-black, .win-chip, .win-over, .shards-layer').length, busy: window.__diceSnake.app.busy,
       act: $('endAct').hidden ? null : { text: $('endAct').textContent, opacity: getComputedStyle($('endAct')).opacity, bottom: $('endAct').getBoundingClientRect().bottom },
     };
   });
-  if (!cleared.act || cleared.act.opacity !== '1' || cleared.act.bottom > vp.h + 0.5 || !/^NEXT: /.test(cleared.act.text)) note(vp, `the cleared screen's next step: ${JSON.stringify(cleared.act)}`);
-  if (!/\bwon\b/.test(cleared.cls) || /playing|waiting/.test(cleared.cls) || cleared.title !== 'LEVEL CLEARED' || cleared.color !== 'rgb(255, 255, 255)' || !/^\+\d+ OVER$/.test(cleared.over || '') || !cleared.hand || cleared.busy) note(vp, `cleared screen: ${JSON.stringify(cleared)}`);
+  if (cleared.act) note(vp, `level 1's clear has a next step to name: ${JSON.stringify(cleared.act)}`); // the next level needs no word
+  if (!/\bwon\b/.test(cleared.cls) || /playing|waiting/.test(cleared.cls) || cleared.title !== 'LEVEL CLEARED' || cleared.color !== 'rgb(255, 255, 255)' || cleared.over || cleared.busy) note(vp, `cleared screen: ${JSON.stringify(cleared)}`);
   if (cleared.ups.length !== 3 || cleared.ups.some((u) => u.bottom > vp.h + 0.5 || u.right > vp.w + 0.5 || u.opacity !== '1')) note(vp, `upgrades: ${JSON.stringify(cleared.ups)}`);
   if (cleared.left) note(vp, `${cleared.left} layer(s) of the moment left behind`);
   console.log(`${vp.w}x${vp.h}: the pick tappable ${pickMs} ms after PLAY`);
@@ -427,11 +450,23 @@ for (const vp of viewports) {
     st.game.level.target = 1;
   });
   await idle(page);
+  if ((await extras(page)).length) note(vp, `more than the base with bells, a charm and a bank: ${await extras(page)}`);
+  // a tap on a kept card before the first reroll: the rule, in gold, over the header row and not over the dice
+  await page.click('#bank .cell[data-k="0"]');
+  const told = await page.evaluate(() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect(); const t = box('#toast'); const h = box('.hud'); return { text: document.getElementById('toast').textContent, cls: document.getElementById('toast').className, top: t.top, bottom: t.bottom, hud: [h.top, h.bottom] }; });
+  if (told.text !== 'COMES IN ON THE FIRST REROLL' || !/hint/.test(told.cls) || told.top < told.hud[0] - 12 || told.bottom > told.hud[1] + 12) note(vp, `the kept card's rule: ${JSON.stringify(told)}`);
   await page.click('#playBtn');
   await page.waitForFunction(() => document.querySelector('#upList .up') && !document.getElementById('levelEnd').hidden && !document.getElementById('levelEnd').classList.contains('waiting'), null, { timeout: 6000 });
   await page.waitForTimeout(2200);
-  const paid = await page.evaluate(() => { const st = window.__diceSnake.state(); return { bells: st.bells, shown: !document.getElementById('endBells').hidden, text: document.getElementById('endBells').textContent }; });
-  if (paid.bells < 32 || !paid.shown || !/CLEAR 2/.test(paid.text)) note(vp, `a cleared level's pay: ${JSON.stringify(paid)}`);
+  const paid = await page.evaluate(() => {
+    const $ = (id) => document.getElementById(id);
+    const st = window.__diceSnake.state();
+    const pick = $('upSub').getBoundingClientRect();
+    return { bells: st.bells, shown: !$('endBells').hidden, text: $('endBells').textContent, act: $('endAct').textContent, rule: $('upSub').textContent, inside: pick.bottom <= document.querySelector('#upList .up').getBoundingClientRect().top + 0.5 };
+  });
+  if (paid.bells < 32 || !paid.shown || !/\+\d+ BELLS/.test(paid.text) || !/CLEAR \+2/.test(paid.text)) note(vp, `a cleared level's pay: ${JSON.stringify(paid)}`);
+  if (paid.act !== 'NEXT: SHOP' || !/^BOSS RULE: /.test(paid.rule) || !paid.inside) note(vp, `the pick before a boss: ${JSON.stringify(paid)}`);
+  await sheetAway(); // this level's cards were still turning when the threshold was set to fall
   await page.click('#upList .up');
   await page.waitForSelector('#shop:not([hidden])');
   const fits = () => page.evaluate(() => {
@@ -463,12 +498,169 @@ for (const vp of viewports) {
   const boss = await page.evaluate(() => {
     const $ = (id) => document.getElementById(id);
     const st = window.__diceSnake.state();
-    return { level: st.game.level.levelIndex, id: st.game.level.boss, line: $('runLine').textContent, face: !$('bossFace').hidden, ticks: $('boardWrap').classList.contains('boss'), card: !$('bossCard').hidden, shop: !$('shop').hidden, cls: $('runLine').className };
+    const card = $('bossCard').firstElementChild.getBoundingClientRect();
+    const counter = document.querySelector('.counter').getBoundingClientRect();
+    return { level: st.game.level.levelIndex, id: st.game.level.boss, card: !$('bossCard').hidden, words: $('bossCard').textContent, shop: !$('shop').hidden, cover: !document.body.classList.contains('wide') && card.bottom > counter.top + 0.5, top: document.elementFromPoint(innerWidth / 2, innerHeight - 8)?.closest('#bossCard') != null };
   });
-  if (boss.level !== 5 || !boss.id || !/BOSS/.test(boss.line) || !boss.face || !boss.ticks || !boss.card || boss.shop) note(vp, `the boss's level: ${JSON.stringify(boss)}`);
+  if (boss.level !== 5 || !boss.id || !boss.card || boss.shop || boss.cover || !boss.top || /THRESHOLD/.test(boss.words)) note(vp, `the boss's level: ${JSON.stringify(boss)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-14-boss.png` });
+  // under the card no key moves a die, and a held finger keeps it in full view past its two seconds
+  const dice = () => page.evaluate(() => JSON.stringify(window.__diceSnake.state().game.held));
+  const heldBefore = await dice();
+  await page.focus('#board .cell.die');
+  await page.keyboard.press('Enter');
+  if ((await dice()) !== heldBefore) note(vp, 'a key held a die under the boss card');
+  await page.mouse.move(vp.w / 2, vp.h / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(2200);
+  const pressed = await page.$eval('#bossCard', (e) => ({ up: !e.hidden, opacity: Number(getComputedStyle(e.firstElementChild).opacity) }));
+  if (!pressed.up || pressed.opacity < 1) note(vp, `the boss card under a finger: ${JSON.stringify(pressed)}`);
+  await page.mouse.up();
+  await page.waitForFunction(() => document.getElementById('bossCard').hidden, null, { timeout: 3000 }).catch(() => note(vp, 'the boss card did not go'));
+  await sheetAway();
+  if ((await extras(page)).length) note(vp, `more than the base on a boss's level: ${await extras(page)}`);
+  // what left the play screen is one tap away: How opens on it, and no page scrolls
+  await idle(page);
+  await page.click('#helpBtn');
+  await page.waitForTimeout(250);
+  const facts = await page.evaluate(() => {
+    const g = document.getElementById('guide');
+    const list = document.getElementById('runFacts');
+    return { text: list.textContent, over: g.scrollHeight - g.clientHeight, shown: !document.querySelector('.guide-page[data-page="4"]').hidden, next: document.getElementById('guideNext').textContent, dots: [...document.querySelectorAll('#guideDots i')].filter((d) => d.classList.contains('on')).length, room: document.querySelector('.guide-actions').getBoundingClientRect().top - list.lastElementChild.getBoundingClientRect().bottom };
+  });
+  if (!facts.shown || facts.over > 0 || facts.room < 0 || facts.next !== 'NEXT' || facts.dots !== 1 || !/BELLS/.test(facts.text) || !/SHOP IN|SHOP NEXT/.test(facts.text) || !/BELLWETHER/.test(facts.text)) note(vp, `How's first page: ${JSON.stringify(facts)}`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-15-how.png` });
+  for (let n = 0; n < 3; n++) await page.click('#guideNext');
+  await page.waitForTimeout(150);
+  if ((await text('#guideNext')) !== 'GOT IT') note(vp, `How's last button: ${await text('#guideNext')}`);
+  await page.click('#guideNext');
+  await page.reload();
+  await page.waitForSelector('#board .cell');
+  await page.waitForTimeout(200);
+  if (!(await page.$eval('#bossCard', (e) => !e.hidden))) note(vp, 'a reload on a boss\'s level did not show his card');
   await ctx.close();
 }
+
+// Every window, both orientations (Playgama 1.6): the rules, the level's end, the shop and the run's end fit with nothing
+// cut and nothing under a button, on a phone held sideways, a square, a tablet and a low desktop window.
+const KINDS = ['x2_any', 'x3_straight', 'x3_pairs', 'x3_trips', 'joker', 'refund', 'x3_kinds', 'x3_small', 'x4_any'];
+const meet = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2;
+const outside = (page, sel) => page.evaluate((sel) => [...document.querySelectorAll(sel)].filter((e) => e.checkVisibility()).map((e) => {
+  const r = e.getBoundingClientRect();
+  return r.left >= -1 && r.top >= -1 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1 ? '' : `${e.id || e.className || e.tagName} [${[r.left, r.top, r.right, r.bottom].map(Math.round)}]`;
+}).filter(Boolean), sel);
+for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { w: 768, h: 1024 }, { w: 960, h: 540 }]) {
+  const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h } });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => note(vp, `pageerror ${e.message}`));
+  await page.goto(url);
+  await page.waitForSelector('#board .cell');
+  await page.waitForTimeout(300);
+  for (let n = 0; n < 4; n++) {
+    const cut = await outside(page, '#guide :is(h1, h2, p, li, button)');
+    const under = await page.evaluate((meetSrc) => {
+      const meet = new Function(`return ${meetSrc}`)();
+      const boxes = [...document.querySelectorAll('.guide-actions button, .guide-bar button')].filter((e) => e.checkVisibility()).map((e) => e.getBoundingClientRect());
+      return [...document.querySelectorAll('.guide-page:not([hidden]) :is(h1, h2, p, li)')].filter((e) => boxes.some((b) => meet(e.getBoundingClientRect(), b))).map((e) => e.textContent.trim().slice(0, 20));
+    }, meet.toString());
+    if (cut.length || under.length) note(vp, `rules page ${n}: ${cut.join(' ')} ${under.length ? `under a button: ${under.join(', ')}` : ''}`);
+    await page.click('#guideNext');
+    await page.waitForTimeout(150);
+  }
+  const setState = (o) => page.evaluate(({ o, KINDS }) => {
+    const d = window.__diceSnake; const st = d.state();
+    st.onboarded = true; st.coached = true; st.coach.active = false;
+    for (const id of ['guide', 'levelEnd', 'shop', 'bonusSheet', 'help', 'runsSheet']) document.getElementById(id).hidden = true;
+    st.tips = { bankReroll: true, switchOn: true };
+    for (const k of KINDS) { st.tips[`seen:${k}`] = true; st.tips[`sheet:${k}`] = true; }
+    Object.assign(st, { levelIndex: o.level, runSeed: 'smoke-fit', bells: 23, charms: ['crooked_pip'], bank: ['x2_any', 'joker', 'refund'], best: { level: 8, score: 900 }, ups: {}, runMedals: [], game: null, shop: null, runs: [{ level: 8, score: 900 }] });
+    d.switchMode('auto', { silent: true });
+  }, { o, KINDS });
+  await setState({ level: 4 });
+  await page.waitForTimeout(900);
+  await page.evaluate(() => { const st = window.__diceSnake.state(); st.game = { ...st.game, level: { ...st.game.level, target: 1 } }; document.getElementById('playBtn').click(); });
+  await page.waitForFunction(() => document.querySelector('#upList .up') && !document.getElementById('levelEnd').hidden && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
+  await page.waitForTimeout(400);
+  let cut = await outside(page, '#levelEnd :is(h2, p, button, li)');
+  if (cut.length) note(vp, `level cleared cut: ${cut.join(' ')}`);
+  await page.evaluate(() => document.querySelector('#upList .up').click());
+  await page.waitForSelector('#shop:not([hidden])');
+  await page.waitForTimeout(300);
+  cut = await outside(page, '#shop :is(h2, p, button, li, span)');
+  if (cut.length) note(vp, `shop cut: ${cut.join(' ')}`);
+  await page.screenshot({ path: `${shots}/fit-${vp.w}x${vp.h}-shop.png` });
+  await setState({ level: 3 });
+  await page.waitForTimeout(900);
+  await page.evaluate(() => { window.__diceSnake.state().game.level.target = 99999; });
+  for (let k = 0; k < 3; k++) { await idle(page); await page.waitForTimeout(150); await page.evaluate(() => document.getElementById('playBtn').click()); await page.waitForTimeout(400); }
+  await page.waitForFunction(() => document.getElementById('endTitle').textContent === 'RUN OVER' && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
+  await page.waitForTimeout(500);
+  cut = await outside(page, '#levelEnd :is(h2, p, button, li)');
+  if (cut.length) note(vp, `run over cut: ${cut.join(' ')}`);
+  await page.screenshot({ path: `${shots}/fit-${vp.w}x${vp.h}-run-over.png` });
+  await ctx.close();
+}
+
+// The Playgama build against a stand-in Bridge (its required steps): it starts after initialize(), reads every save in one
+// get, writes only at a level's start and end, never touches localStorage, sends game_ready, asks for an ad between
+// levels and goes silent when the platform pauses or mutes it.
+{
+  const vp = { w: 402, h: 874 };
+  const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h } });
+  await ctx.route('https://bridge.playgama.com/**', (r) => r.abort());
+  await ctx.addInitScript(() => {
+    const calls = [];
+    const on = {};
+    window.__pg = calls;
+    window.bridge = {
+      EVENT_NAME: { AUDIO_STATE_CHANGED: 'audio', PAUSE_STATE_CHANGED: 'pause', INTERSTITIAL_STATE_CHANGED: 'inter' },
+      initialize: () => new Promise((r) => setTimeout(() => { calls.push('initialize'); r(); }, 200)),
+      storage: { get: (keys) => { calls.push(`get ${keys.length}`); return Promise.resolve(keys.map(() => null)); }, set: (keys) => { calls.push(`set ${keys.join('+')}`); return Promise.resolve(); }, delete: () => Promise.resolve() },
+      platform: { language: 'en', isAudioEnabled: true, on: (ev, fn) => { (on[ev] ||= []).push(fn); }, sendMessage: (m) => calls.push(`msg ${m}`) },
+      advertisement: { isInterstitialSupported: true, interstitialState: 'closed', showInterstitial: () => calls.push('ad') },
+      leaderboards: { type: 'not_available' },
+      player: { id: 'p' },
+    };
+    window.__fire = (ev, v) => (on[ev] || []).forEach((f) => f(v));
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) { calls.push(`localStorage ${k}`); return set.call(this, k, v); };
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const sus = AC.prototype.suspend;
+    AC.prototype.suspend = function () { calls.push('audio off'); return sus.call(this); };
+  });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => note(vp, `playgama pageerror ${e.message}`));
+  await page.goto(pathToFileURL(resolve('dist/playgama/index.html')).href);
+  await page.waitForFunction(() => window.__diceSnake, null, { timeout: 10000 });
+  await page.waitForTimeout(300);
+  const calls = () => page.evaluate(() => window.__pg.splice(0));
+  const start = await calls();
+  if (start[0] !== 'initialize' || start[1] !== 'get 4' || !start.includes('msg game_ready') || start.indexOf('msg game_ready') < start.indexOf('get 4')) note(vp, `playgama start: ${start.join(', ')}`);
+  for (let n = 0; n < 4; n++) { await page.click('#guideNext'); await page.waitForTimeout(150); }
+  await page.waitForFunction(() => !document.getElementById('bonusSheet').hidden, null, { timeout: 6000 });
+  await gotIt(page);
+  await calls();
+  await page.click('#coachSkip');
+  await idle(page);
+  await page.click('#rerollBtn');
+  await idle(page);
+  const play = await calls();
+  if (play.some((c) => c.startsWith('set') || c.startsWith('localStorage'))) note(vp, `playgama wrote during a hand: ${play.join(', ')}`);
+  await page.evaluate(() => { const st = window.__diceSnake.state(); st.game = { ...st.game, level: { ...st.game.level, target: 1 } }; document.getElementById('playBtn').click(); });
+  await page.waitForFunction(() => document.querySelector('#upList .up') && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
+  await page.evaluate(() => document.querySelector('#upList .up').click());
+  await page.waitForTimeout(400);
+  const next = await calls();
+  if (!next.includes('ad') || next.filter((c) => c.startsWith('set')).length !== 2 || !next.includes('msg level_completed') || !next.includes('msg level_started')) note(vp, `playgama level change: ${next.join(', ')}`);
+  await page.evaluate(() => window.__fire('pause', true));
+  const paused = await calls();
+  if (!paused.includes('audio off')) note(vp, `playgama kept its sound through a pause: ${paused.join(', ')}`);
+  await page.evaluate(() => { window.__fire('pause', false); window.__fire('audio', false); });
+  if (!(await calls()).includes('audio off')) note(vp, 'playgama kept its sound when the platform muted it');
+  if (next.concat(play, start).some((c) => c.startsWith('localStorage'))) note(vp, 'playgama wrote to localStorage');
+  await ctx.close();
+}
+
 await browser.close();
 if (problems.length) {
   console.error('SMOKE PROBLEMS:\n' + problems.join('\n'));

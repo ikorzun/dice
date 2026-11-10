@@ -8,11 +8,11 @@ import { createRng } from './rng.js';
 const BAG = ['judge', 'lowbell', 'hush', 'shortwind', 'usher', 'mason'];
 export const BOSSES = Object.freeze({
   judge: Object.freeze({ name: 'THE CROOKED JUDGE', rule: 'STRAIGHTS SCORE HALF', counters: Object.freeze(['velvet_grip']) }),
-  lowbell: Object.freeze({ name: 'LADY LOWBELL', rule: 'SIXES ADD ZERO TO HAND SUMS', counters: Object.freeze(['crooked_pip']) }),
+  lowbell: Object.freeze({ name: 'LADY LOWBELL', rule: 'SIXES ADD ZERO', counters: Object.freeze(['crooked_pip']) }),
   hush: Object.freeze({ name: 'BROTHER HUSH', rule: 'BANK CARDS DO NOT ENTER', counters: Object.freeze(['spare_knuckle', 'final_bow']) }),
   shortwind: Object.freeze({ name: 'SIR SHORTWIND', rule: 'START WITH TWO REROLLS', counters: Object.freeze(['spare_knuckle', 'echo_thimble']), rerolls: 2 }),
   usher: Object.freeze({ name: 'THE LAST USHER', rule: 'START WITH TWO HANDS', counters: Object.freeze(['final_bow', 'quick_pocket']), hands: 2 }),
-  mason: Object.freeze({ name: 'MASON GRUDGE', rule: 'TWO MORE STONE LOCKS', counters: Object.freeze(['stone_ribbon']), locks: 2 }),
+  mason: Object.freeze({ name: 'MASON GRUDGE', rule: 'EVERY HAND SUMS FIVE LESS', counters: Object.freeze(['stone_ribbon', 'final_bow']) }),
 });
 
 export const isBossLevel = (levelIndex) => levelIndex > 0 && levelIndex % 5 === 0;
@@ -30,12 +30,4 @@ export function bossOf(runSeed, levelIndex) {
   return bag[n % BAG.length];
 }
 
-// Mason's two locks fall on dice of a board that has eight (run3.js draws such a layout for him): six stay.
-export function lockDice(layout, faces, count, rng) {
-  const dice = layout.flatMap((c, i) => (c.type === 'die' ? [i] : []));
-  for (let k = 0; k < count; k++) {
-    const i = dice.splice(rng.int(dice.length), 1)[0];
-    layout[i] = { type: 'block' };
-    faces[i] = null;
-  }
-}
+

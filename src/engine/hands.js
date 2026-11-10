@@ -90,8 +90,10 @@ export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, s
         const faces = [...picked.map((d) => d.face), ...jokerFaces];
         const category = classifyExact(faces);
         if (!category) continue;
-        const base = rules ? sumOf(picked, jokerFaces, rules) : faces.reduce((s, f) => s + f, 0) + (table ? table.base[category] : 0);
-        const mult = (multOf[category] + ((ups && ups[category]) || 0)) * (rules && rules.half === category ? 0.5 : 1);
+        // STONE RIBBON adds to the five-die hands; MASON's toll can take a small hand's sum to nothing, never below
+        const base = rules ? Math.max(0, sumOf(picked, jokerFaces, rules) + (rules.fiveAdd && faces.length === 5 ? rules.fiveAdd : 0)) : faces.reduce((s, f) => s + f, 0) + (table ? table.base[category] : 0);
+        const full = multOf[category] + ((ups && ups[category]) || 0);
+        const mult = rules && rules.half === category ? Math.ceil(full / 2) : full; // the Judge halves it, rounding up: never ×4.5 on the counter
         const fitting = mults.filter((b) => BONUS_KINDS[b.kind].fits(category));
         const applied = stacking === 'single' && fitting.length > 1 ? [fitting.reduce(largest)] : fitting;
         const bonusMult = stacking === 'add'

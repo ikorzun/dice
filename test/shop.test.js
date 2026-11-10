@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { CHARMS, CHARM_SLOTS, CARD_PRICE, UNLOCKS, unlockedCards, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood, sensibleShopping } from '../src/engine/shop3.js';
 import { upgradeOffer } from '../src/engine/upgrades3.js';
 import { bossOf, BOSSES, isBossLevel } from '../src/engine/bosses3.js';
-import { generateRunLevel, candidates, runTarget } from '../src/engine/run3.js';
-import { createAutoGame, toggleBonus, reroll, playHand, carryOver, currentHand, toggleHold, BANK, MIN_DICE } from '../src/engine/auto.js';
+import { generateRunLevel, runTarget } from '../src/engine/run3.js';
+import { handRules, createAutoGame, toggleBonus, reroll, playHand, carryOver, currentHand, toggleHold, BANK, MIN_DICE } from '../src/engine/auto.js';
 import { bestHand } from '../src/engine/hands.js';
 import { createRng } from '../src/engine/rng.js';
 
@@ -31,7 +31,7 @@ test('the fit weighs recent hands, the ones fallen short on most, and keeps a fl
   assert.equal(fit.five_kind.weight, 4);
   assert.equal(fit.two_pairs.weight, 6);
   assert.equal(fitTag('full_house', fit), 'YOU PLAY FULL HOUSES');
-  assert.equal(fitTag('straight', fit), 'SHORT ON STRAIGHTS');
+  assert.equal(fitTag('straight', fit), 'YOU PLAY STRAIGHTS'); // a hand counts as short only for not being the last: the tag says what is true
   assert.equal(fitTag('five_kind', fit), 'WILD OFFER');
   assert.ok(fitWeights({ plays: Array(50).fill({ category: 'pair', cleared: false, level: 6 }) }, 6).pair.weight <= 32);
 });
@@ -96,7 +96,7 @@ test('charms in the count', () => {
   assert.equal(bestHand(dice(3, 3), [], { rules: { sumAdd: 5 } }).total, 11 * 2);
   assert.equal(bestHand(dice(6, 6, 6), [], { rules: { sixes: 0 } }).total, 0);
   assert.equal(bestHand(dice(1, 2, 3, 4, 5), [], { rules: { half: 'straight' } }).total, 15 * 4);
-  assert.equal(bestHand(dice(2, 3, 4, 5, 6), [], { rules: { half: 'straight' }, ups: { straight: 1 } }).total, Math.floor(20 * 4.5));
+  assert.equal(bestHand(dice(2, 3, 4, 5, 6), [], { rules: { half: 'straight' }, ups: { straight: 1 } }).total, 20 * 5); // half of ×9 rounds up: the counter never shows ×4.5
 });
 
 test('FINAL BOW counts on the last hand only; SPARE KNUCKLE and ECHO THIMBLE change the rerolls', () => {
@@ -112,10 +112,10 @@ test('FINAL BOW counts on the last hand only; SPARE KNUCKLE and ECHO THIMBLE cha
   assert.equal(playHand(e, seq(1, 2, 3)).state.rerollsLeft, 3 + 2);
 });
 
-test('STONE RIBBON makes the first lock a die; QUICK POCKET starts the first kept card on the board', () => {
-  const r = createAutoGame(eight({ charms: ['stone_ribbon'] }), {});
-  assert.equal(r.cells[8].type, 'die');
-  assert.ok(r.faces[8] >= 1 && r.faces[8] <= 6);
+test('STONE RIBBON adds five to five-die hands only; QUICK POCKET starts the first kept card on the board', () => {
+  const rules = handRules(eight({ charms: ['stone_ribbon'] }), 3);
+  assert.equal(bestHand([1, 2, 3, 4, 5].map((face, cell) => ({ cell, face, held: false })), [], { rules }).total, (15 + 5) * 8); // a straight: +5
+  assert.equal(bestHand([4, 4].map((face, cell) => ({ cell, face, held: false })), [], { rules }).total, 8 * 2); // a pair: nothing
   const q = createAutoGame(eight({ charms: ['quick_pocket'], bank: ['joker', 'refund'] }), {});
   assert.deepEqual(q.cells[7], { type: 'bonus', kind: 'joker', fromBank: 0 });
   assert.equal(q.faces[7], null);
@@ -142,11 +142,13 @@ test('a boss comes from the seed alone, none twice in a bag; its rule stands on 
       if (b.rerolls) assert.equal(createAutoGame(level, { hands: 3, rerolls: 3 }).rerollsLeft, 2);
       const dice = level.layout.filter((c) => c.type === 'die').length;
       assert.ok(dice >= MIN_DICE, `${level.boss} L${L} ${dice} dice`);
-      if (b.locks) assert.ok(level.layout.filter((c) => c.type === 'block').length >= 2);
+      assert.ok(level.layout.every((c) => c.type === 'die' || c.type === 'bonus')); // no cell is ever locked or empty (owner, 09.11.2026)
       level.layout.forEach((c, i) => assert.equal(c.type === 'die', level.faces[i] !== null));
     }
   }
-  for (const L of [5, 6, 10, 40]) assert.ok(candidates(L, 8).length, `level ${L} has a layout for Mason`);
+  const mason = { mode: 'auto', seed: 'm', levelIndex: 5, boss: 'mason', charms: [] };
+  assert.equal(handRules(mason, 3).sumAdd, -5); // his toll
+  assert.equal(handRules({ ...mason, charms: ['stone_ribbon'] }, 3).fiveAdd, 5); // the ribbon pays it back on five-die hands
 });
 
 test('Brother Hush keeps the bank out: nothing enters, nothing burns', () => {

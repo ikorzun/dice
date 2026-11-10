@@ -2,6 +2,8 @@
 // Score distributions of the Auto Hand bots per layout recipe, for the adaptive generator.
 // A recipe is (dice, blocks, bonus kinds): positions do not matter, so it fixes the score
 // distribution of a level up to the dice. Writes the generated module src/engine/recipes3.js.
+// Every cell is a die or a card since the owner's word of 09.11.2026 («больше не должно быть пустых или заблокированных
+// ячеек на поле»): blocks are always 0, so a recipe is nine cells of dice and up to two cards.
 // Usage: node scripts/recipes3.mjs [--levels=250] [--seed=recipes-1]
 import { writeFileSync } from 'node:fs';
 import { createRng } from '../src/engine/rng.js';
@@ -21,11 +23,12 @@ function multisets(k, from = 0) {
   return out;
 }
 
+const MAX_CARDS = 2; // RUN3.maxBonuses
 const recipes = [];
-for (let dice = MIN_DICE3; dice <= 8; dice++) {
-  for (let bonuses = 0; bonuses <= 9 - dice; bonuses++) {
-    for (const kinds of multisets(bonuses)) recipes.push({ id: `${dice}d${9 - dice - bonuses}x:${kinds.join('+') || '-'}`, dice, blocks: 9 - dice - bonuses, kinds });
-  }
+for (let bonuses = 0; bonuses <= MAX_CARDS; bonuses++) {
+  const dice = 9 - bonuses;
+  if (dice < MIN_DICE3) continue;
+  for (const kinds of multisets(bonuses)) recipes.push({ id: `${dice}d0x:${kinds.join('+') || '-'}`, dice, blocks: 0, kinds });
 }
 
 const quantiles = (values) => {

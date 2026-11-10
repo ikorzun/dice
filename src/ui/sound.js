@@ -48,6 +48,7 @@ let ctx = null;
 let out = null;
 let urlOf = () => null;
 let enabled = true;
+let hostSilent = false; // the platform mutes or pauses the game: an ad, another tab (Playgama 2.1.6, 3.3.4)
 const bufs = {};
 let room = null; // the hall every instrument sits in
 const DRY = new Set(['tally', 'stop', 'paper']); // the lost run's receipt: no hall, no tail (GPT's spec)
@@ -72,14 +73,14 @@ function hall() {
 
 function unlock() {
   if (ctx) {
-    if (ctx.state !== 'running' && ctx.state !== 'closed' && !document.hidden) ctx.resume(); // suspended, or iOS 'interrupted'
+    if (ctx.state !== 'running' && ctx.state !== 'closed' && !document.hidden && !hostSilent) ctx.resume(); // suspended, or iOS 'interrupted'
     return;
   }
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   ctx = new AC();
   out = ctx.createGain();
-  out.gain.value = enabled ? 1 : 0;
+  out.gain.value = enabled && !hostSilent ? 1 : 0;
   const limiter = ctx.createDynamicsCompressor(); // a chord's voices stack: they must not clip
   limiter.threshold.value = -6;
   limiter.knee.value = 6;
@@ -115,19 +116,28 @@ export function setupSound(urls, on) {
   document.addEventListener('visibilitychange', () => {
     if (!ctx) return;
     if (document.hidden) ctx.suspend();
-    else ctx.resume();
+    else if (!hostSilent) ctx.resume();
   });
 }
 
 export function setSound(on) {
   enabled = on;
-  if (out) out.gain.setTargetAtTime(on ? 1 : 0, ctx.currentTime, 0.05);
+  if (out) out.gain.setTargetAtTime(on && !hostSilent ? 1 : 0, ctx.currentTime, 0.05);
+}
+
+// Silent while the platform says so, whatever the player's own setting; the setting comes back with it.
+export function setHostSilent(silent) {
+  hostSilent = !!silent;
+  if (!ctx) return;
+  out.gain.setTargetAtTime(enabled && !hostSilent ? 1 : 0, ctx.currentTime, 0.02);
+  if (hostSilent) ctx.suspend();
+  else if (!document.hidden) ctx.resume();
 }
 
 // at: seconds from now, on the audio clock (timers jitter on a phone, an 83 ms rhythm would limp). spread: false keeps the pitch.
 export function sfx(name, { vol = 1, rate = 1, at = 0, spread = true } = {}) {
   const b = bufs[name];
-  if (!b || !enabled || ctx.state !== 'running') return;
+  if (!b || !enabled || hostSilent || ctx.state !== 'running') return;
   const src = ctx.createBufferSource();
   const gain = ctx.createGain();
   src.buffer = b;

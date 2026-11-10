@@ -19,12 +19,13 @@ export const MIN_DICE3 = MIN_DICE;
 // greedy score distributions of scripts/montecarlo3.mjs (--tierLevels=1000 --seed=check1000; the
 // default 300-level report is docs/simulation3-latest.md). Not monotone: tier 2 (a block) scores
 // lower than tier 1, tier 3 (two bonus dice) higher than the tiers around it.
+// Since 09.11.2026 no cell is ever locked or empty (owner): every tier is nine cells of dice and cards.
 export const TIERS3 = Object.freeze({
   1: Object.freeze({ dice: 8, bonuses: 1, blocks: 0, target: 490 }),
-  2: Object.freeze({ dice: 7, bonuses: 1, blocks: 1, target: 440 }),
-  3: Object.freeze({ dice: 6, bonuses: 2, blocks: 1, target: 500 }),
-  4: Object.freeze({ dice: 6, bonuses: 1, blocks: 2, target: 420 }),
-  5: Object.freeze({ dice: 6, bonuses: 1, blocks: 2, target: 430 }),
+  2: Object.freeze({ dice: 8, bonuses: 1, blocks: 0, target: 490 }),
+  3: Object.freeze({ dice: 7, bonuses: 2, blocks: 0, target: 560 }),
+  4: Object.freeze({ dice: 8, bonuses: 1, blocks: 0, target: 490 }),
+  5: Object.freeze({ dice: 7, bonuses: 2, blocks: 0, target: 560 }),
 });
 
 export const unlockedKinds = (levelIndex) => BONUS_UNLOCKS.slice(0, Math.min(Math.max(1, levelIndex), BONUS_UNLOCKS.length));

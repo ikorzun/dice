@@ -27,24 +27,21 @@
   <header class="hud">
     <div class="stat" id="levelHud"><span class="label">LEVEL</span><span class="value level-text">1</span></div>
     <div class="bank" id="bank" aria-label="Bonus bank: bonuses kept from earlier levels"></div>
-    <div class="charm-rail" id="charmRail" aria-label="Charms of this run"></div>
     <button class="book" id="helpBtn" type="button" aria-label="How to play"><i></i>How</button>
   </header>
   <div class="preview" id="preview" aria-live="polite" hidden></div>
   <div class="coach" id="coach" hidden>
-    <span class="coach-step" id="coachStep">1 / 4</span>
     <span class="coach-text" id="coachText"></span>
     <button class="btn-ghost coach-skip" id="coachSkip" type="button">SKIP</button>
   </div>
-  <section class="board-wrap" id="boardWrap">
+  <section class="board-wrap">
     <div class="board rendered" id="board" aria-label="3 by 3 dice board"></div>
     <div class="boss-card" id="bossCard" hidden></div>
   </section>
   <section class="counter" aria-live="polite">
-    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span><span class="level-best" id="levelBest" hidden></span><span class="next-up" id="nextUp"></span><i class="boss-face" id="bossFace" hidden></i></div>
+    <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span></div>
     <div class="stat mid" id="handStat"><span class="label" id="bonesLabel">BONES</span><span class="value"><span id="bones">0</span><span class="sticker" id="multSticker"></span><span id="handTotal">0</span></span></div>
     <div class="stat mid" id="targetStat"><span class="label">THRESHOLD</span><span class="value" id="target">0</span></div>
-    <div class="run-line" id="runLine" hidden></div>
     <div class="hand-row" id="handRow"><span class="gdice" id="handDice"></span><span class="hand-name"><b id="handName"></b><em id="handMult"></em></span></div>
   </section>
   <section class="controls">
@@ -76,9 +73,8 @@
          left unused, then the board as its last hand was played -->
     <p class="run-reached" id="runReached" hidden><span>LEVEL</span><b id="runLevel">1</b><i>·</i><span>REROLLS LEFT</span><b id="runRerolls">0</b></p>
     <div class="end-board" id="endBoard" hidden></div>
-    <!-- a cleared level (owner's pick В11 A, 04.11.2026): a rail for the medal and the record, then the winning hand -->
+    <!-- a cleared level (owner's pick В11 A, 04.11.2026): a rail for the medal and the record -->
     <div class="end-badges" id="endBadges" hidden><span class="end-medal" id="endMedal" hidden><i class="medal fresh" id="endMedalDisc">5</i><b id="endMedalText">NEW MEDAL</b></span><span class="end-best" id="endBest" hidden>NEW BEST</span></div>
-    <div class="end-hand" id="endHand" hidden></div>
     <ul class="hands" id="endHands"></ul>
     <p class="end-note" id="endBonus"></p>
     <p class="end-note muted" id="endSolver"></p>
@@ -90,7 +86,7 @@
     </div>
     <div class="upgrades" id="upgrades" hidden>
       <p class="up-head">PICK AN UPGRADE</p>
-      <p class="up-sub">+1 FOR THIS RUN</p>
+      <p class="up-sub" id="upSub">+1 FOR THIS RUN</p>
       <div class="up-list" id="upList"></div>
     </div>
     <p class="end-next" id="endAct" hidden></p>
@@ -108,11 +104,11 @@
     <header class="shop-head"><h2>SHOP</h2><span class="wallet"><i class="bell"></i><b id="shopBells">0</b> BELLS</span></header>
     <div class="shop-held">
       <div><span>BANK</span><div class="shop-places" id="shopBank"></div></div>
-      <div><span id="shopCharmLabel">CHARMS 0/3</span><div class="shop-places" id="shopCharms"></div></div>
+      <div><span>CHARMS</span><div class="shop-places" id="shopCharms"></div></div>
     </div>
     <div class="shop-boss" id="shopBoss"></div>
     <ul class="shop-list" id="shopList"></ul>
-    <p class="shop-hint" id="shopHint">TAP AN OFFER, THEN TAP BUY</p>
+    <p class="shop-hint" id="shopHint"></p>
     <button class="btn-dark shop-leave" id="shopLeave" type="button">LEAVE SHOP</button>
   </div>
 </section>
@@ -127,7 +123,7 @@
 
 <section class="overlay guide" id="guide" hidden>
   <div class="guide-bar">
-    <span class="guide-dots" id="guideDots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="guide-dots" id="guideDots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
     <button class="guide-skip" id="guideSkip" type="button">SKIP</button>
   </div>
   <div class="guide-page guide-title" data-page="0">
@@ -142,12 +138,16 @@
   <div class="guide-page" data-page="2">
     <h2 class="guide-head">HOLD THE KEEPERS.<br>REROLL THE REST.</h2>
     <div class="hold-pic" id="holdPic"></div>
-    <p class="guide-note">PLAY THROWS EVERY DIE ANEW</p>
+    <p class="guide-note" id="holdNote">PLAY THROWS EVERY DIE ANEW</p>
   </div>
   <div class="guide-page" data-page="3">
     <h2 class="guide-head">SWITCH ON BONUSES.<br>BEAT THE THRESHOLD.</h2>
     <div class="bonus-pic" id="bonusPic"></div>
     <p class="guide-note" id="bonusNote"></p>
+  </div>
+  <div class="guide-page" data-page="4">
+    <h2 class="guide-head">THIS RUN</h2>
+    <ul class="run-facts" id="runFacts"></ul>
   </div>
   <div class="guide-actions">
     <button class="btn-play" id="guideNext" type="button">PLAY</button>
@@ -162,7 +162,7 @@
       <h3 id="bonusSheetName"></h3>
       <p id="bonusSheetWhat"></p>
     </div>
-    <p class="sheet-note">ON FOR ONE THROW · USED, A NEW DIE TAKES ITS PLACE · BONUSES ADD UP</p>
+    <p class="sheet-note">TAP THE CARD TO SWITCH IT ON</p>
     <button class="btn-play" id="bonusSheetOk" type="button">GOT IT</button>
   </div>
 </section>
@@ -187,7 +187,10 @@
       </select>
     </label>
     <label class="opt"><input type="checkbox" id="optSound" checked> Sound effects</label>
-    <label class="opt"><input type="checkbox" id="optDice3d" checked> 3D physics dice on REROLL (three.js + cannon-es from the CDN; falls back to the flat tumble offline)</label>
+    <label class="opt"><input type="checkbox" id="optDice3d" checked> 3D dice</label>
+    <button class="btn-secondary" id="tutorialBtn" type="button">SHOW TUTORIAL AGAIN</button>
+    <!-- the tuning and data blocks are for the developer: shown with ?dev in the address (audit question 5, 09.11.2026) -->
+    <div class="dev" hidden>
     <h3>EXPERIMENTS</h3>
     <label class="opt"><input type="checkbox" id="optHoldCap"> Hold cap: at most 3 held dice per reroll</label>
     <label class="opt" id="optTableRow">Score table
@@ -198,7 +201,6 @@
     <label class="opt" id="optGoldRow"><input type="checkbox" id="optGold" checked> Gold ×2 cell replaces one die (off: nine dice, ×2 badge only)</label>
     <label class="opt"><input type="checkbox" id="optAutoBonus" checked> Auto-apply an unused ×2 to the final hand</label>
     <p class="muted small">Changes apply from the next level.</p>
-    <button class="btn-secondary" id="tutorialBtn" type="button">SHOW TUTORIAL AGAIN</button>
     <h3>DATA</h3>
     <p class="muted small" id="runInfo"></p>
     <p class="muted small" id="difficultyRule"></p>
@@ -207,6 +209,7 @@
       <button class="btn-secondary" id="resetBtn" type="button">RESET THIS MODE</button>
     </div>
     <textarea id="logOut" class="log-out" readonly hidden aria-label="Event log JSON"></textarea>
+    </div>
     <button class="btn-primary" id="closeHelpBtn" type="button">CLOSE</button>
   </div>
 </section>

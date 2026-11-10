@@ -19,8 +19,8 @@ const ALL = UP_CATEGORIES;
 export const CHARMS = Object.freeze({
   crooked_pip: Object.freeze({ name: 'CROOKED PIP', rule: 'ONES COUNT AS SIX IN HAND SUMS', price: 9, serves: ['full_house', 'straight', 'two_pairs'] }),
   velvet_grip: Object.freeze({ name: 'VELVET GRIP', rule: 'HELD DICE ADD ONE TO HAND SUM', price: 8, serves: ['pair', 'three_kind', 'five_kind'], habit: 'holds' }),
-  quick_pocket: Object.freeze({ name: 'QUICK POCKET', rule: 'FIRST KEPT CARD STARTS ON BOARD', price: 8, serves: [], habit: 'cards' }),
-  stone_ribbon: Object.freeze({ name: 'STONE RIBBON', rule: 'ONE STONE LOCK BECOMES A DIE', price: 7, serves: ['full_house', 'straight', 'five_kind'] }),
+  quick_pocket: Object.freeze({ name: 'QUICK POCKET', rule: 'FIRST BANK CARD STARTS ON BOARD', price: 8, serves: [], habit: 'cards' }),
+  stone_ribbon: Object.freeze({ name: 'STONE RIBBON', rule: 'FIVE-DIE HANDS ADD FIVE', price: 7, serves: ['full_house', 'straight', 'five_kind'] }),
   echo_thimble: Object.freeze({ name: 'ECHO THIMBLE', rule: 'REFUND GIVES BACK TWO REROLLS', price: 7, serves: [], habit: 'rerolls' }),
   bellwether: Object.freeze({ name: 'BELLWETHER', rule: 'TWO MORE BELLS EACH CLEARED LEVEL', price: 9, serves: [] }),
   final_bow: Object.freeze({ name: 'FINAL BOW', rule: 'LAST HAND ADDS FIVE TO SUM', price: 8, serves: ALL }),
@@ -63,12 +63,11 @@ export function fitWeights({ plays = [], ups = {} }, levelIndex) {
 }
 
 // The tag of a combination offered: the reason it came up, or none for an offer with no such reason.
-const plural = (c) => `${CATEGORY5_LABELS[c]}${/(pair|straight|house)$/.test(c) ? 'S' : ''}`;
+const plural = (c) => (c === 'pair' ? 'PAIRS' : `${CATEGORY5_LABELS[c]}${/(straight|house)$/.test(c) ? 'S' : ''}`);
 export function fitTag(category, fit, brief = false) {
   const f = fit[category];
   if (!f || f.played + f.short < 0.3) return brief ? '' : 'WILD OFFER';
-  if (brief) return f.short > f.played ? 'SHORT ON THIS' : 'YOU PLAY THIS'; // on the pick, beside the name
-  return f.short > f.played ? `SHORT ON ${plural(category)}` : `YOU PLAY ${plural(category)}`;
+  return brief ? 'YOU PLAY THIS' : `YOU PLAY ${plural(category)}`; // on the pick, beside the name
 }
 
 function draw(rng, items, weightOf) {
@@ -103,10 +102,10 @@ export function shopStock({ runSeed, levelIndex, run, plays = [], habits = {}, m
     const c = CHARMS[id];
     if (counters.includes(id)) return 'GOOD AGAINST BOSS';
     if (c.habit && (habits[c.habit] || 0) >= 0.4) return habitTag(c.habit);
-    return c.serves.length && c.serves.length < ALL.length ? fitTag(leaned(c.serves), fit) : 'WILD OFFER';
+    return 'WILD OFFER'; // a charm names no hand, so a tag naming one would be a riddle over it (its weight still leans)
   };
   const stock = [
-    { type: 'card', id: kind, price: CARD_PRICE[kind], tag: fitTag(leaned(cardCats(kind)), fit) },
+    { type: 'card', id: kind, price: CARD_PRICE[kind], tag: cardCats(kind).length < ALL.length ? fitTag(leaned(cardCats(kind)), fit) : 'WILD OFFER' },
     { type: 'up', id: category, price: UP_PRICE[category], tag: fitTag(category, fit) },
   ];
   if (charm) stock.push({ type: 'charm', id: charm, price: CHARMS[charm].price, tag: charmTag(charm) });

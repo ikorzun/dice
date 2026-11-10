@@ -57,10 +57,11 @@ Locally the CDN loads, so the 3D throw runs in the smoke; it waits for `app.busy
   `finishLevel` runs first so a reload shows the cleared screen, a tap skips to the pick. The lost run's moment
   (`playLoss`, `holdLine` in `shards.js`; `art/ai/2026-11-04-loss-production`, §21) mirrors it: `finishLevel(board)`
   keeps the board as played in `lastEnd.board` (the engine has refilled it), never call `render()` during the moment.
-  The words by LEVEL (`acts.js`, `renderNext`; MODE3-PLAN §32) are worked out from the level and the record and add no
-  height to the column; they replaced the strip of nodes (§22), which the owner called an unreadable rebus: name things in words, don't invent icons. Visual work goes through GPT first (tools in `art/ai/tools`, local).
+  The play screen is the owner's base and nothing else (MODE3-PLAN §33): a fact goes where it changes a tap (`acts.js`: the pick, the receipt, How's THIS RUN page) or comes by an event and leaves by itself; never add a line, count or icon beside the base, and `npm run smoke` checks every text on it against a list. Name things in words, don't invent icons (the strip of nodes of §22 was an unreadable rebus). Visual work goes through GPT first (tools in `art/ai/tools`, local).
 - The run's economy lives in `shop3.js` (bells, doors, shelf, charms, fit to the player, unlocks) and `bosses3.js` (a boss every fifth level, from the seed alone); `hands.js` counts their `rules`, `auto.js` applies them. Offers may look at the player; targets and layouts never do. Rules and numbers: MODE3-PLAN §25–29.
 - `src/ui/board.js`: best runs on the device, Playgama's table when the Bridge has one. `dist/playgama/` is the only build that loads the Bridge.
+- `src/ui/platform.js`: the Bridge's required steps on Playgama (start after `initialize()`, one `storage.get`, saves only at progress moments via `persist(true)`, silence on the platform's pause and mute, `game_ready`, an interstitial in `onNext`); the browser's localStorage everywhere else. Never call `localStorage` directly. The Playgama build loads nothing from outside but the Bridge: three.js ships in `vendor/three/` (MIT).
+- Both orientations and every window (MODE3-PLAN §34): the level end and the shop fit themselves to the window (`fitOverlay`), the rules go two-column in low wide windows, text between levels stays ≥ 11 px. `npm run smoke` checks the sideways phone, a square, a tablet and a low desktop window, and the Playgama build against a stand-in Bridge. `?dev` shows the developer's settings.
 - Before pushing: `npm test`, `npm run build`, `npm run smoke`.
 
 ## Documents
@@ -70,6 +71,7 @@ Locally the CDN loads, so the 3D throw runs in the smoke; it waits for `app.busy
 - `docs/DESIGN-POKER5.md` — design panel synthesis for Poker 5 and the decisions taken.
 - `docs/ART-PRODUCTION.md` — engine choice, animation capabilities, asset breakdown, prompts.
 - `docs/MODE3-PLAN.md` — Auto Hand rules (owner's decisions), calibration, adaptive difficulty, status.
+- `docs/LORE.md` — characters and lore: why these, their tie to the dice, verdicts, lore by carrier (rule, motion, sound), the owner's open decisions.
 - `docs/RESEARCH-BALATRO.md` — Balatro deep dive and what it means for the modes.
 - `docs/RESEARCH-DICE-ANIMATION.md` — dice animation options; prototypes in `prototypes/dice-anim/`.
 - `docs/RESEARCH-CHARACTER-ANIMATION.md` — bonus character animation: why the sprite-warp looks bad, options, the cutout-rig plan.
