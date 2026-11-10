@@ -22,12 +22,12 @@ npm run sim       # Snake 4+4 balance report -> docs/simulation-latest.md
 node scripts/montecarlo5.mjs --table=pips --out=docs/simulation5-pips.md   # Poker 5
 npm run sim3      # Auto Hand tiers, bots, experiments -> docs/simulation3-latest.md
 node scripts/recipes3.mjs --levels=400       # Auto Hand layout table -> src/engine/recipes3.js (generated)
-node scripts/run3-sim.mjs --runs=400 --out=docs/simulation3-run.md  # the run's curve: how far the bots get
+node scripts/run3-sim.mjs --runs=400 --out=docs/simulation3-run.md  # the run's curve: how far the bots get (--unlocks: medal cards in the shop, as in the game)
 node scripts/upgrades3.mjs                   # combination upgrades: point shares + expected lift -> src/engine/uplift3.js (generated)
 node scripts/model-to-js.mjs                 # die model GLB -> src/ui/dice-model.js (generated)
 node scripts/bake-faces.mjs                  # die faces with their matcaps -> assets/dice/ (after any model, matcap or colour change)
 python3 scripts/audio.py sfx [name ...]      # sound effects via ElevenLabs (key in the macOS keychain) -> assets/sfx/
-python3 scripts/audio.py build name ...      # build effects again from their takes, no credits (SHAPE: chosen take, tuning, high-pass)
+python3 scripts/audio.py build name ...      # build effects again from their takes, no credits (SHAPE: chosen take, tuning, high-pass; DERIVED: the keepers' sounds made from other takes)
 npm run serve     # python3 -m http.server 8080 -> http://localhost:8080/ (prototypes/dice-anim/ too)
 ```
 
@@ -57,7 +57,7 @@ Locally the CDN loads, so the 3D throw runs in the smoke; it waits for `app.busy
   `finishLevel` runs first so a reload shows the cleared screen, a tap skips to the pick. The lost run's moment
   (`playLoss`, `holdLine` in `shards.js`; `art/ai/2026-11-04-loss-production`, §21) mirrors it: `finishLevel(board)`
   keeps the board as played in `lastEnd.board` (the engine has refilled it), never call `render()` during the moment.
-  The play screen is the owner's base and nothing else (MODE3-PLAN §33): a fact goes where it changes a tap (`acts.js`: the pick, the receipt, How's THIS RUN page) or comes by an event and leaves by itself; never add a line, count or icon beside the base, and `npm run smoke` checks every text on it against a list. Name things in words, don't invent icons (the strip of nodes of §22 was an unreadable rebus). Visual work goes through GPT first (tools in `art/ai/tools`, local).
+  The play screen is the owner's base and nothing else (MODE3-PLAN §33): a fact goes where it changes a tap (`acts.js`: the pick, the receipt, How's THIS RUN page) or comes by an event and leaves by itself; never add a line, count or icon beside the base, and `npm run smoke` checks every text on it against a list. Name things in words, don't invent icons (the strip of nodes of §22 was an unreadable rebus). GPT Image draws pictures only (tools in `art/ai/tools`, local); design, rules, animation and texts are mine, never GPT's (owner, 10.11.2026: «gpt нужен только для картинок»).
 - The run's economy lives in `shop3.js` (bells, doors, shelf, charms, fit to the player, unlocks) and `bosses3.js` (a boss every fifth level, from the seed alone); `hands.js` counts their `rules`, `auto.js` applies them. Offers may look at the player; targets and layouts never do. Rules and numbers: MODE3-PLAN §25–29.
 - `src/ui/board.js`: best runs on the device, Playgama's table when the Bridge has one. `dist/playgama/` is the only build that loads the Bridge.
 - `src/ui/platform.js`: the Bridge's required steps on Playgama (start after `initialize()`, one `storage.get`, saves only at progress moments via `persist(true)`, silence on the platform's pause and mute, `game_ready`, an interstitial in `onNext`); the browser's localStorage everywhere else. Never call `localStorage` directly. The Playgama build loads nothing from outside but the Bridge: three.js ships in `vendor/three/` (MIT).

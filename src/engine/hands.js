@@ -23,7 +23,8 @@ export const BONUS_KINDS = Object.freeze({
   // unlocked by far medals, sold in the shop only (questionnaire В6; shop3.js UNLOCKS)
   x3_kinds: Object.freeze({ symbol: '×3', label: 'KINDS', mult: 3, fits: (c) => c === 'four_kind' || c === 'five_kind' }),
   x3_small: Object.freeze({ symbol: '×3', label: 'SMALL', mult: 3, fits: (c) => c === 'small_straight' }),
-  x4_any: Object.freeze({ symbol: '×4', label: 'ANY HAND', mult: 4, fits: () => true }),
+  // MOON OWL sleeps through the first hands: it fits any hand, but counts only on the level's last (`awake` in auto.js)
+  x4_any: Object.freeze({ symbol: '×4', label: 'LAST HAND', mult: 4, fits: () => true, last: true }),
 });
 
 // Category of a set of dice that is itself a combination (every die counts), or null.

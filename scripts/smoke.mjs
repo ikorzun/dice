@@ -661,6 +661,51 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   await ctx.close();
 }
 
+// The knight (×2 ANY HAND) and the skull (JOKER) in one winning hand play their paired act (LORE §6 point 8): each card
+// leans toward the other, on either side (their own victory acts lean them apart), and the moment still ends in the pick.
+for (const [vp, knight, skull] of [[{ w: 390, h: 844 }, 6, 7], [{ w: 390, h: 844 }, 7, 6], [{ w: 1280, h: 800 }, 3, 4]]) {
+  const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, deviceScaleFactor: 2 });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => note(vp, `pageerror ${e.message}`));
+  await page.goto(url);
+  await page.waitForSelector('#board .cell');
+  await page.evaluate(({ KINDS }) => {
+    const d = window.__diceSnake; const st = d.state();
+    st.onboarded = true; st.coached = true; st.coach.active = false;
+    for (const id of ['guide', 'levelEnd', 'shop', 'bonusSheet', 'help', 'runsSheet']) document.getElementById(id).hidden = true;
+    st.tips = { bankReroll: true, switchOn: true };
+    for (const k of KINDS) { st.tips[`seen:${k}`] = true; st.tips[`sheet:${k}`] = true; }
+    Object.assign(st, { levelIndex: 1, runSeed: 'smoke-pair', bells: 0, charms: [], bank: [], ups: {}, runMedals: [], game: null, shop: null });
+    d.switchMode('auto', { silent: true });
+  }, { KINDS });
+  await idle(page);
+  await page.evaluate(({ knight, skull }) => { // a full house with the joker as a six, both cards in the hand
+    const d = window.__diceSnake; const g = d.state().game;
+    const faces = [6, 6, 3, 3, 1, 1, 5]; // the best hand is 6 6 J 3 3: the joker plays
+    let n = 0;
+    g.cells = g.cells.map((c, i) => (i === knight ? { type: 'bonus', kind: 'x2_any' } : i === skull ? { type: 'bonus', kind: 'joker' } : { type: 'die' }));
+    g.faces = g.cells.map((c, i) => (i === knight || i === skull ? null : faces[n++]));
+    g.off = g.cells.map((c) => c.type === 'bonus');
+    g.held = new Array(9).fill(false);
+    g.level.target = 1;
+    d.switchMode('auto', { silent: true });
+  }, { knight, skull });
+  await page.waitForTimeout(4500); // the two cards are dealt face down and turn themselves
+  await page.click(`#board .cell:nth-child(${knight + 1})`);
+  await page.waitForTimeout(600);
+  await page.click(`#board .cell:nth-child(${skull + 1})`);
+  await page.waitForTimeout(1200);
+  const tilt = await page.evaluate(({ knight, skull }) => new Promise((resolve) => {
+    const angle = (i) => { const m = new DOMMatrix(getComputedStyle(document.querySelectorAll('#board .cell')[i]).transform); return (Math.atan2(m.b, m.a) * 180) / Math.PI; };
+    document.getElementById('playBtn').click();
+    setTimeout(() => resolve({ knight: angle(knight), skull: angle(skull) }), 420);
+  }), { knight, skull });
+  const toward = skull > knight ? 1 : -1; // the knight tips his top toward the skull, the skull toward him
+  if (!(tilt.knight * toward > 0.5 && tilt.skull * toward < -0.5)) note(vp, `the paired act, knight in ${knight}, skull in ${skull}: cards tilt ${JSON.stringify(tilt)}`);
+  await page.waitForFunction(() => document.querySelector('#upList .up') && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
+  await ctx.close();
+}
+
 await browser.close();
 if (problems.length) {
   console.error('SMOKE PROBLEMS:\n' + problems.join('\n'));

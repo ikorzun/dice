@@ -3,12 +3,15 @@
 // win brings the sensible upgrade and the unplayed bonuses carry over (the bank). The naive bot stands for a typical
 // player and the greedy bot for a strong one (owner's questionnaire В10, 04.11.2026: a typical player reaches level
 // 10 in about 8 minutes, a strong one level 20). Bots compare variants; they do not forecast people (digest rule 29).
-// Usage: node scripts/run3-sim.mjs [--runs=400] [--seed=run-1] [--out=path] [--noshop] [--base=… --growth=… --bend=… --aimStart=… --aimFade=… --aimFloor=…]
+// --unlocks[=medal]: the device's furthest medal (15 when bare), so the cards it unlocks (shop3.js UNLOCKS) come in the shop
+// as in the game; it stays the same through every run. Off by default: the report is the curve without them.
+// Usage: node scripts/run3-sim.mjs [--runs=400] [--seed=run-1] [--out=path] [--json=path] [--noshop] [--unlocks[=15]] [--base=… --growth=… --bend=… --aimStart=… --aimFade=… --aimFloor=…]
 import { writeFileSync } from 'node:fs';
 import { createRng } from '../src/engine/rng.js';
 import { generateRunLevel, runTarget, runAim, RUN3, RUN3_VERSION } from '../src/engine/run3.js';
 import { upgradeOffer, sensiblePick, withUpgrade } from '../src/engine/upgrades3.js';
-import { doorAfter, levelBells, fitWeights, shopStock, sensibleShopping } from '../src/engine/shop3.js';
+import { doorAfter, levelBells, fitWeights, shopStock, sensibleShopping, unlockedCards, CARD_PRICE } from '../src/engine/shop3.js';
+import { BONUS_KINDS } from '../src/engine/hands.js';
 import { playNaiveBot3, playGreedyBot3 } from '../src/engine/bot3.js';
 import { createAutoGame, toggleBonus, playHand, isBonus, carryOver } from '../src/engine/auto.js';
 import { BOSSES } from '../src/engine/bosses3.js';
@@ -18,6 +21,8 @@ const RUNS = Number(args.runs ?? 400);
 const SEED = String(args.seed ?? 'run-1');
 const CAP = 80; // a run this long counts as reaching the cap
 const SHOP = !args.noshop;
+const MEDAL = args.unlocks === undefined ? 0 : args.unlocks === true ? 15 : Number(args.unlocks);
+const OWL = 'x4_any';
 const SECONDS_PER_LEVEL = 45; // a rough guess until the live game measures it (questionnaire В10)
 const curve = { ...RUN3, ...Object.fromEntries(Object.keys(RUN3).filter((k) => args[k] !== undefined).map((k) => [k, Number(args[k])])) };
 const lines = [];
@@ -48,6 +53,8 @@ for (const [name, play] of PLAYERS) {
   let spent = 0;
   let doors = 0;
   let charmed = 0;
+  const owl = { offered: 0, bought: 0, runs: 0, held: 0, fired: 0, cleared: 0, firedRuns: 0 }; // the medal-15 card, with --unlocks
+  const runOrder = [];
   for (let r = 0; r < RUNS; r++) {
     const runSeed = `${SEED}/${r}`; // every player plays the same runs: the same layouts and targets
     const rng = createRng(`${SEED}/${name}/${r}`);
@@ -55,12 +62,22 @@ for (const [name, play] of PLAYERS) {
     const plays = [];
     let used = 0;
     let L = 1;
+    let owlRun = false;
+    let owlFiredRun = false;
     for (; L <= CAP; L++) {
       const level = generateRunLevel({ runSeed, levelIndex: L, ups: run.ups, bank: run.bank, charms: run.charms, curve });
       const res = play(level, { rng });
       tries[L]++;
       if (L > 1) mix[level.recipe] = (mix[level.recipe] || 0) + 1;
       if (level.boss) { const b = (bossTries[level.boss] ??= { tries: 0, wins: 0 }); b.tries++; if (res.won) b.wins++; }
+      if (level.bank.includes(OWL)) owl.held++;
+      for (const h of res.state.hands.filter((x) => x.bonuses.includes(OWL))) {
+        owl.fired++;
+        owlFiredRun = true;
+        // the hand that cleared the level and would not have without the ×4 (bonuses add up: it brings 3 of the multiplier)
+        const before = res.state.hands.slice(0, h.index).reduce((s, x) => s + x.total, 0);
+        if (res.won && h.index === res.state.hands.length - 1 && before + h.points * (h.multiplier - 3) < level.target) owl.cleared++;
+      }
       if (!res.won) break;
       wins[L]++;
       const g = res.state;
@@ -71,15 +88,22 @@ for (const [name, play] of PLAYERS) {
       run = { ...run, bank: carryOver(g), ups: withUpgrade(run.ups, sensiblePick(upgradeOffer(runSeed, L, SHOP ? weights : null))), bells: run.bells + levelBells(g).total };
       if (SHOP && doorAfter(L)) {
         const before = run.bells;
-        run = sensibleShopping(run, shopStock({ runSeed, levelIndex: L, run, plays, habits: { rerolls: Math.min(1, used / (3 * L)), cards: run.bank.length / 3 } }), name.startsWith('greedy') ? undefined : ['card', 'up', 'charm']);
+        const owls = run.bank.filter((k) => k === OWL).length;
+        const stock = shopStock({ runSeed, levelIndex: L, run, plays, habits: { rerolls: Math.min(1, used / (3 * L)), cards: run.bank.length / 3 }, medal: MEDAL });
+        run = sensibleShopping(run, stock, name.startsWith('greedy') ? undefined : ['card', 'up', 'charm']);
+        if (stock[0].id === OWL) owl.offered++;
+        if (run.bank.filter((k) => k === OWL).length > owls) { owl.bought++; owlRun = true; }
         spent += before - run.bells;
         doors++;
       }
     }
     charmed += run.charms.length;
     reached.push(Math.min(L, CAP));
+    runOrder.push(Math.min(L, CAP));
+    if (owlRun) owl.runs++;
+    if (owlFiredRun) owl.firedRuns++;
   }
-  results[name] = { reached: reached.sort((a, b) => a - b), tries, wins, mix, bossTries, spent, doors, charmed };
+  results[name] = { reached: reached.sort((a, b) => a - b), tries, wins, mix, bossTries, spent, doors, charmed, owl, runOrder };
 }
 
 const q = (sorted, p) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
@@ -117,6 +141,16 @@ for (const [name, r] of Object.entries(results)) {
   out(`| ${name} | ${cells.join(' | ')} | ${(r.spent / Math.max(1, r.doors)).toFixed(1)} | ${(r.charmed / RUNS).toFixed(1)} |`);
 }
 out();
+if (MEDAL) {
+  out(`## Cards for medals (device medal ${MEDAL}: ${unlockedCards(MEDAL).join(', ')})`);
+  out();
+  out(`${BONUS_KINDS[OWL].symbol} ${BONUS_KINDS[OWL].label} (price ${CARD_PRICE[OWL]}), per ${RUNS} runs. Cleared: the hand that cleared the level would have missed without the ×4.`);
+  out();
+  out('| Player | On the shelf | Bought | Runs that bought it | Levels begun with it in the bank | Hands it multiplied | Runs it fired in | Levels it cleared |');
+  out('|---|---|---|---|---|---|---|---|');
+  for (const [name, r] of Object.entries(results)) out(`| ${name} | ${r.owl.offered} | ${r.owl.bought} | ${r.owl.runs} | ${r.owl.held} | ${r.owl.fired} | ${r.owl.firedRuns} | ${r.owl.cleared} |`);
+  out();
+}
 out('## Layouts the strong player met most (levels 2 on)');
 out();
 const mix = results['greedy (strong)'].mix;
@@ -124,4 +158,5 @@ const total = Object.values(mix).reduce((s, v) => s + v, 0);
 out(Object.entries(mix).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([id, n]) => `${id} ${pct(n / total)}`).join(', '));
 out();
 out(`Recipe ids: \`<dice>d<blocks>x:<bonus kinds>\`. Runtime: ${((Date.now() - t0) / 1000).toFixed(1)} s`);
+if (args.json) writeFileSync(String(args.json), JSON.stringify(Object.fromEntries(Object.entries(results).map(([n, r]) => [n, r.runOrder]))) + '\n');
 if (args.out) { writeFileSync(String(args.out), lines.join('\n') + '\n'); console.log(`written ${args.out}`); }

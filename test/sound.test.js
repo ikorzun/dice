@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { existsSync, readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
-import { ladder, chord, string, RING_STEP, SOUNDS } from '../src/ui/sound.js';
+import { ladder, chord, string, voice, RING_STEP, SOUNDS } from '../src/ui/sound.js';
 
 test('one note per die on the 83 ms grid, each higher and louder than the last', () => {
   const notes = ladder(5);
@@ -31,6 +31,21 @@ test('every ladder note comes from a string of its own or one close by, never st
   for (const v of ladder(3)) assert.equal(string(v.semis).rate, 1); // G4, A4, B4 are sampled as themselves
   assert.deepEqual(string(0), { name: 'lute-c5', rate: 1 });
   assert.equal(string(2).name, 'lute-d5');
+});
+
+test("LADY LOWBELL's six is damped where it stands: same time and pitch, no bass, never stretched", () => {
+  const plain = ladder(5, 2);
+  const muted = ladder(5, 2, [false, true, false, false, true]);
+  assert.equal(muted.length, plain.length - 2); // the two sixes lose their bass
+  const sixes = muted.filter((v) => v.mute);
+  assert.deepEqual(sixes.map((v) => v.at), [RING_STEP, 4 * RING_STEP]);
+  assert.deepEqual(sixes.map((v) => v.semis), [plain[2].semis, plain[8].semis]);
+  assert.deepEqual(ladder(5, 1, []), ladder(5, 1)); // no keeper, the count as before
+  for (const v of ladder(7, 0, Array(7).fill(true))) {
+    const { name, rate } = voice(v);
+    assert.equal(name, 'lute-mute');
+    assert.ok(rate >= 0.74 && rate <= 1.7, `muted note ${v.semis} rate ${rate}`);
+  }
 });
 
 test('the chord rolls upward from the bare fifth; a stronger hand adds the third and the top', () => {

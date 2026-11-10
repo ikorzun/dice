@@ -18,7 +18,7 @@ import json, os, ssl, subprocess, sys, time, urllib.error, urllib.request
 import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RAW = os.path.join(ROOT, 'art/sfx')
+RAW = os.environ.get('SFX_TAKES') or os.path.join(ROOT, 'art/sfx')  # a git worktree has no art/: point it at the checkout's
 API = 'https://api.elevenlabs.io'
 RESERVE = 8000  # CriminalRussia's voice-over reserve (its sfx.py, agreed 2026-10-14)
 TAKES = int(os.environ.get('TAKES', 2))
@@ -141,6 +141,38 @@ SHAPE = {
     'bird': {'take': 1, 'hp': 170, 'lp': 4000, 'influence': 0.85},
 }
 
+# Made from takes already here, no credits (LORE §2.4, owner 10.11.2026: carry out the recommendations): only `build` reads
+# this, `sfx` never does. mix: (take under art/sfx, dB, at s[, from s, length s]), each part's peak at 0 dB first; then as in
+# SHAPE, plus decay: seconds for the sound to fall by e, as a hand or a cloth damps it. Each keeper's rule heard in the count.
+DERIVED = {
+    # LADY LOWBELL: a six's note, the lute's C5 damped under the palm (sound.js bends it to the ladder's pitch)
+    'lute-mute': {'mix': [('lute-c5.1.mp3', 0, 0)], 'hz': 523.25, 'hp': 170, 'lp': 1000, 'decay': 0.06, 'end': 0.3, 'fade': 0.1, 'attack': 0.003},
+    # MASON GRUDGE: his chisel takes the five off, a brass click on a ceramic chip, short
+    'chisel': {'mix': [('on.1.mp3', 0, 0), ('cand/break_ceramic.2.mp3', -4, 0.004, 0, 0.12)], 'hp': 300, 'lp': 5000, 'decay': 0.05, 'end': 0.2},
+    # THE LAST USHER: his scissors cut the third ticket, a reed's snap and a sliver of paper, then the blades meet
+    'snip': {'mix': [('cand3/crack_reed.2.mp3', 0, 0), ('paper.2.mp3', -6, 0.005, 0.12, 0.08), ('on.3.mp3', -8, 0.07)], 'hp': 300, 'lp': 5000, 'decay': 0.06, 'end': 0.22},
+    # SIR SHORTWIND: the bellows breathe out on his REROLL, the torch take's rush without its low and its crackle
+    'bellows': {'mix': [('fire.1.mp3', 0, 0, 0.05, 0.6)], 'hp': 400, 'lp': 3500, 'attack': 0.09, 'decay': 0.2, 'end': 0.5, 'fade': 0.15},
+    # BROTHER HUSH: the card's own flip, muffled, when a kept card does not come in
+    'flip-hush': {'mix': [('flip.1.mp3', 0, 0)], 'hp': 170, 'lp': 900, 'decay': 0.08, 'end': 0.25},
+    # THE CROOKED JUDGE: the multiplier's bronze bowl stopped by a hand, a fourth lower, on a wooden knock: a halved straight
+    'thud': {'mix': [('mult.3.mp3', 0, 0), ('hold.2.mp3', -3, 0)], 'rate': 0.75, 'hp': 170, 'lp': 2000, 'decay': 0.07, 'end': 0.3, 'fade': 0.1},
+}
+
+
+def mix(parts: list) -> np.ndarray:
+    tracks = []
+    for f, db, at, *cut in parts:
+        x = pcm(os.path.join(RAW, f))
+        if cut:
+            x = x[int(cut[0] * SR):int((cut[0] + cut[1]) * SR)]
+        x = x / (np.abs(x).max() + 1e-9) * 10 ** (db / 20)
+        tracks.append(np.concatenate([np.zeros(int(at * SR), np.float32), x.astype(np.float32)]))
+    y = np.zeros(max(map(len, tracks)), np.float32)
+    for t in tracks:
+        y[:len(t)] += t
+    return y
+
 
 def take(name: str, n: int) -> str:
     return os.path.join(RAW, f'{name}.{n}.mp3')
@@ -174,7 +206,7 @@ def finish(name: str, x: np.ndarray) -> None:
     """Start 10 ms before the sound first comes within 24 dB of its peak (a game sound must start on its event), end
     where it falls 40 dB under it, level the active part to -18 dBFS RMS with the peak at most -1 dBFS, fade the last
     30 ms, mono MP3 96 kbit/s."""
-    shape = SHAPE.get(name, {})
+    shape = SHAPE.get(name) or DERIVED.get(name, {})
     if 'hp' in shape or 'lp' in shape:
         f = ','.join(([f"highpass=f={shape['hp']},highpass=f={shape['hp']}"] if 'hp' in shape else []) + ([f"lowpass=f={shape['lp']}"] if 'lp' in shape else []))
         x = np.frombuffer(subprocess.run(['ffmpeg', '-v', 'error', '-f', 'f32le', '-ar', str(SR), '-ac', '1', '-i', '-', '-af', f, '-f', 'f32le', '-'],
@@ -190,6 +222,8 @@ def finish(name: str, x: np.ndarray) -> None:
         y = np.interp(np.arange(0, len(y) - 1, ratio), np.arange(len(y)), y)
     if 'end' in shape:
         y = y[:int(shape['end'] * SR)]
+    if 'decay' in shape:
+        y = y * np.exp(-np.arange(len(y)) / (shape['decay'] * SR))
     g = min(10 ** (-18 / 20) / (np.sqrt(np.mean(y ** 2)) + 1e-9), 10 ** (-1 / 20) / (np.abs(y).max() + 1e-9))
     y *= g
     f = min(len(y), int(shape.get('fade', 0.03) * SR))
@@ -219,7 +253,11 @@ def sfx(names: list[str]) -> None:
 
 
 def build(name: str) -> None:
-    takes = [take(name, n) for n in range(1, TAKES + 1) if os.path.exists(take(name, n))]
+    if name in DERIVED:
+        finish(name, mix(DERIVED[name]['mix']))
+        print(f"{name}: {' + '.join(p[0] for p in DERIVED[name]['mix'])}", flush=True)
+        return
+    takes =[take(name, n) for n in range(1, TAKES + 1) if os.path.exists(take(name, n))]
     best = take(name, SHAPE[name]['take']) if 'take' in SHAPE.get(name, {}) else max(takes, key=lambda t: score(pcm(t)))
     finish(name, pcm(best))
     print(f'{name}: {os.path.basename(best)}', flush=True)

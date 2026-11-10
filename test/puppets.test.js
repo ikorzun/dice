@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CHARACTERS, cardView, turnPose, TURN } from '../src/ui/puppets.js';
+import { CHARACTERS, cardView, turnPose, TURN, WIN_CARD_PAIR, PAIR_SKULL_START } from '../src/ui/puppets.js';
 
 // Every number a pose gives, by part and property.
 const bones = (c, k, act) => Object.entries(c.pose(k, act));
@@ -58,4 +58,41 @@ test('a character is laid on its card like the picture it replaces: its frame fi
     assert.ok(fw * s <= box.aw + 1e-9 && fh * s <= box.ah + 1e-9, 'inside the box');
     assert.ok(Math.abs(view[2] * s - box.w) < 1e-9 && Math.abs(view[3] * s - box.h) < 1e-9, 'the view is the card');
   }
+});
+
+test('the knight and the skull have a paired act: two beats from rest to rest, mirrored by which side the other sits (LORE §6 point 8)', () => {
+  const knight = CHARACTERS.x2_any;
+  const skull = CHARACTERS.joker;
+  for (const c of [knight, skull]) {
+    const names = new Set(c.parts.map((p) => p.name));
+    for (let e = 0; e < 16; e++) {
+      for (const dir of [1, -1]) {
+        for (const [part, b] of Object.entries(c.pose(0, { name: 'pair', e, dir }))) {
+          assert.ok(names.has(part), `${c.name}: ${part} is not a part`);
+          for (const [key, v] of Object.entries(b)) assert.ok(Number.isFinite(v), `${c.name} pair ${part}.${key} at ${e}`);
+        }
+      }
+    }
+    const turn = { k0: 40, act: 'pair', dir: -1 };
+    assert.deepEqual(turnPose(c, turn, 39), {}, `${c.name}: at rest before the act`);
+    assert.deepEqual(turnPose(c, turn, 40 + TURN), {}, `${c.name}: at rest after it`);
+    assert.deepEqual(turnPose(c, turn, 56), c.pose(56, null), `${c.name}: lands on the next beat's squash`);
+  }
+  const k = knight.pose(0, { name: 'pair', e: 4, dir: 1 });
+  const km = knight.pose(0, { name: 'pair', e: 4, dir: -1 });
+  assert.ok(k.head.rot > 0 && km.head.rot === -k.head.rot, 'the knight leans toward the skull, on either side');
+  assert.ok(k.pupilL.dx > 0 && km.pupilL.dx === -k.pupilL.dx, 'and looks at it');
+  assert.ok(k.flower.rot > 0 && km.flower.rot === k.flower.rot, 'his tulip dips the same way on either side');
+  const s = skull.pose(0, { name: 'pair', e: 6, dir: 1 });
+  const sm = skull.pose(0, { name: 'pair', e: 6, dir: -1 });
+  assert.ok(s.head.rot < 0 && sm.head.rot === -s.head.rot, 'the skull bows toward the knight, on either side');
+  assert.ok(s.iris.dx < 0 && sm.iris.dx === -s.iris.dx, 'and looks at him');
+  assert.deepEqual(skull.pose(0, { name: 'win', e: 5, dir: -1 }), skull.pose(0, { name: 'win', e: 5, dir: 1 }), 'the victory act alone ignores sides');
+  for (const [kind, keys] of Object.entries(WIN_CARD_PAIR)) {
+    assert.equal(keys[0][0], 1, `${kind}: keys start at drawing 1`);
+    assert.deepEqual(keys[keys.length - 1], [16, 0, 0, 0, 1, 1], `${kind}: the card ends at rest`);
+    for (let i = 1; i < keys.length; i++) assert.ok(keys[i][0] > keys[i - 1][0], `${kind}: drawings go up`);
+    for (const key of keys) assert.ok(key[2] <= 0, `${kind}: the card never sinks`);
+  }
+  assert.ok(PAIR_SKULL_START > 0 && PAIR_SKULL_START < 83, 'the skull answers after the knight, before a drawing has passed');
 });

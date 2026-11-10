@@ -141,6 +141,12 @@
   --sfx-tally: url("../../assets/sfx/tally.mp3");
   --sfx-stop: url("../../assets/sfx/stop.mp3");
   --sfx-paper: url("../../assets/sfx/paper.mp3");
+  --sfx-lute-mute: url("../../assets/sfx/lute-mute.mp3");
+  --sfx-chisel: url("../../assets/sfx/chisel.mp3");
+  --sfx-snip: url("../../assets/sfx/snip.mp3");
+  --sfx-bellows: url("../../assets/sfx/bellows.mp3");
+  --sfx-flip-hush: url("../../assets/sfx/flip-hush.mp3");
+  --sfx-thud: url("../../assets/sfx/thud.mp3");
   color-scheme: dark;
 }
 * { box-sizing: border-box; }

@@ -71,9 +71,31 @@ const KNIGHT_WIN = [
   [1.01, 0.99, -3, 0, 0, 0, 2],
   [1, 1, 0, 0, 0, 0, 0],
 ];
+// The paired act (LORE §6 point 8, the owner's pick A of 10.11.2026; GPT's tables, played and checked in the game): when
+// the winning hand holds him and the skull, he springs up, leans and looks toward the skull and dips his tulip to it
+// like a lowered banner (drawings 4-5), holds and settles. Written for a skull on his right; act.dir mirrors the lean
+// and the look when it sits on his left. The tulip dips the same way on either side.
+const KNIGHT_PAIR = [
+  [0.97, 1.03, 9, -1, 0, 1, -3],
+  [0.94, 1.06, 17, -2, 0, 2, -5],
+  [1.07, 0.96, -18, 2, 17, -6, 18],
+  [1.1, 0.94, -52, 4.5, 22, -8, 30],
+  [1.1, 0.94, -52, 4.5, 22, -8, 30],
+  [1.08, 0.95, -44, 3, 17, -6, 24],
+  [1.04, 0.98, -30, 1.5, 9, -3, 12],
+  [1.01, 0.995, -16, 0.5, 4, -1, 4],
+  [0.99, 1.01, 0, -0.5, 0, 1, -2],
+  [1, 1, 0, 0, 0, 0, 0],
+  [1.01, 0.995, -4, 0.5, 0, -1, 2],
+  [1, 1, 0, 0, 0, 0, 0],
+  [1, 1, 0, 0, 0, 0, 0],
+  [1, 1, 0, 0, 0, 0, 0],
+  [1, 1, 0, 0, 0, 0, 0],
+  [1, 1, 0, 0, 0, 0, 0],
+];
 function knightPose(k, act) {
-  const side = act ? 1 : mod(k, 16) < 8 ? 1 : -1;
-  const [sy, sx, dy, lean, px, py, tulip] = act ? row(act.name === 'win' ? KNIGHT_WIN : KNIGHT_DUCK, act.e) : KNIGHT_BEAT[mod(k, BEAT)];
+  const side = act ? (act.name === 'pair' ? act.dir : 1) : mod(k, 16) < 8 ? 1 : -1;
+  const [sy, sx, dy, lean, px, py, tulip] = act ? row(act.name === 'pair' ? KNIGHT_PAIR : act.name === 'win' ? KNIGHT_WIN : KNIGHT_DUCK, act.e) : KNIGHT_BEAT[mod(k, BEAT)];
   const pupil = { dx: px * side, dy: py };
   return { head: { sy, sx, dy, rot: lean * side }, pupilL: pupil, pupilR: pupil, flower: { rot: tulip } };
 }
@@ -351,11 +373,34 @@ const SKULL_WIN = [
   [0.99, 1.01, 2, 0, -2, 1, 0, 0],
   [1, 1, 0, 0, 0, 1, 0, 0],
 ];
+// Its answer in the paired act: it notices the knight (the eye goes to him, drawing 3), bows toward him with the jaw open
+// and the star swelling, holds the bow three drawings (5-8) before the black comes, and settles. Written for a knight on
+// its left; act.dir mirrors the lean and the look. [sy, sx, dy, rot°, jaw°, star scale, star°, eye dy, eye dx]
+const SKULL_PAIR = [
+  [0.97, 1.03, 9, 1, 0, 1, 0, 1, 0],
+  [0.94, 1.06, 17, 2, 0, 0.96, -3, 2, 0],
+  [1.06, 0.97, -16, 0, -6, 1.08, -5, -4, -26],
+  [1.09, 0.95, -36, -3.5, -18, 1.28, -12, -7, -34],
+  [1.11, 0.93, -48, -5, -26, 1.4, -16, -9, -34],
+  [1.12, 0.92, -54, -5.5, -30, 1.45, -18, -10, -34],
+  [1.12, 0.92, -54, -5.5, -30, 1.45, -18, -10, -34],
+  [1.12, 0.92, -54, -5.5, -30, 1.45, -18, -10, -34],
+  [1.06, 0.97, -36, -4, -24, 1.34, -14, -7, -26],
+  [1.04, 0.98, -24, -2.5, -16, 1.2, -9, -4, -17],
+  [1.02, 0.99, -12, -1, -8, 1.08, -4, -2, -9],
+  [1, 1, 0, 0, 0, 1, 0, 0, 0],
+  [0.99, 1.01, 3, 0.5, 0, 0.99, 1, 1, 0],
+  [1, 1, 0, 0, 0, 1, 0, 0, 0],
+  [1, 1, 0, 0, 0, 1, 0, 0, 0],
+  [1, 1, 0, 0, 0, 1, 0, 0, 0],
+];
 function skullPose(k, act) {
   if (act) {
-    const [sy, sx, dy, rot, jaw, star, turn, iy] = row(act.name === 'win' ? SKULL_WIN : SKULL_CACKLE, act.e);
+    const [sy, sx, dy, rot, jaw, star, turn, iy, ix] = row(act.name === 'pair' ? SKULL_PAIR : act.name === 'win' ? SKULL_WIN : SKULL_CACKLE, act.e);
     const grip = act.e >= 2 && act.e <= 10 ? (act.e % 2 ? 0.97 : 0.93) : 1; // the fingers squeeze the edge on each HA
-    return { head: { sy, sx, dy, rot }, jaw: { rot: jaw }, star: { sx: star, sy: star, rot: turn }, iris: { dy: iy }, handL: { sy: grip }, handR: { sy: grip } };
+    const side = act.name === 'pair' ? act.dir : 1;
+    const iris = act.name === 'pair' ? { dx: ix * side, dy: iy } : { dy: iy };
+    return { head: { sy, sx, dy, rot: rot * side }, jaw: { rot: jaw }, star: { sx: star, sy: star, rot: turn }, iris, handL: { sy: grip }, handR: { sy: grip } };
   }
   const j = mod(k, 16);
   const side = j < 8 ? 1 : -1;
@@ -694,14 +739,27 @@ export const WIN_CARD = {
   refund: [[1, 0, 0, 0, 1, 1], [5, 3, -7, 2.5, 1.045, 1.045], [6, 3, -7, 2.5, 1.045, 1.045], [16, 0, 0, 0, 1, 1]],
 };
 export const cardRock = (kind, d) => (kind === 'x3_trips' ? -Math.max(-2.5, Math.min(2.5, TRIO_WIN[d - 1][2] / 8)) : 0);
+// The two cards in the paired act follow their characters: rise 0.14 of the character's, tilt 0.55 of its lean (the
+// ratios of GPT's first design), never sink. Written for the knight left of the skull; the caller mirrors the tilt.
+export const WIN_CARD_PAIR = {
+  x2_any: [[1, 0, 0, -0.55, 1, 1], [2, 0, 0, -1.1, 1, 1], [3, 0, -2.5, 1.1, 1.017, 1.017], [4, 0, -7.3, 2.48, 1.049, 1.049],
+    [5, 0, -7.3, 2.48, 1.049, 1.049], [6, 0, -6.2, 1.65, 1.041, 1.041], [7, 0, -4.2, 0.83, 1.028, 1.028], [8, 0, -2.2, 0.28, 1.015, 1.015],
+    [9, 0, 0, -0.28, 1, 1], [10, 0, 0, 0, 1, 1], [11, 0, -0.6, 0.28, 1.004, 1.004], [12, 0, 0, 0, 1, 1], [16, 0, 0, 0, 1, 1]],
+  joker: [[1, 0, 0, 0.55, 1, 1], [2, 0, 0, 1.1, 1, 1], [3, 0, -2.2, 0, 1.015, 1.015], [4, 0, -5, -1.93, 1.033, 1.033],
+    [5, 0, -6.7, -2.75, 1.045, 1.045], [6, 0, -7.6, -3.03, 1.051, 1.051], [8, 0, -7.6, -3.03, 1.051, 1.051], [9, 0, -5, -2.2, 1.033, 1.033],
+    [10, 0, -3.4, -1.38, 1.023, 1.023], [11, 0, -1.7, -0.55, 1.011, 1.011], [12, 0, 0, 0, 1, 1], [13, 0, 0, 0.28, 1, 1], [14, 0, 0, 0, 1, 1], [16, 0, 0, 0, 1, 1]],
+};
+// The skull answers this many ms after the knight starts: its bow then holds three drawings before the black comes.
+export const PAIR_SKULL_START = 42;
 
 // The level is won (owner's pick В11 A, 04.11.2026): the card's character plays its victory act at once, off the
 // beat, then lands and rests; the other cards keep still for a while. False when the card has no puppet yet.
-export function cheer(art) {
+// act 'pair' with dir 1 or -1 is the knight's and the skull's paired act (1: the skull sits right of the knight).
+export function cheer(art, act = 'win', dir = 1) {
   const p = [...live].find((q) => q.art === art);
   if (!p || still) return false;
   const d = Math.floor((performance.now() / 1000) * D);
-  p.turn = { k0: d + p.phase, act: 'win', dir: 1 };
+  p.turn = { k0: d + p.phase, act, dir };
   p.next = p.turn.k0 + TURN + wait(REST);
   p.drawn = null;
   calm = d + TURN + GAP * D;

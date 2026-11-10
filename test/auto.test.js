@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { classifyExact, bestHand } from '../src/engine/hands.js';
 import {
   createAutoGame, toggleHold, toggleBonus, reroll, currentHand, boardHand, heldHand, playHand, hintFor, canReroll,
-  rerollTargets, snapshotGame, restoreGame, diceCells, carryOver, BANK,
+  rerollTargets, snapshotGame, restoreGame, diceCells, carryOver, awake, BANK,
 } from '../src/engine/auto.js';
 import { generateAutoLevel, TIERS3, MIN_DICE3, BONUS_UNLOCKS } from '../src/engine/levels3.js';
 
@@ -400,3 +400,67 @@ test('an upgrade raises its combination\'s multiplier by one (owner, 02.11.2026)
   assert.equal(currentHand(up).total, currentHand(base).base * (currentHand(base).mult + 1));
 });
 
+
+// MOON OWL, ×4 LAST HAND (owner, 10.11.2026: LORE §3.2 and §6 item 1): it fits any hand, but only the level's last.
+const owlBoard = (extra = {}) => level([D, D, D, D, D, D, D, D, B('x4_any')], [2, 2, 3, 5, 6, 1, 4, 1, null], 10000, extra);
+const pairs = seq([3, 3, 1, 5, 6, 2, 4, 1]); // every refill brings a pair of 3s
+
+test('×4 LAST HAND shows on the counter only on the last hand, and is not used up before it', () => {
+  let g = createAutoGame(owlBoard());
+  g = toggleBonus(g, 8).state; // switched on at once
+  assert.equal(g.off[8], false);
+  for (const left of [3, 2]) {
+    assert.equal(g.handsLeft, left);
+    assert.equal(awake(g, 'x4_any'), false);
+    const h = currentHand(g);
+    assert.equal(h.bonusMult, 1); // no ×4 on the counter
+    assert.deepEqual(h.bonusCells, []);
+    const r = playHand(g, pairs);
+    assert.deepEqual(r.hand.bonuses, []);
+    assert.equal(r.hand.multiplier, 1);
+    g = r.state;
+    assert.deepEqual(g.cells[8], B('x4_any')); // still on the board, still on
+    assert.equal(g.off[8], false);
+  }
+  assert.equal(g.handsLeft, 1);
+  const last = currentHand(g);
+  assert.equal(last.bonusMult, 4);
+  assert.deepEqual(last.bonusCells, [8]);
+  const r = playHand(g, pairs);
+  assert.deepEqual(r.hand.bonuses, ['x4_any']);
+  assert.equal(r.hand.total, r.hand.points * 4);
+  assert.equal(r.state.cells[8].type, 'die'); // used: a new die takes its cell
+});
+
+test('×4 LAST HAND under THE LAST USHER wakes on the second hand, the same hand as FINAL BOW', () => {
+  let g = createAutoGame(owlBoard({ hands: 2, boss: 'usher', charms: ['final_bow'] }));
+  g = toggleBonus(g, 8).state;
+  const first = currentHand(g);
+  assert.equal(first.bonusMult, 1);
+  const sum = (h) => h.faces.reduce((x, f) => x + f, 0);
+  assert.equal(first.base, sum(first)); // FINAL BOW sleeps too
+  g = playHand(g, pairs).state;
+  assert.equal(g.handsLeft, 1);
+  const h = currentHand(g);
+  assert.equal(h.bonusMult, 4);
+  assert.equal(h.base, sum(h) + 5); // both wake for the last hand
+  assert.equal(h.total, h.points * 4);
+});
+
+test('×4 LAST HAND from the bank waits like the board card; a reroll switches it off as any card', () => {
+  let g = createAutoGame(level([D, D, D, D, D, D, D, D, D], [2, 2, 3, 5, 6, 1, 4, 1, 6], 10000, { bank: ['x4_any'] }));
+  g = setHolds2(g, [0, 1]);
+  g = reroll(g, seq([5])).state; // the owl comes in, in place of the first rerolled die
+  const at = g.cells.findIndex((c) => c.type === 'bonus');
+  assert.equal(g.cells[at].kind, 'x4_any');
+  g = toggleBonus(g, at).state;
+  assert.equal(currentHand(g).bonusMult, 1);
+  g = playHand(g, pairs).state;
+  g = playHand(g, pairs).state;
+  assert.equal(g.off[at], false);
+  assert.equal(currentHand(g).bonusMult, 4);
+  g = reroll(g, seq([3])).state;
+  assert.equal(g.off[at], true); // a reroll clears it like every card: the player switches it on again
+  assert.equal(currentHand(g).bonusMult, 1);
+});
+function setHolds2(g, cells) { for (const i of cells) g = toggleHold(g, i).state; return g; }

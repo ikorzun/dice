@@ -47,6 +47,10 @@ export function handRules(level, handsLeft) {
   return Object.keys(r).length ? r : null;
 }
 
+// A card that wakes for the level's last hand (×4 LAST HAND: handsLeft 1, THE LAST USHER's second hand too). Before it, even
+// switched on, the card neither counts nor is used up, so the ×N on the counter never shows it.
+export const awake = (state, kind) => !BONUS_KINDS[kind].last || state.handsLeft === 1;
+
 const bump = (state, key) => ({ ...state.stats, [key]: state.stats[key] + 1 });
 
 export function createAutoGame(level, configOverrides = {}, attempt = 1) {
@@ -108,7 +112,7 @@ export const bonusKind = (state, i) => (i >= BANK ? state.bank[i - BANK].kind : 
 function onBonuses(state) {
   const board = state.cells.map((c, i) => i).filter((i) => isBonus(state, i) && !state.off[i]).map((i) => ({ cell: i, kind: state.cells[i].kind }));
   const bank = state.bank.map((b, k) => ({ cell: BANK + k, kind: b.kind, b })).filter(({ b }) => !b.off && waiting(b)).map(({ cell, kind }) => ({ cell, kind }));
-  return [...board, ...bank];
+  return [...board, ...bank].filter((b) => awake(state, b.kind));
 }
 export const diceCells = (state) => state.cells.map((c, i) => i).filter((i) => isDie(state, i));
 

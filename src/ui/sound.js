@@ -11,8 +11,8 @@
 // player's hand, never quite on the grid; and one stone hall that every instrument sits in. The objects share it: wooden dice
 // on an oak table, a parchment card, a book's brass clasp, a chest's latch, a torch, a copper coin and a wooden bird whistle.
 
-export const SOUNDS = ['roll', 'hold', 'flip', 'on', 'off', 'lute-c4', 'lute-g4', 'lute-a4', 'lute-b4', 'lute-c5', 'lute-d5', 'mult', 'crack', 'medal', 'fire', 'burn', 'drop', 'refund', 'bird', 'win', 'tally', 'stop', 'paper'];
-const VOLUME = { roll: 0.4, hold: 0.6, flip: 0.55, on: 0.7, off: 0.4, 'lute-c4': 0.8, 'lute-g4': 0.8, 'lute-a4': 0.8, 'lute-b4': 0.8, 'lute-c5': 0.8, 'lute-d5': 0.8, mult: 0.55, crack: 0.45, medal: 0.4, fire: 0.6, burn: 0.45, drop: 0.4, refund: 0.5, bird: 0.35, win: 0.8, tally: 0.6, stop: 0.7, paper: 0.5 };
+export const SOUNDS = ['roll', 'hold', 'flip', 'on', 'off', 'lute-c4', 'lute-g4', 'lute-a4', 'lute-b4', 'lute-c5', 'lute-d5', 'mult', 'crack', 'medal', 'fire', 'burn', 'drop', 'refund', 'bird', 'win', 'tally', 'stop', 'paper', 'lute-mute', 'chisel', 'snip', 'bellows', 'flip-hush', 'thud'];
+const VOLUME = { roll: 0.4, hold: 0.6, flip: 0.55, on: 0.7, off: 0.4, 'lute-c4': 0.8, 'lute-g4': 0.8, 'lute-a4': 0.8, 'lute-b4': 0.8, 'lute-c5': 0.8, 'lute-d5': 0.8, mult: 0.55, crack: 0.45, medal: 0.4, fire: 0.6, burn: 0.45, drop: 0.4, refund: 0.5, bird: 0.35, win: 0.8, tally: 0.6, stop: 0.7, paper: 0.5, 'lute-mute': 0.45, chisel: 0.55, snip: 0.22, bellows: 0.6, 'flip-hush': 0.45, thud: 0.35 };
 
 export const RING_STEP = 1 / 12; // s
 const LADDER = [-5, -3, -1, 2, 4, 7, 9]; // semitones from C5: G major pentatonic, which rests on the chord's C
@@ -27,17 +27,21 @@ export function string(semis) {
 }
 
 // One hand's rings. rich: 1 adds the thumb's bass, an octave under, to the last note, 2 to every note (stronger hands answer
-// richer, digest rule 26).
-export function ladder(n, rich = 0) {
+// richer, digest rule 26). mute[k]: that die's note is damped, with no bass (LADY LOWBELL's six adds nothing, LORE §2.4).
+export function ladder(n, rich = 0, mute = []) {
   const notes = [];
   for (let k = 0; k < n; k++) {
     const semis = LADDER[Math.min(k, LADDER.length - 1)];
     const vol = 0.6 + (0.4 * k) / Math.max(1, n - 1); // it grows towards the top
+    if (mute[k]) { notes.push({ at: k * RING_STEP, semis, vol, mute: true }); continue; }
     notes.push({ at: k * RING_STEP, semis, vol });
     if (rich === 2 || (rich === 1 && k === n - 1)) notes.push({ at: k * RING_STEP, semis: semis - 12, vol: vol * 0.5 });
   }
   return notes;
 }
+
+// The sample a note plays and its rate: a damped note is the C5 string under the palm, bent to the ladder's pitch.
+export const voice = ({ semis, mute }) => (mute ? { name: 'lute-mute', rate: pitch(semis) } : string(semis));
 
 // The target's chord, `size` strings (3 to 5), rolled low to high by 45 ms as a thumb would.
 export function chord(size = 3) {
@@ -158,13 +162,13 @@ export function hush() {
 }
 
 // A note as a player's hand plays it: a few ms off the grid, a little softer or firmer, the hand's tuning for the whole hand.
-const pluck = ({ at, semis, vol }) => {
-  const { name, rate } = string(semis);
-  sfx(name, { at: at + Math.random() * 0.01, rate: rate * key, vol: vol * (0.92 + 0.16 * Math.random()), spread: false });
+const pluck = (note) => {
+  const { name, rate } = voice(note);
+  sfx(name, { at: note.at + Math.random() * 0.01, rate: rate * key, vol: note.vol * (0.92 + 0.16 * Math.random()), spread: false });
 };
-export function ringCount(n, rich) {
+export function ringCount(n, rich, mute) {
   key = 0.994 + 0.012 * Math.random(); // a real instrument stays in tune: a breath of spread, each note is a new one anyway
-  ladder(n, rich).forEach(pluck);
+  ladder(n, rich, mute).forEach(pluck);
 }
 export function ringChord(size) {
   chord(size).forEach(pluck);

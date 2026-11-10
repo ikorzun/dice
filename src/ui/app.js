@@ -26,7 +26,7 @@ import {
   playHand as autoPlayHand, currentHand as autoCurrentHand, hintFor as autoHintFor, markHintUsed as autoMarkHintUsed,
   diceCells as autoDiceCells, canReroll as autoCanReroll, snapshotGame as autoSnapshot, restoreGame as autoRestore,
   isDie as autoIsDie, heldCount as autoHeldCount, rerollTargets as autoRerollTargets, heldHand as autoHeldHand,
-  carryOver as autoCarryOver, BANK, BANK_SIZE,
+  carryOver as autoCarryOver, awake as autoAwake, BANK, BANK_SIZE, MIN_DICE,
 } from '../engine/auto.js';
 import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from '../engine/levels.js';
 import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
@@ -37,7 +37,7 @@ import { BOSSES, bossOf } from '../engine/bosses3.js';
 import { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } from './dice3d.js';
 import { createFire } from './fire.js';
 import { RING_STEP, setupSound, setSound, setHostSilent, sfx, hush, ringCount, ringChord, ringNote } from './sound.js';
-import { setupPuppets, animateArt, cheer, WIN_CARD, cardRock } from './puppets.js';
+import { setupPuppets, animateArt, cheer, WIN_CARD, WIN_CARD_PAIR, PAIR_SKULL_START, cardRock } from './puppets.js';
 import { breakLine, holdLine } from './shards.js';
 import { nextUp, afterClear, bossRule, bellsPaid, BELLS_RULE } from './acts.js';
 import { withRun, submitRun, fetchBoard, hasBoard, setupBoard } from './board.js';
@@ -547,6 +547,7 @@ function startGame(level, attempt) {
   });
   $('levelEnd').hidden = true;
   if (level.boss) showBossCard(level); // first: the deal waits for it
+  if (level.boss === 'usher' && !app.hostPaused) sfx('snip', { at: 0.3 }); // his scissors cut the third ticket (under an ad, when it ends)
   render();
   persist(true);
   tellLevel('level_started', level.levelIndex);
@@ -1178,7 +1179,7 @@ function renderAutoSpecial(g, i, cell, tag) {
 // Bonus dice that are off but would multiply the hand on the board (the joker fits any hand).
 function autoIdleBonuses(g, h) {
   if (!h) return [];
-  return g.cells.map((c, i) => i).filter((i) => g.cells[i].type === 'bonus' && g.off[i] && (BONUS_KINDS[g.cells[i].kind].wild || BONUS_KINDS[g.cells[i].kind].fits(h.category)));
+  return g.cells.map((c, i) => i).filter((i) => g.cells[i].type === 'bonus' && g.off[i] && autoAwake(g, g.cells[i].kind) && (BONUS_KINDS[g.cells[i].kind].wild || BONUS_KINDS[g.cells[i].kind].fits(h.category)));
 }
 
 function renderHud() {
@@ -1319,6 +1320,7 @@ function buy(slot) {
   app.shopPick = null;
   haptic(10);
   sfx('refund', { vol: 0.8 });
+  sfx('bird', { at: 0.14, vol: 0.8 }); // the shop sounds like the bird, as on the board (LORE §2.4)
   renderShop();
   persist(true);
 }
@@ -1659,9 +1661,15 @@ function sparkBurst(count, gold) {
 
 // The hand rings die by die in reading order (В8); stronger hands ring richer and, when they win, chord fuller.
 const handRich = (hand) => (FIRE_HANDS.has(hand.category) ? 2 : hand.category === 'pair' ? 0 : 1);
+// A keeper's rule is heard in the count (LORE §2.4): LADY LOWBELL damps a six's note, MASON GRUDGE's chisel and THE CROOKED
+// JUDGE's dull bowl come after the last note.
 function ringHand(hand) {
-  const cells = [...hand.cells, ...(hand.jokerCells || [])].sort((a, b) => a - b);
-  ringCount(cells.length, handRich(hand));
+  const order = [...hand.cells, ...(hand.jokerCells || [])]; // hand.faces follows this order, the jokers' last
+  const cells = [...order].sort((a, b) => a - b);
+  const boss = S().game.level.boss;
+  ringCount(cells.length, handRich(hand), boss === 'lowbell' ? cells.map((i) => hand.faces[order.indexOf(i)] === 6) : []);
+  if (boss === 'mason') sfx('chisel', { at: cells.length * RING_STEP });
+  if (boss === 'judge' && hand.category === 'straight') sfx('thud', { at: cells.length * RING_STEP });
   return cells;
 }
 
@@ -1722,7 +1730,11 @@ function armBonus(source, cell) {
   const g = st.game;
   if (app.busy || g.phase !== 'playing') return;
   const r = E().toggleBonus(g, cell); // Auto Hand switches the tapped bonus die off/on; Poker 5 and Snake ignore the cell
-  if (!r.ok) { toast(r.message, r.code === 'NOT_YET' || r.code === 'HUSHED' ? 'hint' : 'bad'); return; }
+  if (!r.ok) {
+    if (r.code === 'HUSHED') sfx('flip-hush'); // BROTHER HUSH: the card turns, muffled, and stays
+    toast(r.message, r.code === 'NOT_YET' || r.code === 'HUSHED' ? 'hint' : 'bad');
+    return;
+  }
   st.game = r.state;
   haptic(10);
   sfx((cell >= BANK ? st.game.bank[cell - BANK].off : st.game.off && st.game.off[cell]) ? 'off' : 'on');
@@ -1811,7 +1823,7 @@ const BONUS_WHAT = {
   x3_trips: 'Triples three of a kind or a full house.',
   x3_kinds: 'Triples four or five of a kind.',
   x3_small: 'Triples a small straight.',
-  x4_any: 'Multiplies any hand by four.',
+  x4_any: 'Multiplies the last hand of a level by four.',
   joker: 'Becomes the face your hand needs most.',
   refund: 'Play it and get one reroll back.',
 };
@@ -1889,6 +1901,8 @@ async function doReroll(source) {
   renderControls();
   haptic(8);
   sfx('roll');
+  if (g.level.boss === 'shortwind') sfx('bellows'); // SIR SHORTWIND's bellows breathe out
+  if (g.level.boss === 'hush' && !g.stats.rerollsUsed && g.bank.some((b) => !b.used && !b.placed) && autoDiceCells(g).length > MIN_DICE) sfx('flip-hush', { at: 0.12 }); // the kept cards would come in now, and do not
   // the kept cards come in on the level's first reroll, each in place of a die (owner, 03.11.2026)
   for (const { cell, from } of r.placed || []) { app.launching.add(from); els.cells[cell].classList.add('arriving'); renderCell(cell); }
   (r.placed || []).forEach(({ cell, from }, n) => flyFromBank(cell, from, { delay: 120 * n }));
@@ -2002,6 +2016,7 @@ async function attemptBank(path, source) {
     els.rerollBtn.classList.add('bump');
     sfx('refund');
     sfx('bird', { at: 0.14 });
+    if ((g.level.charms || []).includes('echo_thimble')) sfx('bird', { at: 0.44, vol: 0.6 }); // ECHO THIMBLE: the second reroll is its echo
   }
   renderPath();
   setPreview(`${hand.label} +${hand.total}`, 'good');
@@ -2067,8 +2082,7 @@ const WIN = { lift: 80, chip: 167, step: 83, snap: 500, cover: 290, black: 860, 
 const ACT_MS = 16000 / 12; // a victory act: sixteen held drawings, twelve a second
 
 // The card's own motion with its character's act (puppets.js WIN_CARD), one held pose per drawing.
-function cardFrames(kind, sc) {
-  const keys = WIN_CARD[kind];
+function cardFrames(kind, sc, keys = WIN_CARD[kind]) {
   const frames = [];
   for (let d = 1; d <= 16; d++) {
     let k = 0;
@@ -2127,14 +2141,25 @@ function playWin(hand, g0) {
   countUp($('target'), remaining(g0.score, g0), 0, 0, 500);
   setPreview(`${hand.label} +${hand.total}`, 'good');
 
-  // each card the hand used: its character's victory act, the card moving with it, one after another
-  used.filter((i) => cardEl(i)).sort((a, b) => a - b).forEach((i, k) => at(WIN.step * k, () => {
+  // each card the hand used: its character's victory act, the card moving with it, one after another. The knight
+  // (×2 ANY HAND) and the skull (JOKER) in one winning hand play their paired act instead (LORE §6 point 8, the owner's
+  // pick A of 10.11.2026): he dips his tulip to the skull, it answers PAIR_SKULL_START ms later, each card leans to the
+  // other. `toward` is 1 when the skull sits right of the knight; the act is written for that side and mirrored.
+  const order = used.filter((i) => cardEl(i)).sort((a, b) => a - b);
+  const kn = order.find((i) => kindOf(i) === 'x2_any');
+  const sk = order.find((i) => kindOf(i) === 'joker');
+  const paired = kn !== undefined && sk !== undefined;
+  const mid = (i) => { const r = box(cardEl(i)); return r.left + r.width / 2; };
+  const toward = paired && mid(sk) < mid(kn) ? -1 : 1;
+  order.forEach((i, k) => at(paired && i === sk ? order.indexOf(kn) * WIN.step + PAIR_SKULL_START : WIN.step * k, () => {
     const el = cardEl(i);
-    cheer(el.querySelector('.art'));
+    const pair = paired && (i === kn || i === sk);
+    cheer(el.querySelector('.art'), pair ? 'pair' : 'win', pair ? toward : 1);
     if (reduceMotion || !WIN_CARD[kindOf(i)]) return;
     el.style.zIndex = '2'; // over its neighbours, under the fire and the count
     moved.push(el);
-    play(el, cardFrames(kindOf(i), el.offsetWidth / 118.7), { dur: ACT_MS, fill: 'none' });
+    const keys = pair ? WIN_CARD_PAIR[kindOf(i)].map(([d, dx, dy, rot, sx, sy]) => [d, dx, dy, rot * toward, sx, sy]) : undefined;
+    play(el, cardFrames(kindOf(i), el.offsetWidth / 118.7, keys), { dur: ACT_MS, fill: 'none' });
   }));
   // the dice of the hand rise with it; with no card, they hop together instead
   const dice = rung.map((i) => els.cells[i]); // each rises on its note
@@ -2986,7 +3011,11 @@ function onHost(silent, paused) {
     for (const cell of els.cells) if (cell.waiting) clearTimeout(cell.dealTimer);
     return;
   }
-  if (!$('bossCard').hidden) { app.bossTimer = setTimeout(hideBossCard, BOSS_CARD_MS); return; }
+  if (!$('bossCard').hidden) {
+    if (S().game.level.boss === 'usher') sfx('snip', { at: 0.3 });
+    app.bossTimer = setTimeout(hideBossCard, BOSS_CARD_MS);
+    return;
+  }
   const g = S().game;
   if (g && g.phase === 'playing' && $('guide').hidden) els.cells.forEach((cell, i) => { if (cell.waiting) dealCard(g, i); });
 }

@@ -4,8 +4,8 @@
 // only on the multiset of faces and the kinds of the bonuses that are on, so the greedy bot
 // scores a board by its face counts and memoizes; its lookahead is exact, not sampled.
 
-import { createAutoGame, toggleHold, toggleBonus, reroll, currentHand, playHand, diceCells, isBonus, bonusKind, bankOpen, handOptionsOf, BANK } from './auto.js';
-import { bestHand, BONUS_KINDS } from './hands.js';
+import { createAutoGame, toggleHold, toggleBonus, reroll, currentHand, playHand, diceCells, isBonus, bonusKind, bankOpen, handOptionsOf, awake, BANK } from './auto.js';
+import { bestHand } from './hands.js';
 
 // Release unwanted holds first, then hold the rest (same shape as bot5.setHolds).
 export function setHolds(game, keep) {
@@ -20,7 +20,11 @@ const bonusCells = (game) => [
   ...(bankOpen(game) ? game.bank.map((b, k) => (b.used || b.placed ? -1 : BANK + k)).filter((i) => i >= 0) : []),
 ];
 const isOff = (game, i) => (i >= BANK ? game.bank[i - BANK].off : game.off[i]);
-const unconditional = (kind) => kind === 'x2_any' || BONUS_KINDS[kind].wild;
+// Only the any-hand multipliers are saved for a later hand: ×2 ANY, and the owl's ×4, which counts on the last hand only
+// (10.11.2026). The joker is played as soon as it helps: it adds a face and does not multiply, so waiting gains nothing,
+// and until it is played its cell holds no die (saved, it cost the greedy bot a die on two hands of three, and its joker
+// board scored below nine plain dice).
+const unconditional = (kind) => kind === 'x2_any' || kind === 'x4_any';
 
 function setBonuses(game, wantOn) {
   for (const i of bonusCells(game)) {
@@ -123,11 +127,11 @@ export function expectedBest(heldFaces, rerolled, { kinds = [], hand = null } = 
   return contextFor(kinds, hand).expected(heldFaces.reduce((s, f) => s + FACE_KEY[f], 0), rerolled);
 }
 
-const onKinds = (game) => bonusCells(game).filter((i) => !isOff(game, i)).map((i) => bonusKind(game, i));
+const onKinds = (game) => bonusCells(game).filter((i) => !isOff(game, i)).map((i) => bonusKind(game, i)).filter((kind) => awake(game, kind));
 
 // Greedy one-step lookahead (`hand`: experiment scoring options, passed to the engine as handOptions): for every hold mask of the dice, the exact expected best-hand
 // total after one reroll; rerolls while the best mask beats the standing hand by `margin`.
-// Bonus policy: conditional bonuses always on; unconditional ones (×2 any, joker) on for the
+// Bonus policy: conditional bonuses and the joker always on; ×2 any and the owl's ×4 on for the
 // last hand, or earlier when the hand without them already totals `strong`. A missed target ends the run (owner,
 // 03.11.2026), so it plays for the target the way a strong player would: a hand that reaches what the level still
 // needs, with every bonus on, is played at once, and a hand on pace keeps its dice through a reroll.
