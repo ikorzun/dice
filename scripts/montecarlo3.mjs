@@ -129,7 +129,7 @@ const t0 = Date.now();
 out('# Auto Hand (mode 3) — simulation report');
 out(`seed ${SEED} · ${NT} generator levels per tier (level index tier … tier+${SPREAD - 1}) · 3 hands · 3 shared rerolls · bonuses start off, the bots switch them on · ${new Date().toISOString()}`);
 out();
-out('Bots: **naive** switches every bonus on, holds exactly the best hand\'s dice and rerolls once per hand (while rerolls ≥ hands left), then plays. **Greedy** (`playGreedyBot3`, margin 20, strong 150) evaluates every hold mask of the dice by the exact expected best hand after one reroll and rerolls while the best mask beats the standing hand by 20; conditional bonuses always on, ×2 any and joker on for the last hand or when the hand without them already totals 150. Both maximize score and ignore the target.');
+out('Bots: **naive** switches every bonus on, holds exactly the best hand\'s dice and rerolls once per hand (while rerolls ≥ hands left), then plays. **Greedy** (`playGreedyBot3`, margin 20, strong 150) evaluates every hold mask of the dice by the exact expected best hand after one reroll and rerolls while the best mask beats the standing hand by 20; conditional bonuses always on, ×2 any and joker on for the last hand or when the hand without them already totals 150. A level ends once its target is reached, and the greedy bot plays for it (since 03.11.2026), so each tier\'s scores bunch just past its target and the win rates at higher targets read low.');
 out();
 
 const levels = {};
@@ -193,9 +193,12 @@ for (let tier = 1; tier <= 5; tier++) {
 const monotone = [1, 2, 3, 4, 5].every((t) => t === 1 || suggested[t] >= suggested[t - 1]);
 out();
 out(`Suggested targets are ${monotone ? '' : 'not '}monotone non-decreasing over the tiers.`);
-const sameLayout = [2, 3, 4, 5].filter((t) => ['dice', 'bonuses', 'blocks'].every((k) => TIERS3[t][k] === TIERS3[t - 1][k])).map((t) => `${t - 1} and ${t}`);
-if (sameLayout.length) out(`Tiers ${sameLayout.join(', ')} share a layout and differ only by target.`);
-out('TIERS3 targets were set from a larger run of this script (`--tierLevels=1000 --seed=check1000`); a 300-level sample suggests targets within about 10 points of them.');
+const layouts = {};
+for (let t = 1; t <= 5; t++) (layouts[['dice', 'bonuses', 'blocks'].map((k) => TIERS3[t][k]).join('/')] ||= []).push(t);
+const shared = Object.values(layouts).filter((ts) => ts.length > 1).map((ts) => ts.join(', '));
+if (shared.length) out(`Tiers sharing a layout: ${shared.join('; ')}.`);
+const gap = Math.max(...[1, 2, 3, 4, 5].map((t) => Math.abs(suggested[t] - TIERS3[t].target)));
+out(`TIERS3 targets differ from this sample's suggestions by up to ${gap} points. Since the boards lost their locks (09.11.2026) each layout keeps one target; recalibrating would move UP_SHARES (scripts/upgrades3.mjs plays these tiers) and so the run's curve.`);
 out();
 out('### Win rate over a range of targets (naive / greedy)');
 out();

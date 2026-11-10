@@ -1017,40 +1017,51 @@ body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(-
 .end-bells b { font-size: max(13px, calc(14px * var(--k, 1))); }
 .end-over { font-size: max(11px, calc(11.7px * var(--k, 1))); }
 body.wide .end-over { font-size: max(11px, calc(14px * var(--k, 1))); }
-#levelEnd.run-over .run-reached { font-size: max(9px, calc(10.8px * var(--k, 1))); }
+#levelEnd.run-over .run-reached { font-size: max(11px, calc(10.8px * var(--k, 1))); }
 body.wide #levelEnd.run-over .run-reached { font-size: max(11px, calc(13px * var(--k, 1))); }
+/* Where the 11 px floor lifts the row's words above the scale (a narrow phone, a phone held sideways), its gaps and
+   padding give that room back, so LEVEL 14 · REROLLS LEFT 3 stays on one line inside its frame (10.11.2026). */
+#levelEnd.run-over .run-reached { --lift: max(0px, 11px - 10.8px * var(--k, 1)); gap: max(2px, calc(6px * var(--k, 1) - var(--lift))); padding: 0 max(4px, calc(11.7px * var(--k, 1) - 3 * var(--lift))); }
+body.wide #levelEnd.run-over .run-reached { --lift: max(0px, 11px - 13px * var(--k, 1)); }
+#levelEnd.run-over .run-reached i { margin: 0 max(0px, calc(2px * var(--k, 1) - var(--lift))); }
+/* The receipt's three lines (HAND n, the name, the sum × mult) stay inside their row: where the 11 px floor makes them
+   taller than the scaled row (a phone held sideways), the row grows by what it needs; elsewhere it keeps its height. */
+.hands li.end-hand, body.wide .hands li.end-hand { height: auto; padding-block: 2px; }
+.hands li.end-hand { min-height: calc(70.4px * var(--k, 1)); }
+body.wide .hands li.end-hand { min-height: calc(72px * var(--k, 1)); }
 body.wide .run-reached b { font-size: max(13px, calc(20px * var(--k, 1))); }
 .shop-head .wallet b { font-size: max(13px, calc(16px * var(--k, 1))); }
 .shop-boss { flex: none; }
 body.wide .stat .label, body.wide .hand-name { line-height: calc(17.2px * var(--k, 1)); }
-.hands li.end-hand i { font-size: max(10px, calc(10.8px * var(--k, 1))); }
+.hands li.end-hand i { font-size: max(11px, calc(10.8px * var(--k, 1))); }
 .run-gap { font-size: max(11px, calc(12.7px * var(--k, 1))); }
+body.wide .run-gap { font-size: max(11px, calc(18px * var(--k, 1))); }
 .end-medal { font-size: max(12px, calc(15.6px * var(--k, 1))); }
 .ware-text i { min-height: 0; font-size: max(11px, calc(10px * var(--k, 1))); line-height: 1.1; }
 .ware-text b { font-size: max(12px, calc(15px * var(--k, 1))); }
 .ware-text small { font-size: max(11px, calc(12px * var(--k, 1))); }
-.shop-held > div > span { font-size: max(10px, calc(10px * var(--k, 1))); }
+.shop-held > div > span { font-size: max(11px, calc(10px * var(--k, 1))); }
 .shop-head .wallet { font-size: max(11px, calc(13px * var(--k, 1))); }
 .shop-boss b { font-size: max(12px, calc(13px * var(--k, 1))); }
 .shop-boss small { font-size: max(11px, calc(10.5px * var(--k, 1))); }
 .shop-hint { min-height: calc(2.4 * max(11px, calc(11px * var(--k, 1)))); font-size: max(11px, calc(11px * var(--k, 1))); }
 .price { font-size: max(12px, calc(14px * var(--k, 1))); }
 .boss-card em { font-size: max(11px, calc(12px * var(--k, 1))); }
-.boss-card small { font-size: max(10px, calc(10px * var(--k, 1))); }
+.boss-card small { font-size: max(11px, calc(10px * var(--k, 1))); }
 .stat .label { font-size: max(9px, calc(11px * var(--k, 1))); }
 body.wide .stat .label { font-size: max(9px, calc(13px * var(--k, 1))); }
 body.wide #handStat .label { font-size: calc(13px * var(--k, 1)); } /* SMALL STRAIGHT needs its third of the row; the hand row under it says it larger */
 .hand-name { font-size: max(9px, calc(12px * var(--k, 1))); }
 .up-sub.boss, body.wide .up-sub, body.wide .up-sub.boss { font-size: max(11px, calc(14px * var(--k, 1))); line-height: 1.5; }
 .end-next, body.wide #levelEnd.won .end-next { font-size: max(11px, calc(14px * var(--k, 1))); }
-.end-hand small { font-size: max(10px, calc(12.7px * var(--k, 1))); }
-body.wide .end-hand small { font-size: max(10px, calc(16px * var(--k, 1))); }
+.end-hand small { font-size: max(11px, calc(12.7px * var(--k, 1))); }
+body.wide .end-hand small { font-size: max(11px, calc(16px * var(--k, 1))); }
 body.wide .end-medal { font-size: max(12px, calc(17px * var(--k, 1))); }
 .boss-card b { font-size: max(11px, calc(16px * var(--k, 1))); }
 .runs-card h3 { font-size: max(16px, calc(22px * var(--k, 1))); }
 .runs-list { font-size: max(12px, calc(15px * var(--k, 1))); }
 .runs-list li { grid-template-columns: max(24px, calc(30px * var(--k, 1))) 1fr 1fr; }
-.runs-list li.head { font-size: max(10px, calc(10px * var(--k, 1))); }
+.runs-list li.head { font-size: max(11px, calc(10px * var(--k, 1))); }
 
 /* A phone held sideways, a square or any low wide window: each page of the rules puts its words on the left and its
    picture on the right, the button under the words, so nothing runs under the button or the bar. */
@@ -3159,14 +3170,13 @@ const GENERATOR3_VERSION = 'auto-gen-1';
 const BONUS_UNLOCKS = Object.freeze(['x2_any', 'x3_straight', 'x3_pairs', 'x3_trips', 'joker', 'refund']);
 const MIN_DICE3 = MIN_DICE;
 
-// Tier levels are the balance reference of the bots and scripts/montecarlo3.mjs; the game itself
-// plays the run's levels (run3.js). Targets: the greedy bot of bot3.js wins ~75% at tier 1
-// stepping down evenly to ~40% at tier 5 (owner, 31.10.2026: the naive-bot criterion felt too
-// easy), recalibrated 01.11.2026 for bonuses that add up and the straight ×8. Taken from the
-// greedy score distributions of scripts/montecarlo3.mjs (--tierLevels=1000 --seed=check1000; the
-// default 300-level report is docs/simulation3-latest.md). Not monotone: tier 2 (a block) scores
-// lower than tier 1, tier 3 (two bonus dice) higher than the tiers around it.
-// Since 09.11.2026 no cell is ever locked or empty (owner): every tier is nine cells of dice and cards.
+// Tier levels are the balance reference of the bots, scripts/montecarlo3.mjs and scripts/upgrades3.mjs; the game
+// itself plays the run's levels (run3.js). Until 09.11.2026 the targets followed the owner's criterion of 31.10.2026
+// (the greedy bot of bot3.js wins ~75% at tier 1, stepping down evenly to ~40% at tier 5), last set 01.11.2026.
+// Since no cell is ever locked or empty (owner, 09.11.2026) every tier is nine cells of dice and cards, in two
+// layouts that keep one target each: 8 dice and a card 490 (tiers 1, 2, 4), 7 dice and two cards 560 (tiers 3, 5).
+// The greedy bot wins 59–71% of them, so the steps are gone (docs/simulation3-latest.md, section C); recalibrating
+// would move UP_SHARES (upgrades3.mjs plays these tiers) and so the run's curve.
 const TIERS3 = Object.freeze({
   1: Object.freeze({ dice: 8, bonuses: 1, blocks: 0, target: 490 }),
   2: Object.freeze({ dice: 8, bonuses: 1, blocks: 0, target: 490 }),
@@ -3363,8 +3373,6 @@ function bossOf(runSeed, levelIndex) {
   }
   return bag[n % BAG.length];
 }
-
-
 
 return { BOSSES, isBossLevel, bossOf };
 })();

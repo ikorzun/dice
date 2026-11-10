@@ -29,5 +29,3 @@ export function bossOf(runSeed, levelIndex) {
   }
   return bag[n % BAG.length];
 }
-
-

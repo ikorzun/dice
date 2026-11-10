@@ -12,14 +12,13 @@ export const GENERATOR3_VERSION = 'auto-gen-1';
 export const BONUS_UNLOCKS = Object.freeze(['x2_any', 'x3_straight', 'x3_pairs', 'x3_trips', 'joker', 'refund']);
 export const MIN_DICE3 = MIN_DICE;
 
-// Tier levels are the balance reference of the bots and scripts/montecarlo3.mjs; the game itself
-// plays the run's levels (run3.js). Targets: the greedy bot of bot3.js wins ~75% at tier 1
-// stepping down evenly to ~40% at tier 5 (owner, 31.10.2026: the naive-bot criterion felt too
-// easy), recalibrated 01.11.2026 for bonuses that add up and the straight ×8. Taken from the
-// greedy score distributions of scripts/montecarlo3.mjs (--tierLevels=1000 --seed=check1000; the
-// default 300-level report is docs/simulation3-latest.md). Not monotone: tier 2 (a block) scores
-// lower than tier 1, tier 3 (two bonus dice) higher than the tiers around it.
-// Since 09.11.2026 no cell is ever locked or empty (owner): every tier is nine cells of dice and cards.
+// Tier levels are the balance reference of the bots, scripts/montecarlo3.mjs and scripts/upgrades3.mjs; the game
+// itself plays the run's levels (run3.js). Until 09.11.2026 the targets followed the owner's criterion of 31.10.2026
+// (the greedy bot of bot3.js wins ~75% at tier 1, stepping down evenly to ~40% at tier 5), last set 01.11.2026.
+// Since no cell is ever locked or empty (owner, 09.11.2026) every tier is nine cells of dice and cards, in two
+// layouts that keep one target each: 8 dice and a card 490 (tiers 1, 2, 4), 7 dice and two cards 560 (tiers 3, 5).
+// The greedy bot wins 59–71% of them, so the steps are gone (docs/simulation3-latest.md, section C); recalibrating
+// would move UP_SHARES (upgrades3.mjs plays these tiers) and so the run's curve.
 export const TIERS3 = Object.freeze({
   1: Object.freeze({ dice: 8, bonuses: 1, blocks: 0, target: 490 }),
   2: Object.freeze({ dice: 8, bonuses: 1, blocks: 0, target: 490 }),

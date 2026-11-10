@@ -1014,40 +1014,51 @@ body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(-
 .end-bells b { font-size: max(13px, calc(14px * var(--k, 1))); }
 .end-over { font-size: max(11px, calc(11.7px * var(--k, 1))); }
 body.wide .end-over { font-size: max(11px, calc(14px * var(--k, 1))); }
-#levelEnd.run-over .run-reached { font-size: max(9px, calc(10.8px * var(--k, 1))); }
+#levelEnd.run-over .run-reached { font-size: max(11px, calc(10.8px * var(--k, 1))); }
 body.wide #levelEnd.run-over .run-reached { font-size: max(11px, calc(13px * var(--k, 1))); }
+/* Where the 11 px floor lifts the row's words above the scale (a narrow phone, a phone held sideways), its gaps and
+   padding give that room back, so LEVEL 14 · REROLLS LEFT 3 stays on one line inside its frame (10.11.2026). */
+#levelEnd.run-over .run-reached { --lift: max(0px, 11px - 10.8px * var(--k, 1)); gap: max(2px, calc(6px * var(--k, 1) - var(--lift))); padding: 0 max(4px, calc(11.7px * var(--k, 1) - 3 * var(--lift))); }
+body.wide #levelEnd.run-over .run-reached { --lift: max(0px, 11px - 13px * var(--k, 1)); }
+#levelEnd.run-over .run-reached i { margin: 0 max(0px, calc(2px * var(--k, 1) - var(--lift))); }
+/* The receipt's three lines (HAND n, the name, the sum × mult) stay inside their row: where the 11 px floor makes them
+   taller than the scaled row (a phone held sideways), the row grows by what it needs; elsewhere it keeps its height. */
+.hands li.end-hand, body.wide .hands li.end-hand { height: auto; padding-block: 2px; }
+.hands li.end-hand { min-height: calc(70.4px * var(--k, 1)); }
+body.wide .hands li.end-hand { min-height: calc(72px * var(--k, 1)); }
 body.wide .run-reached b { font-size: max(13px, calc(20px * var(--k, 1))); }
 .shop-head .wallet b { font-size: max(13px, calc(16px * var(--k, 1))); }
 .shop-boss { flex: none; }
 body.wide .stat .label, body.wide .hand-name { line-height: calc(17.2px * var(--k, 1)); }
-.hands li.end-hand i { font-size: max(10px, calc(10.8px * var(--k, 1))); }
+.hands li.end-hand i { font-size: max(11px, calc(10.8px * var(--k, 1))); }
 .run-gap { font-size: max(11px, calc(12.7px * var(--k, 1))); }
+body.wide .run-gap { font-size: max(11px, calc(18px * var(--k, 1))); }
 .end-medal { font-size: max(12px, calc(15.6px * var(--k, 1))); }
 .ware-text i { min-height: 0; font-size: max(11px, calc(10px * var(--k, 1))); line-height: 1.1; }
 .ware-text b { font-size: max(12px, calc(15px * var(--k, 1))); }
 .ware-text small { font-size: max(11px, calc(12px * var(--k, 1))); }
-.shop-held > div > span { font-size: max(10px, calc(10px * var(--k, 1))); }
+.shop-held > div > span { font-size: max(11px, calc(10px * var(--k, 1))); }
 .shop-head .wallet { font-size: max(11px, calc(13px * var(--k, 1))); }
 .shop-boss b { font-size: max(12px, calc(13px * var(--k, 1))); }
 .shop-boss small { font-size: max(11px, calc(10.5px * var(--k, 1))); }
 .shop-hint { min-height: calc(2.4 * max(11px, calc(11px * var(--k, 1)))); font-size: max(11px, calc(11px * var(--k, 1))); }
 .price { font-size: max(12px, calc(14px * var(--k, 1))); }
 .boss-card em { font-size: max(11px, calc(12px * var(--k, 1))); }
-.boss-card small { font-size: max(10px, calc(10px * var(--k, 1))); }
+.boss-card small { font-size: max(11px, calc(10px * var(--k, 1))); }
 .stat .label { font-size: max(9px, calc(11px * var(--k, 1))); }
 body.wide .stat .label { font-size: max(9px, calc(13px * var(--k, 1))); }
 body.wide #handStat .label { font-size: calc(13px * var(--k, 1)); } /* SMALL STRAIGHT needs its third of the row; the hand row under it says it larger */
 .hand-name { font-size: max(9px, calc(12px * var(--k, 1))); }
 .up-sub.boss, body.wide .up-sub, body.wide .up-sub.boss { font-size: max(11px, calc(14px * var(--k, 1))); line-height: 1.5; }
 .end-next, body.wide #levelEnd.won .end-next { font-size: max(11px, calc(14px * var(--k, 1))); }
-.end-hand small { font-size: max(10px, calc(12.7px * var(--k, 1))); }
-body.wide .end-hand small { font-size: max(10px, calc(16px * var(--k, 1))); }
+.end-hand small { font-size: max(11px, calc(12.7px * var(--k, 1))); }
+body.wide .end-hand small { font-size: max(11px, calc(16px * var(--k, 1))); }
 body.wide .end-medal { font-size: max(12px, calc(17px * var(--k, 1))); }
 .boss-card b { font-size: max(11px, calc(16px * var(--k, 1))); }
 .runs-card h3 { font-size: max(16px, calc(22px * var(--k, 1))); }
 .runs-list { font-size: max(12px, calc(15px * var(--k, 1))); }
 .runs-list li { grid-template-columns: max(24px, calc(30px * var(--k, 1))) 1fr 1fr; }
-.runs-list li.head { font-size: max(10px, calc(10px * var(--k, 1))); }
+.runs-list li.head { font-size: max(11px, calc(10px * var(--k, 1))); }
 
 /* A phone held sideways, a square or any low wide window: each page of the rules puts its words on the left and its
    picture on the right, the button under the words, so nothing runs under the button or the bar. */
