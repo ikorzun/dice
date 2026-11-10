@@ -378,14 +378,14 @@ function setDice3D(on) {
 function applyRenderedFaces() {
   if (app.busy) return; // a roll owns the 3D canvas; the next call redraws
   const faces = app.dice3d && dice3dStatus() === 'ready' ? renderFaces({ colors: lookColors() }) : null;
-  // the baked faces (styles.css) show until then; keys: value, then k for the held body ('3', '3k')
-  if (faces) for (const [key, url] of Object.entries(faces)) els.board.style.setProperty(`--face-${key[0]}${key.endsWith('k') ? '-held' : ''}`, `url(${url})`);
+  // the baked faces (styles.css) show until then; keys: the value
+  if (faces) for (const [key, url] of Object.entries(faces)) els.board.style.setProperty(`--face-${key}`, `url(${url})`);
 }
 
 function lookColors() {
   const cs = getComputedStyle(document.body);
   const pick = (name, fallback) => (cs.getPropertyValue(name).trim() || fallback);
-  return { die: pick('--die', '#ffffff'), pip: pick('--pip', '#000000'), held: pick('--hold', '#d4ff82') };
+  return { die: pick('--die', '#ffffff'), pip: pick('--pip', '#000000') };
 }
 
 // ---------- looks (visual concepts) ----------
@@ -719,7 +719,7 @@ function showRunEnd(st, g, won, over) {
   if (end.board) {
     const { cells, faces, held, off } = end.board;
     $('endBoard').innerHTML = `<div class="grid">${cells.map((c, i) => (c.type === 'bonus' ? guideTile(c.kind, !off[i])
-      : c.type === 'die' ? `<span class="cell die" style="--die-img: var(--face-${faces[i]}${held[i] ? '-held' : ''})"></span>`
+      : c.type === 'die' ? `<span class="cell die${held[i] ? ' held' : ''}" style="--die-img: var(--face-${faces[i]})"></span>`
         : `<span class="cell ${c.type === 'block' ? 'block' : 'empty'}"></span>`)).join('')}</div>`;
   }
   const best = st.best || { level, score: st.runScore };
@@ -1059,7 +1059,7 @@ function renderCell(i) {
   const order = cell.querySelector('.order');
   // Effect classes that are still mid-animation survive a re-render; 'bank-pop' is not among
   // them because it fills forwards (opacity 0) and must be dropped by the render after the bank.
-  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'arriving', 'landed', 'on-fire', 'flip', 'hidden3d', 'gone'].filter((c) => cell.classList.contains(c));
+  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'arriving', 'landed', 'on-fire', 'flip', 'hidden3d', 'gone', 'acting'].filter((c) => cell.classList.contains(c));
   cell.className = ['cell', ...transient].join(' ');
   cell.querySelector('.x2').textContent = '×2';
   const special = M().id === 'auto' && g.cells && g.cells[i];
@@ -1099,8 +1099,7 @@ function renderCell(i) {
   if (k < 0 && app.safeNext && app.safeNext.includes(i)) cell.classList.add('safe-next');
   // Auto Hand does not mark the dice of its hand (owner, 01.11.2026): finding it is the game. Nor the dice
   // PLAY would burn: dimming them confused (owner, 02.11.2026), and since 03.11.2026 that is every die
-  cell.style.setProperty('--die-img', `var(--face-${g.faces[i]}${g.held[i] ? '-held' : ''})`); // the rendered die, when 3D is on
-  cell.style.setProperty('--die-plain', `var(--face-${g.faces[i]})`); // a burning die is not lime (owner, 01.11.2026)
+  cell.style.setProperty('--die-img', `var(--face-${g.faces[i]})`); // the rendered die, when 3D is on; held, it wears a frame (styles.css)
   cell.setAttribute('aria-label', `Die ${g.faces[i]}${g.held[i] ? ', held' : ''}${sealed ? ', fixed' : ''}`);
 }
 
@@ -2113,14 +2112,16 @@ function playWin(hand, g0) {
   countUp($('target'), remaining(g0.score, g0), 0, 0, 500);
   setPreview(`${hand.label} +${hand.total}`, 'good');
 
-  // each card the hand used rises and tilts, one after another
+  // each card the hand used rises and tilts, one after another, in its acting look while it moves (Figma 1327:1705: no
+  // text, no arch, the hero bigger)
   const order = used.filter((i) => cardEl(i)).sort((a, b) => a - b);
   order.forEach((i, k) => at(WIN.step * k, () => {
     if (reduceMotion) return;
     const el = cardEl(i);
     el.style.zIndex = '2'; // over its neighbours, under the fire and the count
+    el.classList.add('acting');
     moved.push(el);
-    play(el, cardFrames(el.offsetWidth / 118.7), { dur: ACT_MS, fill: 'none' });
+    play(el, cardFrames(el.offsetWidth / 118.7), { dur: ACT_MS, fill: 'none' }).finished.then(() => el.classList.remove('acting'), () => {});
   }));
   // the dice of the hand rise with it; with no card, they hop together instead
   const dice = rung.map((i) => els.cells[i]); // each rises on its note
@@ -2238,7 +2239,7 @@ function playWin(hand, g0) {
     breakSound();
     if (shards) shards.stop();
     extras.forEach((el) => el.remove());
-    moved.forEach((el) => { el.style.zIndex = ''; el.style.visibility = ''; });
+    moved.forEach((el) => { el.style.zIndex = ''; el.style.visibility = ''; el.classList.remove('acting'); });
     if (app.fire) app.fire.out();
     rv.className = 'reveal';
     end.classList.remove('playing', 'waiting');
@@ -2581,7 +2582,7 @@ function onPointerCancel(e) {
 // pips). The Bible opens the same pages without the title, with every bonus and a link to the settings.
 const GUIDE_COMBOS = [['pair', [6, 6]], ['two_pairs', [2, 2, 6, 6]], ['small_straight', [1, 2, 3, 4]], ['three_kind', [3, 3, 3]], ['full_house', [2, 2, 5, 5, 5]], ['four_kind', [4, 4, 4, 4]], ['straight', [1, 2, 3, 4, 5]], ['five_kind', [5, 5, 5, 5, 5]]];
 const GUIDE_BONUSES = { x2_any: 'ANY HAND', x3_straight: 'STRAIGHT', x3_pairs: 'PAIR, TWO PAIRS', x3_trips: 'TRIPS, FULL HOUSE', joker: 'ANY FACE', refund: 'A REROLL BACK' };
-const guideDie = (v, held) => `<i class="gdie" style="--f: var(--face-${v}${held ? '-held' : ''})"></i>`; // the baked faces
+const guideDie = (v, held) => `<i class="gdie${held ? ' held' : ''}" style="--f: var(--face-${v})"></i>`; // the baked faces
 const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="arch"></span><span class="art" data-kind="${kind}"></span><span class="tag">${cardLabel(kind)}</span><span class="x2">${cardSticker(kind)}</span></span>`; // a card face up
 
 function openGuide(mode) {

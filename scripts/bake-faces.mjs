@@ -1,4 +1,4 @@
-// Bakes the resting die faces (1-6 and the blank bonus face, white and held lime) as the 3D renderer draws
+// Bakes the resting die faces (1-6 and the blank bonus face, white; a held die is the same in a frame) as the 3D renderer draws
 // them with the dice matcaps, into assets/dice/face-*.webp. The page shows these from the first frame, so
 // the dice wear their matcap before three.js arrives from the CDN (owner, 02.11.2026), and offline too.
 // Run after any change to the die model, its matcaps or colours: node scripts/bake-faces.mjs
@@ -31,17 +31,15 @@ const faces = await page.evaluate(async () => {
   const style = document.getElementById('board').style;
   const out = {};
   for (const v of [0, 1, 2, 3, 4, 5, 6]) {
-    for (const held of ['', '-held']) {
-      const src = /url\("?(.*?)"?\)$/.exec(style.getPropertyValue(`--face-${v}${held}`))[1];
-      const img = new Image();
-      img.src = src;
-      await img.decode();
-      const c = document.createElement('canvas');
-      c.width = img.width;
-      c.height = img.height;
-      c.getContext('2d').drawImage(img, 0, 0);
-      out[`face-${v}${held}`] = c.toDataURL('image/webp', 0.9);
-    }
+    const src = /url\("?(.*?)"?\)$/.exec(style.getPropertyValue(`--face-${v}`))[1];
+    const img = new Image();
+    img.src = src;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = img.height;
+    c.getContext('2d').drawImage(img, 0, 0);
+    out[`face-${v}`] = c.toDataURL('image/webp', 0.9);
   }
   return out;
 });

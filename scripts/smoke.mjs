@@ -163,11 +163,15 @@ for (const vp of viewports) {
   await swipe(page, a.hand.cells.slice(0, 3));
   await page.waitForTimeout(200);
   if ((await auto()).hands !== 0) note(vp, 'a drag played a hand');
-  // hold the die the tutorial points at: lime; REROLL keeps its face, then clears the hold (owner, 01.11.2026)
+  // hold the die the tutorial points at: it stays white in a #7cb823 frame (Figma 1327:1724); REROLL keeps its face, then
+  // clears the hold (owner, 01.11.2026)
   const keep = coachTarget[0] ?? a.hand.cells[0];
   await tap(page, keep);
-  const heldLook = await page.$eval(`#board .cell[data-index="${keep}"]`, (e) => ({ cls: e.className, img: e.style.getPropertyValue('--die-img'), tag: getComputedStyle(e.querySelector('.tag')).display }));
-  if (!/held/.test(heldLook.cls) || !/-held/.test(heldLook.img) || heldLook.tag !== 'none') note(vp, `held die look: ${JSON.stringify(heldLook)}`);
+  const heldLook = await page.$eval(`#board .cell[data-index="${keep}"]`, (e) => {
+    const frame = getComputedStyle(e, '::after');
+    return { cls: e.className, img: e.style.getPropertyValue('--die-img'), tag: getComputedStyle(e.querySelector('.tag')).display, frame: frame.borderTopColor, width: parseFloat(frame.borderTopWidth), glow: frame.boxShadow };
+  });
+  if (!/held/.test(heldLook.cls) || /-held/.test(heldLook.img) || heldLook.tag !== 'none' || heldLook.frame !== 'rgb(124, 184, 35)' || heldLook.width < 3 || !/inset/.test(heldLook.glow)) note(vp, `held die look: ${JSON.stringify(heldLook)}`);
   if (!/REROLL/.test(await text('#coachText'))) note(vp, 'tutorial did not advance to the reroll step');
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-2-hold.png` });
   const keptFace = a.faces[keep];
@@ -698,7 +702,9 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
     const c = card.getBoundingClientRect();
     const a = art.getBoundingClientRect();
     const t = tag.getBoundingClientRect();
-    return { kind: card.className.match(/kind-(\S+)/)?.[1], picture: getComputedStyle(art).backgroundImage !== 'none', inside: a.left >= c.left - 0.5 && a.right <= c.right + 0.5 && a.top >= c.top - 0.5, tag: tag.textContent, tagFits: tag.scrollWidth <= tag.clientWidth + 1 && t.left >= c.left - 0.5 && t.right <= c.right + 0.5, size: Math.round(a.width) };
+    // the card mockup (Figma 1308:2956): the portrait inside the card's sides, on the arch's bottom, rising over the top
+    // by 14 px of 110 at most
+    return { kind: card.className.match(/kind-(\S+)/)?.[1], picture: getComputedStyle(art).backgroundImage !== 'none', inside: a.left >= c.left - 0.5 && a.right <= c.right + 0.5 && a.bottom <= c.bottom && a.top >= c.top - 0.14 * c.height, tag: tag.textContent, tagFits: tag.scrollWidth <= tag.clientWidth + 1 && t.left >= c.left - 0.5 && t.right <= c.right + 0.5, size: Math.round(a.width) };
   }));
   for (const f of faces) if (!f.picture || !f.inside || !f.tagFits || f.size < 40) note(vp, `a hero's card: ${JSON.stringify(f)}`);
   if (faces[1].tag !== 'TWO SIXES') note(vp, `Bigfoot's tag: ${faces[1].tag}`);
@@ -708,12 +714,21 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
   await page.click('#board .cell:nth-child(8)');
   await page.waitForTimeout(1200);
   const tilt = await page.evaluate(() => new Promise((resolve) => {
-    const angle = (i) => { const m = new DOMMatrix(getComputedStyle(document.querySelectorAll('#board .cell')[i]).transform); return (Math.atan2(m.b, m.a) * 180) / Math.PI; };
+    const cells = document.querySelectorAll('#board .cell');
+    const angle = (i) => { const m = new DOMMatrix(getComputedStyle(cells[i]).transform); return (Math.atan2(m.b, m.a) * 180) / Math.PI; };
+    // the acting look (Figma 1327:1705): no name, no multiplier, the portrait about 138% of the card, standing on its bottom
+    const acting = (i) => {
+      const c = cells[i];
+      const art = c.querySelector('.art');
+      return c.classList.contains('acting') && getComputedStyle(c.querySelector('.tag')).visibility === 'hidden' && getComputedStyle(c.querySelector('.x2')).visibility === 'hidden'
+        && Math.abs(art.offsetHeight / c.clientHeight - 1.3818) < 0.02 && Math.abs(art.offsetTop + art.offsetHeight - c.clientHeight) < 1.5;
+    };
     document.getElementById('playBtn').click();
-    setTimeout(() => resolve({ knight: angle(6), bigfoot: angle(7), hand: window.__diceSnake.state().game.hands.at(-1)?.bonuses }), 420);
+    setTimeout(() => resolve({ knight: angle(6), bigfoot: angle(7), acting: [acting(6), acting(7)], hand: window.__diceSnake.state().game.hands.at(-1)?.bonuses }), 420);
   }));
-  if (!(tilt.knight < -0.5 && tilt.bigfoot < -0.5) || String(tilt.hand) !== 'x2_any,x3_sixes') note(vp, `the winning cards: ${JSON.stringify(tilt)}`);
+  if (!(tilt.knight < -0.5 && tilt.bigfoot < -0.5) || String(tilt.hand) !== 'x2_any,x3_sixes' || !tilt.acting.every(Boolean)) note(vp, `the winning cards: ${JSON.stringify(tilt)}`);
   await page.waitForFunction(() => document.querySelector('#upList .up') && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
+  if (await page.$('#board .cell.acting')) note(vp, 'a card kept its acting look after the moment');
   await ctx.close();
 }
 

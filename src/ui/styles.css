@@ -13,7 +13,8 @@
   --die: #ffffff;
   --die-edge: #d6d6d6;
   --pip: #000000;
-  --hold: #bbf350;          /* lime: a held die, a switched-on card, PLAY (Figma 1308:3041; owner 03.11.2026: one lime) */
+  --hold: #bbf350;          /* lime: a switched-on card, PLAY (Figma 1308:3041; owner 03.11.2026: one lime) */
+  --hold-edge: #7cb823;     /* a held die's frame and its glow inward (Figma 1327:1724, 10.11.2026) */
   --hold-ink: #000000;
   --path: #ff5442;
   --gold: #ffea3a;
@@ -62,26 +63,21 @@
   --peek-x3_small: url("../../assets/ui/portraits/wizardgirl.webp");
   --peek-x4_any: url("../../assets/ui/portraits/skeleton.webp");
   --peek-x3_sixes: url("../../assets/ui/portraits/bigfoot.webp");
-  --img-card-arch: url("../../assets/ui/card-arch.svg");   /* the bonus card's arch and back (Figma 1296:657) */
-  --img-card-arch-purple: url("../../assets/ui/card-arch-purple.svg"); /* the purple card's arch (Figma 1296:650) */
-  --img-card-back: url("../../assets/ui/card-back.webp");
+  --img-card-arch: url("../../assets/ui/card-arch.svg");   /* the cards' arches and backs (Figma 1308:2956, 10.11.2026) */
+  --img-card-arch-purple: url("../../assets/ui/card-arch-purple.svg");
+  --img-card-arch-small: url("../../assets/ui/card-arch-small.svg"); /* the bank's small card */
+  --img-card-back: url("../../assets/ui/card-back.webp"); /* the purple cards' back */
+  --img-card-back-white: url("../../assets/ui/card-back-white.webp"); /* the white cards' back */
   --img-title: url("../../assets/ui/title.webp"); /* the title art (no letters), art/title */
   /* the die faces with their matcaps, baked by scripts/bake-faces.mjs: the dice wear them from the first
      frame; the live 3D renderer, once loaded, sets the same pictures on the board */
   --face-0: url("../../assets/dice/face-0.webp");
-  --face-0-held: url("../../assets/dice/face-0-held.webp");
   --face-1: url("../../assets/dice/face-1.webp");
-  --face-1-held: url("../../assets/dice/face-1-held.webp");
   --face-2: url("../../assets/dice/face-2.webp");
-  --face-2-held: url("../../assets/dice/face-2-held.webp");
   --face-3: url("../../assets/dice/face-3.webp");
-  --face-3-held: url("../../assets/dice/face-3-held.webp");
   --face-4: url("../../assets/dice/face-4.webp");
-  --face-4-held: url("../../assets/dice/face-4-held.webp");
   --face-5: url("../../assets/dice/face-5.webp");
-  --face-5-held: url("../../assets/dice/face-5-held.webp");
   --face-6: url("../../assets/dice/face-6.webp");
-  --face-6-held: url("../../assets/dice/face-6-held.webp");
   --matcap-porcelain: url("../../assets/matcaps/porcelain.webp"); /* dice matcaps to try on (?matcap=), art/matcaps */
   --matcap-toon: url("../../assets/matcaps/toon.webp");
   --matcap-ivory: url("../../assets/matcaps/ivory.webp");
@@ -214,6 +210,12 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .bank .cell, .bank .slot { width: calc(64px * var(--k, 1)); height: calc(64px * var(--k, 1)); }
 .bank .cell { --kb: calc(.582 * var(--k, 1)); cursor: pointer; }
 .bank .cell.bonus .x2 { display: none; }
+/* The bank's cards are the small card (Figma 1308:2993): rounded 16 of 64, a faint arch (a purple card keeps its own),
+   the hero 72 px from 23 px over the top, the name about 6 px */
+.bank .cell.bonus { --img-card-arch: var(--img-card-arch-small); border-radius: 25%; box-shadow: inset 0 0 calc(4.655px * var(--k, 1)) rgba(255, 255, 255, .25); }
+.bank .cell.bonus .arch { left: 6.25%; top: 16.88%; width: 87.5%; height: 59.38%; }
+.bank .cell.bonus .art { left: -6.25%; top: -36.25%; width: 112.5%; height: 112.5%; }
+.bank .cell.bonus .tag { bottom: 6.1%; }
 .bank .slot { background: url("../../assets/ui/bank-slot.svg") center / 100% 100% no-repeat; }
 .bank .cell.new { animation: bankIn 520ms cubic-bezier(.2, .8, .3, 1.3) both; }
 @keyframes bankIn { from { transform: translateY(40%) scale(.4); opacity: 0; } }
@@ -263,7 +265,10 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell { position: relative; z-index: 1; border-radius: var(--die-radius); outline: none; overflow: visible; }
 .cell.die { background: var(--die); box-shadow: var(--die-shadow); transition: transform 110ms ease, box-shadow 110ms ease; }
 .cell.die.pressed { transform: scale(.95); }
-.cell.die.held { background-color: var(--hold); animation: bonusOn 360ms cubic-bezier(.2, .8, .3, 1.3); } /* picked: the bonus die's hop (owner, 02.11.2026) */
+.cell.die.held { animation: bonusOn 360ms cubic-bezier(.2, .8, .3, 1.3); } /* picked: the bonus die's hop (owner, 02.11.2026) */
+/* A held die stays white in a 4 px frame with a 10 px glow inward (Figma 1327:1724, 10.11.2026; was a lime die) */
+.cell.die.held::after, .gdie.held::after { content: ''; position: absolute; inset: 0; border: var(--hold-frame) solid var(--hold-edge); border-radius: inherit; box-shadow: inset 0 0 var(--hold-glow) var(--hold-edge); pointer-events: none; }
+.cell.die.held { --hold-frame: calc(4px * var(--kb, 1)); --hold-glow: calc(10px * var(--kb, 1)); }
 .cell.die.in-path { box-shadow: inset 0 0 0 4px var(--path), inset 0 -4px 0 var(--die-edge); }
 .cell.die.held.in-path { box-shadow: inset 0 0 0 4px var(--path), inset 0 0 0 7px var(--hold); }
 .cell.die.hint, .cell.die.safe-hint { box-shadow: inset 0 0 0 4px var(--gold), inset 0 -4px 0 var(--die-edge); animation: hintPulse 650ms ease-in-out infinite alternate; }
@@ -282,19 +287,20 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 @keyframes refill { 0% { transform: translateY(-45%) scale(.55); opacity: 0; } 60% { transform: translateY(4%) scale(1.04); opacity: 1; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
 /* Auto Hand: a bonus die is a blank die like the others, its character or label on the face (owner,
    01.11.2026). Switched on, it turns lime like a held die. Blocks are locks. */
-/* Bonus cards (owner, Figma 1296:657, 02.11.2026): a cream card, the bonus's character peeking over a
-   blue arch, its name and multiplier below; lime when switched on. Face down it shows the diamond back. A card
-   turns over in 2D (scaleX through 0, the back hidden at the half): no 3D layers for Safari to trip on. */
-.cell.bonus { --card: #ffeedb; --card-ink: #000; --card-mult: #e22876; background: var(--card); border: 1px solid rgba(255, 255, 255, .32); box-shadow: inset 0 0 8px rgba(255, 255, 255, .25); color: var(--card-ink); display: block; transition: transform 110ms ease, box-shadow 110ms ease; }
-/* ×3 bonuses and the joker are purple cards with white names (owner, Figma 1296:650, 02.11.2026) */
-.cell.bonus.kind-x3_pairs, .cell.bonus.kind-x3_trips, .cell.bonus.kind-x3_straight, .cell.bonus.kind-joker, .cell.bonus.kind-x3_kinds, .cell.bonus.kind-x3_small, .cell.bonus.kind-x4_any, .cell.bonus.kind-x3_sixes { --card: #9c52e3; --card-ink: #fff; --card-mult: #9c52e3; --img-card-arch: var(--img-card-arch-purple); border-color: rgba(255, 255, 255, .13); }
+/* Hero cards (owner, Figma 1308:2956, 10.11.2026; sizes in % of the mockup's 110 px card): a white card, rounded 24 but
+   6 at the top right where the multiplier stands, the hero's portrait over a light arch and above the card's top edge,
+   its name below; lime when switched on. Face down it shows its colour's back. A card turns over in 2D (scaleX through
+   0, the back hidden at the half): no 3D layers for Safari to trip on. */
+.cell.bonus { --card: #fff; --card-ink: #000; --card-mult: #e22876; --card-back: var(--img-card-back-white); --card-back-edge: #f7c685; background: var(--card); border: 1px solid rgba(255, 255, 255, .32); border-radius: 21.82% 5.45% 21.82% 21.82%; box-shadow: inset 0 0 8px rgba(255, 255, 255, .25); color: var(--card-ink); display: block; transition: transform 110ms ease, box-shadow 110ms ease; }
+/* ×3 and ×4 cards and the joker are purple with white names and a yellow multiplier (Figma Card-bonus-front-1) */
+.cell.bonus.kind-x3_pairs, .cell.bonus.kind-x3_trips, .cell.bonus.kind-x3_straight, .cell.bonus.kind-joker, .cell.bonus.kind-x3_kinds, .cell.bonus.kind-x3_small, .cell.bonus.kind-x4_any, .cell.bonus.kind-x3_sixes { --card: #9c52e3; --card-ink: #fff; --card-mult: #ffed69; --img-card-arch: var(--img-card-arch-purple); --card-back: var(--img-card-back); --card-back-edge: rgba(214, 133, 247, .27); --card-acting: #e9c2c2; --acting-corners: 21.82% 5.45% 21.82% 21.82%; border-color: rgba(255, 255, 255, .13); }
 .cell.bonus.pressed { transform: scale(.95); }
 .cell.bonus.on { animation: bonusOn 360ms cubic-bezier(.2, .8, .3, 1.3); } /* only the card moves, never its picture (owner, 02.11.2026) */
 /* switched on: the card keeps its colour inside a lime ring 4 px wide (owner, 02.11.2026) */
 .cell.bonus.on::after, .bonus-pic .tap .cell::after { content: ''; position: absolute; z-index: 1; inset: -1px; border: max(4px, calc(4px * var(--kb, 1))) solid var(--hold); border-radius: inherit; pointer-events: none; }
 .cell .arch, .cell .back { position: absolute; display: none; pointer-events: none; }
-.cell.bonus .arch { display: block; left: 4.63%; top: 8.33%; width: 90.74%; height: 69.44%; background: var(--img-card-arch) center / 100% 100% no-repeat; } /* 98 × 75 px at 5, 9 inside the mockup's 110 px card */
-.cell.bonus .back { inset: -1px; border: 1px solid rgba(214, 133, 247, .27); border-radius: inherit; background: var(--img-card-back) center / cover no-repeat; } /* Figma Card-bonus-back-1 */
+.cell.bonus .arch { display: block; left: 5.45%; top: 10%; width: 89.09%; height: 68.18%; background: var(--img-card-arch) center / 100% 100% no-repeat; } /* 98 × 75 px at 6, 11 */
+.cell.bonus .back { inset: -1px; border: 1px solid var(--card-back-edge); border-radius: inherit; background: var(--card-back) center / cover no-repeat; } /* Figma Card-bonus-back, -back-1 */
 .cell.bonus.face-down .back { display: block; }
 #board .cell.bonus.flip { animation: cardFlip 420ms ease-in-out var(--flip-delay, 0ms) both; } /* over the tutorial's pulse */
 #board .cell.bonus.flip .back { display: block; animation: cardBack 420ms step-end var(--flip-delay, 0ms) both; }
@@ -307,9 +313,16 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.bonus.used { border-color: var(--line-strong); color: var(--muted); box-shadow: none; animation: none; }
 .cell.bonus.safe-hint, .cell.bonus.hint { animation: armPulse 650ms ease-in-out infinite; }
 .cell .art { position: absolute; display: none; background: center / 100% 100% no-repeat; pointer-events: none; }
-/* The face: the hero's portrait, a still picture (portals redesign, 10.11.2026), its bust cut on the arch's bottom and
-   its head inside the card; the multiplier on a badge in the corner (none for the joker) */
-.cell.bonus .art { display: block; left: 9.26%; top: 3.7%; width: 79.63%; height: 74.07%; background: var(--peek) center bottom / contain no-repeat; } /* 80 px from 4 down to the arch's bottom */
+/* The face: the hero's whole portrait in a square box from 14 px above the card down to the arch's bottom (Figma IMG
+   1295:586), a still picture; the multiplier in the top right corner (none for the joker) */
+.cell.bonus .art { display: block; left: 3.64%; top: -12.91%; width: 90.91%; height: 90.91%; background: var(--peek) center bottom / contain no-repeat; } /* 100 px at 4, -14 */
+/* While its hero acts (Figma 1327:1705, 1327:1717; owner, 10.11.2026: «убираем весь текст и внутреннюю рамку, увеличиваем
+   героя»): no name, no multiplier, no arch, every corner 24 (a purple card keeps its 6 at the top right and turns pink,
+   anim-purplr); the portrait 152 px tall, standing on the card's bottom and rising 42 px over its top. The box is the
+   card's width, so the card's sides and rounded bottom crop the bust. */
+.cell.bonus.acting { background: var(--card-acting, var(--card)); border-radius: var(--acting-corners, 21.82%); }
+.cell.bonus.acting .arch, .cell.bonus.acting .tag, .cell.bonus.acting .x2 { visibility: hidden; }
+.cell.bonus.acting .art { left: 0; top: -38.18%; width: 100%; height: 138.18%; background-size: auto 100%; border-radius: 0 0 21.82% 21.82% / 0 0 15.79% 15.79%; }
 .cell.bonus.kind-x2_any { --peek: var(--peek-x2_any); }
 .cell.bonus.kind-x3_straight { --peek: var(--peek-x3_straight); }
 .cell.bonus.kind-x3_pairs { --peek: var(--peek-x3_pairs); }
@@ -347,14 +360,14 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .face[data-value="5"] i:nth-child(1), .face[data-value="5"] i:nth-child(3), .face[data-value="5"] i:nth-child(5), .face[data-value="5"] i:nth-child(7), .face[data-value="5"] i:nth-child(9),
 .face[data-value="6"] i:nth-child(1), .face[data-value="6"] i:nth-child(3), .face[data-value="6"] i:nth-child(4), .face[data-value="6"] i:nth-child(6), .face[data-value="6"] i:nth-child(7), .face[data-value="6"] i:nth-child(9) { opacity: 1; }
 .cell .tag { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); font: 700 calc(11px * var(--kb, 1))/1 var(--font-display); letter-spacing: .16em; padding: calc(3px * var(--kb, 1)) calc(6px * var(--kb, 1)); border-radius: 4px; display: none; white-space: nowrap; }
-.cell.bonus .tag { display: block; bottom: 4.63%; padding: 0; color: var(--card-ink); font-size: calc(13px * var(--kb, 1)); letter-spacing: -.03em; text-transform: uppercase; } /* the name alone: 12 px on the mockup's 110 px card */
+.cell.bonus .tag { display: block; bottom: 4.55%; padding: 0; color: var(--card-ink); font-size: calc(11px * var(--kb, 1)); letter-spacing: -.03em; text-transform: uppercase; } /* the name alone: 11 px, 5 px over the bottom */
 .cell.bonus .tag:empty { display: none; }
 .cell.bonus.used .tag { color: var(--muted); }
 .cell .x2 { display: none; font: 700 calc(40px * var(--kb, 1))/1 var(--font-display); letter-spacing: -.02em; }
-/* The multiplier on a sticker over the card's top right corner (owner, Figma 1298:1530, 02.11.2026): always a
-   light disc, the sign in the card's colour (pink on a cream card); 24 px at 89, -5 with a 16 px number */
-.cell.bonus .x2 { position: absolute; z-index: 2; left: 82.41%; top: -4.63%; width: 22.22%; height: 22.22%; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #ffeedb; color: var(--card-mult); font-size: calc(17.4px * var(--kb, 1)); letter-spacing: -.04em; pointer-events: none; }
-.cell.bonus .x2 small { font: inherit; font-size: .875em; color: inherit; } /* the × 14 px, whatever list styles its <small> */
+/* The multiplier in the card's top right corner, bare (Figma 1298:1531, 10.11.2026): pink on a white card, yellow on a
+   purple one; a 20 px number with a 15 px sign, its right edge 5 px in, 2 px from the top */
+.cell.bonus .x2 { position: absolute; z-index: 2; right: 4.55%; top: 1.82%; display: block; color: var(--card-mult); font-size: calc(20px * var(--kb, 1)); line-height: 1; letter-spacing: -.032em; white-space: nowrap; pointer-events: none; }
+.cell.bonus .x2 small { font: inherit; font-size: .75em; letter-spacing: -.04em; color: inherit; } /* the × 15 px, whatever list styles its <small> */
 .cell.bonus .x2:empty { display: none; }
 
 .cell .order { position: absolute; top: 6%; right: 7%; width: 22px; height: 22px; border-radius: 50%; background: var(--path); color: #fff; font: 700 13px/22px var(--font-display); text-align: center; display: none; }
@@ -387,7 +400,6 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 /* Resting dice drawn from the 3D model (dice3d.js renderFaces) when 3D is on, like the rolling ones.
    The picture is the cell's background, so hold and hint rings (inset shadows) stay on top of it. */
 #board.rendered .cell.die { --die-edge: transparent; --die-shadow: none; background: var(--die-img) center / 100% 100% no-repeat; }
-#board.rendered .cell.die.on-fire { background-image: var(--die-plain); } /* the fire marks the choice: no lime under it */
 .cell.die.held.on-fire { background-color: var(--die); }
 #board.rendered .cell.die .face { display: none; }
 .path-layer polyline { fill: none; stroke-linecap: round; stroke-linejoin: round; }
@@ -688,6 +700,7 @@ body.wide .controls .cnt::before { content: '×'; }
 .game-name span { display: block; color: var(--accent); } /* DICE over FOOL: one word, two lines */
 .title-art { flex: 1 1 auto; min-height: 0; width: 100%; background: var(--img-title) center / contain no-repeat; }
 .gdie { display: block; width: var(--gd, 24px); height: var(--gd, 24px); background: var(--f) center / 100% 100% no-repeat; }
+.gdie.held { position: relative; border-radius: var(--die-radius); --hold-frame: calc(var(--gd, 24px) * .0362); --hold-glow: calc(var(--gd, 24px) * .0906); } /* 4 and 10 of 110.4 */
 .combos { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; gap: clamp(5px, 1.2vh, 10px); --gd: clamp(18px, 5.4vmin, 28px); }
 .combos li { display: grid; grid-template-columns: calc(5 * var(--gd) + 12px) 1fr auto; align-items: center; gap: 12px; padding: clamp(5px, 1.1vh, 9px) 14px; border-radius: 16px; background: var(--tile); }
 .combos .gdice { display: flex; gap: 3px; }

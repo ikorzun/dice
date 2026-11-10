@@ -277,8 +277,8 @@ export async function rollDice3D({ board, cells, dice, colors, rng, onLanded }) 
 }
 
 // Pictures of the resting die for every value, from the roll's scene and camera, so a DOM die drawn
-// with them matches the last frame of a roll: keys are the value, then 'k' for the held body colour
-// ('3', '3k'). Null until three.js is ready, and while a roll owns the canvas.
+// with them matches the last frame of a roll: keys are the value ('3'). A held die is the same white die in a frame
+// (styles.css, Figma 1327:1724). Null until three.js is ready, and while a roll owns the canvas.
 export function renderFaces({ colors, px = 384 }) {
   if (!kit || kit.rolling) return null;
   const { canvas, renderer, scene, camera, model, bodyMat, pipMat } = kit;
@@ -293,18 +293,16 @@ export function renderFaces({ colors, px = 384 }) {
   const ctx = out.getContext('2d');
   const faces = {};
   pipMat.color.set(pipMat.userData.ink ? colors.pip : PIP_SHINE);
-  for (const [body, die] of [['', colors.die], ['k', colors.held || colors.die]]) {
-    bodyMat.color.set(die);
-    for (let v = 0; v <= 6; v++) { // 0: the blank face a bonus die wears
-      const q = landingQuaternion(v || 1);
-      pipMat.visible = v > 0;
-      model.quaternion.set(q.x, q.y, q.z, q.w);
-      renderer.clear();
-      renderer.render(scene, camera);
-      ctx.clearRect(0, 0, px, px);
-      ctx.drawImage(canvas, (view - px) / 2, (view - px) / 2, px, px, 0, 0, px, px);
-      faces[`${v}${body}`] = out.toDataURL('image/png');
-    }
+  bodyMat.color.set(colors.die);
+  for (let v = 0; v <= 6; v++) { // 0: the blank face a bonus die wears
+    const q = landingQuaternion(v || 1);
+    pipMat.visible = v > 0;
+    model.quaternion.set(q.x, q.y, q.z, q.w);
+    renderer.clear();
+    renderer.render(scene, camera);
+    ctx.clearRect(0, 0, px, px);
+    ctx.drawImage(canvas, (view - px) / 2, (view - px) / 2, px, px, 0, 0, px, px);
+    faces[`${v}`] = out.toDataURL('image/png');
   }
   pipMat.visible = true;
   return faces;
