@@ -63,7 +63,26 @@
   --peek-x3_small: url("../../assets/ui/portraits/wizardgirl.webp");
   --peek-x4_any: url("../../assets/ui/portraits/skeleton.webp");
   --peek-x3_sixes: url("../../assets/ui/portraits/bigfoot.webp");
-  --act-x3_pairs: url("../../assets/ui/acts/monkey.webp"); /* the monkey's act: 97 frames of 320 px, 10 columns (hero-acts.js) */
+  /* the heroes' and keepers' acts, animated AVIF (hero-acts.js): files beside the page, never inlined (scripts/build.mjs) */
+  --act-knight: url("../../assets/ui/acts/knight.avif");
+  --act-elf: url("../../assets/ui/acts/elf.avif");
+  --act-monkey: url("../../assets/ui/acts/monkey.avif");
+  --act-witch: url("../../assets/ui/acts/witch.avif");
+  --act-alien: url("../../assets/ui/acts/alien.avif");
+  --act-dude: url("../../assets/ui/acts/dude.avif");
+  --act-wizard: url("../../assets/ui/acts/wizard.avif");
+  --act-wizardgirl: url("../../assets/ui/acts/wizardgirl.avif");
+  --act-skeleton: url("../../assets/ui/acts/skeleton.avif");
+  --act-bigfoot: url("../../assets/ui/acts/bigfoot.avif");
+  --act-fatman: url("../../assets/ui/acts/fatman.avif");
+  --act-ghoul: url("../../assets/ui/acts/ghoul.avif");
+  --act-prisoner: url("../../assets/ui/acts/prisoner.avif");
+  --act-robot_evil: url("../../assets/ui/acts/robot_evil.avif");
+  --act-ghoul_old: url("../../assets/ui/acts/ghoul_old.avif");
+  --act-zombie: url("../../assets/ui/acts/zombie.avif");
+  --act-knight_golden: url("../../assets/ui/acts/knight_golden.avif");
+  --act-robot_golden: url("../../assets/ui/acts/robot_golden.avif");
+  --act-skeleton_golden: url("../../assets/ui/acts/skeleton_golden.avif");
   --img-card-arch: url("../../assets/ui/card-arch.svg");   /* the cards' arches and backs (Figma 1308:2956, 10.11.2026) */
   --img-card-arch-purple: url("../../assets/ui/card-arch-purple.svg");
   --img-card-arch-small: url("../../assets/ui/card-arch-small.svg"); /* the bank's small card */
@@ -353,10 +372,12 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.bonus.acting { background: var(--card-acting) border-box; border-color: transparent; border-radius: 21.82%; box-shadow: none; }
 .cell.bonus.acting .arch, .cell.bonus.acting .tag, .cell.bonus.acting .x2 { visibility: hidden; }
 .cell.bonus.acting .art { left: 0; top: -38.18%; width: 100%; height: 138.18%; background-size: auto 100%; border-radius: 0 0 21.82% 21.82% / 0 0 15.79% 15.79%; clip-path: none; }
-/* A hero's act on the board (hero-acts.js): the still portrait gives way to the act's atlas, one frame per cell of a
-   10-column grid, the frame filling the portrait's own square box; hero-acts.js steps background-position */
-.cell.bonus.kind-x3_pairs { --act: var(--act-x3_pairs); }
-#board .cell.bonus .art.hero-act { background-image: var(--act); background-size: 1000% 1000%; }
+/* A hero's act on its card (hero-acts.js): the act's picture lies over the portrait's square, which hides under it; in
+   the acting look that square is the box's height, centred and cut by the box like the portrait */
+.cell.bonus .art.hero-act, .boss-face.hero-act { background-image: none; }
+.act-img { position: absolute; left: 0; bottom: 0; width: 100%; height: 100%; pointer-events: none; }
+.cell.bonus.acting .art { overflow: hidden; }
+.cell.bonus.acting .art > .act-img { left: -19.09%; width: 138.18%; }
 .cell.bonus.acting { filter: none; } /* no lime glow meanwhile (owner, 10.11.2026: «выбранные карты не выделяй зеленым по контуру во время увеличения героя») */
 /* Each hero and, in the bank, its size: the small card stands the hero on the arch's foot (Figma 1308:2993), and the
    mockup's skeleton, 64 % of its picture wide at the foot, fits the 56 px arch at 72 px. The owner's other heroes are
@@ -915,14 +936,17 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
 .boss-card::before { content: ''; position: fixed; inset: 0; }
 .boss-card > div { position: relative; display: flex; align-items: center; gap: calc(14px * var(--k, 1)); width: calc(300px * var(--k, 1)); padding: calc(14px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(16px * var(--k, 1)); background: #262626; }
 .boss-card[hidden] { display: none; }
-.boss-card.show > div { animation: bossCard 2000ms cubic-bezier(.2, .8, .2, 1) both; }
-.boss-card .boss-face { width: calc(84px * var(--k, 1)); height: calc(84px * var(--k, 1)); }
+/* it comes in, stands while its keeper acts (at least 2 s), and goes (showBossCard, leaveBossCard) */
+.boss-card.show > div { animation: bossIn 160ms cubic-bezier(.2, .8, .2, 1) both; }
+.boss-card.leaving > div { animation: bossOut 240ms cubic-bezier(.2, .8, .2, 1) both; }
+.boss-card .boss-face { position: relative; width: calc(84px * var(--k, 1)); height: calc(84px * var(--k, 1)); }
 .boss-card span { display: flex; flex-direction: column; gap: calc(4px * var(--k, 1)); min-width: 0; }
 .boss-card b { font-size: calc(16px * var(--k, 1)); line-height: 1.1; font-weight: inherit; }
 .boss-card em { font-style: normal; font-size: calc(12px * var(--k, 1)); line-height: 1.15; color: var(--gold); }
 .boss-card small { font-size: calc(10px * var(--k, 1)); color: #bdbdbd; }
-@keyframes bossCard { 0% { opacity: 0; transform: translateY(calc(12px * var(--k, 1))); } 8% { opacity: 1; transform: none; } 88% { opacity: 1; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .boss-card.show > div { animation: none; } }
+@keyframes bossIn { from { opacity: 0; transform: translateY(calc(12px * var(--k, 1))); } }
+@keyframes bossOut { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .boss-card.show > div, .boss-card.leaving > div { animation: none; } }
 /* A cleared level's pay */
 .end-bells { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 calc(8px * var(--k, 1)); margin: calc(8px * var(--k, 1)) 0 0; font: 700 calc(11px * var(--k, 1))/calc(16px * var(--k, 1)) var(--font-display); color: #bdbdbd; }
 .end-bells[hidden] { display: none; }

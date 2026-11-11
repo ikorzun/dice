@@ -41,7 +41,7 @@ import { breakLine, holdLine } from './shards.js';
 import { nextUp, afterClear, bossRule, bellsPaid, BELLS_RULE } from './acts.js';
 import { withRun, submitRun, fetchBoard, hasBoard, setupBoard } from './board.js';
 import { setupPlatform, load, save, followHostAudio, gameReady, tellLevel, tell, interstitial } from './platform.js';
-import { setupHeroActs } from './hero-acts.js';
+import { setupHeroActs, playAct, warmAct, stopAct, stopActs, actMs, actingKind } from './hero-acts.js';
 
 const APP_VERSION = '0.2.0';
 const STORAGE_KEY = 'dicefool-portals.v1'; // the portals redesign starts clean: the old game's saves name keepers it no longer has
@@ -344,6 +344,7 @@ const app = {
   sheetQueue: [], // kinds whose sheet waits for the open one to close
   afterGuide: [], // card deals waiting for the guide to uncover the board
   launching: new Set(), // bank places whose card is about to fly to the board (flyFromBank)
+  sheetActs: new Map(), // kind -> the act its new card plays once its sheet is closed (turnCard)
   busy: false,
   path: [],
   tapPath: [],
@@ -541,6 +542,7 @@ function startGame(level, attempt) {
   $('levelEnd').hidden = true;
   if (level.boss) showBossCard(level); // first: the deal waits for it
   if (level.boss && BOSSES[level.boss].hands && !app.hostPaused) sfx('snip', { at: 0.3 }); // scissors cut the third ticket (under an ad, when it ends)
+  if (mode.id === 'auto' && bossNext(level.levelIndex)) warmAct(bossOf(st.runSeed, level.levelIndex + 1)); // the next keeper's act loads meanwhile
   render();
   persist(true);
   tellLevel('level_started', level.levelIndex);
@@ -1173,7 +1175,9 @@ function renderHud() {
 
 // A keeper's level opens with his card, which stands over the dice: until it goes, or a tap sends it away, nothing plays
 // by accident under it, and the cards wait for it (dealCard). Afterwards the rule is in the numbers, and in How.
+// The keeper acts on it, and it stands until he has finished, BOSS_CARD_MS at least (owner, 11.11.2026).
 const BOSS_CARD_MS = 2000;
+const BOSS_OUT_MS = 240; // its fade (styles.css: bossOut)
 function showBossCard(level) {
   const card = $('bossCard');
   const boss = BOSSES[level.boss];
@@ -1181,17 +1185,35 @@ function showBossCard(level) {
   const helps = (S().charms || []).filter((id) => boss.counters.includes(id)).map((id) => CHARMS[id].name);
   const answers = helps.length ? `<small class="answer">HELPED BY ${helps.join(', ')}</small>` : '';
   card.innerHTML = `<div><i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><small>${boss.golden ? 'GOLDEN KEEPER' : 'KEEPER'}</small><b>${boss.name}</b><em>${boss.rule}</em>${answers}</span></div>`;
+  card.dataset.boss = level.boss;
   card.hidden = false;
-  card.classList.remove('show');
+  card.classList.remove('show', 'leaving');
   void card.offsetWidth; // the animation starts over
   card.classList.add('show');
   clearTimeout(app.bossTimer);
-  if (!app.hostPaused) app.bossTimer = setTimeout(hideBossCard, BOSS_CARD_MS); // under an ad it waits (onHost)
+  if (!app.hostPaused) bossStands(); // under an ad it waits (holdGame)
+}
+
+// The keeper acts on his card; then it goes, once it has stood BOSS_CARD_MS (unless a finger holds it: bind)
+function bossStands() {
+  const card = $('bossCard');
+  const face = card.querySelector('.boss-face');
+  const since = performance.now();
+  clearTimeout(app.bossTimer);
+  playAct(face, card.dataset.boss, { wait: 2500 }).then(() => {
+    if (card.hidden || !face.isConnected || !card.classList.contains('show') || app.hostPaused) return;
+    app.bossTimer = setTimeout(() => {
+      card.classList.add('leaving');
+      app.bossTimer = setTimeout(hideBossCard, BOSS_OUT_MS);
+    }, Math.max(0, BOSS_CARD_MS - BOSS_OUT_MS - (performance.now() - since)));
+  });
 }
 
 function hideBossCard() {
   clearTimeout(app.bossTimer);
+  stopAct($('bossCard').querySelector('.boss-face'));
   $('bossCard').hidden = true;
+  $('bossCard').classList.remove('show', 'leaving');
   app.afterGuide.splice(0).forEach((start) => start()); // the deal that waited for it
 }
 
@@ -1486,6 +1508,7 @@ function renderBank() {
     const old = box.children[k];
     let el = old;
     if (b && !b.used && (!b.placed || app.launching.has(k))) {
+      warmAct(b.kind); // a kept card's hero acts when it is switched on, played, or lands on the board
       if (!el || el.dataset.kind !== b.kind) {
         el = document.createElement('template');
         el.innerHTML = guideTile(b.kind, false).replace('<span class="cell ', `<span role="button" tabindex="0" data-k="${k}" data-kind="${b.kind}" class="new cell `);
@@ -1526,6 +1549,8 @@ function flyFromBank(i, k, { delay = 0 } = {}) {
     cell.classList.add('landed');
     setTimeout(() => cell.classList.remove('landed'), 480);
     sfx('flip');
+    const c = S().game.cells[i];
+    if (c && c.type === 'bonus') heroAct(i, c.kind, { wait: 5000 }); // come from the bank, it appears on the board: its hero acts
   };
   if (reduceMotion) { land(); return; }
   setTimeout(() => {
@@ -1721,11 +1746,22 @@ function armBonus(source, cell) {
   logEvent('bonus', { armed: r.armed, off: r.off, cell, source });
   render();
   persist();
+  if (M().id === 'auto') { // switched on, its hero acts once; switched off, it stops (owner, 11.11.2026)
+    const card = cell >= BANK ? st.game.bank[cell - BANK] : st.game.cells[cell];
+    const off = cell >= BANK ? card.off : st.game.off[cell];
+    if (off) stopAct(cardArt(cell));
+    else if (actingKind(cardArt(cell)) !== card.kind) heroAct(cell, card.kind, { wait: 1000 });
+  }
 }
 
 // Bonus cards (owner, 02.11.2026). A kind is seen once a card of it was turned over (or, before cards, its
 // sheet was shown).
 const cardSeen = (kind) => !!(S().tips[`seen:${kind}`] || S().tips[`sheet:${kind}`]);
+// A hero acts on its card at three moments only (owner, 11.11.2026, in place of the acts now and then): when the card
+// first appears on the board, once each time the player switches it on, and when it is played; a played card waits
+// for its hero, and a tap skips (playedActs). `i` is a board cell, or BANK + k for the bank's place k.
+const cardArt = (i) => (i < BANK ? els.cells[i] : document.querySelector(`#bank .cell[data-k="${i - BANK}"]`))?.querySelector('.art');
+const heroAct = (i, kind, opts) => playAct(cardArt(i), kind, opts);
 const cardLabel = (kind) => BONUS_KINDS[kind].label; // the name alone: the multiplier is on the sticker
 // The sticker's sign smaller than its number, as on the mockup (×3, +1); the joker has none.
 const cardSticker = (kind) => (kind === 'joker' ? '' : `<small>${BONUS_KINDS[kind].symbol[0]}</small>${BONUS_KINDS[kind].symbol.slice(1)}`);
@@ -1754,6 +1790,7 @@ function dealCard(g, i) {
   const order = g.cells.slice(0, i).filter((c) => c.type === 'bonus' && c.fromBank == null).length;
   clearTimeout(cell.dealTimer);
   cell.waiting = true;
+  warmAct(g.cells[i].kind); // its hero's act loads while it lies face down
   const deal = {};
   cell.deal = deal;
   const start = () => { if (cell.deal === deal) cell.dealTimer = setTimeout(() => turnCard(i), DEAL_FIRST_MS + DEAL_NEXT_MS * order); };
@@ -1776,6 +1813,10 @@ function turnCard(i, { sheet = true } = {}) {
   renderCell(i);
   flipCard(cell);
   sfx('flip');
+  // its hero acts once it is face up; a new kind's sheet dims the board, so that card acts when its sheet is closed
+  const act = () => { if (!actingKind(cardArt(i))) heroAct(i, c.kind, { wait: 5000 }); };
+  if (first && sheet) app.sheetActs.set(c.kind, act);
+  else setTimeout(act, 420);
   if (!first) return;
   logEvent('card', { kind: c.kind, cell: i });
   persist();
@@ -1791,6 +1832,9 @@ function queueSheet(kind) {
 
 function closeBonusSheet() {
   $('bonusSheet').hidden = true;
+  const act = app.sheetActs.get(app.sheetKind); // the new card this sheet was about acts now
+  app.sheetActs.delete(app.sheetKind);
+  if (act) act();
   const next = app.sheetQueue.shift();
   if (next) setTimeout(() => showBonusSheet(next), 250);
   else if (S().game.phase === 'playing' && !app.busy) render(); // the tutorial's line and finger come now
@@ -1812,6 +1856,7 @@ const BONUS_WHAT = {
 // A bottom sheet with the bonus die, its name and what it does (owner, 01.11.2026).
 function showBonusSheet(kind) {
   S().tips[`sheet:${kind}`] = true;
+  app.sheetKind = kind;
   app.sheetAt = performance.now(); // the finger that opened it lifts over the backdrop: that is not a close
   $('bonusSheetTile').innerHTML = guideTile(kind, false); // as it lies on the board: off, until tapped
   $('bonusSheetName').textContent = BONUS_KINDS[kind].label; // the multiplier is on the card's sticker
@@ -1983,9 +2028,6 @@ async function attemptBank(path, source) {
   const spent = r.spent || []; // the cards the hand used: a new die or a card from the bank takes each cell
   const popped = throw3d ? spent : [...hand.cells, ...spent];
   const faded = throw3d ? [] : r.burned ? r.burned.filter((i) => !hand.cells.includes(i)) : [];
-  popped.forEach((i) => els.cells[i].classList.add('bank-pop'));
-  faded.forEach((i) => els.cells[i].classList.add('burn'));
-  if (!throw3d) sfx('burn');
   renderHud();
   if (mode.id === 'auto') countUp($('target'), remaining(g.score, g), remaining(st.game.score, g), 250);
   renderControls();
@@ -1999,6 +2041,10 @@ async function attemptBank(path, source) {
   }
   renderPath();
   setPreview(`${hand.label} +${hand.total}`, 'good');
+  if (mode.id === 'auto') await playedActs(hand); // the cards it used make way only once their heroes have acted
+  popped.forEach((i) => els.cells[i].classList.add('bank-pop'));
+  faded.forEach((i) => els.cells[i].classList.add('burn'));
+  if (!throw3d) sfx('burn');
   await wait(last ? Math.max(T.bank, T.reveal) : T.bank); // the last hand's count finishes first
   if (burning.length) app.fire.out(); // the dice have burnt away: before they come back for the refill
   if (last) [...r.burned, ...spent].forEach((i) => els.cells[i].classList.add('gone')); // they stay away under the summary
@@ -2078,6 +2124,16 @@ function cardFrames(sc, keys = CARD_WIN) {
   return frames;
 }
 
+// The cards a hand used act, and the board waits for their heroes; any tap skips (owner, 11.11.2026: «Ждать конца»).
+function playedActs(hand) {
+  const used = [...hand.bonusCells, ...(hand.jokerCells || [])];
+  const acts = used.filter((i, k) => cardArt(i) && actMs(hand.bonuses[k])).map((i) => heroAct(i, hand.bonuses[used.indexOf(i)]));
+  if (!acts.length) return Promise.resolve();
+  const skip = (e) => { if (e.isPrimary === false) return; app.skipUntil = performance.now() + 300; stopActs(); };
+  addEventListener('pointerdown', skip, true);
+  return Promise.all(acts).then(() => removeEventListener('pointerdown', skip, true));
+}
+
 function playWin(hand, g0) {
   const st = S();
   const g = st.game;
@@ -2097,6 +2153,7 @@ function playWin(hand, g0) {
   };
   const box = (el) => el.getBoundingClientRect();
   app.endPlaying = true;
+  stopActs(); // the heroes rest: a win's own cards act anew (playWin), a loss has no poses
   for (const cell of els.cells) if (cell.waiting) clearTimeout(cell.dealTimer); // a card still face down waits
   finishLevel(); // the record and the bank first: a reload in the middle shows the cleared screen
   const end = $('levelEnd');
@@ -2124,13 +2181,18 @@ function playWin(hand, g0) {
   // each card the hand used rises and tilts, one after another, in its acting look while it moves (Figma 1327:1705: no
   // text, no arch, the hero bigger)
   const order = used.filter((i) => cardEl(i)).sort((a, b) => a - b);
+  // its hero acts in that look, and the board stays until the last hero has finished: the black and the cleared
+  // screen come `lag` ms later; a tap still skips to the pick (owner, 11.11.2026: «Ждать конца»)
+  const hold = reduceMotion ? 0 : Math.max(0, ...order.map((i, k) => (actMs(kindOf(i)) ? WIN.step * k + actMs(kindOf(i)) : 0)));
+  const lag = Math.max(0, hold - (WIN.snap + 60));
   order.forEach((i, k) => at(WIN.step * k, () => {
     if (reduceMotion) return;
     const el = cardEl(i);
     el.style.zIndex = '2'; // over its neighbours, under the fire and the count
     el.classList.add('acting');
     moved.push(el);
-    play(el, cardFrames(el.offsetWidth / 118.7), { dur: ACT_MS, fill: 'none' }).finished.then(() => el.classList.remove('acting'), () => {});
+    const acted = heroAct(i, kindOf(i));
+    play(el, cardFrames(el.offsetWidth / 118.7), { dur: ACT_MS, fill: 'none' }).finished.then(() => acted.then(() => el.classList.remove('acting')), () => {});
   }));
   // the dice of the hand rise with it; with no card, they hop together instead
   const dice = rung.map((i) => els.cells[i]); // each rises on its note
@@ -2210,9 +2272,9 @@ function playWin(hand, g0) {
     const oy = line.y + line.h / 2;
     const far = Math.ceil(Math.hypot(Math.max(ox, innerWidth - ox), Math.max(oy, innerHeight - oy))) + 24 * u;
     const frames = Array.from({ length: 10 }, (_, i) => ({ clipPath: blot(ox, oy, 18 * u + ((far - 18 * u) * i) / 9, 12 * u) }));
-    play(black, frames, { dur: WIN.cover, start: WIN.snap + 60, easing: 'cubic-bezier(0.55, 0.05, 0.67, 0.19)' });
+    play(black, frames, { dur: WIN.cover, start: WIN.snap + 60 + lag, easing: 'cubic-bezier(0.55, 0.05, 0.67, 0.19)' });
   }
-  at(reduceMotion ? 300 : WIN.black, () => { // the board is covered: the cleared screen's own black takes over
+  at(reduceMotion ? 300 : WIN.black + lag, () => { // the board is covered: the cleared screen's own black takes over
     end.classList.remove('playing');
     if (app.fire) app.fire.out();
     rv.className = 'reveal';
@@ -2221,23 +2283,23 @@ function playWin(hand, g0) {
 
   // the cleared screen rises: the title and the score, the badges, the pick, the three choices
   const rise = (el, start, dy = 8, dur = 260) => el && play(el, reduceMotion ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${dy * u}px) scale(.96)` }, { opacity: 1, transform: 'none' }], { dur: reduceMotion ? 200 : dur, start: reduceMotion ? 300 : start, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
-  rise($('endTitle'), WIN.title);
-  rise(end.querySelector('.end-score'), WIN.title);
-  rise($('endBells'), WIN.badges, 0, 240);
-  rise($('endBest'), WIN.badges, 0, 240);
-  rise(end.querySelector('.up-head'), WIN.pick, 6, 240);
-  rise(end.querySelector('.up-sub'), WIN.pick, 6, 240);
-  play($('endAct'), [{ opacity: 0 }, { opacity: 1 }], { dur: reduceMotion ? 200 : 160, start: reduceMotion ? 300 : WIN.act });
+  rise($('endTitle'), WIN.title + lag);
+  rise(end.querySelector('.end-score'), WIN.title + lag);
+  rise($('endBells'), WIN.badges + lag, 0, 240);
+  rise($('endBest'), WIN.badges + lag, 0, 240);
+  rise(end.querySelector('.up-head'), WIN.pick + lag, 6, 240);
+  rise(end.querySelector('.up-sub'), WIN.pick + lag, 6, 240);
+  play($('endAct'), [{ opacity: 0 }, { opacity: 1 }], { dur: reduceMotion ? 200 : 160, start: reduceMotion ? 300 : WIN.act + lag });
   end.querySelectorAll('.up').forEach((el, k) => {
     if (reduceMotion) { rise(el, 300); return; }
-    play(el, [{ opacity: 0, transform: `translateY(${24 * u}px) scale(.97)` }, { opacity: 1, transform: 'none' }], { dur: 320, start: WIN.choices + 60 * k, easing: 'cubic-bezier(0.16, 1.12, 0.3, 1)' });
-    at(WIN.choices + 60 * k, () => ringNote(k + 3, 0.25)); // the upgrades land softly, the count's last notes again
+    play(el, [{ opacity: 0, transform: `translateY(${24 * u}px) scale(.97)` }, { opacity: 1, transform: 'none' }], { dur: 320, start: WIN.choices + lag + 60 * k, easing: 'cubic-bezier(0.16, 1.12, 0.3, 1)' });
+    at(WIN.choices + lag + 60 * k, () => ringNote(k + 3, 0.25)); // the upgrades land softly, the count's last notes again
   });
 
   // a tap skips to the pick; that tap does not pick
   const skip = (e) => { if (e.isPrimary === false) return; app.skipUntil = performance.now() + 300; finish(); };
   addEventListener('pointerdown', skip, true);
-  at(reduceMotion ? 500 : WIN.ready, finish);
+  at(reduceMotion ? 500 : WIN.ready + lag, finish);
   function finish() {
     if (done) return;
     done = true;
@@ -2246,6 +2308,7 @@ function playWin(hand, g0) {
     anims.forEach((a) => a.cancel()); // every element back to its own look: the cleared screen as drawn
     hush();
     breakSound();
+    stopActs(); // a tap that skips ends the heroes' acts too
     if (shards) shards.stop();
     extras.forEach((el) => el.remove());
     moved.forEach((el) => { el.style.zIndex = ''; el.style.visibility = ''; el.classList.remove('acting'); });
@@ -2287,6 +2350,7 @@ function playLoss(hand, g0) {
   };
   const box = (el) => el.getBoundingClientRect();
   app.endPlaying = true;
+  stopActs(); // the heroes rest: a win's own cards act anew (playWin), a loss has no poses
   for (const cell of els.cells) if (cell.waiting) clearTimeout(cell.dealTimer); // a card still face down waits
   finishLevel({ cells: g0.cells, faces: g0.faces, held: g0.held, off: g0.off }); // the run and the board as played first
   const end = $('levelEnd');
@@ -2821,7 +2885,7 @@ function bind() {
   $('shopLeave').addEventListener('click', (e) => { e.stopPropagation(); leaveShop(); });
   // a press holds the card up and its click sends it away: gone sooner, the click would land on the button under it
   $('bossCard').addEventListener('click', hideBossCard);
-  $('bossCard').addEventListener('pointerdown', () => { clearTimeout(app.bossTimer); $('bossCard').classList.remove('show'); }); // nor does it fade under the finger
+  $('bossCard').addEventListener('pointerdown', () => { clearTimeout(app.bossTimer); $('bossCard').classList.remove('show', 'leaving'); }); // nor does it fade under the finger
   for (const type of ['pointerup', 'pointercancel']) $('bossCard').addEventListener(type, () => { app.bossTimer = setTimeout(hideBossCard, 300); });
   $('runsBtn').addEventListener('click', openRuns);
   $('runsClose').addEventListener('click', () => { $('runsSheet').hidden = true; });
@@ -2908,7 +2972,7 @@ function init() {
   buildBoard();
   bind();
   setLook('modern'); // the mockup's black screen; the other looks have no switch any more
-  setupHeroActs({ quiet: () => !app.busy && !app.endPlaying, reduceMotion }); // the monkey's act now and then
+  setupHeroActs({ reduceMotion, url: cssUrl }); // the heroes' and keepers' acts (heroAct, showBossCard)
   const soundOn = load(SOUND_KEY) !== '0';
   $('optSound').checked = soundOn;
   setupSound((n) => cssUrl(`--sfx-${n}`), soundOn); // read on the first touch: Safari can run this before the stylesheet is in
@@ -2943,12 +3007,14 @@ function holdGame(paused) {
   app.hostPaused = paused;
   if (paused) {
     clearTimeout(app.bossTimer);
+    stopActs(); // the heroes and the keeper rest under an ad
     for (const cell of els.cells) if (cell.waiting) clearTimeout(cell.dealTimer);
     return;
   }
   if (!$('bossCard').hidden) {
     if (BOSSES[S().game.level.boss].hands) sfx('snip', { at: 0.3 });
-    app.bossTimer = setTimeout(hideBossCard, BOSS_CARD_MS);
+    $('bossCard').classList.remove('leaving');
+    bossStands(); // the keeper acts now, and his card goes after
     return;
   }
   const g = S().game;
