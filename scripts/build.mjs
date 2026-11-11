@@ -38,6 +38,7 @@ const MODULES = [
   'src/ui/acts.js',
   'src/ui/platform.js',
   'src/ui/board.js',
+  'src/ui/hero-acts.js',
   'src/ui/app.js',
 ];
 

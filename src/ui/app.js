@@ -41,6 +41,7 @@ import { breakLine, holdLine } from './shards.js';
 import { nextUp, afterClear, bossRule, bellsPaid, BELLS_RULE } from './acts.js';
 import { withRun, submitRun, fetchBoard, hasBoard, setupBoard } from './board.js';
 import { setupPlatform, load, save, followHostAudio, gameReady, tellLevel, tell, interstitial } from './platform.js';
+import { setupHeroActs } from './hero-acts.js';
 
 const APP_VERSION = '0.2.0';
 const STORAGE_KEY = 'dicefool-portals.v1'; // the portals redesign starts clean: the old game's saves name keepers it no longer has
@@ -2907,6 +2908,7 @@ function init() {
   buildBoard();
   bind();
   setLook('modern'); // the mockup's black screen; the other looks have no switch any more
+  setupHeroActs({ quiet: () => !app.busy && !app.endPlaying, reduceMotion }); // the monkey's act now and then
   const soundOn = load(SOUND_KEY) !== '0';
   $('optSound').checked = soundOn;
   setupSound((n) => cssUrl(`--sfx-${n}`), soundOn); // read on the first touch: Safari can run this before the stylesheet is in
