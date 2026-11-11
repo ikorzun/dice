@@ -2935,13 +2935,19 @@ function init() {
   fitBoard();
   switchMode(app.modeId, { silent: true });
   requestAnimationFrame(fitBoard);
-  window.__diceSnake = { app, version: APP_VERSION, state: () => S(), mode: () => M(), hint: () => E().hintFor(S().game), switchMode, setLook, LOOKS, dice3d: dice3dStatus, setDice3D };
+  window.__diceSnake = { app, version: APP_VERSION, state: () => S(), mode: () => M(), hint: () => E().hintFor(S().game), switchMode, setLook, LOOKS, dice3d: dice3dStatus, setDice3D, endSplash };
 }
 
 // The platform pauses the game (an ad between levels, another tab): the sound goes, and the new level's deal and its
 // boss's card wait under the ad instead of playing out unseen (Playgama 2.1.6). On its return they go on.
 function onHost(silent, paused) {
   setHostSilent(silent);
+  app.hostHeld = paused;
+  holdGame(paused || !!app.splashing);
+}
+
+// The game waits while the platform pauses it or the splash is up, and goes on when neither does.
+function holdGame(paused) {
   if (paused === !!app.hostPaused) return;
   app.hostPaused = paused;
   if (paused) {
@@ -2958,8 +2964,42 @@ function onHost(silent, paused) {
   if (g && g.phase === 'playing' && $('guide').hidden) els.cells.forEach((cell, i) => { if (cell.waiting) dealCard(g, i); });
 }
 
+// The splash (owner, 11.11.2026: «нам не нужен экран загрузки и все же я хочу показывать подобный экран 3 секунды при
+// первом входе или следующей сессии. Портал текущий из библиотеки, руки любые, вещи 3 штуки по 1 секунде на вещь»;
+// Figma 1333:1876): up from the first paint, over everything, 3 s at every start of the page; the game waits under it
+// as under an ad (no deal, no boss's timer, no sound). Any pair of hands, three things of the pools one second each.
+const SPLASH_HANDS = ['skeleton', 'robot-gold', 'wizard-purple', 'monkey'];
+const SPLASH_THINGS = ['diamond', 'crown-gold', 'goldcoin', 'magicball', 'ring-golden', 'heart', 'disco-ball', 'rose', 'bell'];
+const SPLASH_MS = 3000;
+function runSplash() {
+  const el = $('splash');
+  if (!el) return;
+  app.splashing = true;
+  holdGame(true);
+  const pick = (pool) => pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+  el.querySelector('.splash-hands').style.backgroundImage = `var(--img-splash-hands-${pick([...SPLASH_HANDS])})`;
+  const pool = [...SPLASH_THINGS];
+  const things = [...el.querySelectorAll('.splash-thing')];
+  for (const t of things) t.style.backgroundImage = `var(--img-splash-thing-${pick(pool)})`;
+  const step = (k) => things.forEach((t, i) => { t.classList.toggle('on', i === k); t.classList.toggle('gone', i < k); });
+  el.classList.add('run');
+  requestAnimationFrame(() => step(0)); // after a frame in the start pose, so the first thing rises too
+  app.splashTimers = [setTimeout(() => step(1), SPLASH_MS / 3), setTimeout(() => step(2), (2 * SPLASH_MS) / 3), setTimeout(endSplash, SPLASH_MS)];
+}
+
+function endSplash() {
+  if (!app.splashing) return;
+  app.splashing = false;
+  app.splashTimers.forEach(clearTimeout);
+  const el = $('splash');
+  el.classList.add('leaving');
+  setTimeout(() => { el.hidden = true; }, 320);
+  holdGame(!!app.hostHeld);
+}
+
 // On Playgama the Bridge and the saves come first (its required steps); everywhere else this resolves at once.
 function start() {
+  runSplash();
   init();
   followHostAudio(onHost);
   requestAnimationFrame(() => requestAnimationFrame(gameReady)); // the first screen is up and takes taps

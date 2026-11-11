@@ -48,6 +48,8 @@ const state = (page) => page.evaluate(() => {
 // A 3D throw (when the CDN is reachable) outlasts the CSS tumble: wait until the game is free again.
 const idle = (page) => page.waitForFunction(() => !window.__diceSnake.app.busy, null, { timeout: 10000 });
 const gotIt = async (page) => { await page.waitForTimeout(550); await page.click('#bonusSheetOk'); }; // a sheet answers half a second after it comes
+// the splash covers every start for 3 s (checked once, on the first page); elsewhere it goes at once
+const unsplash = async (page) => { await page.evaluate(() => window.__diceSnake.endSplash()); await page.waitForTimeout(350); };
 
 // The play screen is the owner's base and nothing else (owner, 06.11.2026): every text on it outside the board.
 const BASE_TEXT = new Set(['bank', 'toast', 'levelStat', 'levelText', 'bonesLabel', 'bones', 'handTotal', 'multSticker', 'targetStat', 'target', 'playBtn', 'rerollBtn', 'helpBtn', 'handName', 'handMult']);
@@ -73,6 +75,16 @@ for (const vp of viewports) {
   page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) note(vp, `console ${m.text()}`); });
   await page.goto(url);
   await page.waitForSelector('#board .cell');
+  // the splash (owner, 11.11.2026; Figma 1333:1876): over everything at every start, any hands and three things one
+  // second each, the game held under it; 3 s later it is gone and the game goes on
+  const splash = await page.evaluate(() => {
+    const s = document.getElementById('splash');
+    const things = [...s.querySelectorAll('.splash-thing')].map((e) => e.style.backgroundImage);
+    return { shown: !s.hidden, run: s.classList.contains('run'), things: new Set(things.filter(Boolean)).size, hands: !!s.querySelector('.splash-hands').style.backgroundImage, held: window.__diceSnake.app.hostPaused };
+  });
+  if (!splash.shown || !splash.run || splash.things !== 3 || !splash.hands || !splash.held) note(vp, `the splash: ${JSON.stringify(splash)}`);
+  await page.waitForFunction(() => document.getElementById('splash').hidden, null, { timeout: 4500 });
+  if (await page.evaluate(() => window.__diceSnake.app.hostPaused)) note(vp, 'the game stayed held after the splash');
   await page.waitForTimeout(150);
   const auto = () => page.evaluate(() => {
     const g = window.__diceSnake.state().game;
@@ -99,7 +111,7 @@ for (const vp of viewports) {
   if (!(await page.$eval('#board .cell[data-index="8"]', (e) => e.classList.contains('face-down')))) note(vp, 'the ×2 card is not dealt face down');
   await page.waitForTimeout(300);
   const turning = await page.$eval('#board .cell[data-index="8"]', (e) => ({ cls: e.className, anim: getComputedStyle(e).animationName }));
-  if (/face-down/.test(turning.cls) || turning.anim !== 'cardFlip') note(vp, `the ×2 card did not turn over by itself: ${JSON.stringify(turning)}`);
+  if (/face-down/.test(turning.cls) || !/^cardFlip\b/.test(turning.anim)) note(vp, `the ×2 card did not turn over by itself: ${JSON.stringify(turning)}`);
   await page.waitForFunction(() => !document.getElementById('bonusSheet').hidden, null, { timeout: 3000 }).catch(() => {});
   const sheet = await page.evaluate(() => ({ open: !document.getElementById('bonusSheet').hidden, name: document.getElementById('bonusSheetName').textContent, off: window.__diceSnake.state().game.off[8] }));
   if (!sheet.open || !/ANY HAND/.test(sheet.name) || !sheet.off) note(vp, `bonus sheet: ${JSON.stringify(sheet)}`);
@@ -314,6 +326,7 @@ for (const vp of viewports) {
   const beforeReload = await auto();
   await page.reload();
   await page.waitForSelector('#board .cell');
+  await unsplash(page);
   const after = await auto();
   if (after.level !== beforeReload.level || JSON.stringify(after.faces) !== JSON.stringify(beforeReload.faces)) note(vp, 'state not restored after reload');
 
@@ -374,6 +387,7 @@ for (const vp of viewports) {
   if (fresh.level !== 1 || fresh.phase !== 'playing' || fresh.runScore !== 0 || Object.keys(fresh.ups).length || fresh.bank.length || (await text('#levelText')) !== '1') note(vp, `new run: ${JSON.stringify(fresh)}`);
   await page.reload();
   await page.waitForSelector('#board .cell');
+  await unsplash(page);
   const kept = await page.evaluate(() => window.__diceSnake.state().best);
   if (!kept || kept.level !== reachedLevel) note(vp, `the record did not survive a reload: ${JSON.stringify(kept)}`);
 
@@ -416,6 +430,7 @@ for (const vp of viewports) {
   await page.waitForTimeout(300);
   await page.reload();
   await page.waitForSelector('#board .cell');
+  await unsplash(page);
   await page.waitForTimeout(300);
   const back = await page.evaluate(() => ({ shown: !document.getElementById('levelEnd').hidden, cls: document.getElementById('levelEnd').className, ups: [...document.querySelectorAll('#upList .up')].map((b) => getComputedStyle(b).opacity) }));
   if (!back.shown || !/\bwon\b/.test(back.cls) || /playing|waiting/.test(back.cls) || back.ups.length !== 3 || back.ups.some((o) => o !== '1')) note(vp, `reload in the win moment: ${JSON.stringify(back)}`);
@@ -430,6 +445,7 @@ for (const vp of viewports) {
   if (saved.phase !== 'lost' || !saved.counted || !saved.board) note(vp, `the run was not counted with its board at PLAY: ${JSON.stringify(saved)}`);
   await page.reload();
   await page.waitForSelector('#board .cell');
+  await unsplash(page);
   await page.waitForTimeout(300);
   const again = await receipt();
   if (!receiptOk(again)) note(vp, `reload in the loss moment: ${JSON.stringify(again)}`);
@@ -455,6 +471,16 @@ for (const vp of viewports) {
   });
   await idle(page);
   if ((await extras(page)).length) note(vp, `more than the base with bells, a charm and a bank: ${await extras(page)}`);
+  // the bank's cards are the small card (Figma 1308:2993, 1333:1740): white whatever the colour (the joker is purple), the
+  // name black, the hero cut by the arch (owner, 11.11.2026: «герои должны внизу помещаться в рамку на карте»)
+  const minis = await page.$$eval('#bank .cell.bonus', (els) => els.map((c) => {
+    const art = c.querySelector('.art');
+    const cut = getComputedStyle(art).clipPath;
+    const a = art.getBoundingClientRect();
+    const r = c.querySelector('.arch').getBoundingClientRect();
+    return { kind: c.className.match(/kind-(\S+)/)?.[1], ground: getComputedStyle(c).backgroundColor, ink: getComputedStyle(c.querySelector('.tag')).color, cut, foot: Math.round(a.bottom - r.bottom) };
+  }));
+  for (const m of minis) if (m.ground !== 'rgb(255, 255, 255)' || m.ink !== 'rgb(0, 0, 0)' || !/inset/.test(m.cut) || Math.abs(m.foot) > 1) note(vp, `a bank card: ${JSON.stringify(m)}`);
   // a tap on a kept card before the first reroll: the rule, in gold, over the header row and not over the dice
   await page.click('#bank .cell[data-k="0"]');
   const told = await page.evaluate(() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect(); const t = box('#toast'); const h = box('.hud'); return { text: document.getElementById('toast').textContent, cls: document.getElementById('toast').className, top: t.top, bottom: t.bottom, hud: [h.top, h.bottom] }; });
@@ -485,6 +511,7 @@ for (const vp of viewports) {
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-13-shop.png` });
   await page.reload();
   await page.waitForSelector('#board .cell');
+  await unsplash(page);
   await page.waitForTimeout(300);
   if (!(await page.$eval('#shop', (e) => !e.hidden))) note(vp, 'a reload lost the shop');
   await page.click('.ware:nth-child(2)');
@@ -540,6 +567,7 @@ for (const vp of viewports) {
   await page.click('#guideNext');
   await page.reload();
   await page.waitForSelector('#board .cell');
+  await unsplash(page);
   await page.waitForTimeout(200);
   if (!(await page.$eval('#bossCard', (e) => !e.hidden))) note(vp, 'a reload on a boss\'s level did not show his card');
   await ctx.close();
@@ -559,7 +587,7 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   page.on('pageerror', (e) => note(vp, `pageerror ${e.message}`));
   await page.goto(url);
   await page.waitForSelector('#board .cell');
-  await page.waitForTimeout(300);
+  await unsplash(page);
   for (let n = 0; n < 4; n++) {
     const cut = await outside(page, '#guide :is(h1, h2, p, li, button)');
     const under = await page.evaluate((meetSrc) => {
@@ -636,7 +664,7 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   page.on('pageerror', (e) => note(vp, `playgama pageerror ${e.message}`));
   await page.goto(pathToFileURL(resolve('dist/playgama/index.html')).href);
   await page.waitForFunction(() => window.__diceSnake, null, { timeout: 10000 });
-  await page.waitForTimeout(300);
+  await unsplash(page);
   const calls = () => page.evaluate(() => window.__pg.splice(0));
   const start = await calls();
   if (start[0] !== 'initialize' || start[1] !== 'get 4' || !start.includes('msg game_ready') || start.indexOf('msg game_ready') < start.indexOf('get 4')) note(vp, `playgama start: ${start.join(', ')}`);
@@ -673,6 +701,7 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
   page.on('pageerror', (e) => note(vp, `pageerror ${e.message}`));
   await page.goto(url);
   await page.waitForSelector('#board .cell');
+  await unsplash(page);
   await page.evaluate(({ KINDS }) => {
     const d = window.__diceSnake; const st = d.state();
     st.onboarded = true; st.coached = true; st.coach.active = false;
@@ -716,13 +745,14 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
   const tilt = await page.evaluate(() => new Promise((resolve) => {
     const cells = document.querySelectorAll('#board .cell');
     const angle = (i) => { const m = new DOMMatrix(getComputedStyle(cells[i]).transform); return (Math.atan2(m.b, m.a) * 180) / Math.PI; };
-    // the acting look (Figma 1327:1705): no name, no multiplier, no lime ring, the portrait about 138% of the card, standing
-    // on its bottom
+    // the acting look (Figma 1327:1705, 1327:1717): no name, no multiplier, no lime ring, the arch's gradient over the
+    // whole card, every corner alike, the portrait about 138% of the card, standing on its bottom
     const acting = (i) => {
       const c = cells[i];
       const art = c.querySelector('.art');
+      const cs = getComputedStyle(c);
       return c.classList.contains('acting') && getComputedStyle(c.querySelector('.tag')).visibility === 'hidden' && getComputedStyle(c.querySelector('.x2')).visibility === 'hidden'
-        && getComputedStyle(c, '::after').content === 'none'
+        && getComputedStyle(c, '::after').content === 'none' && /radial-gradient/.test(cs.backgroundImage) && cs.borderTopRightRadius === cs.borderTopLeftRadius
         && Math.abs(art.offsetHeight / c.clientHeight - 1.3818) < 0.02 && Math.abs(art.offsetTop + art.offsetHeight - c.clientHeight) < 1.5;
     };
     document.getElementById('playBtn').click();

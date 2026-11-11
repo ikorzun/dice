@@ -9,7 +9,10 @@ Hand only, as an endless run that a missed target ends; the other modes keep the
 (`#tabs` hidden, `app.modeId` forced to `auto`). This branch (`claude/dicefool-portals`) is the owner's portals redesign
 (MODE3-PLAN §38): his portraits (`New img/Characters`, packed by `scripts/portraits.py` into `assets/ui/portraits/`) are
 the ten heroes of the cards and the nine keepers of every fifth level, still pictures; the cards follow Figma 1308:2956
-(§39: the acting look while a card moves, the bank's small card). Mockup art lives in `assets/ui/`, the font
+(§39: the acting look while a card moves, the bank's small card). Every start of the page opens with a 3 s portal
+splash over the game, which waits under it (Figma 1333:1876, §40, `runSplash`; pictures by `scripts/splash.py`; tests end
+it with `__diceSnake.endSplash()`). Animation is rigid and smooth, like paper cutouts or animatronics: no squash and
+stretch (owner, 11.11.2026). Mockup art lives in `assets/ui/`, the font
 (Basteleur Bold, OFL) in `assets/fonts/`; the build inlines both into `dist/`. The screen is one
 of two mockups (phone column, or desktop/landscape with the board left of a panel: `body.wide`)
 scaled by `--k`, picked by `fitBoard` in `app.js` for the bigger board: write every size as
