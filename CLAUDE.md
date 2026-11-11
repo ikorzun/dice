@@ -11,7 +11,8 @@ Hand only, as an endless run that a missed target ends; the other modes keep the
 the ten heroes of the cards and the nine keepers of every fifth level, still pictures; the cards follow Figma 1308:2956
 (§39: the acting look while a card moves, the bank's small card). Every start of the page opens with a 3 s portal
 splash over the game, which waits under it (Figma 1333:1876, §40, `runSplash`; pictures by `scripts/splash.py`; tests end
-it with `__diceSnake.endSplash()`). Animation is rigid and smooth, like paper cutouts or animatronics: no squash and
+it with `__diceSnake.endSplash()`); after it comes the board, with no title even on a first visit (its tutorial is on
+the board, the rules are How's pages). Animation is rigid and smooth, like paper cutouts or animatronics: no squash and
 stretch (owner, 11.11.2026). Mockup art lives in `assets/ui/`, the font
 (Basteleur Bold, OFL) in `assets/fonts/`; the build inlines both into `dist/`. The screen is one
 of two mockups (phone column, or desktop/landscape with the board left of a panel: `body.wide`)

@@ -30,7 +30,7 @@ import {
 } from '../engine/auto.js';
 import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from '../engine/levels.js';
 import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
-import { generateRunLevel, runTarget, RUN3_VERSION } from '../engine/run3.js';
+import { generateRunLevel, RUN3_VERSION } from '../engine/run3.js';
 import { upgradeOffer, withUpgrade } from '../engine/upgrades3.js';
 import { CHARMS, CHARM_SLOTS, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood } from '../engine/shop3.js';
 import { BOSSES, bossOf } from '../engine/bosses3.js';
@@ -786,6 +786,11 @@ function switchMode(id, { silent = false } = {}) {
   $('help').hidden = true;
   const st = S();
   if (!st.runSeed) st.runSeed = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  // a first visit has no title and no guide: after the splash, straight onto the board with its tutorial on it (owner,
+  // 11.11.2026: «этого экрана нигде быть не должно, после него сразу игровое поле»); the rules stay in How. Marked
+  // before the deal, so the first cards are dealt as on any visit (under the splash they wait for its end).
+  const first = !st.onboarded;
+  st.onboarded = true;
   if (!st.game) newLevel();
   else if (st.game.phase !== 'playing') {
     render();
@@ -798,7 +803,10 @@ function switchMode(id, { silent = false } = {}) {
     if (id === 'auto' && st.game.level.boss) showBossCard(st.game.level); // nothing else on the board says who he is
     render();
   }
-  if (!st.onboarded) openGuide('intro');
+  if (first) {
+    logEvent('onboarded', { tutorial: true });
+    coachStart('onboarding');
+  }
   if (!silent && from !== id) logEvent('mode_switch', { from, to: id });
   persist();
 }
@@ -809,7 +817,7 @@ function coachStart(source) {
   st.coach = { active: true, done: { hold: false, reroll: false } };
   logEvent('tutorial_start', { source });
   render();
-  persist(true); // the tutorial starts: a reload must not bring the title back
+  persist(true); // the tutorial starts: a reload must not start it over
 }
 
 function coachStop(reason) {
@@ -1739,7 +1747,7 @@ function flipCard(cell, delay = 0) {
 }
 
 // A new layout deals every card face down; they turn over by themselves in board order, 2 s apart, counted
-// from when the board shows (the first visit's guide covers it until it closes).
+// from when the board shows (How, a keeper's card, an ad or the splash covers it until it goes).
 function dealCard(g, i) {
   const cell = els.cells[i];
   const order = g.cells.slice(0, i).filter((c) => c.type === 'bonus' && c.fromBank == null).length;
@@ -1748,7 +1756,7 @@ function dealCard(g, i) {
   const deal = {};
   cell.deal = deal;
   const start = () => { if (cell.deal === deal) cell.dealTimer = setTimeout(() => turnCard(i), DEAL_FIRST_MS + DEAL_NEXT_MS * order); };
-  if ($('guide').hidden && S().onboarded && $('bossCard').hidden && !app.hostPaused) start(); // a first visit draws the board just before its guide opens; a boss's card goes first; an ad first ends
+  if ($('guide').hidden && $('bossCard').hidden && !app.hostPaused) start(); // How open: after it; a boss's card goes first; an ad or the splash first ends
   else app.afterGuide.push(start);
 }
 
@@ -2585,27 +2593,26 @@ const GUIDE_BONUSES = { x2_any: 'ANY HAND', x3_straight: 'STRAIGHT', x3_pairs: '
 const guideDie = (v, held) => `<i class="gdie${held ? ' held' : ''}" style="--f: var(--face-${v})"></i>`; // the baked faces
 const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="arch"></span><span class="art" data-kind="${kind}"></span><span class="tag">${cardLabel(kind)}</span><span class="x2">${cardSticker(kind)}</span></span>`; // a card face up
 
-function openGuide(mode) {
+// The guide is How alone since the first visit lost its title and pages (owner, 11.11.2026): the rules, the run's
+// multipliers with upgrades in yellow, every card.
+function openGuide() {
   const guide = $('guide');
-  const ups = mode === 'help' ? S().ups || {} : {}; // the Bible shows the run's multipliers, upgrades in yellow
+  const ups = S().ups || {};
   $('combos').innerHTML = GUIDE_COMBOS.map(([cat, dice]) => `<li><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}</b><em${ups[cat] ? ' class="raised"' : ''}>×${AUTO_MULT[cat] + (ups[cat] || 0)}</em></li>`).join('');
   $('holdPic').innerHTML = `<span class="grp"><span>${[6, 6, 6].map((v) => guideDie(v, true)).join('')}</span><small>TAP = HOLD</small></span><span class="grp roll"><span>${[2, 4].map((v) => guideDie(v)).join('')}</span><small>REROLL</small></span>`;
-  const help = mode === 'help';
-  $('bonusPic').innerHTML = help
-    ? `<ul class="bonus-list">${Object.keys(GUIDE_BONUSES).map((k) => `<li>${guideTile(k, false)}<small>${GUIDE_BONUSES[k]}</small></li>`).join('')}</ul>`
-    : `<span class="tap">${guideTile('x2_any', false)}</span><span class="goal"><small>THRESHOLD</small><b>${runTarget(1)}</b><small>IN 3 HANDS</small></span>`;
-  $('bonusNote').textContent = help ? 'TAP TO SWITCH ON · THEY ADD UP' : 'MISS ONE AND THE RUN IS OVER';
+  $('bonusPic').innerHTML = `<ul class="bonus-list">${Object.keys(GUIDE_BONUSES).map((k) => `<li>${guideTile(k, false)}<small>${GUIDE_BONUSES[k]}</small></li>`).join('')}</ul>`;
+  $('bonusNote').textContent = 'THEY ADD UP'; // no «tap to switch on» in any popup (owner, 11.11.2026)
   // How says the one rule no screen shows in words since the card's sheet lost its line (audit, 09.11.2026)
-  $('holdNote').innerHTML = help ? 'PLAY THROWS EVERY DIE ANEW<br>A REROLL CLEARS HOLDS AND SWITCHES CARDS OFF' : 'PLAY THROWS EVERY DIE ANEW';
+  $('holdNote').innerHTML = 'PLAY THROWS EVERY DIE ANEW<br>A REROLL CLEARS HOLDS AND SWITCHES CARDS OFF';
   // How opens on what the run holds, once it holds anything; the rules follow it
-  const run = help && (S().bells > 0 || S().charms.length > 0 || !!S().game.level.boss);
+  const run = S().bells > 0 || S().charms.length > 0 || !!S().game.level.boss;
   if (run) renderRunFacts();
-  const first = run ? 0 : help ? 1 : 0;
-  app.guide = { mode, run, first, page: first };
-  guide.classList.toggle('help', help);
+  const first = run ? 0 : 1;
+  app.guide = { run, first, page: first };
+  guide.classList.add('help');
   guide.classList.toggle('run', run);
-  $('guideSkip').textContent = help ? 'CLOSE' : 'SKIP';
-  $('guideSettings').hidden = !help;
+  $('guideSkip').textContent = 'CLOSE';
+  $('guideSettings').hidden = false;
   showGuidePage(app.guide.page);
   guide.hidden = false;
 }
@@ -2664,42 +2671,24 @@ async function guideRollLoop(token) {
 }
 
 function showGuidePage(page) {
-  const { mode, run } = app.guide;
-  const help = mode === 'help';
-  const title = page === 0 && !help; // How has the run's page in the title's place
+  const { run } = app.guide;
   app.guide.page = page;
   if (page === 2) guideRolls();
-  $('guide').querySelectorAll('.guide-page').forEach((el) => { el.hidden = Number(el.dataset.page) !== (page === 0 && help ? 4 : page); });
+  // the run's page stands first (page 0 shows it)
+  $('guide').querySelectorAll('.guide-page').forEach((el) => { el.hidden = Number(el.dataset.page) !== (page === 0 ? 4 : page); });
   $('guideDots').querySelectorAll('i').forEach((dot, k) => dot.classList.toggle('on', k === (run ? page : page - 1)));
-  $('guideDots').hidden = title;
-  $('guideSkip').hidden = title;
-  $('guideNext').textContent = title ? 'PLAY' : page < 3 ? 'NEXT' : help ? 'GOT IT' : "LET'S ROLL";
+  $('guideNext').textContent = page < 3 ? 'NEXT' : 'GOT IT';
 }
 
 function guideNext() {
   if (app.guide.page < 3) showGuidePage(app.guide.page + 1);
-  else closeGuide(true);
+  else guideGone();
 }
 
-// The first visit ends in the tutorial on the board, or straight in the game after SKIP.
 // The guide is gone: the board shows, and a deal waiting behind it starts.
 function guideGone() {
   $('guide').hidden = true;
   app.afterGuide.splice(0).forEach((start) => start());
-}
-
-function closeGuide(tutorial) {
-  guideGone();
-  if (app.guide.mode !== 'intro') return;
-  const st = S();
-  st.onboarded = true;
-  logEvent('onboarded', { tutorial });
-  if (tutorial) {
-    coachStart('onboarding');
-    return;
-  }
-  st.coached = true;
-  persist(true);
 }
 
 function renderScoreTable() {
@@ -2813,7 +2802,7 @@ function bind() {
   els.pathModeBtn.addEventListener('click', togglePathMode);
   els.undoBtn.addEventListener('click', () => { if (app.busy) return; app.tapPath.pop(); render(); });
   els.bankTapBtn.addEventListener('click', () => attemptBank(app.tapPath.slice(), 'tap'));
-  els.helpBtn.addEventListener('click', () => { if (!app.busy) openGuide('help'); });
+  els.helpBtn.addEventListener('click', () => { if (!app.busy) openGuide(); });
   $('lookBtn').addEventListener('click', cycleLook);
   $('optLook').addEventListener('change', () => setLook($('optLook').value));
   $('optDice3d').addEventListener('change', () => setDice3D($('optDice3d').checked));
@@ -2857,7 +2846,7 @@ function bind() {
   $('retryBtn').addEventListener('click', onRetry);
   $('bonusSheet').addEventListener('click', (e) => { if ((e.target === e.currentTarget || e.target.closest('#bonusSheetTile, #bonusSheetOk')) && performance.now() - app.sheetAt > 500) closeBonusSheet(); });
   $('guideNext').addEventListener('click', guideNext);
-  $('guideSkip').addEventListener('click', () => closeGuide(false));
+  $('guideSkip').addEventListener('click', guideGone);
   $('guideSettings').addEventListener('click', () => { guideGone(); openHelp(); });
   let swipeX = null; // swiping the guide turns its pages
   $('guide').addEventListener('pointerdown', (e) => { swipeX = e.clientX; });

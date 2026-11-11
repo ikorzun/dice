@@ -83,38 +83,26 @@ for (const vp of viewports) {
     return { shown: !s.hidden, run: s.classList.contains('run'), things: new Set(things.filter(Boolean)).size, hands: !!s.querySelector('.splash-hands').style.backgroundImage, held: window.__diceSnake.app.hostPaused };
   });
   if (!splash.shown || !splash.run || splash.things !== 3 || !splash.hands || !splash.held) note(vp, `the splash: ${JSON.stringify(splash)}`);
+  // the first visit has no title and no guide (owner, 11.11.2026: «этого экрана нигде быть не должно, после него сразу
+  // игровое поле»): under the splash the board waits with its tutorial and the ×2 card face down
+  const first = await page.evaluate(() => ({ guide: !document.getElementById('guide').hidden, title: !!document.getElementById('gameName'), tutorial: window.__diceSnake.state().coach.active, down: document.querySelector('#board .cell[data-index="8"]').classList.contains('face-down') }));
+  if (first.guide || first.title || !first.tutorial || !first.down) note(vp, `the first visit under the splash: ${JSON.stringify(first)}`);
   await page.waitForFunction(() => document.getElementById('splash').hidden, null, { timeout: 4500 });
   if (await page.evaluate(() => window.__diceSnake.app.hostPaused)) note(vp, 'the game stayed held after the splash');
-  await page.waitForTimeout(150);
   const auto = () => page.evaluate(() => {
     const g = window.__diceSnake.state().game;
     return { mode: window.__diceSnake.mode().id, cells: g.cells.map((c) => c.type), faces: g.faces, held: g.held, off: g.off, hands: g.hands.length, handsLeft: g.handsLeft, rerollsLeft: g.rerollsLeft, phase: g.phase, score: g.score, target: g.level.target, level: g.level.levelIndex, hand: window.__diceSnake.hint() };
   });
   const text = (sel) => page.$eval(sel, (el) => el.textContent);
-  // the first visit: the title, then three pages, combinations first; no page scrolls
-  if (!(await page.$eval('#guide', (el) => !el.hidden))) note(vp, 'the first screen is not shown on the first visit');
-  const name = await page.$eval('#gameName', (e) => e.textContent.replace(/\s+/g, ' ').trim());
-  if (name !== 'DICEFOOL') note(vp, `title: ${name}`);
-  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-0-title.png` });
-  for (let n = 1; n <= 3; n++) {
-    await page.click('#guideNext');
-    await page.waitForTimeout(250);
-    const pg = await page.evaluate(() => { const g = document.getElementById('guide'); return { over: g.scrollHeight - g.clientHeight, page: [...g.querySelectorAll('.guide-page')].findIndex((el) => !el.hidden) }; });
-    if (pg.page !== n || pg.over > 0) note(vp, `guide page ${n}: ${JSON.stringify(pg)}`);
-    if (n === 1 && !/STRAIGHT\s*×8/.test(await text('#combos'))) note(vp, 'the combinations page does not list the straight × 8');
-    await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-0-guide-${n}.png` });
-  }
-  await page.click('#guideNext'); // LET'S ROLL: the tutorial on the board
-  // the ×2 card is dealt face down and turns over by itself (owner, 02.11.2026); a kind never seen brings
-  // its sheet a second later, and the bonus stays off
-  await page.waitForTimeout(80);
-  if (!(await page.$eval('#board .cell[data-index="8"]', (e) => e.classList.contains('face-down')))) note(vp, 'the ×2 card is not dealt face down');
-  await page.waitForTimeout(300);
+  // after the splash the ×2 card turns over by itself (owner, 02.11.2026); a kind never seen brings its sheet a
+  // second later, and the bonus stays off
+  await page.waitForFunction(() => !document.querySelector('#board .cell[data-index="8"]').classList.contains('face-down'), null, { timeout: 1500 }).catch(() => {});
   const turning = await page.$eval('#board .cell[data-index="8"]', (e) => ({ cls: e.className, anim: getComputedStyle(e).animationName }));
   if (/face-down/.test(turning.cls) || !/^cardFlip\b/.test(turning.anim)) note(vp, `the ×2 card did not turn over by itself: ${JSON.stringify(turning)}`);
   await page.waitForFunction(() => !document.getElementById('bonusSheet').hidden, null, { timeout: 3000 }).catch(() => {});
-  const sheet = await page.evaluate(() => ({ open: !document.getElementById('bonusSheet').hidden, name: document.getElementById('bonusSheetName').textContent, off: window.__diceSnake.state().game.off[8] }));
-  if (!sheet.open || !/ANY HAND/.test(sheet.name) || !sheet.off) note(vp, `bonus sheet: ${JSON.stringify(sheet)}`);
+  // no line about switching the card on in it (owner, 11.11.2026: «убери эту строку во всех попапах и на всех платформах»)
+  const sheet = await page.evaluate(() => ({ open: !document.getElementById('bonusSheet').hidden, name: document.getElementById('bonusSheetName').textContent, off: window.__diceSnake.state().game.off[8], switchLine: /SWITCH IT ON/.test(document.getElementById('bonusSheet').textContent) }));
+  if (!sheet.open || !/ANY HAND/.test(sheet.name) || !sheet.off || sheet.switchLine) note(vp, `bonus sheet: ${JSON.stringify(sheet)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-0-bonus-sheet.png` });
   if (await page.evaluate(() => { window.__diceSnake.app.sheetAt = performance.now(); document.getElementById('bonusSheetOk').click(); return document.getElementById('bonusSheet').hidden; })) note(vp, 'GOT IT closed the sheet the moment it came');
   await gotIt(page);
@@ -202,10 +190,12 @@ for (const vp of viewports) {
   if (!/SWITCH IT ON/.test(await text('#coachText'))) note(vp, `tutorial does not ask to switch the ×2 on: "${await text('#coachText')}"`);
   await tap(page, 8);
   if ((await auto()).off[8]) note(vp, 'tapping the turned card did not switch it on');
-  const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, sticker: document.getElementById('multSticker').textContent, whole: `×${window.__diceSnake.hint().hand.mult * window.__diceSnake.hint().hand.bonusMult}`, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className }));
+  // the card switched on glows lime under itself, nothing over its picture (Figma 1308:2958; owner, 11.11.2026: «выделение
+  // не должно быть поверх рисунка. Сделай подсветку под выбранной картой»)
+  const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, glow: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).filter, ring: getComputedStyle(document.querySelector('#board .cell[data-index="8"]'), '::after').content, sticker: document.getElementById('multSticker').textContent, whole: `×${window.__diceSnake.hint().hand.mult * window.__diceSnake.hint().hand.bonusMult}`, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className }));
   // the whole multiplier: on the lime sticker on the phone, in the hand's row on the desktop
   const multiplier = layout.wide ? (await text('#handMult')).replace('MULTI ', '') : on.sticker;
-  if (!/\bon\b/.test(on.cell) || multiplier !== on.whole || (!layout.wide && on.shown === 'none') || !/\bon\b/.test(on.stat)) note(vp, `bonus on: ${JSON.stringify({ ...on, multiplier })}`);
+  if (!/\bon\b/.test(on.cell) || !/drop-shadow\(rgba\(187, 243, 80/.test(on.glow) || on.ring !== 'none' || multiplier !== on.whole || (!layout.wide && on.shown === 'none') || !/\bon\b/.test(on.stat)) note(vp, `bonus on: ${JSON.stringify({ ...on, multiplier })}`);
   const playPulse = await page.$eval('#playBtn', (b) => b.classList.contains('pulse'));
   if (!playPulse || !/PLAY THE HAND/.test(await text('#coachText'))) note(vp, `tutorial play step: pulse=${playPulse}, "${await text('#coachText')}"`);
   // off again keeps it for later, on again uses it
@@ -309,10 +299,10 @@ for (const vp of viewports) {
   const invisible = await page.$$eval('#board .cell.die', (els) => els.filter((e) => e.classList.contains('bank-pop') || Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
   if (invisible.length) note(vp, `dice invisible after a new level: [${invisible}]`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-8-level2.png` });
-  // the Bible: the run's page once it has bells, the guide's pages without the title, every bonus, then the settings
+  // the Bible: the run's page once it has bells, else the guide's pages, every bonus, then the settings
   await page.click('#helpBtn');
   await page.waitForTimeout(300);
-  const bible = await page.evaluate(() => ({ open: !document.getElementById('guide').hidden, page: [...document.querySelectorAll('.guide-page')].findIndex((el) => !el.hidden), close: document.getElementById('guideSkip').textContent }));
+  const bible = await page.evaluate(() => ({ open: !document.getElementById('guide').hidden, page: Number(document.querySelector('.guide-page:not([hidden])').dataset.page), close: document.getElementById('guideSkip').textContent }));
   if (!bible.open || bible.page !== (firstWon ? 4 : 1) || bible.close !== 'CLOSE') note(vp, `Bible: ${JSON.stringify(bible)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-9-help.png` });
   for (let n = firstWon ? 0 : 1; n < 3; n++) await page.click('#guideNext');
@@ -472,7 +462,7 @@ for (const vp of viewports) {
   await idle(page);
   if ((await extras(page)).length) note(vp, `more than the base with bells, a charm and a bank: ${await extras(page)}`);
   // the bank's cards are the small card (Figma 1308:2993, 1333:1740): white whatever the colour (the joker is purple), the
-  // name black, the hero cut by the arch (owner, 11.11.2026: «герои должны внизу помещаться в рамку на карте»)
+  // name black, the hero whole and standing on the arch's bottom, never cut (owner, 11.11.2026: «выполнено не по макету»)
   const minis = await page.$$eval('#bank .cell.bonus', (els) => els.map((c) => {
     const art = c.querySelector('.art');
     const cut = getComputedStyle(art).clipPath;
@@ -480,7 +470,7 @@ for (const vp of viewports) {
     const r = c.querySelector('.arch').getBoundingClientRect();
     return { kind: c.className.match(/kind-(\S+)/)?.[1], ground: getComputedStyle(c).backgroundColor, ink: getComputedStyle(c.querySelector('.tag')).color, cut, foot: Math.round(a.bottom - r.bottom) };
   }));
-  for (const m of minis) if (m.ground !== 'rgb(255, 255, 255)' || m.ink !== 'rgb(0, 0, 0)' || !/inset/.test(m.cut) || Math.abs(m.foot) > 1) note(vp, `a bank card: ${JSON.stringify(m)}`);
+  for (const m of minis) if (m.ground !== 'rgb(255, 255, 255)' || m.ink !== 'rgb(0, 0, 0)' || m.cut !== 'none' || Math.abs(m.foot) > 1) note(vp, `a bank card: ${JSON.stringify(m)}`);
   // a tap on a kept card before the first reroll: the rule, in gold, over the header row and not over the dice
   await page.click('#bank .cell[data-k="0"]');
   const told = await page.evaluate(() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect(); const t = box('#toast'); const h = box('.hud'); return { text: document.getElementById('toast').textContent, cls: document.getElementById('toast').className, top: t.top, bottom: t.bottom, hud: [h.top, h.bottom] }; });
@@ -587,8 +577,11 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   page.on('pageerror', (e) => note(vp, `pageerror ${e.message}`));
   await page.goto(url);
   await page.waitForSelector('#board .cell');
+  await page.evaluate(() => { window.__diceSnake.state().tips['seen:x2_any'] = true; }); // no card's sheet over the rules
   await unsplash(page);
-  for (let n = 0; n < 4; n++) {
+  await page.click('#helpBtn'); // the first visit has no guide: the rules are How's pages
+  await page.waitForTimeout(250);
+  for (let n = 1; n <= 3; n++) {
     const cut = await outside(page, '#guide :is(h1, h2, p, li, button)');
     const under = await page.evaluate((meetSrc) => {
       const meet = new Function(`return ${meetSrc}`)();
@@ -668,7 +661,6 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   const calls = () => page.evaluate(() => window.__pg.splice(0));
   const start = await calls();
   if (start[0] !== 'initialize' || start[1] !== 'get 4' || !start.includes('msg game_ready') || start.indexOf('msg game_ready') < start.indexOf('get 4')) note(vp, `playgama start: ${start.join(', ')}`);
-  for (let n = 0; n < 4; n++) { await page.click('#guideNext'); await page.waitForTimeout(150); }
   await page.waitForFunction(() => !document.getElementById('bonusSheet').hidden, null, { timeout: 6000 });
   await gotIt(page);
   await calls();
@@ -701,6 +693,7 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
   page.on('pageerror', (e) => note(vp, `pageerror ${e.message}`));
   await page.goto(url);
   await page.waitForSelector('#board .cell');
+  await page.evaluate(() => { window.__diceSnake.state().tips['seen:x2_any'] = true; }); // the first visit's card brings no sheet
   await unsplash(page);
   await page.evaluate(({ KINDS }) => {
     const d = window.__diceSnake; const st = d.state();
@@ -745,14 +738,14 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
   const tilt = await page.evaluate(() => new Promise((resolve) => {
     const cells = document.querySelectorAll('#board .cell');
     const angle = (i) => { const m = new DOMMatrix(getComputedStyle(cells[i]).transform); return (Math.atan2(m.b, m.a) * 180) / Math.PI; };
-    // the acting look (Figma 1327:1705, 1327:1717): no name, no multiplier, no lime ring, the arch's gradient over the
+    // the acting look (Figma 1327:1705, 1327:1717): no name, no multiplier, no lime glow, the arch's gradient over the
     // whole card, every corner alike, the portrait about 138% of the card, standing on its bottom
     const acting = (i) => {
       const c = cells[i];
       const art = c.querySelector('.art');
       const cs = getComputedStyle(c);
       return c.classList.contains('acting') && getComputedStyle(c.querySelector('.tag')).visibility === 'hidden' && getComputedStyle(c.querySelector('.x2')).visibility === 'hidden'
-        && getComputedStyle(c, '::after').content === 'none' && /radial-gradient/.test(cs.backgroundImage) && cs.borderTopRightRadius === cs.borderTopLeftRadius
+        && getComputedStyle(c, '::after').content === 'none' && cs.filter === 'none' && /radial-gradient/.test(cs.backgroundImage) && cs.borderTopRightRadius === cs.borderTopLeftRadius
         && Math.abs(art.offsetHeight / c.clientHeight - 1.3818) < 0.02 && Math.abs(art.offsetTop + art.offsetHeight - c.clientHeight) < 1.5;
     };
     document.getElementById('playBtn').click();
