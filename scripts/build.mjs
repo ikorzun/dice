@@ -90,7 +90,7 @@ const bundle = `(() => {\n'use strict';\n${MODULES.map(transform).join('\n')}\n}
 const html = readFileSync('index.html', 'utf8');
 // The files the stylesheet points at (font, bonus art, icons) become data URIs, so the built pages
 // stand alone wherever they are opened.
-const MIME = { '.mp3': 'audio/mpeg', '.otf': 'font/otf', '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
+const MIME = { '.mp3': 'audio/mpeg', '.otf': 'font/otf', '.ttf': 'font/ttf', '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
 // The heroes' and keepers' acts (hero-acts.js) are too heavy to inline (14 MB): they stay files, loaded when needed.
 // dist/index.html takes them from the repository's assets (GitHub Pages serves both), the Playgama archive carries its
 // own copy, and the claude.ai fragment has none (its portraits stand still).

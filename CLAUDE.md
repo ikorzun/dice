@@ -10,8 +10,8 @@ Hand only, as an endless run that a missed target ends; the other modes keep the
 (MODE3-PLAN §38): his portraits (`New img/Characters`, packed by `scripts/portraits.py` into `assets/ui/portraits/`) are
 the ten heroes of the cards and the nine keepers of every fifth level, still pictures that come alive only in their acts
 (`hero-acts.js`, animated AVIF in `assets/ui/acts/`, files beside the page, never inlined: a card when it appears on the board,
-is switched on or is played, a keeper on his card; MODE3-PLAN §38); the cards follow Figma 1308:2956
-(§39: the acting look while a card moves, the bank's small card). Every start of the page opens with a 3 s portal
+is switched on or is played, a keeper on his card; MODE3-PLAN §38); the cards follow Figma 1339:2155 «Cards»
+(§41: each hero's own colours, arch and back, the acting look while a card moves, the bank's small card; §39 before it); a card's popup (a new kind, a long press) follows Figma 1340:923 / 1333:1761 (§42). Every start of the page opens with a 3 s portal
 splash over the game, which waits under it (Figma 1333:1876, §40, `runSplash`; pictures by `scripts/splash.py`; tests end
 it with `__diceSnake.endSplash()`); after it comes the board, with no title even on a first visit (its tutorial is on
 the board, the rules are How's pages). Animation is rigid and smooth, like paper cutouts or animatronics: no squash and

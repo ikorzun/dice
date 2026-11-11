@@ -102,9 +102,31 @@ for (const vp of viewports) {
   await page.waitForFunction(() => !document.getElementById('bonusSheet').hidden, null, { timeout: 3000 }).catch(() => {});
   // no line about switching the card on in it (owner, 11.11.2026: «убери эту строку во всех попапах и на всех платформах»)
   const sheet = await page.evaluate(() => ({ open: !document.getElementById('bonusSheet').hidden, name: document.getElementById('bonusSheetName').textContent, off: window.__diceSnake.state().game.off[8], switchLine: /SWITCH IT ON/.test(document.getElementById('bonusSheet').textContent) }));
-  if (!sheet.open || !/ANY HAND/.test(sheet.name) || !sheet.off || sheet.switchLine) note(vp, `bonus sheet: ${JSON.stringify(sheet)}`);
+  if (!sheet.open || sheet.name !== 'Any hand' || !sheet.off || sheet.switchLine) note(vp, `bonus sheet: ${JSON.stringify(sheet)}`);
+  // the card's popup (Figma 1340:923, 1333:1761): a 90 % black mate; the hero's card in its acting look, 160 of the mockup's
+  // px, on the phone 139 below the board's top, on the desktop centred on the board and panel; the line in Basteleur
+  // Moonlight; a white PLAY. Measured once it has come in (the mate fades 200 ms, the column rises 160 ms)
+  await page.waitForTimeout(250);
+  const pop = await page.evaluate(() => {
+    const k = parseFloat(document.documentElement.style.getPropertyValue('--k'));
+    const card = document.querySelector('#bonusSheetTile .cell').getBoundingClientRect();
+    const board = document.getElementById('board').getBoundingClientRect();
+    const col = document.querySelector('#bonusSheet .popup-card').getBoundingClientRect();
+    const ok = getComputedStyle(document.getElementById('bonusSheetOk'));
+    const wide = document.body.classList.contains('wide');
+    return {
+      wide,
+      mate: getComputedStyle(document.getElementById('bonusSheet')).backgroundColor,
+      acting: document.querySelector('#bonusSheetTile .cell').classList.contains('acting'),
+      size: card.width / k,
+      off: wide ? (col.top + col.height / 2 - (board.top + board.height / 2)) / k : (card.top - board.top) / k, // the desktop's board is as tall as its panel
+      light: document.fonts.check(`300 18px "Basteleur Moonlight"`) && getComputedStyle(document.getElementById('bonusSheetWhat')).fontFamily.replace(/"/g, '').startsWith('Basteleur Moonlight'),
+      ok: [document.getElementById('bonusSheetOk').textContent, ok.backgroundColor],
+    };
+  });
+  if (pop.mate !== 'rgba(0, 0, 0, 0.9)' || !pop.acting || Math.abs(pop.size - 160) > 1 || Math.abs(pop.off - (pop.wide ? 0 : 139)) > 2 || !pop.light || pop.ok.join() !== 'PLAY,rgb(255, 255, 255)') note(vp, `card popup: ${JSON.stringify(pop)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-0-bonus-sheet.png` });
-  if (await page.evaluate(() => { window.__diceSnake.app.sheetAt = performance.now(); document.getElementById('bonusSheetOk').click(); return document.getElementById('bonusSheet').hidden; })) note(vp, 'GOT IT closed the sheet the moment it came');
+  if (await page.evaluate(() => { window.__diceSnake.app.sheetAt = performance.now(); document.getElementById('bonusSheetOk').click(); return document.getElementById('bonusSheet').hidden; })) note(vp, 'PLAY closed the card popup the moment it came');
   await gotIt(page);
   await page.waitForTimeout(150);
   let a = await auto();
@@ -190,12 +212,13 @@ for (const vp of viewports) {
   if (!/SWITCH IT ON/.test(await text('#coachText'))) note(vp, `tutorial does not ask to switch the ×2 on: "${await text('#coachText')}"`);
   await tap(page, 8);
   if ((await auto()).off[8]) note(vp, 'tapping the turned card did not switch it on');
-  // the card switched on glows lime under itself, nothing over its picture (Figma 1308:2958; owner, 11.11.2026: «выделение
-  // не должно быть поверх рисунка. Сделай подсветку под выбранной картой»)
-  const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, glow: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).filter, ring: getComputedStyle(document.querySelector('#board .cell[data-index="8"]'), '::after').content, sticker: document.getElementById('multSticker').textContent, whole: `×${window.__diceSnake.hint().hand.mult * window.__diceSnake.hint().hand.bonusMult}`, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className }));
+  // the card switched on glows under itself in its own colour, nothing over its picture (Figma 1308:2958; owner, 11.11.2026:
+  // «выделение не должно быть поверх рисунка. Сделай подсветку под выбранной картой», «у выбранной карты используй подсветку
+  // на основе ее фонового цвета»)
+  const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, glow: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).filter, ground: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).backgroundColor, ring: getComputedStyle(document.querySelector('#board .cell[data-index="8"]'), '::after').content, sticker: document.getElementById('multSticker').textContent, whole: `×${window.__diceSnake.hint().hand.mult * window.__diceSnake.hint().hand.bonusMult}`, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className }));
   // the whole multiplier: on the lime sticker on the phone, in the hand's row on the desktop
   const multiplier = layout.wide ? (await text('#handMult')).replace('MULTI ', '') : on.sticker;
-  if (!/\bon\b/.test(on.cell) || !/drop-shadow\(rgba\(187, 243, 80/.test(on.glow) || on.ring !== 'none' || multiplier !== on.whole || (!layout.wide && on.shown === 'none') || !/\bon\b/.test(on.stat)) note(vp, `bonus on: ${JSON.stringify({ ...on, multiplier })}`);
+  if (!/\bon\b/.test(on.cell) || !on.glow.startsWith(`drop-shadow(${on.ground} `) || on.ring !== 'none' || multiplier !== on.whole || (!layout.wide && on.shown === 'none') || !/\bon\b/.test(on.stat)) note(vp, `bonus on: ${JSON.stringify({ ...on, multiplier })}`);
   const playPulse = await page.$eval('#playBtn', (b) => b.classList.contains('pulse'));
   if (!playPulse || !/PLAY THE HAND/.test(await text('#coachText'))) note(vp, `tutorial play step: pulse=${playPulse}, "${await text('#coachText')}"`);
   // off again keeps it for later, on again uses it
@@ -461,16 +484,18 @@ for (const vp of viewports) {
   });
   await idle(page);
   if ((await extras(page)).length) note(vp, `more than the base with bells, a charm and a bank: ${await extras(page)}`);
-  // the bank's cards are the small card (Figma 1308:2993, 1333:1740): white whatever the colour (the joker is purple), the
-  // name black, the hero whole and standing on the arch's bottom, never cut (owner, 11.11.2026: «выполнено не по макету»)
+  // the bank's cards are the small card (Figma 1339:2155 Card-mini, 11.11.2026): the hero's own lighter colour, the name
+  // black, no arch, the hero's whole portrait 64 px from 14 px over the top, never cut
   const minis = await page.$$eval('#bank .cell.bonus', (els) => els.map((c) => {
     const art = c.querySelector('.art');
-    const cut = getComputedStyle(art).clipPath;
     const a = art.getBoundingClientRect();
-    const r = c.querySelector('.arch').getBoundingClientRect();
-    return { kind: c.className.match(/kind-(\S+)/)?.[1], ground: getComputedStyle(c).backgroundColor, ink: getComputedStyle(c.querySelector('.tag')).color, cut, foot: Math.round(a.bottom - r.bottom) };
+    const r = c.getBoundingClientRect();
+    const s = 64 / r.width;
+    const hex = getComputedStyle(c).getPropertyValue('--mini-card').trim();
+    const own = /^#[0-9a-f]{6}$/i.test(hex) ? `rgb(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)})` : hex;
+    return { kind: c.className.match(/kind-(\S+)/)?.[1], ground: getComputedStyle(c).backgroundColor, own, ink: getComputedStyle(c.querySelector('.tag')).color, cut: getComputedStyle(art).clipPath, arch: getComputedStyle(c.querySelector('.arch')).display, hero: [a.left - r.left, a.top - r.top, a.width].map((v) => Math.round(v * s)) };
   }));
-  for (const m of minis) if (m.ground !== 'rgb(255, 255, 255)' || m.ink !== 'rgb(0, 0, 0)' || m.cut !== 'none' || Math.abs(m.foot) > 1) note(vp, `a bank card: ${JSON.stringify(m)}`);
+  for (const m of minis) if (m.ground !== m.own || m.ink !== 'rgb(0, 0, 0)' || m.cut !== 'none' || m.arch !== 'none' || String(m.hero) !== '0,-14,64') note(vp, `a bank card: ${JSON.stringify(m)}`);
   // a tap on a kept card before the first reroll: the rule, in gold, over the header row and not over the dice
   await page.click('#bank .cell[data-k="0"]');
   const told = await page.evaluate(() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect(); const t = box('#toast'); const h = box('.hud'); return { text: document.getElementById('toast').textContent, cls: document.getElementById('toast').className, top: t.top, bottom: t.bottom, hud: [h.top, h.bottom] }; });
@@ -724,9 +749,9 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
     const c = card.getBoundingClientRect();
     const a = art.getBoundingClientRect();
     const t = tag.getBoundingClientRect();
-    // the card mockup (Figma 1308:2956): the portrait inside the card's sides, on the arch's bottom, rising over the top
-    // by 14 px of 110 at most
-    return { kind: card.className.match(/kind-(\S+)/)?.[1], picture: getComputedStyle(art).backgroundImage !== 'none', inside: a.left >= c.left - 0.5 && a.right <= c.right + 0.5 && a.bottom <= c.bottom && a.top >= c.top - 0.14 * c.height, tag: tag.textContent, tagFits: tag.scrollWidth <= tag.clientWidth + 1 && t.left >= c.left - 0.5 && t.right <= c.right + 0.5, size: Math.round(a.width) };
+    // the card mockup (Figma 1339:2155): the portrait inside the card's sides, on the arch's bottom, rising over the top
+    // by 15 px of 110 (16 at most: the card's 1 px border does not scale with it)
+    return { kind: card.className.match(/kind-(\S+)/)?.[1], picture: getComputedStyle(art).backgroundImage !== 'none', inside: a.left >= c.left - 0.5 && a.right <= c.right + 0.5 && a.bottom <= c.bottom && a.top >= c.top - (16 / 110) * c.height, tag: tag.textContent, tagFits: tag.scrollWidth <= tag.clientWidth + 1 && t.left >= c.left - 0.5 && t.right <= c.right + 0.5, size: Math.round(a.width) };
   }));
   for (const f of faces) if (!f.picture || !f.inside || !f.tagFits || f.size < 40) note(vp, `a hero's card: ${JSON.stringify(f)}`);
   if (faces[1].tag !== 'TWO SIXES') note(vp, `Bigfoot's tag: ${faces[1].tag}`);
@@ -738,15 +763,17 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
   const tilt = await page.evaluate(() => new Promise((resolve) => {
     const cells = document.querySelectorAll('#board .cell');
     const angle = (i) => { const m = new DOMMatrix(getComputedStyle(cells[i]).transform); return (Math.atan2(m.b, m.a) * 180) / Math.PI; };
-    // the acting look (Figma 1327:1705, 1327:1717): no name, no multiplier, no lime glow, the arch's gradient over the
-    // whole card, every corner alike, the portrait about 138% of the card, standing on its bottom
+    // the acting look (Figma 1339:2155 Card-animation): no name, no multiplier, no glow, the hero's own colour over
+    // the whole card, every corner alike, the portrait's square 152 px of the card's 108 inside, standing on its bottom
     const acting = (i) => {
       const c = cells[i];
       const art = c.querySelector('.art');
       const cs = getComputedStyle(c);
+      const hex = cs.getPropertyValue('--card').trim();
+      const own = /^#[0-9a-f]{6}$/i.test(hex) ? `rgb(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)})` : hex;
       return c.classList.contains('acting') && getComputedStyle(c.querySelector('.tag')).visibility === 'hidden' && getComputedStyle(c.querySelector('.x2')).visibility === 'hidden'
-        && getComputedStyle(c, '::after').content === 'none' && cs.filter === 'none' && /radial-gradient/.test(cs.backgroundImage) && cs.borderTopRightRadius === cs.borderTopLeftRadius
-        && Math.abs(art.offsetHeight / c.clientHeight - 1.3818) < 0.02 && Math.abs(art.offsetTop + art.offsetHeight - c.clientHeight) < 1.5;
+        && getComputedStyle(c, '::after').content === 'none' && cs.filter === 'none' && cs.backgroundImage === 'none' && cs.backgroundColor === own && cs.borderTopRightRadius === cs.borderTopLeftRadius
+        && Math.abs(art.offsetHeight / c.clientHeight - 152 / 108) < 0.02 && Math.abs(art.offsetTop + art.offsetHeight - c.clientHeight) < 1.5;
     };
     document.getElementById('playBtn').click();
     setTimeout(() => resolve({ knight: angle(6), bigfoot: angle(7), acting: [acting(6), acting(7)], hand: window.__diceSnake.state().game.hands.at(-1)?.bonuses }), 420);

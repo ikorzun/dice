@@ -1853,14 +1853,18 @@ const BONUS_WHAT = {
   refund: 'Play it and get one reroll back.',
 };
 
-// A bottom sheet with the bonus die, its name and what it does (owner, 01.11.2026).
+// A card's popup with its hero, its name and what it does (owner, 01.11.2026; Figma 1340:923, 11.11.2026: the hero's card
+// in its acting look, still, the name in sentence case, the line in lower case with no full stop).
 function showBonusSheet(kind) {
   S().tips[`sheet:${kind}`] = true;
   app.sheetKind = kind;
   app.sheetAt = performance.now(); // the finger that opened it lifts over the backdrop: that is not a close
-  $('bonusSheetTile').innerHTML = guideTile(kind, false); // as it lies on the board: off, until tapped
-  $('bonusSheetName').textContent = BONUS_KINDS[kind].label; // the multiplier is on the card's sticker
-  $('bonusSheetWhat').textContent = BONUS_WHAT[kind];
+  $('bonusSheetTile').innerHTML = guideTile(kind, false);
+  $('bonusSheetTile').firstElementChild.classList.add('acting'); // the hero acts on the board once the popup closes
+  const { label } = BONUS_KINDS[kind];
+  const what = BONUS_WHAT[kind];
+  $('bonusSheetName').textContent = label[0] + label.slice(1).toLowerCase();
+  $('bonusSheetWhat').textContent = what[0].toLowerCase() + what.slice(1).replace(/\.$/, '');
   $('bonusSheet').hidden = false;
   coachRender();
   persist();
@@ -2219,7 +2223,8 @@ function playWin(hand, g0) {
     const chip = document.createElement('span');
     chip.className = 'win-chip';
     chip.innerHTML = sticker.innerHTML;
-    Object.assign(chip.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, background: cs.backgroundColor, color: cs.color, fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight, letterSpacing: cs.letterSpacing });
+    // the bare multiplier is in its hero's dark ink (Figma 1339:2155): in flight over the black it rides on its card's colour
+    Object.assign(chip.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, background: getComputedStyle(cardEl(i)).backgroundColor, color: cs.color, fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight, letterSpacing: cs.letterSpacing });
     document.body.appendChild(chip);
     extras.push(chip);
     sticker.style.visibility = 'hidden'; // the sticker leaves its card for the count
