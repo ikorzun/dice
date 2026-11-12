@@ -978,46 +978,70 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
 .end-bells b { flex-basis: 100%; text-align: center; font-weight: inherit; font-size: calc(14px * var(--k, 1)); color: var(--gold); }
 .end-bells span { white-space: nowrap; }
 .end-bells em { flex-basis: 100%; font-style: normal; text-align: center; color: var(--gold); }
-/* The shop: one layout for every phone, 640 px at k = 1, and two columns on the desktop */
+/* The shop, by Apple's HIG (owner, 12.11.2026: «элементы не имеют четкой системы взаимодействия, сетка кривая, кнопки
+   разные, стили разные»). One column the board's width, two on the desktop; a 4-point grid, 8 inside a group and 16
+   between groups; one surface for every container (no outlines, the picked row's ring aside) and one tile for every
+   picture, so the six places and the three pictures share their edges. One text system: Basteleur Bold for names and
+   labels, its light cut for what a thing does (as in a card's popup, Figma 1340:923). Yellow is money alone: the bell
+   numbers and BUY. A row is the target; its price turns into BUY in the same place once it is picked (a second tap
+   buys: confirmation for a rare, costly act, digest §8); a short wallet still answers with what is missing. Every
+   target is 44 px at least. */
 .overlay.shop { background: #000; align-items: flex-start; }
-.shop-panel { display: flex; flex-direction: column; gap: calc(7px * var(--k, 1)); width: calc(378px * var(--k, 1)); max-width: 100%; height: 100%; font-family: var(--font-display); font-weight: 700; color: #fff; }
-.shop-head { display: flex; align-items: center; justify-content: space-between; height: calc(38px * var(--k, 1)); }
-.shop-head h2 { margin: 0; font: inherit; font-size: calc(30px * var(--k, 1)); line-height: 1; color: var(--gold); }
-.shop-head .wallet { padding: calc(6px * var(--k, 1)) calc(10px * var(--k, 1)); border: 1px solid var(--gold); border-radius: calc(16px * var(--k, 1)); font-size: calc(13px * var(--k, 1)); line-height: 1; white-space: nowrap; }
-.shop-head .wallet b { color: var(--gold); font-weight: inherit; font-size: calc(16px * var(--k, 1)); }
-.shop-held { display: flex; justify-content: space-between; gap: calc(10px * var(--k, 1)); }
-.shop-held > div > span { display: block; margin-bottom: calc(3px * var(--k, 1)); font-size: calc(10px * var(--k, 1)); line-height: 1; color: #8f8f8f; }
-.shop-places { display: flex; gap: calc(6px * var(--k, 1)); }
-.shop-place { position: relative; width: calc(46px * var(--k, 1)); height: calc(46px * var(--k, 1)); border: 1px solid rgba(255, 255, 255, .16); border-radius: calc(10px * var(--k, 1)); padding: 0; background: #1a1a1a; overflow: hidden; }
-.shop-place.small { width: calc(38px * var(--k, 1)); height: calc(38px * var(--k, 1)); margin-top: calc(4px * var(--k, 1)); display: grid; place-items: center; }
-.shop-place .cell { --kb: calc(.418 * var(--k, 1)); position: absolute; inset: 0; width: 100%; height: 100%; }
-.shop-place .sigil { width: 84%; height: 84%; }
-.shop-place.swap { border: calc(2px * var(--k, 1)) solid #fff; cursor: pointer; }
-.shop-place.gone { border-color: var(--bad); }
-.shop-boss { display: flex; align-items: center; gap: calc(10px * var(--k, 1)); min-height: calc(44px * var(--k, 1)); padding: 0 calc(10px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(12px * var(--k, 1)); color: #fff; }
-.shop-boss .boss-face { width: calc(38px * var(--k, 1)); height: calc(38px * var(--k, 1)); }
-.shop-boss b { display: block; font-weight: inherit; font-size: calc(13px * var(--k, 1)); line-height: 1.1; }
-.shop-boss small { display: block; margin-top: calc(2px * var(--k, 1)); font-size: calc(10px * var(--k, 1)); color: var(--gold); }
-.shop-list { flex: 0 1 calc(386px * var(--k, 1)); display: grid; grid-auto-rows: minmax(calc(86px * var(--k, 1)), 1fr); gap: calc(7px * var(--k, 1)); margin: 0; padding: 0; list-style: none; } /* tall phones give the rows the room */
-.ware { position: relative; display: grid; grid-template-columns: calc(64px * var(--k, 1)) minmax(0, 1fr) auto; align-items: center; gap: calc(10px * var(--k, 1)); min-height: calc(86px * var(--k, 1)); padding: calc(6px * var(--k, 1)) calc(10px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(14px * var(--k, 1)); cursor: pointer; }
-.ware.pick { border: calc(2px * var(--k, 1)) solid var(--gold); padding: calc(5px * var(--k, 1)) calc(9px * var(--k, 1)); }
-.ware.poor, .ware.sold { cursor: default; }
-.ware-art { position: relative; display: grid; place-items: center; width: calc(64px * var(--k, 1)); height: calc(64px * var(--k, 1)); }
+.shop-panel { --surface: rgba(255, 255, 255, .08); --tile: max(44px, calc(64px * var(--k, 1))); --place: max(44px, calc(52px * var(--k, 1))); display: flex; flex-direction: column; gap: calc(16px * var(--k, 1)); width: calc(378px * var(--k, 1)); max-width: 100%; height: 100%; font-family: var(--font-display); font-weight: 700; color: var(--fg); }
+.shop-head { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
+.shop-head h2 { margin: 0; font: 700 calc(28px * var(--k, 1))/1 var(--font-display); color: var(--fg); }
+.shop-head .wallet { display: flex; align-items: center; gap: calc(6px * var(--k, 1)); font-size: max(11px, calc(13px * var(--k, 1))); line-height: 1; letter-spacing: .08em; color: var(--muted); white-space: nowrap; }
+.shop-head .wallet .bell { width: calc(24px * var(--k, 1)); height: calc(24px * var(--k, 1)); margin: 0; }
+.shop-head .wallet b { font-weight: inherit; font-size: calc(24px * var(--k, 1)); letter-spacing: 0; color: var(--gold); }
+.shop-held { display: flex; justify-content: space-between; }
+.shop-held > div { display: flex; flex-direction: column; gap: calc(8px * var(--k, 1)); }
+.shop-held > div > span, .ware-text i, .shop-boss small { font-style: normal; font-size: max(11px, calc(11px * var(--k, 1))); line-height: 1; letter-spacing: .08em; color: var(--muted); }
+.shop-places { display: flex; gap: calc(8px * var(--k, 1)); }
+.shop-place { position: relative; display: grid; place-items: center; width: var(--place); height: var(--place); border: 0; border-radius: calc(14px * var(--k, 1)); padding: 0; background: var(--surface); overflow: hidden; }
+.shop-place .cell { --kb: calc(.4727 * var(--k, 1)); position: absolute; inset: 0; width: 100%; height: 100%; } /* 52 of the card's 110 */
+.shop-place .sigil { width: 72%; height: 72%; }
+.shop-place.swap { box-shadow: 0 0 0 2px var(--fg); cursor: pointer; } /* a full bank or belt: tap the one to replace (outside: a card fills its place) */
+.shop-place.swap:active { transform: scale(.96); }
+.shop-place.gone { box-shadow: 0 0 0 2px var(--bad); }
+.shop-place.gone > * { opacity: .4; }
+.shop-boss { display: grid; grid-template-columns: var(--tile) minmax(0, 1fr); align-items: center; column-gap: calc(12px * var(--k, 1)); padding: calc(12px * var(--k, 1)); border-radius: calc(16px * var(--k, 1)); background: var(--surface); }
+.shop-boss .boss-face { justify-self: center; width: calc(52px * var(--k, 1)); height: calc(52px * var(--k, 1)); }
+.shop-boss span { min-width: 0; display: flex; flex-direction: column; gap: calc(4px * var(--k, 1)); }
+.shop-boss b, .ware-text b { font-weight: inherit; font-size: max(13px, calc(16px * var(--k, 1))); line-height: 1.1; }
+.shop-boss em, .ware-text small, .shop-hint { font: 300 max(13px, calc(15px * var(--k, 1)))/1.15 var(--font-light); color: rgba(255, 255, 255, .8); text-transform: lowercase; }
+.shop-list { display: flex; flex-direction: column; gap: calc(8px * var(--k, 1)); margin: 0; padding: 0; list-style: none; }
+/* a row reads in order: what it is, what it does, why it is offered; the last one runs under the price, on one line */
+.ware { display: grid; grid-template-columns: var(--tile) minmax(0, 1fr) max(calc(80px * var(--k, 1)), 68px); grid-template-areas: "art name price" "art line price" "art tag tag"; align-content: center; align-items: center; column-gap: calc(12px * var(--k, 1)); min-height: 44px; padding: calc(12px * var(--k, 1)); border-radius: calc(16px * var(--k, 1)); background: var(--surface); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ware:active { background: rgba(255, 255, 255, .12); }
+.ware.pick { box-shadow: inset 0 0 0 2px var(--fg); }
+.ware.sold { cursor: default; }
+.ware.sold:active { background: var(--surface); }
+.ware.sold .ware-art, .ware.sold .ware-text { opacity: .4; }
+.ware-art { position: relative; display: grid; place-items: center; width: var(--tile); height: var(--tile); border-radius: calc(14px * var(--k, 1)); background: var(--surface); }
 .ware-art .cell { --kb: calc(.582 * var(--k, 1)); position: absolute; inset: 0; width: 100%; height: 100%; }
-.ware-art .gdice { --gd: calc(13.5px * var(--k, 1)); display: flex; flex-wrap: wrap; justify-content: center; gap: calc(2px * var(--k, 1)); }
-.ware-art .sigil { width: calc(60px * var(--k, 1)); height: calc(60px * var(--k, 1)); }
-.ware-text { min-width: 0; display: flex; flex-direction: column; gap: calc(2px * var(--k, 1)); min-width: 0; }
-.ware-text i { min-height: calc(10px * var(--k, 1)); font-style: normal; font-size: calc(9px * var(--k, 1)); line-height: calc(10px * var(--k, 1)); color: var(--gold); }
-.ware-text b { font-weight: inherit; font-size: calc(15px * var(--k, 1)); line-height: 1.1; }
-.ware-text small { font-size: calc(12px * var(--k, 1)); line-height: 1.15; color: #bdbdbd; }
-.price { min-width: calc(58px * var(--k, 1)); height: calc(32px * var(--k, 1)); padding: 0 calc(8px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(16px * var(--k, 1)); background: #000; color: var(--gold); font: 700 calc(14px * var(--k, 1))/1 var(--font-display); white-space: nowrap; }
-.ware.poor .price { color: #8f8f8f; }
-.price.buy { border-color: var(--gold); background: var(--gold); color: #000; }
-.sold-stamp { padding: calc(4px * var(--k, 1)) calc(8px * var(--k, 1)); border: 1px solid #fff; background: #000; color: #fff; font-style: normal; font-size: calc(12px * var(--k, 1)); transform: rotate(-8deg); }
-.shop-hint { min-height: calc(2 * 1.2 * 11px * var(--k, 1)); margin: 0; text-align: center; font-size: calc(11px * var(--k, 1)); line-height: 1.2; color: #bdbdbd; }
-.shop-leave { flex: none; margin-top: auto; height: calc(52px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(26px * var(--k, 1)); font-size: calc(18px * var(--k, 1)); }
+.ware-art .gdice { --gd: calc(14px * var(--k, 1)); display: flex; flex-wrap: wrap; justify-content: center; gap: calc(3px * var(--k, 1)); }
+.ware-art .sigil { width: calc(48px * var(--k, 1)); height: calc(48px * var(--k, 1)); }
+.ware-art { grid-area: art; }
+.ware-text { display: contents; }
+.ware-text b { grid-area: name; align-self: end; }
+.ware-text small { grid-area: line; align-self: start; margin-top: calc(4px * var(--k, 1)); }
+.ware-text i { grid-area: tag; margin-top: calc(8px * var(--k, 1)); }
+.ware-text i:empty { display: none; }
+.ware.bare { grid-template-areas: "art name price" "art line price"; }
+.price, .sold-stamp { grid-area: price; }
+/* the row's trailing place: the price as a value, BUY once picked, SOLD as a word; one width for all of them */
+.price { justify-self: stretch; display: flex; align-items: center; justify-content: center; gap: calc(4px * var(--k, 1)); height: max(44px, calc(44px * var(--k, 1))); padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--gold); font: 700 max(13px, calc(20px * var(--k, 1)))/1 var(--font-display); white-space: nowrap; }
+.price .bell { width: calc(22px * var(--k, 1)); height: calc(22px * var(--k, 1)); margin: 0; }
+.ware.poor .price { color: var(--muted); }
+.price.buy { padding: 0 calc(6px * var(--k, 1)); background: var(--gold); color: #000; font-size: max(13px, calc(15px * var(--k, 1))); transition: transform 100ms ease; }
+.price.buy:active { transform: scale(.98); }
+.sold-stamp { justify-self: center; font-style: normal; font-size: max(11px, calc(13px * var(--k, 1))); letter-spacing: .08em; color: var(--muted); }
+.shop-hint { min-height: calc(2 * 1.15 * max(13px, calc(15px * var(--k, 1)))); margin: 0; text-align: center; text-wrap: balance; }
+.overlay.shop .shop-leave { flex: none; margin-top: auto; height: max(44px, calc(56px * var(--k, 1))); border-radius: 999px; font-size: max(13px, calc(20px * var(--k, 1))); line-height: 1; } /* over body.wide .btn-dark, the board's own */
 body.wide .overlay.shop { align-items: center; }
-body.wide .shop-panel { display: grid; grid-template-columns: calc(360px * var(--k, 1)) 1fr; column-gap: calc(40px * var(--k, 1)); width: calc(1000px * var(--k, 1)); height: auto; }
+/* the 44 px floors (places, tiles, BUY's 13 px) do not shrink with a phone held sideways, which scales the desktop down:
+   there the columns keep the room they need, which the width has to spare (the height is what binds) */
+body.wide .shop-panel { display: grid; grid-template-columns: max(calc(360px * var(--k, 1)), 300px) 1fr; align-content: start; column-gap: calc(40px * var(--k, 1)); width: max(calc(1000px * var(--k, 1)), 760px); height: auto; }
 body.wide .shop-head, body.wide .shop-held, body.wide .shop-boss, body.wide .shop-hint { grid-column: 1; }
 body.wide .shop-list { grid-column: 2; grid-row: 1 / span 5; }
 body.wide .shop-leave { grid-column: 2; }
@@ -1074,21 +1098,10 @@ body.wide #levelEnd.run-over .run-reached { --lift: max(0px, 11px - 13px * var(-
 .hands li.end-hand { min-height: calc(70.4px * var(--k, 1)); }
 body.wide .hands li.end-hand { min-height: calc(72px * var(--k, 1)); }
 body.wide .run-reached b { font-size: max(13px, calc(20px * var(--k, 1))); }
-.shop-head .wallet b { font-size: max(13px, calc(16px * var(--k, 1))); }
-.shop-boss { flex: none; }
 body.wide .stat .label, body.wide .hand-name { line-height: calc(17.2px * var(--k, 1)); }
 .hands li.end-hand i { font-size: max(11px, calc(10.8px * var(--k, 1))); }
 .run-gap { font-size: max(11px, calc(12.7px * var(--k, 1))); }
 body.wide .run-gap { font-size: max(11px, calc(18px * var(--k, 1))); }
-.ware-text i { min-height: 0; font-size: max(11px, calc(10px * var(--k, 1))); line-height: 1.1; }
-.ware-text b { font-size: max(12px, calc(15px * var(--k, 1))); }
-.ware-text small { font-size: max(11px, calc(12px * var(--k, 1))); }
-.shop-held > div > span { font-size: max(11px, calc(10px * var(--k, 1))); }
-.shop-head .wallet { font-size: max(11px, calc(13px * var(--k, 1))); }
-.shop-boss b { font-size: max(12px, calc(13px * var(--k, 1))); }
-.shop-boss small { font-size: max(11px, calc(10.5px * var(--k, 1))); }
-.shop-hint { min-height: calc(2.4 * max(11px, calc(11px * var(--k, 1)))); font-size: max(11px, calc(11px * var(--k, 1))); }
-.price { font-size: max(12px, calc(14px * var(--k, 1))); }
 .boss-card em { font-size: max(11px, calc(12px * var(--k, 1))); }
 .boss-card small { font-size: max(11px, calc(10px * var(--k, 1))); }
 .stat .label { font-size: max(9px, calc(11px * var(--k, 1))); }
@@ -6539,6 +6552,7 @@ function openShop() {
   renderShop();
   $('shop').hidden = false;
   fitOverlay($('shop'));
+  document.fonts.ready.then(() => fitOverlay($('shop'))); // the light cut may first come here, and it sets the rows taller
 }
 
 function placeNeeded(st, good) {
@@ -6559,7 +6573,8 @@ function goodHtml(st, good, i) {
   const name = good.type === 'card' ? `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}` : good.type === 'charm' ? CHARMS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`;
   const rule = good.type === 'card' ? BONUS_WHAT[good.id].toUpperCase().replace('.', '') : good.type === 'charm' ? CHARMS[good.id].rule : `×${m} → ×${m + 1} FOR THIS RUN`;
   const price = good.sold ? '' : ready ? `BUY • ${good.price}` : `<i class="bell"></i>${good.price}`;
-  return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><i>${good.sold || good.tag === 'WILD OFFER' ? '' : good.tag}</i><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
+  const tag = good.sold || good.tag === 'WILD OFFER' ? '' : good.tag; // why it is offered; a bare row has two lines, not three
+  return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}${tag ? '' : ' bare'}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><i>${tag}</i><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
 }
 
 function renderShop() {
@@ -6578,7 +6593,7 @@ function renderShop() {
   }).join('');
   const bossId = bossNext(level) ? bossOf(st.runSeed, level + 1) : null;
   $('shopBoss').hidden = !bossId;
-  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><b>${BOSSES[bossId].name}</b><small>KEEPER NEXT · ${BOSSES[bossId].rule}</small></span>` : '';
+  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><small>KEEPER NEXT</small><b>${BOSSES[bossId].name}</b><em>${BOSSES[bossId].rule}</em></span>` : '';
   $('shopList').innerHTML = stock.map((g, i) => goodHtml(st, g, i)).join('');
   // one line, for the moment it matters: how to buy (once), what to replace, what a tapped charm does
   $('shopHint').textContent = app.shopNote || (place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'CHARM'}` : st.tips.firstBuy ? '' : 'TAP AN OFFER, THEN TAP BUY');
@@ -6598,6 +6613,8 @@ function shopTap(e) {
     if (place === (bank ? 'bank' : 'charm')) app.shopPick = { ...pick, replace: Number(bank ? bank.dataset.bank : charm.dataset.charmPlace) };
     const owned = charm && CHARMS[st.charms[Number(charm.dataset.charmPlace)]];
     if (owned) app.shopNote = `${owned.name}: ${owned.rule}`;
+    const banked = bank && !place && st.bank[Number(bank.dataset.bank)]; // a banked card answers a tap as a charm does
+    if (banked) app.shopNote = `${BONUS_KINDS[banked].label}: ${BONUS_WHAT[banked].replace(/\.$/, '')}`;
   } else if (row) {
     const slot = Number(row.dataset.slot);
     const good = st.shop.stock[slot];

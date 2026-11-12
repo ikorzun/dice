@@ -1240,6 +1240,7 @@ function openShop() {
   renderShop();
   $('shop').hidden = false;
   fitOverlay($('shop'));
+  document.fonts.ready.then(() => fitOverlay($('shop'))); // the light cut may first come here, and it sets the rows taller
 }
 
 function placeNeeded(st, good) {
@@ -1260,7 +1261,8 @@ function goodHtml(st, good, i) {
   const name = good.type === 'card' ? `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}` : good.type === 'charm' ? CHARMS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`;
   const rule = good.type === 'card' ? BONUS_WHAT[good.id].toUpperCase().replace('.', '') : good.type === 'charm' ? CHARMS[good.id].rule : `×${m} → ×${m + 1} FOR THIS RUN`;
   const price = good.sold ? '' : ready ? `BUY • ${good.price}` : `<i class="bell"></i>${good.price}`;
-  return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><i>${good.sold || good.tag === 'WILD OFFER' ? '' : good.tag}</i><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
+  const tag = good.sold || good.tag === 'WILD OFFER' ? '' : good.tag; // why it is offered; a bare row has two lines, not three
+  return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}${tag ? '' : ' bare'}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><i>${tag}</i><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
 }
 
 function renderShop() {
@@ -1279,7 +1281,7 @@ function renderShop() {
   }).join('');
   const bossId = bossNext(level) ? bossOf(st.runSeed, level + 1) : null;
   $('shopBoss').hidden = !bossId;
-  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><b>${BOSSES[bossId].name}</b><small>KEEPER NEXT · ${BOSSES[bossId].rule}</small></span>` : '';
+  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><small>KEEPER NEXT</small><b>${BOSSES[bossId].name}</b><em>${BOSSES[bossId].rule}</em></span>` : '';
   $('shopList').innerHTML = stock.map((g, i) => goodHtml(st, g, i)).join('');
   // one line, for the moment it matters: how to buy (once), what to replace, what a tapped charm does
   $('shopHint').textContent = app.shopNote || (place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'CHARM'}` : st.tips.firstBuy ? '' : 'TAP AN OFFER, THEN TAP BUY');
@@ -1299,6 +1301,8 @@ function shopTap(e) {
     if (place === (bank ? 'bank' : 'charm')) app.shopPick = { ...pick, replace: Number(bank ? bank.dataset.bank : charm.dataset.charmPlace) };
     const owned = charm && CHARMS[st.charms[Number(charm.dataset.charmPlace)]];
     if (owned) app.shopNote = `${owned.name}: ${owned.rule}`;
+    const banked = bank && !place && st.bank[Number(bank.dataset.bank)]; // a banked card answers a tap as a charm does
+    if (banked) app.shopNote = `${BONUS_KINDS[banked].label}: ${BONUS_WHAT[banked].replace(/\.$/, '')}`;
   } else if (row) {
     const slot = Number(row.dataset.slot);
     const good = st.shop.stock[slot];
