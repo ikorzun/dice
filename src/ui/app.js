@@ -32,7 +32,7 @@ import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from
 import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
 import { generateRunLevel, RUN3_VERSION } from '../engine/run3.js';
 import { upgradeOffer, withUpgrade } from '../engine/upgrades3.js';
-import { CHARMS, CHARM_SLOTS, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood } from '../engine/shop3.js';
+import { CHARMS, CHARM_SLOTS, doorAfter, bossNext, levelBells, fitWeights, shopStock, buyGood } from '../engine/shop3.js';
 import { BOSSES, bossOf } from '../engine/bosses3.js';
 import { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } from './dice3d.js';
 import { createFire } from './fire.js';
@@ -618,7 +618,7 @@ function showLevelEnd() {
   if (st.pendingTier == null) st.pendingTier = nextTier(st.tier, won);
   const over = mode.id === 'auto' && !won; // a missed target ends the run (owner, 03.11.2026)
   const cleared = mode.id === 'auto' && won; // the cleared screen of the owner's pick В11 A (GPT's spec, 04.11.2026)
-  $('endTitle').textContent = won ? 'LEVEL CLEARED' : over ? 'RUN OVER' : 'TARGET MISSED';
+  $('endTitle').textContent = won ? 'Level cleared' : over ? 'Run over' : 'Target missed';
   $('endTitle').className = `end-title ${won ? 'won' : 'lost'}`;
   $('levelEnd').classList.toggle('run-over', over);
   $('levelEnd').classList.toggle('won', cleared);
@@ -638,12 +638,12 @@ function showLevelEnd() {
   $('upSub').classList.toggle('boss', !!rule);
   const paid = cleared && st.lastEnd && st.lastEnd.seed === g.level.seed ? st.lastEnd.bells : null;
   $('endBells').hidden = !paid;
-  if (paid) $('endBells').innerHTML = `<b><i class="bell"></i>+${paid.total} BELLS</b>${bellsPaid(paid).length > 1 ? bellsPaid(paid).map((line) => `<span>${line}</span>`).join('') : ''}${st.lastEnd.unlock ? `<em>NEW CARD UNLOCKED: ${BONUS_KINDS[st.lastEnd.unlock].symbol} ${BONUS_KINDS[st.lastEnd.unlock].label}</em>` : ''}`;
+  if (paid) $('endBells').innerHTML = `<b><i class="bell"></i><span>+${paid.total}</span> BELLS</b>${bellsPaid(paid).length > 1 ? bellsPaid(paid).map((line) => `<span>${line}</span>`).join('') : ''}${st.lastEnd.unlock ? `<em>NEW CARD UNLOCKED: ${BONUS_KINDS[st.lastEnd.unlock].symbol} ${BONUS_KINDS[st.lastEnd.unlock].label}</em>` : ''}`;
   const list = $('endHands');
   list.innerHTML = '';
   // a lost run's receipt: the level's three hands in the cleared screen's row, the last one, which ended the run,
   // outlined red (owner's pick В12 A)
-  if (over) list.innerHTML = g.hands.map((h, k) => `<li class="end-hand${k === g.hands.length - 1 ? ' lose' : ''}"><span class="gdice">${h.faces.map((v) => guideDie(v)).join('')}</span><span><i>HAND ${k + 1}</i><b>${h.label}</b><small>${handFormula(h)}</small></span><span class="pts">${h.total}</span></li>`).join('');
+  if (over) list.innerHTML = g.hands.map((h, k) => `<li class="end-hand${k === g.hands.length - 1 ? ' lose' : ''}"><span class="art-tile"><span class="gdice n${h.faces.length}">${h.faces.map((v) => guideDie(v)).join('')}</span></span><span class="hand-text"><i>HAND ${k + 1}</i><b>${sentence(h.label)}</b><small>${handFormula(h)}</small></span><span class="pts">${h.total}</span></li>`).join('');
   else g.hands.forEach((h, k) => {
     const li = document.createElement('li');
     const mini = h.faces.map((f) => `<b>${f}</b>`).join('');
@@ -683,13 +683,10 @@ function showLevelEnd() {
   // a cleared level goes on through its upgrade (owner, 03.11.2026: RETRY confused); a missed one ends the run
   $('retryBtn').hidden = won || mode.id === 'auto';
   $('runsBtn').hidden = !over;
-  const tags = offer.map((cat) => fitTag(cat, fit, true));
-  const telling = !tags.every(Boolean); // on all three a tag sets none apart
-  $('upList').innerHTML = offer.map((cat, n) => {
+  $('upList').innerHTML = offer.map((cat) => {
     const m = AUTO_MULT[cat] + (st.ups[cat] || 0);
-    const dice = (GUIDE_COMBOS.find(([c]) => c === cat) || [cat, []])[1];
-    const tag = telling ? tags[n] : '';
-    return `<button class="up" type="button" data-cat="${cat}"><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}${tag ? `<i>${tag}</i>` : ''}</b><em>×${m} → ×${m + 1}</em></button>`;
+    // the shop's row (HIG, 12.11.2026): the combination's dice, its name, the raise as the value
+    return `<button class="up" type="button" data-cat="${cat}"><span class="art-tile">${comboDice(cat)}</span><b>${sentence(CATEGORY5_LABELS[cat])}</b><em>×${m} → ×${m + 1}</em></button>`;
   }).join('');
   $('levelEnd').dataset.mode = app.modeId;
   clearTimeout(app.endTimer);
@@ -1256,13 +1253,13 @@ function goodHtml(st, good, i) {
   const ready = pick && (!place || app.shopPick.replace !== null);
   const art = good.type === 'card' ? guideTile(good.id, false)
     : good.type === 'charm' ? sigil(good.id)
-      : `<span class="gdice">${(GUIDE_COMBOS.find(([c]) => c === good.id) || [good.id, []])[1].map((v) => guideDie(v)).join('')}</span>`;
+      : comboDice(good.id);
   const m = good.type === 'up' ? AUTO_MULT[good.id] + (st.ups[good.id] || 0) : 0;
-  const name = good.type === 'card' ? `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}` : good.type === 'charm' ? CHARMS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`;
+  const name = sentence(good.type === 'card' ? `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}` : good.type === 'charm' ? CHARMS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`);
   const rule = good.type === 'card' ? BONUS_WHAT[good.id].toUpperCase().replace('.', '') : good.type === 'charm' ? CHARMS[good.id].rule : `×${m} → ×${m + 1} FOR THIS RUN`;
   const price = good.sold ? '' : ready ? `BUY • ${good.price}` : `<i class="bell"></i>${good.price}`;
-  const tag = good.sold || good.tag === 'WILD OFFER' ? '' : good.tag; // why it is offered; a bare row has two lines, not three
-  return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}${tag ? '' : ' bare'}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><i>${tag}</i><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
+  // what it is and what it does; why it is offered is said no more (owner, 12.11.2026: «Зачеркнутое убери»)
+  return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
 }
 
 function renderShop() {
@@ -1281,7 +1278,9 @@ function renderShop() {
   }).join('');
   const bossId = bossNext(level) ? bossOf(st.runSeed, level + 1) : null;
   $('shopBoss').hidden = !bossId;
-  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><small>KEEPER NEXT</small><b>${BOSSES[bossId].name}</b><em>${BOSSES[bossId].rule}</em></span>` : '';
+  // the next level's keeper and his rule, a note to buy by and not a row (owner, 12.11.2026: «не понятно зачем и что дает,
+  // выглядит как блоки ниже, но нельзя нажать»)
+  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><small>NEXT LEVEL</small><b>${titled(BOSSES[bossId].name)}</b><em>${BOSSES[bossId].rule}</em></span>` : '';
   $('shopList').innerHTML = stock.map((g, i) => goodHtml(st, g, i)).join('');
   // one line, for the moment it matters: how to buy (once), what to replace, what a tapped charm does
   $('shopHint').textContent = app.shopNote || (place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'CHARM'}` : st.tips.firstBuy ? '' : 'TAP AN OFFER, THEN TAP BUY');
@@ -1343,7 +1342,7 @@ function leaveShop() {
 async function openRuns() {
   const st = S();
   const shared = hasBoard();
-  $('runsTitle').textContent = shared ? 'LEADERBOARD' : 'YOUR BEST RUNS';
+  $('runsTitle').textContent = shared ? 'Leaderboard' : 'Your best runs';
   $('runsList').innerHTML = '';
   $('runsSheet').hidden = false;
   const rows = shared ? await fetchBoard() : null;
@@ -2451,6 +2450,7 @@ function playLoss(hand, g0) {
   rise($('runStats'), LOSS.sum);
   rise($('runGap'), LOSS.sum);
   rise($('nextBtn'), LOSS.button);
+  rise($('runsBtn'), LOSS.button); // with NEW RUN: unraised, it stood over the board from the moment's first frame
   $('nextBtn').setAttribute('aria-disabled', 'true'); // grey until it can be tapped (GPT's review)
 
   // a tap completes the receipt; that tap does not start a run
@@ -2662,6 +2662,12 @@ function onPointerCancel(e) {
 const GUIDE_COMBOS = [['pair', [6, 6]], ['two_pairs', [2, 2, 6, 6]], ['small_straight', [1, 2, 3, 4]], ['three_kind', [3, 3, 3]], ['full_house', [2, 2, 5, 5, 5]], ['four_kind', [4, 4, 4, 4]], ['straight', [1, 2, 3, 4, 5]], ['five_kind', [5, 5, 5, 5, 5]]];
 const GUIDE_BONUSES = { x2_any: 'ANY HAND', x3_straight: 'STRAIGHT', x3_pairs: 'PAIR, TWO PAIRS', x3_trips: 'TRIPS, FULL HOUSE', joker: 'ANY FACE', refund: 'A REROLL BACK' };
 const guideDie = (v, held) => `<i class="gdie${held ? ' held' : ''}" style="--f: var(--face-${v})"></i>`; // the baked faces
+// headings in classic case, not capitals (owner, 12.11.2026: «Заголовки не писать капсом, а по-классике», as his card
+// popup's «Any hand»): a name's first letter alone; a keeper's name, a proper one, each word's
+const sentence = (s) => s.toLowerCase().replace(/\p{L}/u, (c) => c.toUpperCase());
+const titled = (s) => s.toLowerCase().replace(/(^|\s)(\p{L})/gu, (m, a, c) => a + c.toUpperCase());
+// a combination's dice for a tile (the shop's upgrade, the pick's row): their count lets four stand two by two
+const comboDice = (cat) => { const dice = (GUIDE_COMBOS.find(([c]) => c === cat) || [cat, []])[1]; return `<span class="gdice n${dice.length}">${dice.map((v) => guideDie(v)).join('')}</span>`; };
 const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="arch"></span><span class="art" data-kind="${kind}"></span><span class="tag">${cardLabel(kind)}</span><span class="x2">${cardSticker(kind)}</span></span>`; // a card face up
 
 // The guide is How alone since the first visit lost its title and pages (owner, 11.11.2026): the rules, the run's

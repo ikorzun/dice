@@ -375,7 +375,7 @@ for (const vp of viewports) {
       left: document.querySelectorAll('.loss-line, .loss-count, .loss-short').length, busy: window.__diceSnake.app.busy,
     };
   });
-  const receiptOk = (o) => o.shown && /\brun-over\b/.test(o.cls) && !/playing|waiting/.test(o.cls) && o.title === 'RUN OVER' && /^SHORT BY \d+$/.test(o.short || '')
+  const receiptOk = (o) => o.shown && /\brun-over\b/.test(o.cls) && !/playing|waiting/.test(o.cls) && o.title === 'Run over' && /^SHORT BY \d+$/.test(o.short || '')
     && o.board === 9 && o.rows === 'false,false,true' && o.next === 'NEW RUN' && o.nextBg === 'rgb(255, 255, 255)' && o.nextOpacity === '1' && !o.retry && !o.upgrades && !o.left && !o.busy;
   await toLastHand();
   const lossAt = Date.now();
@@ -431,7 +431,7 @@ for (const vp of viewports) {
     };
   });
   if (cleared.act) note(vp, `level 1's clear has a next step to name: ${JSON.stringify(cleared.act)}`); // the next level needs no word
-  if (!/\bwon\b/.test(cleared.cls) || /playing|waiting/.test(cleared.cls) || cleared.title !== 'LEVEL CLEARED' || cleared.color !== 'rgb(255, 255, 255)' || cleared.over || cleared.busy) note(vp, `cleared screen: ${JSON.stringify(cleared)}`);
+  if (!/\bwon\b/.test(cleared.cls) || /playing|waiting/.test(cleared.cls) || cleared.title !== 'Level cleared' || cleared.color !== 'rgb(255, 255, 255)' || cleared.over || cleared.busy) note(vp, `cleared screen: ${JSON.stringify(cleared)}`);
   if (cleared.ups.length !== 3 || cleared.ups.some((u) => u.bottom > vp.h + 0.5 || u.right > vp.w + 0.5 || u.opacity !== '1')) note(vp, `upgrades: ${JSON.stringify(cleared.ups)}`);
   if (cleared.left) note(vp, `${cleared.left} layer(s) of the moment left behind`);
   console.log(`${vp.w}x${vp.h}: the pick tappable ${pickMs} ms after PLAY`);
@@ -468,7 +468,7 @@ for (const vp of viewports) {
   await page.click('#runsBtn');
   await page.waitForTimeout(150);
   const runs = await page.evaluate(() => ({ shown: !document.getElementById('runsSheet').hidden, rows: document.querySelectorAll('#runsList li:not(.none)').length, title: document.getElementById('runsTitle').textContent }));
-  if (!runs.shown || runs.rows < 1 || runs.title !== 'YOUR BEST RUNS') note(vp, `best runs: ${JSON.stringify(runs)}`);
+  if (!runs.shown || runs.rows < 1 || runs.title !== 'Your best runs') note(vp, `best runs: ${JSON.stringify(runs)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-12-runs.png` });
   await page.click('#runsClose');
   // the door before a boss: the shop fits the screen, a reload finds it, a good sells once, the boss's level has its rule
@@ -645,7 +645,7 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   await page.waitForTimeout(900);
   await page.evaluate(() => { window.__diceSnake.state().game.level.target = 99999; });
   for (let k = 0; k < 3; k++) { await idle(page); await page.waitForTimeout(150); await page.evaluate(() => document.getElementById('playBtn').click()); await page.waitForTimeout(400); }
-  await page.waitForFunction(() => document.getElementById('endTitle').textContent === 'RUN OVER' && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
+  await page.waitForFunction(() => document.getElementById('endTitle').textContent === 'Run over' && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
   await page.waitForTimeout(500);
   cut = await outside(page, '#levelEnd :is(h2, p, button, li)');
   if (cut.length) note(vp, `run over cut: ${cut.join(' ')}`);

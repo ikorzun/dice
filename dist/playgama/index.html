@@ -237,21 +237,30 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .hand-name b { font-weight: inherit; color: var(--fg); }
 .hand-name em { font-style: normal; color: var(--accent); }
 .hand-row.on .hand-name em { color: var(--hold); } /* a bonus joins the hand */
-/* A won level's offer: three combinations, one to raise by +1 (owner, 02.11.2026) */
-/* The pick is the way on (owner, 03.11.2026: «RETRY confuses; show that NEXT is choosing the upgrade»): no RETRY on a
-   won level, the offer heads the way on and its combinations are the main buttons */
+/* A won level's offer: three combinations, one to raise by +1 (owner, 02.11.2026); the pick is the way on (owner,
+   03.11.2026: no RETRY on a won level). Drawn by Apple's HIG as the shop is (owner, 12.11.2026: «Используя практику над
+   обновлением магазина, обнови остальные экраны»), in the composition he picked (В11 A): the white title over the
+   honest score, the record's rail, the pick, what the level paid. The shop's surface, tile and column, so a pick's row
+   reads as the shop's ware and the two screens share their edges; a 4-point grid, 8 inside a group, 16 between groups;
+   one type scale (title 28, score 48, section 20, name 16, value 20, grey capitals 11). Yellow is the bells alone
+   (owner, 12.11.2026: yellow means bells and BUY in the whole game). A row is the target: one tap picks, as before,
+   and it answers the press. */
+#levelEnd .panel { --surface: rgba(255, 255, 255, .08); --tile: max(44px, calc(64px * var(--k, 1))); }
 .upgrades { margin: 14px 0 4px; }
-.up-head { margin: 0; font: 700 calc(23.5px * var(--k, 1))/calc(31.3px * var(--k, 1)) var(--font-display); color: var(--accent); text-align: center; text-wrap: balance; }
-.up-sub { margin: 0 0 calc(11.7px * var(--k, 1)); font: 700 calc(11.7px * var(--k, 1))/calc(17.6px * var(--k, 1)) var(--font-display); color: #8f8f8f; text-align: center; }
-.up-sub.boss { font-size: calc(14px * var(--k, 1)); color: #fff; } /* the next boss's rule: it bears on this pick */
-.up-list { display: grid; gap: calc(9.8px * var(--k, 1)); }
-/* GPT's spec (04.11.2026): dice | name | ×m → ×m+1 on a 370 px pill at 402 px; the longest name wraps to two lines */
-.up { display: grid; grid-template-columns: calc(104px * var(--k, 1)) 1fr auto; align-items: center; gap: calc(8px * var(--k, 1)); width: 100%; height: calc(56.7px * var(--k, 1)); padding: 0 calc(15px * var(--k, 1)) 0 calc(12px * var(--k, 1)); border: 0; border-radius: calc(28.4px * var(--k, 1)); background: var(--btn-primary-bg); color: var(--btn-primary-fg); font: 700 calc(16.6px * var(--k, 1))/1 var(--font-display); text-align: left; cursor: pointer; }
-.up .gdice { --gd: calc(16.6px * var(--k, 1)); display: flex; gap: calc(3px * var(--k, 1)); }
-.up b { font-weight: inherit; line-height: calc(14.7px * var(--k, 1)); }
-.up b i { display: block; font-style: normal; font-size: calc(9px * var(--k, 1)); line-height: calc(11px * var(--k, 1)); }
-.up em { font-style: normal; color: inherit; white-space: nowrap; }
-.up:active { transform: scale(.97); }
+.up-head { margin: 0; font: 700 calc(20px * var(--k, 1))/calc(24px * var(--k, 1)) var(--font-display); color: var(--fg); text-align: center; text-wrap: balance; }
+.up-sub { margin: calc(4px * var(--k, 1)) 0 calc(16px * var(--k, 1)); font: 700 max(11px, calc(11px * var(--k, 1)))/1.3 var(--font-display); letter-spacing: .08em; color: var(--muted); text-align: center; }
+.up-sub.boss { font: 300 max(13px, calc(15px * var(--k, 1)))/1.15 var(--font-light); letter-spacing: 0; color: rgba(255, 255, 255, .8); text-transform: lowercase; text-wrap: balance; } /* the next keeper's rule bears on this pick: said as the shop says it */
+.up-list { display: grid; gap: calc(8px * var(--k, 1)); }
+.up { display: grid; grid-template-columns: var(--tile) minmax(0, 1fr) auto; grid-template-areas: "art name value"; align-content: center; align-items: center; column-gap: calc(20px * var(--k, 1)); width: 100%; min-height: 44px; padding: calc(12px * var(--k, 1)); border: 0; border-radius: calc(16px * var(--k, 1)); background: var(--surface); color: var(--fg); font: 700 max(13px, calc(16px * var(--k, 1)))/1.1 var(--font-display); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.up:active { background: rgba(255, 255, 255, .12); }
+/* a row's picture (the pick's and the receipt's dice, as the shop's wares) stands in its box with no tile behind it and
+   fills it edge to edge, 20 px from the words (owner, 12.11.2026: «Подложка под картинки … не нужна, лучше сделать их
+   больше от края до края, отступ справа до текста 20 px»): dice three to a row, four and two two to a row */
+.art-tile { grid-area: art; display: grid; place-items: center; width: var(--tile); height: var(--tile); }
+:is(.art-tile, .ware-art) .gdice { --gap: calc(4px * var(--k, 1)); --gd: calc((var(--tile) - 2 * var(--gap)) / 3 - .1px); display: flex; flex-wrap: wrap; justify-content: center; gap: var(--gap); width: var(--tile); }
+:is(.art-tile, .ware-art) .gdice:is(.n2, .n4) { --gd: calc((var(--tile) - var(--gap)) / 2 - .1px); }
+.up > b { grid-area: name; font-weight: inherit; }
+.up > em { grid-area: value; font-style: normal; font-size: max(13px, calc(20px * var(--k, 1))); line-height: 1; white-space: nowrap; }
 /* The bonus bank (owner, 02.11.2026): the bonuses kept from won levels, three places, as small cards of 64 px
    with their name and no sticker; an empty place shows a + (Figma 1308:3047) */
 .bank { flex: none; display: flex; align-items: center; gap: calc(5px * var(--k, 1)); }
@@ -554,7 +563,8 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .muted { color: var(--muted); }
 .small { font-size: 13px; line-height: 1.4; }
 .end-actions { display: grid; gap: 8px; margin-top: 4px; }
-/* Gold is the game's reward colour (the upgrade pick, the record); lime stays for held dice, a switched-on card and PLAY. */
+/* Yellow means bells and BUY alone, in the whole game (owner, 12.11.2026); lime is the board's: held dice, a switched-on
+   card, PLAY; red is the loss. */
 /* A cleared level (owner's pick В11 A «Пробитый порог», 04.11.2026; GPT's production spec, boxes at 402 px in mockup
    px × --k): on pure black, the white title over the honest score, a rail kept for the record, then
    the pick and what the level paid. On a tall screen the stack sits
@@ -565,37 +575,26 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 #levelEnd.won.waiting .up, #levelEnd.run-over.waiting #nextBtn { pointer-events: none; }
 #levelEnd:is(.won, .run-over) .panel { width: calc(361px * var(--k, 1)); max-width: 100%; gap: 0; overflow: visible; }
 #levelEnd.won :is(#endHands, #endBonus, #endSolver, #endTier, .end-actions) { display: none; }
-#levelEnd.won .end-title { font-size: calc(30.3px * var(--k, 1)); line-height: calc(37.1px * var(--k, 1)); letter-spacing: 0; }
-#levelEnd.won .end-score { display: flex; align-items: center; justify-content: center; height: calc(58.7px * var(--k, 1)); font-size: calc(46.9px * var(--k, 1)); line-height: 1; }
+#levelEnd.won .panel { width: calc(378px * var(--k, 1)); } /* the shop's column */
+#levelEnd.won .end-title { font-size: calc(28px * var(--k, 1)); line-height: calc(36px * var(--k, 1)); letter-spacing: 0; }
+#levelEnd.won .end-score { display: flex; align-items: center; justify-content: center; height: calc(56px * var(--k, 1)); font-size: calc(48px * var(--k, 1)); line-height: 1; }
 #levelEnd.won .end-sep { margin: 0 calc(8px * var(--k, 1)); }
 .end-over { grid-column: 1 / -1; justify-self: start; padding: 0 calc(8px * var(--k, 1)); border-radius: calc(11px * var(--k, 1)); background: var(--bad); color: #000; font: 700 calc(11.7px * var(--k, 1))/calc(21.5px * var(--k, 1)) var(--font-display); white-space: nowrap; } /* the pill the line gave it */
-.end-badges { display: flex; align-items: center; height: calc(35.2px * var(--k, 1)); margin-top: calc(7.8px * var(--k, 1)); padding-left: calc(7.8px * var(--k, 1)); }
-.end-best { margin-left: auto; padding: 0 calc(14px * var(--k, 1)); border: calc(2px * var(--k, 1)) solid var(--gold); border-radius: calc(16.6px * var(--k, 1)); background: #000; color: var(--gold); font: 700 calc(14.7px * var(--k, 1))/calc(29.2px * var(--k, 1)) var(--font-display); white-space: nowrap; }
-.end-hand, .hands li.end-hand { display: grid; grid-template-columns: calc(103.6px * var(--k, 1)) 1fr auto; align-items: center; gap: calc(8px * var(--k, 1)); height: calc(70.4px * var(--k, 1)); margin-top: calc(7.8px * var(--k, 1)); padding: 0 calc(11.7px * var(--k, 1)); border: 1.5px solid #3b3b3b; border-radius: calc(15.6px * var(--k, 1)); --gd: calc(21.5px * var(--k, 1)); }
-.end-hand .gdice { display: flex; gap: calc(3.9px * var(--k, 1)); }
-.end-hand b { display: block; font: 700 calc(16.6px * var(--k, 1))/1.05 var(--font-display); }
-.end-hand small { display: block; margin-top: calc(4px * var(--k, 1)); font: 700 calc(12.7px * var(--k, 1))/1 var(--font-display); color: #8f8f8f; white-space: nowrap; }
-.end-hand .pts { font: 700 calc(24.4px * var(--k, 1))/1 var(--font-display); font-variant-numeric: tabular-nums; }
-#levelEnd.won .upgrades { margin: calc(15.6px * var(--k, 1)) 0 0; }
+/* the record's rail keeps its place when there is none; NEW BEST is a word, not a button: no frame and no yellow */
+.end-badges { display: flex; align-items: center; justify-content: center; height: calc(24px * var(--k, 1)); margin-top: calc(8px * var(--k, 1)); }
+.end-best { font: 700 max(11px, calc(13px * var(--k, 1)))/1 var(--font-display); letter-spacing: .08em; color: var(--fg); white-space: nowrap; }
+#levelEnd.won .upgrades { margin: calc(16px * var(--k, 1)) 0 0; }
 /* desktop (body.wide): the celebration where the board was, the pick in the panel's column */
 body.wide #levelEnd.won { align-items: center; padding-top: 16px; }
 body.wide #levelEnd.won .panel { width: calc(1134px * var(--k, 1)); height: calc(546px * var(--k, 1)); display: grid; grid-template-columns: calc(546px * var(--k, 1)) calc(546px * var(--k, 1)); column-gap: calc(42px * var(--k, 1)); align-content: start; }
 body.wide #levelEnd.won .panel > * { grid-column: 1; }
-body.wide #levelEnd.won .end-title { margin-top: calc(25px * var(--k, 1)); font-size: calc(42px * var(--k, 1)); line-height: calc(50px * var(--k, 1)); }
-body.wide #levelEnd.won .end-score { height: calc(74px * var(--k, 1)); margin-top: calc(4px * var(--k, 1)); font-size: calc(64px * var(--k, 1)); }
-body.wide .end-badges { height: calc(40px * var(--k, 1)); margin: calc(16px * var(--k, 1)) calc(36px * var(--k, 1)) 0; padding-left: 0; }
-body.wide .end-best { font-size: calc(16px * var(--k, 1)); line-height: calc(30px * var(--k, 1)); }
-body.wide .end-hand { height: calc(84px * var(--k, 1)); margin: calc(16px * var(--k, 1)) calc(36px * var(--k, 1)) 0; padding: 0 calc(16px * var(--k, 1)); grid-template-columns: calc(132px * var(--k, 1)) 1fr auto; border-radius: calc(18px * var(--k, 1)); --gd: calc(27px * var(--k, 1)); }
-body.wide .end-hand b { font-size: calc(21px * var(--k, 1)); }
-body.wide .end-hand small { font-size: calc(16px * var(--k, 1)); }
-body.wide .end-hand .pts { font-size: calc(30px * var(--k, 1)); }
-body.wide #levelEnd.won .upgrades { grid-column: 2; grid-row: 1 / span 9; margin-top: calc(41px * var(--k, 1)); }
-body.wide .up-head { font-size: calc(31px * var(--k, 1)); line-height: calc(42px * var(--k, 1)); margin-bottom: calc(4px * var(--k, 1)); }
-body.wide .up-sub { font-size: calc(14px * var(--k, 1)); line-height: calc(22px * var(--k, 1)); margin-bottom: calc(34px * var(--k, 1)); }
-body.wide .up-list { gap: calc(16px * var(--k, 1)); }
-body.wide .up { height: calc(72px * var(--k, 1)); grid-template-columns: calc(142px * var(--k, 1)) 1fr auto; padding: 0 calc(20px * var(--k, 1)) 0 calc(16px * var(--k, 1)); border-radius: calc(36px * var(--k, 1)); font-size: calc(22px * var(--k, 1)); }
-body.wide .up .gdice { --gd: calc(24px * var(--k, 1)); }
-body.wide .up b { line-height: calc(20px * var(--k, 1)); }
+/* the celebration's column at the board's 1.5 (title 42, score 72), the pick's column at the shop's sizes; both columns
+   start on the panel's top edge */
+body.wide #levelEnd.won .end-title { font-size: calc(42px * var(--k, 1)); line-height: calc(48px * var(--k, 1)); }
+body.wide #levelEnd.won .end-score { height: calc(80px * var(--k, 1)); margin-top: calc(8px * var(--k, 1)); font-size: calc(72px * var(--k, 1)); }
+body.wide .end-badges { height: calc(32px * var(--k, 1)); margin-top: calc(16px * var(--k, 1)); }
+body.wide .end-best { font-size: max(11px, calc(16px * var(--k, 1))); }
+body.wide #levelEnd.won .upgrades { grid-column: 2; grid-row: 1 / span 9; margin-top: 0; }
 /* the moment's own layers: the black that spreads over the board from the break, a bonus card's sticker on its way
    to the count, the overshoot at the line; the shards' canvas is above them all */
 .win-black { position: fixed; inset: 0; z-index: 19; background: #000; pointer-events: none; }
@@ -604,43 +603,52 @@ body.wide .up b { line-height: calc(20px * var(--k, 1)); }
 .shards-layer { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 22; pointer-events: none; }
 .reveal.win { animation: revealWin 180ms cubic-bezier(.2, 1.4, .3, 1) forwards; }
 @keyframes revealWin { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.88); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-/* A lost run (owner's pick В12 A «Честный чек», 04.11.2026; GPT's production spec, boxes at 402 px in mockup px × --k):
-   the cleared screen's stack on pure black, its mirror. RUN OVER in red over the level's score with how far it fell
-   short; the level and the rerolls left unused beside the board as its last hand was played (drawn like the board,
-   whole, then scaled into its corner); the level's three hands in the cleared screen's row, the last outlined red;
-   the run, the record and the gap to it; NEW RUN in white: a restart is not a reward. */
-#levelEnd.run-over .panel { display: grid; grid-template-columns: calc(244.4px * var(--k, 1)) calc(109.5px * var(--k, 1)); column-gap: calc(7.8px * var(--k, 1)); align-items: start; }
+/* A lost run (owner's pick В12 A «Честный чек», 04.11.2026), drawn by HIG as the cleared screen is (owner, 12.11.2026)
+   in the same composition: RUN OVER in red over the level's score with how far it fell short; the level and the
+   rerolls left beside the board as its last hand was played (drawn like the board, whole, then scaled into its
+   corner); the level's three hands; the run, the record and the gap to it; NEW RUN in white: a restart is not a
+   reward. The shop's column and type; nothing here but NEW RUN and BEST RUNS is tapped, so nothing else wears a frame
+   or a surface (owner, 12.11.2026): the strip and the hands are words and dice on the black, and the hand that ended
+   the run says so in red, its number and its total. Red is the loss alone. */
+#levelEnd.run-over .panel { width: calc(378px * var(--k, 1)); display: grid; grid-template-columns: minmax(0, 1fr) calc(110px * var(--k, 1)); column-gap: calc(8px * var(--k, 1)); align-items: start; }
 #levelEnd.run-over .panel > * { grid-column: 1 / -1; }
 #levelEnd.run-over :is(#endBonus, #endSolver, #endTier, #retryBtn) { display: none; }
-#levelEnd.run-over .end-title { font-size: calc(30.3px * var(--k, 1)); line-height: calc(37.1px * var(--k, 1)); letter-spacing: 0; }
-#levelEnd.run-over .end-score { grid-column: 1; display: grid; grid-template-columns: auto auto auto; justify-content: start; align-content: center; align-items: center; row-gap: calc(4px * var(--k, 1)); height: calc(58.7px * var(--k, 1)); font-size: calc(33.2px * var(--k, 1)); line-height: 1; white-space: nowrap; } /* GPT's 38 px score and its chip side by side are 315 px in a 250 px box: the chip goes under the score */
-#levelEnd.run-over .end-sep { margin: 0 calc(6px * var(--k, 1)); color: #9a9a9a; }
-#levelEnd.run-over #endTarget { color: #9a9a9a; }
-#levelEnd.run-over .run-reached { grid-column: 1; display: flex; align-items: center; gap: calc(6px * var(--k, 1)); height: calc(43px * var(--k, 1)); margin: calc(7.8px * var(--k, 1)) 0 0; padding: 0 calc(11.7px * var(--k, 1)); border: 1.5px solid #3b3b3b; border-radius: calc(13.7px * var(--k, 1)); font: 700 calc(10.8px * var(--k, 1))/1 var(--font-display); color: #9a9a9a; white-space: nowrap; }
-.run-reached b { font-size: calc(16.6px * var(--k, 1)); color: var(--fg); font-variant-numeric: tabular-nums; }
+#levelEnd.run-over .end-title { font-size: calc(28px * var(--k, 1)); line-height: calc(36px * var(--k, 1)); letter-spacing: 0; }
+/* the score, its shortfall under it, and the strip stand as tall as the board beside them: 58 + 8 + 44 = 110 */
+#levelEnd.run-over .end-score { grid-column: 1; display: grid; grid-template-columns: auto auto auto; justify-content: start; align-content: center; align-items: center; row-gap: calc(4px * var(--k, 1)); height: calc(58px * var(--k, 1)); margin-top: calc(16px * var(--k, 1)); font-size: calc(32px * var(--k, 1)); line-height: 1; white-space: nowrap; }
+#levelEnd.run-over .end-sep { margin: 0 calc(6px * var(--k, 1)); color: var(--muted); }
+#levelEnd.run-over #endTarget { color: var(--muted); }
+#levelEnd.run-over .run-reached { grid-column: 1; display: flex; align-items: baseline; gap: calc(6px * var(--k, 1)); height: calc(44px * var(--k, 1)); margin: calc(8px * var(--k, 1)) 0 0; padding: calc(27px * var(--k, 1)) 0 0; font: 700 max(11px, calc(11px * var(--k, 1)))/1 var(--font-display); letter-spacing: .08em; color: var(--muted); white-space: nowrap; }
+.run-reached b { font-size: max(13px, calc(16px * var(--k, 1))); letter-spacing: 0; color: var(--fg); font-variant-numeric: tabular-nums; }
 .run-reached i { font-style: normal; margin: 0 calc(2px * var(--k, 1)); }
-#levelEnd.run-over .end-board { grid-column: 2; grid-row: 2 / span 2; position: relative; width: calc(109.5px * var(--k, 1)); height: calc(109.5px * var(--k, 1)); margin-top: calc(3.9px * var(--k, 1)); --kb: var(--k, 1); --board: calc(360px * var(--kb)); --mini: .30417; }
+#levelEnd.run-over .end-board { grid-column: 2; grid-row: 2 / span 2; position: relative; width: calc(110px * var(--k, 1)); height: calc(110px * var(--k, 1)); margin-top: calc(16px * var(--k, 1)); --kb: var(--k, 1); --board: calc(360px * var(--kb)); --mini: .30556; }
 .end-board .grid { position: absolute; left: 0; top: 0; width: var(--board); height: var(--board); display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); gap: calc(6px * var(--kb)); transform: scale(var(--mini)); transform-origin: 0 0; }
 #levelEnd .end-board .cell { animation: none; }
 .end-board .cell.die { background: var(--die-img) center / 100% 100% no-repeat; box-shadow: none; }
-#levelEnd.run-over .hands { gap: calc(7.8px * var(--k, 1)); margin-top: calc(11.7px * var(--k, 1)); }
-.hands li.end-hand { margin: 0; letter-spacing: 0; }
-.hands li.end-hand b { font-size: calc(14.4px * var(--k, 1)); } /* THREE OF A KIND beside a three-digit total, in one line */
-.hands li.end-hand i { display: block; margin-bottom: calc(3px * var(--k, 1)); font: 700 calc(10.8px * var(--k, 1))/1 var(--font-display); font-style: normal; color: #9a9a9a; }
-.hands li.end-hand { grid-template-columns: calc(103.6px * var(--k, 1)) minmax(0, 1fr) auto; } /* a long name with a long total takes two lines, never the screen's edge */
-.hands li.end-hand.lose { border: 2px solid var(--bad); }
-#levelEnd.run-over .run-sum { display: grid; justify-items: center; margin-top: calc(7.8px * var(--k, 1)); text-align: center; }
-.run-stats { margin: 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; min-height: calc(23px * var(--k, 1)); gap: calc(2px * var(--k, 1)) calc(4px * var(--k, 1)); font: 700 calc(16.6px * var(--k, 1))/1.15 var(--font-display); color: var(--fg); }
+/* the level's hands: the pick's row (the dice, words, the total as the value) with no surface, as nothing here is tapped
+   (owner, 12.11.2026); three lines of words: HAND n, its name, its sum × multiplier */
+#levelEnd.run-over .hands { gap: calc(16px * var(--k, 1)); margin-top: calc(16px * var(--k, 1)); }
+.hands li.end-hand { display: grid; grid-template-columns: var(--tile) minmax(0, 1fr) auto; grid-template-areas: "art text pts"; align-items: center; column-gap: calc(20px * var(--k, 1)); height: auto; margin: 0; padding: 0; border: 0; letter-spacing: 0; }
+.hands li.end-hand.lose :is(.hand-text i, .pts) { color: var(--bad); } /* the hand that ended the run: its number and total in red, red being the loss */
+.end-hand .hand-text { grid-area: text; min-width: 0; display: flex; flex-direction: column; gap: calc(4px * var(--k, 1)); }
+.end-hand .hand-text i { font: 700 max(11px, calc(11px * var(--k, 1)))/1 var(--font-display); font-style: normal; letter-spacing: .08em; color: var(--muted); }
+.end-hand .hand-text b { font: 700 max(13px, calc(16px * var(--k, 1)))/1.1 var(--font-display); }
+.end-hand .hand-text small { font: 700 max(11px, calc(13px * var(--k, 1)))/1 var(--font-display); color: var(--muted); white-space: nowrap; }
+.end-hand .pts { grid-area: pts; font: 700 max(13px, calc(20px * var(--k, 1)))/1 var(--font-display); font-variant-numeric: tabular-nums; }
+/* the run, the record and the gap to it: grey capitals for what a number is, the number white */
+#levelEnd.run-over .run-sum { display: grid; justify-items: center; gap: calc(4px * var(--k, 1)); margin-top: calc(16px * var(--k, 1)); text-align: center; }
+.run-stats { margin: 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: calc(4px * var(--k, 1)) calc(8px * var(--k, 1)); font: 700 max(11px, calc(11px * var(--k, 1)))/1.3 var(--font-display); letter-spacing: .08em; color: var(--muted); }
 .run-stats span { white-space: nowrap; } /* a very long run takes a second line */
+.run-stats b { margin-left: calc(4px * var(--k, 1)); font-size: max(13px, calc(16px * var(--k, 1))); letter-spacing: 0; color: var(--fg); font-variant-numeric: tabular-nums; }
 .run-stats.two { flex-direction: column; align-items: center; }
 .run-stats.two i, .run-stats.two + .run-gap { display: none; }
-.run-stats i { font-style: normal; color: #9a9a9a; }
-.run-stats span:last-child b { color: #9a9a9a; font-size: calc(14.7px * var(--k, 1)); }
-.best-badge { display: inline-block; margin-left: calc(6px * var(--k, 1)); padding: 0 calc(7px * var(--k, 1)); border-radius: calc(5px * var(--k, 1)); background: var(--gold); color: #000; font: 700 calc(12.7px * var(--k, 1))/calc(21.5px * var(--k, 1)) var(--font-display); font-style: normal; vertical-align: middle; }
-.run-gap { margin: 0; height: calc(20px * var(--k, 1)); font: 700 calc(12.7px * var(--k, 1))/calc(20px * var(--k, 1)) var(--font-display); color: #9a9a9a; }
-#levelEnd.run-over .end-actions { margin-top: calc(19.6px * var(--k, 1)); }
-#levelEnd.run-over #nextBtn { height: calc(56.7px * var(--k, 1)); border-radius: calc(28.4px * var(--k, 1)); background: #fff; color: #000; font-size: calc(21.5px * var(--k, 1)); letter-spacing: 0; }
+.run-stats i { font-style: normal; }
+.best-badge { margin-left: calc(8px * var(--k, 1)); font-style: normal; color: var(--fg); } /* a word beside the record, no yellow fill */
+.run-gap { margin: 0; min-height: calc(14px * var(--k, 1)); font: 700 max(11px, calc(11px * var(--k, 1)))/1.3 var(--font-display); letter-spacing: .08em; color: var(--muted); }
+#levelEnd.run-over .end-actions { gap: calc(4px * var(--k, 1)); margin-top: calc(16px * var(--k, 1)); }
+#levelEnd.run-over #nextBtn { height: max(44px, calc(56px * var(--k, 1))); border-radius: 999px; background: #fff; color: #000; font-size: max(13px, calc(20px * var(--k, 1))); letter-spacing: 0; }
 #levelEnd.run-over.waiting #nextBtn { background: #3b3b3b; color: #9a9a9a; } /* grey until it can be tapped, white from that frame on (GPT's review) */
+#runsBtn:not([hidden]) { display: block; margin: 0 auto; }
 /* the moment's own layers, under the receipt's black: the count where the hand is named, SHORT BY N at the line,
    the line itself */
 .loss-count { position: fixed; z-index: 19; display: grid; justify-items: center; gap: calc(2px * var(--k, 1)); transform: translateY(-50%); font: 700 calc(15.6px * var(--k, 1))/1 var(--font-display); color: var(--fg); text-align: center; white-space: nowrap; pointer-events: none; }
@@ -649,31 +657,26 @@ body.wide .up b { line-height: calc(20px * var(--k, 1)); }
 .loss-count small { font-size: calc(12.7px * var(--k, 1)); color: #9a9a9a; }
 .loss-short { position: fixed; z-index: 19; padding: 0 calc(8px * var(--k, 1)); border-radius: calc(11px * var(--k, 1)); background: var(--bad); color: #000; font: 700 calc(11.7px * var(--k, 1))/calc(21.5px * var(--k, 1)) var(--font-display); white-space: nowrap; pointer-events: none; }
 .loss-line { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 19; pointer-events: none; }
-/* desktop: the receipt where the board was, the run and NEW RUN in the panel's column, at GPT's boxes */
+/* desktop: the receipt where the board was, at the board's 1.5 (title 42, score 48, the strip's words 13 and 20), the
+   score and the strip on the board's top and bottom edges, the hands at the shop's row; the run and NEW RUN in the
+   panel's column at the shop's sizes. Both columns start on the panel's top edge. */
 body.wide #levelEnd.run-over { align-items: center; padding-top: 16px; }
 body.wide #levelEnd.run-over .panel { position: relative; display: block; width: calc(1134px * var(--k, 1)); height: calc(546px * var(--k, 1)); }
 body.wide #levelEnd.run-over .panel > * { position: absolute; margin: 0; }
-body.wide #levelEnd.run-over .end-title { left: 0; top: 0; width: calc(546px * var(--k, 1)); font-size: calc(40px * var(--k, 1)); line-height: calc(48px * var(--k, 1)); }
-body.wide #levelEnd.run-over .end-score { left: 0; top: calc(48px * var(--k, 1)); width: calc(366px * var(--k, 1)); height: calc(76px * var(--k, 1)); font-size: calc(54px * var(--k, 1)); }
-body.wide .end-over { font-size: calc(14px * var(--k, 1)); line-height: calc(32px * var(--k, 1)); border-radius: calc(16px * var(--k, 1)); padding: 0 calc(11px * var(--k, 1)); }
-body.wide #levelEnd.run-over .run-reached { left: 0; top: calc(132px * var(--k, 1)); width: calc(366px * var(--k, 1)); height: calc(48px * var(--k, 1)); font-size: calc(13px * var(--k, 1)); }
-body.wide .run-reached b { font-size: calc(20px * var(--k, 1)); }
-body.wide #levelEnd.run-over .end-board { left: calc(384px * var(--k, 1)); top: calc(54px * var(--k, 1)); width: calc(162px * var(--k, 1)); height: calc(162px * var(--k, 1)); --kb: calc(var(--k, 1) * 1.5); --board: calc(546px * var(--k, 1)); --mini: .29670; }
+body.wide #levelEnd.run-over .end-title { left: 0; top: 0; width: calc(546px * var(--k, 1)); font-size: calc(42px * var(--k, 1)); line-height: calc(48px * var(--k, 1)); }
+body.wide #levelEnd.run-over .end-score { left: 0; top: calc(56px * var(--k, 1)); width: calc(366px * var(--k, 1)); height: calc(88px * var(--k, 1)); font-size: calc(48px * var(--k, 1)); }
+body.wide .end-over { font-size: max(11px, calc(14px * var(--k, 1))); line-height: calc(32px * var(--k, 1)); border-radius: calc(16px * var(--k, 1)); padding: 0 calc(11px * var(--k, 1)); }
+body.wide #levelEnd.run-over .run-reached { left: 0; top: calc(162px * var(--k, 1)); width: calc(366px * var(--k, 1)); height: calc(56px * var(--k, 1)); padding: calc(35px * var(--k, 1)) 0 0; font-size: max(11px, calc(13px * var(--k, 1))); }
+body.wide .run-reached b { font-size: max(13px, calc(20px * var(--k, 1))); }
+body.wide #levelEnd.run-over .end-board { left: calc(384px * var(--k, 1)); top: calc(56px * var(--k, 1)); width: calc(162px * var(--k, 1)); height: calc(162px * var(--k, 1)); --kb: calc(var(--k, 1) * 1.5); --board: calc(546px * var(--k, 1)); --mini: .29670; }
 body.wide .end-board .grid { gap: calc(12px * var(--k, 1)); }
-body.wide #levelEnd.run-over .hands { left: 0; top: calc(236px * var(--k, 1)); width: calc(546px * var(--k, 1)); }
-body.wide .hands li.end-hand { height: calc(72px * var(--k, 1)); margin: 0; grid-template-columns: calc(132px * var(--k, 1)) minmax(0, 1fr) auto; }
-body.wide .hands li.end-hand b { font-size: calc(21px * var(--k, 1)); }
-body.wide #levelEnd.run-over .run-sum { left: calc(588px * var(--k, 1)); top: 0; width: calc(546px * var(--k, 1)); height: auto; display: block; }
-body.wide .run-stats { display: block; height: auto; }
+body.wide #levelEnd.run-over .hands { left: 0; top: calc(234px * var(--k, 1)); width: calc(546px * var(--k, 1)); }
+body.wide #levelEnd.run-over .run-sum { left: calc(588px * var(--k, 1)); top: 0; width: calc(546px * var(--k, 1)); }
+body.wide .run-stats { flex-direction: column; align-items: center; gap: calc(4px * var(--k, 1)); font-size: max(11px, calc(13px * var(--k, 1))); }
 body.wide .run-stats i { display: none; }
-body.wide .run-stats span { display: block; }
-body.wide .run-stats span:first-child { font-size: calc(30px * var(--k, 1)); line-height: calc(48px * var(--k, 1)); }
-body.wide .run-stats span:last-child { margin-top: calc(12px * var(--k, 1)); font-size: calc(24px * var(--k, 1)); line-height: calc(56px * var(--k, 1)); }
-body.wide .run-stats span:last-child b { font-size: inherit; color: var(--fg); }
-body.wide .best-badge { font-size: calc(13px * var(--k, 1)); line-height: calc(22px * var(--k, 1)); }
-body.wide .run-gap { margin-top: calc(12px * var(--k, 1)); height: calc(40px * var(--k, 1)); font-size: calc(18px * var(--k, 1)); line-height: calc(40px * var(--k, 1)); }
-body.wide #levelEnd.run-over .end-actions { left: calc(588px * var(--k, 1)); top: calc(307px * var(--k, 1)); width: calc(546px * var(--k, 1)); }
-body.wide #levelEnd.run-over #nextBtn { height: calc(96px * var(--k, 1)); border-radius: calc(48px * var(--k, 1)); font-size: calc(30px * var(--k, 1)); }
+body.wide .run-stats b { margin-left: calc(8px * var(--k, 1)); font-size: calc(28px * var(--k, 1)); }
+body.wide .run-gap { font-size: max(11px, calc(13px * var(--k, 1))); }
+body.wide #levelEnd.run-over .end-actions { left: calc(588px * var(--k, 1)); top: calc(128px * var(--k, 1)); width: calc(546px * var(--k, 1)); }
 body.wide .loss-count { font-size: calc(20px * var(--k, 1)); }
 body.wide .loss-count em { font-size: calc(36px * var(--k, 1)); }
 body.wide .loss-count small { font-size: calc(16px * var(--k, 1)); }
@@ -797,7 +800,6 @@ body.wide .controls .cnt::before { content: '×'; }
 .sheet-up { position: fixed; inset: 0; z-index: 30; display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, .55); animation: heroFade 200ms ease-out; }
 .sheet-card { width: min(100%, 520px); display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 14px 18px; padding: 22px 20px max(20px, env(safe-area-inset-bottom, 0px)); border-radius: 28px 28px 0 0; background: var(--tile); animation: sheetUp 260ms cubic-bezier(.2, .8, .3, 1); }
 @keyframes sheetUp { from { transform: translateY(100%); } }
-.sheet-card .btn-play { grid-column: 1 / -1; flex: none; height: 60px; font-size: 22px; }
 
 /* A card's popup: a new kind when its card turns over, any card on a long press (owner, Figma 1340:923 on the phone,
    1333:1761 on the desktop, 11.11.2026: «переделай всплывающие попапы»). The screen under a 90 % black mate blurred 4 px;
@@ -972,12 +974,15 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
 @keyframes bossIn { from { opacity: 0; transform: translateY(calc(12px * var(--k, 1))); } }
 @keyframes bossOut { to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .boss-card.show > div, .boss-card.leaving > div, .popup-card { animation: none; } }
-/* A cleared level's pay */
-.end-bells { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 calc(8px * var(--k, 1)); margin: calc(8px * var(--k, 1)) 0 0; font: 700 calc(11px * var(--k, 1))/calc(16px * var(--k, 1)) var(--font-display); color: #bdbdbd; }
+/* A cleared level's pay, as the shop's wallet shows bells: the sum in yellow beside its bell, BELLS and the reasons
+   in grey capitals, a card it opened in white (HIG, 12.11.2026) */
+.end-bells { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: calc(4px * var(--k, 1)) calc(12px * var(--k, 1)); margin: calc(16px * var(--k, 1)) 0 0; font: 700 max(11px, calc(11px * var(--k, 1)))/1.3 var(--font-display); letter-spacing: .08em; color: var(--muted); }
 .end-bells[hidden] { display: none; }
-.end-bells b { flex-basis: 100%; text-align: center; font-weight: inherit; font-size: calc(14px * var(--k, 1)); color: var(--gold); }
-.end-bells span { white-space: nowrap; }
-.end-bells em { flex-basis: 100%; font-style: normal; text-align: center; color: var(--gold); }
+.end-bells b { flex-basis: 100%; display: flex; align-items: center; justify-content: center; gap: calc(6px * var(--k, 1)); font-weight: inherit; font-size: max(11px, calc(13px * var(--k, 1))); }
+.end-bells .bell { width: calc(24px * var(--k, 1)); height: calc(24px * var(--k, 1)); margin: 0; }
+.end-bells b span { font-size: calc(24px * var(--k, 1)); line-height: 1; letter-spacing: 0; color: var(--gold); }
+.end-bells > span { white-space: nowrap; }
+.end-bells em { flex-basis: 100%; font-style: normal; text-align: center; color: var(--fg); }
 /* The shop, by Apple's HIG (owner, 12.11.2026: «элементы не имеют четкой системы взаимодействия, сетка кривая, кнопки
    разные, стили разные»). One column the board's width, two on the desktop; a 4-point grid, 8 inside a group and 16
    between groups; one surface for every container (no outlines, the picked row's ring aside) and one tile for every
@@ -995,7 +1000,7 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
 .shop-head .wallet b { font-weight: inherit; font-size: calc(24px * var(--k, 1)); letter-spacing: 0; color: var(--gold); }
 .shop-held { display: flex; justify-content: space-between; }
 .shop-held > div { display: flex; flex-direction: column; gap: calc(8px * var(--k, 1)); }
-.shop-held > div > span, .ware-text i, .shop-boss small { font-style: normal; font-size: max(11px, calc(11px * var(--k, 1))); line-height: 1; letter-spacing: .08em; color: var(--muted); }
+.shop-held > div > span, .shop-boss small { font-style: normal; font-size: max(11px, calc(11px * var(--k, 1))); line-height: 1; letter-spacing: .08em; color: var(--muted); }
 .shop-places { display: flex; gap: calc(8px * var(--k, 1)); }
 .shop-place { position: relative; display: grid; place-items: center; width: var(--place); height: var(--place); border: 0; border-radius: calc(14px * var(--k, 1)); padding: 0; background: var(--surface); overflow: hidden; }
 .shop-place .cell { --kb: calc(.4727 * var(--k, 1)); position: absolute; inset: 0; width: 100%; height: 100%; } /* 52 of the card's 110 */
@@ -1004,30 +1009,28 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
 .shop-place.swap:active { transform: scale(.96); }
 .shop-place.gone { box-shadow: 0 0 0 2px var(--bad); }
 .shop-place.gone > * { opacity: .4; }
-.shop-boss { display: grid; grid-template-columns: var(--tile) minmax(0, 1fr); align-items: center; column-gap: calc(12px * var(--k, 1)); padding: calc(12px * var(--k, 1)); border-radius: calc(16px * var(--k, 1)); background: var(--surface); }
+/* the next level's keeper: a note to buy by, on no surface, so it reads as words and not as a row to tap (owner,
+   12.11.2026); his face and words on the rows' columns */
+.shop-boss { display: grid; grid-template-columns: var(--tile) minmax(0, 1fr); align-items: center; column-gap: calc(20px * var(--k, 1)); padding: 0 calc(12px * var(--k, 1)); }
 .shop-boss .boss-face { justify-self: center; width: calc(52px * var(--k, 1)); height: calc(52px * var(--k, 1)); }
 .shop-boss span { min-width: 0; display: flex; flex-direction: column; gap: calc(4px * var(--k, 1)); }
 .shop-boss b, .ware-text b { font-weight: inherit; font-size: max(13px, calc(16px * var(--k, 1))); line-height: 1.1; }
-.shop-boss em, .ware-text small, .shop-hint { font: 300 max(13px, calc(15px * var(--k, 1)))/1.15 var(--font-light); color: rgba(255, 255, 255, .8); text-transform: lowercase; }
+.shop-boss em, .ware-text small, .shop-hint { font: 300 max(13px, calc(15px * var(--k, 1)))/1.15 var(--font-light); color: rgba(255, 255, 255, .8); text-transform: lowercase; text-wrap: balance; } /* two even lines, never one word left on the second */
 .shop-list { display: flex; flex-direction: column; gap: calc(8px * var(--k, 1)); margin: 0; padding: 0; list-style: none; }
 /* a row reads in order: what it is, what it does, why it is offered; the last one runs under the price, on one line */
-.ware { display: grid; grid-template-columns: var(--tile) minmax(0, 1fr) max(calc(80px * var(--k, 1)), 68px); grid-template-areas: "art name price" "art line price" "art tag tag"; align-content: center; align-items: center; column-gap: calc(12px * var(--k, 1)); min-height: 44px; padding: calc(12px * var(--k, 1)); border-radius: calc(16px * var(--k, 1)); background: var(--surface); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ware { display: grid; grid-template-columns: var(--tile) minmax(0, 1fr) max(calc(80px * var(--k, 1)), 68px); grid-template-areas: "art name price" "art line price"; align-content: center; align-items: center; column-gap: calc(20px * var(--k, 1)); min-height: 44px; padding: calc(12px * var(--k, 1)); border-radius: calc(16px * var(--k, 1)); background: var(--surface); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .ware:active { background: rgba(255, 255, 255, .12); }
 .ware.pick { box-shadow: inset 0 0 0 2px var(--fg); }
 .ware.sold { cursor: default; }
 .ware.sold:active { background: var(--surface); }
 .ware.sold .ware-art, .ware.sold .ware-text { opacity: .4; }
-.ware-art { position: relative; display: grid; place-items: center; width: var(--tile); height: var(--tile); border-radius: calc(14px * var(--k, 1)); background: var(--surface); }
+.ware-art { position: relative; display: grid; place-items: center; width: var(--tile); height: var(--tile); } /* no tile behind the picture: it fills its box (owner, 12.11.2026) */
 .ware-art .cell { --kb: calc(.582 * var(--k, 1)); position: absolute; inset: 0; width: 100%; height: 100%; }
-.ware-art .gdice { --gd: calc(14px * var(--k, 1)); display: flex; flex-wrap: wrap; justify-content: center; gap: calc(3px * var(--k, 1)); }
-.ware-art .sigil { width: calc(48px * var(--k, 1)); height: calc(48px * var(--k, 1)); }
+.ware-art .sigil { width: 100%; height: 100%; }
 .ware-art { grid-area: art; }
 .ware-text { display: contents; }
 .ware-text b { grid-area: name; align-self: end; }
 .ware-text small { grid-area: line; align-self: start; margin-top: calc(4px * var(--k, 1)); }
-.ware-text i { grid-area: tag; margin-top: calc(8px * var(--k, 1)); }
-.ware-text i:empty { display: none; }
-.ware.bare { grid-template-areas: "art name price" "art line price"; }
 .price, .sold-stamp { grid-area: price; }
 /* the row's trailing place: the price as a value, BUY once picked, SOLD as a word; one width for all of them */
 .price { justify-self: stretch; display: flex; align-items: center; justify-content: center; gap: calc(4px * var(--k, 1)); height: max(44px, calc(44px * var(--k, 1))); padding: 0; border: 0; border-radius: 999px; background: transparent; color: var(--gold); font: 700 max(13px, calc(20px * var(--k, 1)))/1 var(--font-display); white-space: nowrap; }
@@ -1046,23 +1049,28 @@ body.wide .shop-head, body.wide .shop-held, body.wide .shop-boss, body.wide .sho
 body.wide .shop-list { grid-column: 2; grid-row: 1 / span 5; }
 body.wide .shop-leave { grid-column: 2; }
 /* The best runs */
-#runsBtn:not([hidden]) { display: block; margin: calc(6px * var(--k, 1)) auto 0; }
-.runs-card { display: block; }
-.runs-card .btn-play { width: 100%; }
-.runs-card h3 { margin: 0 0 calc(10px * var(--k, 1)); font: 700 calc(22px * var(--k, 1))/1.1 var(--font-display); color: #fff; text-align: center; }
-.runs-list { display: grid; gap: calc(4px * var(--k, 1)); margin: 0 0 calc(12px * var(--k, 1)); padding: 0; list-style: none; font: 700 calc(15px * var(--k, 1))/1.3 var(--font-display); color: #fff; }
-.runs-list li { display: grid; grid-template-columns: calc(30px * var(--k, 1)) 1fr 1fr; gap: calc(10px * var(--k, 1)); }
-.runs-list.shared li { grid-template-columns: calc(30px * var(--k, 1)) minmax(0, 1fr) calc(50px * var(--k, 1)) calc(80px * var(--k, 1)); }
-.runs-list li.head { font-size: calc(10px * var(--k, 1)); color: #8f8f8f; }
+/* The best runs, a sheet by HIG (12.11.2026): its title with CLOSE beside it, the sheet's one control, a text button;
+   the runs as a plain table, grey capitals for the heads, white numbers on the rows' text edge; the player's own row on
+   the surface, not in yellow (yellow is bells and BUY alone). */
+.runs-card { --surface: rgba(255, 255, 255, .08); display: block; padding: calc(8px * var(--k, 1)) calc(16px * var(--k, 1)) max(calc(24px * var(--k, 1)), env(safe-area-inset-bottom, 0px)); }
+.runs-head { display: flex; align-items: center; justify-content: space-between; gap: calc(12px * var(--k, 1)); min-height: 44px; margin: 0 calc(-4px * var(--k, 1)) calc(8px * var(--k, 1)) 0; padding-left: calc(12px * var(--k, 1)); } /* the title and CLOSE's words on the rows' edges */
+.runs-card h3 { margin: 0; font: 700 max(16px, calc(20px * var(--k, 1)))/1.2 var(--font-display); color: var(--fg); } /* the sheet is not fitted: a phone held sideways leaves the board's scale at about a half */
+.runs-list { display: grid; margin: 0; padding: 0; list-style: none; font: 700 max(13px, calc(16px * var(--k, 1)))/1 var(--font-display); color: var(--fg); }
+.runs-list li { display: grid; grid-template-columns: max(24px, calc(32px * var(--k, 1))) 1fr 1fr; align-items: center; column-gap: calc(12px * var(--k, 1)); min-height: calc(36px * var(--k, 1)); padding: 0 calc(12px * var(--k, 1)); border-radius: calc(12px * var(--k, 1)); }
+.runs-list.shared li { grid-template-columns: max(24px, calc(32px * var(--k, 1))) minmax(0, 1fr) calc(50px * var(--k, 1)) calc(80px * var(--k, 1)); }
+.runs-list li.head { min-height: calc(24px * var(--k, 1)); font-size: max(11px, calc(11px * var(--k, 1))); letter-spacing: .08em; color: var(--muted); }
 .runs-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .runs-list b { font-weight: inherit; font-variant-numeric: tabular-nums; }
+.runs-list i { color: var(--muted); }
 .runs-list em { text-align: right; }
-.runs-list li.me { color: var(--gold); }
-.runs-list li.none { display: block; text-align: center; color: #8f8f8f; }
+.runs-list.shared li:not(.head, .me) { color: var(--muted); } /* on the shared table the player's own row is the white one */
+.runs-list li.none { display: block; padding-block: calc(12px * var(--k, 1)); text-align: center; font-size: max(11px, calc(11px * var(--k, 1))); letter-spacing: .08em; color: var(--muted); }
 .runs-list i, .runs-list em { font-style: normal; font-variant-numeric: tabular-nums; }
-.end-next { margin: calc(14px * var(--k, 1)) 0 0; text-align: center; font: 700 calc(14px * var(--k, 1))/1.2 var(--font-display); color: #fff; }
+/* A text button (HIG's plain style): white words, a target of 44 px at least, a press that shows */
+.btn-text { min-width: 44px; min-height: 44px; padding: 0 calc(16px * var(--k, 1)); border: 0; border-radius: 999px; background: none; color: var(--fg); font: 700 max(13px, calc(15px * var(--k, 1)))/1 var(--font-display); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.btn-text:active { background: rgba(255, 255, 255, .12); }
+.end-next { margin: calc(16px * var(--k, 1)) 0 0; text-align: center; font: 700 max(11px, calc(11px * var(--k, 1)))/1.3 var(--font-display); letter-spacing: .08em; color: var(--muted); } /* under the pick's rows, in both layouts */
 .end-next[hidden] { display: none; }
-body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(--k, 1)); top: calc(429px * var(--k, 1)); width: calc(240px * var(--k, 1)); margin: 0; }
 /* How's first page, once the run holds anything: everything that left the play screen */
 .guide:not(.run) .guide-dots i:last-child { display: none; }
 .run-facts { width: 100%; margin: 0; padding: 0; list-style: none; display: grid; gap: clamp(10px, 2.4vh, 18px); font-family: var(--font-display); font-weight: 700; }
@@ -1079,44 +1087,20 @@ body.wide #levelEnd.won .end-next { position: absolute; left: calc(741px * var(-
    Text between levels never falls under 11 px, however far the window scales the screen down (a phone held sideways
    scales the desktop frame to about two thirds). The owner's base keeps its sizes; only its smallest labels get a floor
    where the scale would leave them under 9 px. */
-.up-sub { font-size: max(11px, calc(11.7px * var(--k, 1))); line-height: 1.5; }
-.up b i { font-size: max(11px, calc(10px * var(--k, 1))); line-height: 1.15; }
-.end-bells { font-size: max(11px, calc(11px * var(--k, 1))); line-height: 1.45; }
-.end-bells b { font-size: max(13px, calc(14px * var(--k, 1))); }
 .end-over { font-size: max(11px, calc(11.7px * var(--k, 1))); }
-body.wide .end-over { font-size: max(11px, calc(14px * var(--k, 1))); }
-#levelEnd.run-over .run-reached { font-size: max(11px, calc(10.8px * var(--k, 1))); }
-body.wide #levelEnd.run-over .run-reached { font-size: max(11px, calc(13px * var(--k, 1))); }
-/* Where the 11 px floor lifts the row's words above the scale (a narrow phone, a phone held sideways), its gaps and
-   padding give that room back, so LEVEL 14 · REROLLS LEFT 3 stays on one line inside its frame (10.11.2026). */
-#levelEnd.run-over .run-reached { --lift: max(0px, 11px - 10.8px * var(--k, 1)); gap: max(2px, calc(6px * var(--k, 1) - var(--lift))); padding: 0 max(4px, calc(11.7px * var(--k, 1) - 3 * var(--lift))); }
+/* Where the 11 px floor lifts the strip's words above the scale (a narrow phone, a phone held sideways), its gaps and
+   padding give that room back, so LEVEL 14 · REROLLS LEFT 3 stays on one line beside the board (10.11.2026). */
+#levelEnd.run-over .run-reached { --lift: max(0px, 11px - 11px * var(--k, 1)); gap: max(2px, calc(6px * var(--k, 1) - var(--lift))); }
 body.wide #levelEnd.run-over .run-reached { --lift: max(0px, 11px - 13px * var(--k, 1)); }
 #levelEnd.run-over .run-reached i { margin: 0 max(0px, calc(2px * var(--k, 1) - var(--lift))); }
-/* The receipt's three lines (HAND n, the name, the sum × mult) stay inside their row: where the 11 px floor makes them
-   taller than the scaled row (a phone held sideways), the row grows by what it needs; elsewhere it keeps its height. */
-.hands li.end-hand, body.wide .hands li.end-hand { height: auto; padding-block: 2px; }
-.hands li.end-hand { min-height: calc(70.4px * var(--k, 1)); }
-body.wide .hands li.end-hand { min-height: calc(72px * var(--k, 1)); }
-body.wide .run-reached b { font-size: max(13px, calc(20px * var(--k, 1))); }
 body.wide .stat .label, body.wide .hand-name { line-height: calc(17.2px * var(--k, 1)); }
-.hands li.end-hand i { font-size: max(11px, calc(10.8px * var(--k, 1))); }
-.run-gap { font-size: max(11px, calc(12.7px * var(--k, 1))); }
-body.wide .run-gap { font-size: max(11px, calc(18px * var(--k, 1))); }
 .boss-card em { font-size: max(11px, calc(12px * var(--k, 1))); }
 .boss-card small { font-size: max(11px, calc(10px * var(--k, 1))); }
 .stat .label { font-size: max(9px, calc(11px * var(--k, 1))); }
 body.wide .stat .label { font-size: max(9px, calc(13px * var(--k, 1))); }
 body.wide #handStat .label { font-size: calc(13px * var(--k, 1)); } /* SMALL STRAIGHT needs its third of the row; the hand row under it says it larger */
 .hand-name { font-size: max(9px, calc(12px * var(--k, 1))); }
-.up-sub.boss, body.wide .up-sub, body.wide .up-sub.boss { font-size: max(11px, calc(14px * var(--k, 1))); line-height: 1.5; }
-.end-next, body.wide #levelEnd.won .end-next { font-size: max(11px, calc(14px * var(--k, 1))); }
-.end-hand small { font-size: max(11px, calc(12.7px * var(--k, 1))); }
-body.wide .end-hand small { font-size: max(11px, calc(16px * var(--k, 1))); }
 .boss-card b { font-size: max(11px, calc(16px * var(--k, 1))); }
-.runs-card h3 { font-size: max(16px, calc(22px * var(--k, 1))); }
-.runs-list { font-size: max(12px, calc(15px * var(--k, 1))); }
-.runs-list li { grid-template-columns: max(24px, calc(30px * var(--k, 1))) 1fr 1fr; }
-.runs-list li.head { font-size: max(11px, calc(10px * var(--k, 1))); }
 
 /* A phone held sideways, a square or any low wide window: each page of the rules puts its words on the left and its
    picture on the right, the button under the words, so nothing runs under the button or the bar. */
@@ -1235,7 +1219,7 @@ body.wide .end-hand small { font-size: max(11px, calc(16px * var(--k, 1))); }
 
 <section class="overlay" id="levelEnd" hidden>
   <div class="panel">
-    <h2 class="end-title" id="endTitle">LEVEL CLEARED</h2>
+    <h2 class="end-title" id="endTitle">Level cleared</h2>
     <div class="end-score"><span id="endScore">0</span><span class="end-sep">/</span><span id="endTarget">0</span><span class="end-over" id="endOver" hidden></span></div>
     <!-- a missed target ends the run (owner, 03.11.2026; pick В12 A «Честный чек»): the level it got to and the rerolls
          left unused, then the board as its last hand was played -->
@@ -1252,23 +1236,23 @@ body.wide .end-hand small { font-size: max(11px, calc(16px * var(--k, 1))); }
       <p class="run-gap" id="runGap"></p>
     </div>
     <div class="upgrades" id="upgrades" hidden>
-      <p class="up-head">PICK AN UPGRADE</p>
+      <p class="up-head">Pick an upgrade</p>
       <p class="up-sub" id="upSub">+1 FOR THIS RUN</p>
       <div class="up-list" id="upList"></div>
+      <p class="end-next" id="endAct" hidden></p>
     </div>
-    <p class="end-next" id="endAct" hidden></p>
     <p class="end-bells" id="endBells" hidden></p>
     <div class="end-actions">
       <button class="btn-primary" id="nextBtn" type="button">NEXT LEVEL</button>
       <button class="btn-secondary" id="retryBtn" type="button">RETRY</button>
-      <button class="guide-link" id="runsBtn" type="button" hidden>BEST RUNS</button>
+      <button class="btn-text" id="runsBtn" type="button" hidden>BEST RUNS</button>
     </div>
   </div>
 </section>
 
 <section class="overlay shop" id="shop" hidden>
   <div class="shop-panel">
-    <header class="shop-head"><h2>SHOP</h2><span class="wallet"><i class="bell"></i><b id="shopBells">0</b> BELLS</span></header>
+    <header class="shop-head"><h2>Shop</h2><span class="wallet"><i class="bell"></i><b id="shopBells">0</b> BELLS</span></header>
     <div class="shop-held">
       <div><span>BANK</span><div class="shop-places" id="shopBank"></div></div>
       <div><span>CHARMS</span><div class="shop-places" id="shopCharms"></div></div>
@@ -1276,15 +1260,14 @@ body.wide .end-hand small { font-size: max(11px, calc(16px * var(--k, 1))); }
     <div class="shop-boss" id="shopBoss"></div>
     <ul class="shop-list" id="shopList"></ul>
     <p class="shop-hint" id="shopHint"></p>
-    <button class="btn-dark shop-leave" id="shopLeave" type="button">LEAVE SHOP</button>
+    <button class="btn-dark shop-leave" id="shopLeave" type="button">LEAVE</button>
   </div>
 </section>
 
 <section class="sheet-up" id="runsSheet" hidden>
   <div class="sheet-card runs-card" role="dialog" aria-labelledby="runsTitle">
-    <h3 id="runsTitle">YOUR BEST RUNS</h3>
+    <header class="runs-head"><h3 id="runsTitle">Your best runs</h3><button class="btn-text" id="runsClose" type="button">CLOSE</button></header>
     <ol class="runs-list" id="runsList"></ol>
-    <button class="btn-play" id="runsClose" type="button">CLOSE</button>
   </div>
 </section>
 
@@ -5344,7 +5327,7 @@ const { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } = __m
 const { generatePokerLevel, GENERATOR5_VERSION } = __mod_levels5;
 const { generateRunLevel, RUN3_VERSION } = __mod_run3;
 const { upgradeOffer, withUpgrade } = __mod_upgrades3;
-const { CHARMS, CHARM_SLOTS, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood } = __mod_shop3;
+const { CHARMS, CHARM_SLOTS, doorAfter, bossNext, levelBells, fitWeights, shopStock, buyGood } = __mod_shop3;
 const { BOSSES, bossOf } = __mod_bosses3;
 const { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } = __mod_dice3d;
 const { createFire } = __mod_fire;
@@ -5930,7 +5913,7 @@ function showLevelEnd() {
   if (st.pendingTier == null) st.pendingTier = nextTier(st.tier, won);
   const over = mode.id === 'auto' && !won; // a missed target ends the run (owner, 03.11.2026)
   const cleared = mode.id === 'auto' && won; // the cleared screen of the owner's pick В11 A (GPT's spec, 04.11.2026)
-  $('endTitle').textContent = won ? 'LEVEL CLEARED' : over ? 'RUN OVER' : 'TARGET MISSED';
+  $('endTitle').textContent = won ? 'Level cleared' : over ? 'Run over' : 'Target missed';
   $('endTitle').className = `end-title ${won ? 'won' : 'lost'}`;
   $('levelEnd').classList.toggle('run-over', over);
   $('levelEnd').classList.toggle('won', cleared);
@@ -5950,12 +5933,12 @@ function showLevelEnd() {
   $('upSub').classList.toggle('boss', !!rule);
   const paid = cleared && st.lastEnd && st.lastEnd.seed === g.level.seed ? st.lastEnd.bells : null;
   $('endBells').hidden = !paid;
-  if (paid) $('endBells').innerHTML = `<b><i class="bell"></i>+${paid.total} BELLS</b>${bellsPaid(paid).length > 1 ? bellsPaid(paid).map((line) => `<span>${line}</span>`).join('') : ''}${st.lastEnd.unlock ? `<em>NEW CARD UNLOCKED: ${BONUS_KINDS[st.lastEnd.unlock].symbol} ${BONUS_KINDS[st.lastEnd.unlock].label}</em>` : ''}`;
+  if (paid) $('endBells').innerHTML = `<b><i class="bell"></i><span>+${paid.total}</span> BELLS</b>${bellsPaid(paid).length > 1 ? bellsPaid(paid).map((line) => `<span>${line}</span>`).join('') : ''}${st.lastEnd.unlock ? `<em>NEW CARD UNLOCKED: ${BONUS_KINDS[st.lastEnd.unlock].symbol} ${BONUS_KINDS[st.lastEnd.unlock].label}</em>` : ''}`;
   const list = $('endHands');
   list.innerHTML = '';
   // a lost run's receipt: the level's three hands in the cleared screen's row, the last one, which ended the run,
   // outlined red (owner's pick В12 A)
-  if (over) list.innerHTML = g.hands.map((h, k) => `<li class="end-hand${k === g.hands.length - 1 ? ' lose' : ''}"><span class="gdice">${h.faces.map((v) => guideDie(v)).join('')}</span><span><i>HAND ${k + 1}</i><b>${h.label}</b><small>${handFormula(h)}</small></span><span class="pts">${h.total}</span></li>`).join('');
+  if (over) list.innerHTML = g.hands.map((h, k) => `<li class="end-hand${k === g.hands.length - 1 ? ' lose' : ''}"><span class="art-tile"><span class="gdice n${h.faces.length}">${h.faces.map((v) => guideDie(v)).join('')}</span></span><span class="hand-text"><i>HAND ${k + 1}</i><b>${sentence(h.label)}</b><small>${handFormula(h)}</small></span><span class="pts">${h.total}</span></li>`).join('');
   else g.hands.forEach((h, k) => {
     const li = document.createElement('li');
     const mini = h.faces.map((f) => `<b>${f}</b>`).join('');
@@ -5995,13 +5978,10 @@ function showLevelEnd() {
   // a cleared level goes on through its upgrade (owner, 03.11.2026: RETRY confused); a missed one ends the run
   $('retryBtn').hidden = won || mode.id === 'auto';
   $('runsBtn').hidden = !over;
-  const tags = offer.map((cat) => fitTag(cat, fit, true));
-  const telling = !tags.every(Boolean); // on all three a tag sets none apart
-  $('upList').innerHTML = offer.map((cat, n) => {
+  $('upList').innerHTML = offer.map((cat) => {
     const m = AUTO_MULT[cat] + (st.ups[cat] || 0);
-    const dice = (GUIDE_COMBOS.find(([c]) => c === cat) || [cat, []])[1];
-    const tag = telling ? tags[n] : '';
-    return `<button class="up" type="button" data-cat="${cat}"><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}${tag ? `<i>${tag}</i>` : ''}</b><em>×${m} → ×${m + 1}</em></button>`;
+    // the shop's row (HIG, 12.11.2026): the combination's dice, its name, the raise as the value
+    return `<button class="up" type="button" data-cat="${cat}"><span class="art-tile">${comboDice(cat)}</span><b>${sentence(CATEGORY5_LABELS[cat])}</b><em>×${m} → ×${m + 1}</em></button>`;
   }).join('');
   $('levelEnd').dataset.mode = app.modeId;
   clearTimeout(app.endTimer);
@@ -6568,13 +6548,13 @@ function goodHtml(st, good, i) {
   const ready = pick && (!place || app.shopPick.replace !== null);
   const art = good.type === 'card' ? guideTile(good.id, false)
     : good.type === 'charm' ? sigil(good.id)
-      : `<span class="gdice">${(GUIDE_COMBOS.find(([c]) => c === good.id) || [good.id, []])[1].map((v) => guideDie(v)).join('')}</span>`;
+      : comboDice(good.id);
   const m = good.type === 'up' ? AUTO_MULT[good.id] + (st.ups[good.id] || 0) : 0;
-  const name = good.type === 'card' ? `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}` : good.type === 'charm' ? CHARMS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`;
+  const name = sentence(good.type === 'card' ? `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}` : good.type === 'charm' ? CHARMS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`);
   const rule = good.type === 'card' ? BONUS_WHAT[good.id].toUpperCase().replace('.', '') : good.type === 'charm' ? CHARMS[good.id].rule : `×${m} → ×${m + 1} FOR THIS RUN`;
   const price = good.sold ? '' : ready ? `BUY • ${good.price}` : `<i class="bell"></i>${good.price}`;
-  const tag = good.sold || good.tag === 'WILD OFFER' ? '' : good.tag; // why it is offered; a bare row has two lines, not three
-  return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}${tag ? '' : ' bare'}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><i>${tag}</i><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
+  // what it is and what it does; why it is offered is said no more (owner, 12.11.2026: «Зачеркнутое убери»)
+  return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
 }
 
 function renderShop() {
@@ -6593,7 +6573,9 @@ function renderShop() {
   }).join('');
   const bossId = bossNext(level) ? bossOf(st.runSeed, level + 1) : null;
   $('shopBoss').hidden = !bossId;
-  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><small>KEEPER NEXT</small><b>${BOSSES[bossId].name}</b><em>${BOSSES[bossId].rule}</em></span>` : '';
+  // the next level's keeper and his rule, a note to buy by and not a row (owner, 12.11.2026: «не понятно зачем и что дает,
+  // выглядит как блоки ниже, но нельзя нажать»)
+  $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><small>NEXT LEVEL</small><b>${titled(BOSSES[bossId].name)}</b><em>${BOSSES[bossId].rule}</em></span>` : '';
   $('shopList').innerHTML = stock.map((g, i) => goodHtml(st, g, i)).join('');
   // one line, for the moment it matters: how to buy (once), what to replace, what a tapped charm does
   $('shopHint').textContent = app.shopNote || (place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'CHARM'}` : st.tips.firstBuy ? '' : 'TAP AN OFFER, THEN TAP BUY');
@@ -6655,7 +6637,7 @@ function leaveShop() {
 async function openRuns() {
   const st = S();
   const shared = hasBoard();
-  $('runsTitle').textContent = shared ? 'LEADERBOARD' : 'YOUR BEST RUNS';
+  $('runsTitle').textContent = shared ? 'Leaderboard' : 'Your best runs';
   $('runsList').innerHTML = '';
   $('runsSheet').hidden = false;
   const rows = shared ? await fetchBoard() : null;
@@ -7763,6 +7745,7 @@ function playLoss(hand, g0) {
   rise($('runStats'), LOSS.sum);
   rise($('runGap'), LOSS.sum);
   rise($('nextBtn'), LOSS.button);
+  rise($('runsBtn'), LOSS.button); // with NEW RUN: unraised, it stood over the board from the moment's first frame
   $('nextBtn').setAttribute('aria-disabled', 'true'); // grey until it can be tapped (GPT's review)
 
   // a tap completes the receipt; that tap does not start a run
@@ -7974,6 +7957,12 @@ function onPointerCancel(e) {
 const GUIDE_COMBOS = [['pair', [6, 6]], ['two_pairs', [2, 2, 6, 6]], ['small_straight', [1, 2, 3, 4]], ['three_kind', [3, 3, 3]], ['full_house', [2, 2, 5, 5, 5]], ['four_kind', [4, 4, 4, 4]], ['straight', [1, 2, 3, 4, 5]], ['five_kind', [5, 5, 5, 5, 5]]];
 const GUIDE_BONUSES = { x2_any: 'ANY HAND', x3_straight: 'STRAIGHT', x3_pairs: 'PAIR, TWO PAIRS', x3_trips: 'TRIPS, FULL HOUSE', joker: 'ANY FACE', refund: 'A REROLL BACK' };
 const guideDie = (v, held) => `<i class="gdie${held ? ' held' : ''}" style="--f: var(--face-${v})"></i>`; // the baked faces
+// headings in classic case, not capitals (owner, 12.11.2026: «Заголовки не писать капсом, а по-классике», as his card
+// popup's «Any hand»): a name's first letter alone; a keeper's name, a proper one, each word's
+const sentence = (s) => s.toLowerCase().replace(/\p{L}/u, (c) => c.toUpperCase());
+const titled = (s) => s.toLowerCase().replace(/(^|\s)(\p{L})/gu, (m, a, c) => a + c.toUpperCase());
+// a combination's dice for a tile (the shop's upgrade, the pick's row): their count lets four stand two by two
+const comboDice = (cat) => { const dice = (GUIDE_COMBOS.find(([c]) => c === cat) || [cat, []])[1]; return `<span class="gdice n${dice.length}">${dice.map((v) => guideDie(v)).join('')}</span>`; };
 const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="arch"></span><span class="art" data-kind="${kind}"></span><span class="tag">${cardLabel(kind)}</span><span class="x2">${cardSticker(kind)}</span></span>`; // a card face up
 
 // The guide is How alone since the first visit lost its title and pages (owner, 11.11.2026): the rules, the run's

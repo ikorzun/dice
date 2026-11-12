@@ -67,7 +67,7 @@
 
 <section class="overlay" id="levelEnd" hidden>
   <div class="panel">
-    <h2 class="end-title" id="endTitle">LEVEL CLEARED</h2>
+    <h2 class="end-title" id="endTitle">Level cleared</h2>
     <div class="end-score"><span id="endScore">0</span><span class="end-sep">/</span><span id="endTarget">0</span><span class="end-over" id="endOver" hidden></span></div>
     <!-- a missed target ends the run (owner, 03.11.2026; pick В12 A «Честный чек»): the level it got to and the rerolls
          left unused, then the board as its last hand was played -->
@@ -84,23 +84,23 @@
       <p class="run-gap" id="runGap"></p>
     </div>
     <div class="upgrades" id="upgrades" hidden>
-      <p class="up-head">PICK AN UPGRADE</p>
+      <p class="up-head">Pick an upgrade</p>
       <p class="up-sub" id="upSub">+1 FOR THIS RUN</p>
       <div class="up-list" id="upList"></div>
+      <p class="end-next" id="endAct" hidden></p>
     </div>
-    <p class="end-next" id="endAct" hidden></p>
     <p class="end-bells" id="endBells" hidden></p>
     <div class="end-actions">
       <button class="btn-primary" id="nextBtn" type="button">NEXT LEVEL</button>
       <button class="btn-secondary" id="retryBtn" type="button">RETRY</button>
-      <button class="guide-link" id="runsBtn" type="button" hidden>BEST RUNS</button>
+      <button class="btn-text" id="runsBtn" type="button" hidden>BEST RUNS</button>
     </div>
   </div>
 </section>
 
 <section class="overlay shop" id="shop" hidden>
   <div class="shop-panel">
-    <header class="shop-head"><h2>SHOP</h2><span class="wallet"><i class="bell"></i><b id="shopBells">0</b> BELLS</span></header>
+    <header class="shop-head"><h2>Shop</h2><span class="wallet"><i class="bell"></i><b id="shopBells">0</b> BELLS</span></header>
     <div class="shop-held">
       <div><span>BANK</span><div class="shop-places" id="shopBank"></div></div>
       <div><span>CHARMS</span><div class="shop-places" id="shopCharms"></div></div>
@@ -108,15 +108,14 @@
     <div class="shop-boss" id="shopBoss"></div>
     <ul class="shop-list" id="shopList"></ul>
     <p class="shop-hint" id="shopHint"></p>
-    <button class="btn-dark shop-leave" id="shopLeave" type="button">LEAVE SHOP</button>
+    <button class="btn-dark shop-leave" id="shopLeave" type="button">LEAVE</button>
   </div>
 </section>
 
 <section class="sheet-up" id="runsSheet" hidden>
   <div class="sheet-card runs-card" role="dialog" aria-labelledby="runsTitle">
-    <h3 id="runsTitle">YOUR BEST RUNS</h3>
+    <header class="runs-head"><h3 id="runsTitle">Your best runs</h3><button class="btn-text" id="runsClose" type="button">CLOSE</button></header>
     <ol class="runs-list" id="runsList"></ol>
-    <button class="btn-play" id="runsClose" type="button">CLOSE</button>
   </div>
 </section>
 
