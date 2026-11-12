@@ -294,10 +294,6 @@ const MODES = {
       },
       options: { table: false, small: false, endOnTarget: false, goldCell: false },
     },
-    coachText(step, g, hint) {
-      if (step === 'swipe') return 'PLAY THE HAND';
-      return "NEW DICE EVERY HAND. REROLLS DON'T REFILL";
-    },
   },
 };
 
@@ -837,7 +833,11 @@ function coachOnEvent(type, data) {
   const st = S();
   if (!st.coach.active) return;
   if (type === 'hold' && data.held) st.coach.done.hold = true;
-  if (type === 'reroll' || type === 'bank') { st.coach.done.hold = true; st.coach.done.reroll = true; }
+  if (type === 'reroll' || type === 'bank') {
+    st.coach.done.hold = true;
+    st.coach.done.reroll = true;
+    delete els.app.dataset.coach; // the throw and the hand's count at full strength: the next step dims what it does not use (coachRender)
+  }
   // the last line has said its one thing once the player moves on (the bank that follows the first hand is not that)
   const moved = ['hold', 'bonus', 'reroll', 'bank'].includes(type);
   if (type === 'level_end' || (M().id === 'auto' && moved && E().handsPlayed(st.game) > (type === 'bank' ? 1 : 0))) coachStop('complete');
@@ -902,9 +902,11 @@ function coachRender() {
   const bar = $('coach');
   if (!step) {
     bar.hidden = true;
+    delete els.app.dataset.coach;
+    // the desktop's panel takes its own shape back when the board is still: never in a throw, a count or a won level's moment
+    if (!app.busy) delete els.app.dataset.tutorial;
     els.preview.hidden = M().id === 'auto'; // Auto Hand shows its hand in the BONES · MULTIPLY counter
     els.rerollBtn.classList.remove('pulse');
-    els.playBtn.classList.remove('pulse');
     app.coachTargets = null;
     stopGhost();
     return;
@@ -912,53 +914,77 @@ function coachRender() {
   const st = S();
   const g = st.game;
   const mode = M();
-  // a card's sheet goes first: the line and the finger wait until it closes (closeBonusSheet)
+  // a card's sheet goes first: the notification waits until it closes (closeBonusSheet)
   if (mode.id === 'auto' && (!$('bonusSheet').hidden || els.cells.some((c, i) => c.waiting && g.cells[i].type === 'bonus' && !cardSeen(g.cells[i].kind)))) {
     bar.hidden = true;
+    delete els.app.dataset.coach;
     stopGhost();
     return;
   }
   const hint = E().hintFor(g);
+  bar.hidden = false;
+  els.preview.hidden = true;
+  // Auto Hand: the owner's notification (Figma 1340:1340, 1340:1566, 1392:2485, 1392:2641; 12.11.2026): a title and a
+  // line, a glow on the cell to tap (.hint), and what the step does not use at 20 % (data-coach, styles.css); no SKIP
+  // (owner, 12.11.2026): the tutorial blocks nothing and ends after the first hand
+  if (mode.id === 'auto') {
+    const idle = step === 'swipe' ? autoIdleBonuses(g, hint.hand) : [];
+    let line;
+    let look = '';
+    let targets = [];
+    if (step === 'hold') {
+      // hold a keeper of the hand: it stays through the reroll that follows (holds last one throw)
+      const c = hint.cells.reduce((b, i) => (g.faces[i] > g.faces[b] ? i : b), hint.cells[0]);
+      line = [`Tap the ${g.faces[c]}`, 'a held die stays on reroll'];
+      look = 'hold';
+      targets = [c];
+    } else if (step === 'reroll') {
+      line = E().canReroll(g) ? ['Reroll the rest', 'cards and bonuses stay'] : ['Every die is held', 'release one, then reroll'];
+      look = E().canReroll(g) ? 'reroll' : 'hold';
+    } else if (idle.length) {
+      // bonus cards start off: first switch the one that fits on, then play
+      line = ['Tap the bonus card', 'then tap to play'];
+      look = 'card';
+      targets = [idle[0]];
+    } else if (step === 'swipe') {
+      line = g.cells.some((c, i) => c.type === 'bonus' && !g.off[i]) ? ['Tap the bonus card', 'then tap to play'] : ['Play the hand', ''];
+      look = 'play';
+    } else line = ['New dice every hand', "rerolls don't refill"];
+    [$('coachText').textContent, $('coachSub').textContent] = line;
+    if (look) els.app.dataset.coach = look;
+    else delete els.app.dataset.coach;
+    // the desktop's panel during the first hand (Figma 1392:2866): LEVEL unseen, no hand's dice row (styles.css); the second
+    // hand is chosen with the whole panel
+    if (step !== 'last') els.app.dataset.tutorial = '';
+    else if (!app.busy) delete els.app.dataset.tutorial;
+    app.coachTargets = targets;
+    stopGhost();
+    return;
+  }
   let text = '';
   let targets = [];
   let ghostPath = null;
-  if (step === 'hold' && mode.id === 'auto') {
-    // hold a keeper of the hand: it stays through the reroll that follows (holds last one throw)
-    const c = hint.cells.reduce((b, i) => (g.faces[i] > g.faces[b] ? i : b), hint.cells[0]);
-    text = `TAP THE ${g.faces[c]}: A HELD DIE STAYS ON REROLL`;
-    targets = [c];
-    ghostPath = [c];
-  } else if (step === 'hold') {
+  if (step === 'hold') {
     const c = hint.cells[0];
     text = `TAP THE ${g.faces[c]} TO HOLD IT. HELD DICE DO NOT CHANGE WHEN YOU REROLL.`;
     targets = [c];
     ghostPath = [c];
   } else if (step === 'reroll') {
-    if (mode.id === 'auto') text = E().canReroll(g) ? 'REROLL THE REST' : 'EVERY DIE IS HELD: RELEASE ONE, THEN REROLL';
-    else text = E().canReroll(g)
+    text = E().canReroll(g)
       ? 'NOW PRESS REROLL. ONLY THE DICE WITHOUT HOLD CHANGE.'
       : 'EVERY DIE IS HELD. TAP ONE TO RELEASE IT, THEN PRESS REROLL.';
-  } else if (step === 'swipe' && mode.id === 'auto' && autoIdleBonuses(g, hint.hand).length) {
-    // bonus dice start off: first switch the one that fits on, then play
-    const b = autoIdleBonuses(g, hint.hand)[0];
-    text = `TAP ${BONUS_KINDS[g.cells[b].kind].symbol} TO SWITCH IT ON, THEN PLAY`;
-    targets = [b];
-    ghostPath = [b];
   } else if (step === 'swipe') {
     text = mode.coachText('swipe', g, hint);
-    targets = mode.id === 'auto' ? [] : hint.cells; // Auto Hand never marks its hand (owner, 01.11.2026)
+    targets = hint.cells;
     ghostPath = hint.cells;
   } else {
     text = mode.coachText('last', g, hint);
-    targets = mode.id === 'auto' ? [] : hint.cells;
+    targets = hint.cells;
     ghostPath = mode.bonus === 'cell' && g.bonus.available ? null : hint.cells;
   }
-  if (mode.id === 'auto' && step !== 'hold' && !(ghostPath && ghostPath.length === 1)) ghostPath = null; // nothing to drag: the hand is already red
-  bar.hidden = false;
-  els.preview.hidden = true;
   $('coachText').textContent = text;
+  $('coachSub').textContent = '';
   els.rerollBtn.classList.toggle('pulse', step === 'reroll');
-  els.playBtn.classList.toggle('pulse', mode.id === 'auto' && step === 'swipe' && !autoIdleBonuses(g, hint.hand).length);
   app.coachTargets = targets;
   startGhost(ghostPath);
 }
@@ -1181,7 +1207,7 @@ function showBossCard(level) {
   // the player's charms that answer him are named, so THE CONVICT's TWO REROLLS beside REROLL•3 is no contradiction
   const helps = (S().charms || []).filter((id) => boss.counters.includes(id)).map((id) => CHARMS[id].name);
   const answers = helps.length ? `<small class="answer">HELPED BY ${helps.join(', ')}</small>` : '';
-  card.innerHTML = `<div><i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><small>${boss.golden ? 'GOLDEN KEEPER' : 'KEEPER'}</small><b>${boss.name}</b><em>${boss.rule}</em>${answers}</span></div>`;
+  card.innerHTML = `<div><i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><small>${boss.golden ? 'GOLDEN KEEPER' : 'KEEPER'}</small><b>${titled(boss.name)}</b><em>${boss.rule}</em>${answers}</span></div>`;
   card.dataset.boss = level.boss;
   card.hidden = false;
   card.classList.remove('show', 'leaving');
@@ -2675,7 +2701,8 @@ const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on
 function openGuide() {
   const guide = $('guide');
   const ups = S().ups || {};
-  $('combos').innerHTML = GUIDE_COMBOS.map(([cat, dice]) => `<li><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${CATEGORY5_LABELS[cat]}</b><em${ups[cat] ? ' class="raised"' : ''}>×${AUTO_MULT[cat] + (ups[cat] || 0)}</em></li>`).join('');
+  // a run's raise said as the pick says it, ×m → ×m+1, in white: yellow is the bells', lime the board's (12.11.2026)
+  $('combos').innerHTML = GUIDE_COMBOS.map(([cat, dice]) => `<li><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${sentence(CATEGORY5_LABELS[cat])}</b><em>${ups[cat] ? `×${AUTO_MULT[cat]} → ` : ''}×${AUTO_MULT[cat] + (ups[cat] || 0)}</em></li>`).join('');
   $('holdPic').innerHTML = `<span class="grp"><span>${[6, 6, 6].map((v) => guideDie(v, true)).join('')}</span><small>TAP = HOLD</small></span><span class="grp roll"><span>${[2, 4].map((v) => guideDie(v)).join('')}</span><small>REROLL</small></span>`;
   $('bonusPic').innerHTML = `<ul class="bonus-list">${Object.keys(GUIDE_BONUSES).map((k) => `<li>${guideTile(k, false)}<small>${GUIDE_BONUSES[k]}</small></li>`).join('')}</ul>`;
   $('bonusNote').textContent = 'THEY ADD UP'; // no «tap to switch on» in any popup (owner, 11.11.2026)
@@ -2698,14 +2725,16 @@ function openGuide() {
 function renderRunFacts() {
   const st = S();
   const g = st.game;
-  const fact = (name, rule) => `<li><b>${name}</b>${rule ? `<small>${rule}</small>` : ''}</li>`;
+  // each fact as the shop's note (HIG, 12.11.2026): its picture, a grey label, the name, what it does; words on the black,
+  // as nothing here is tapped
+  const fact = (art, label, name, rule, lines = '') => `<li><span class="fact-art">${art}</span><span class="fact-text">${label ? `<small>${label}</small>` : ''}<b>${name}</b>${rule ? `<em>${rule}</em>` : ''}${lines}</span></li>`;
   const next = nextUp(g.level.levelIndex, st.best);
   const boss = g.level.boss && BOSSES[g.level.boss];
   $('runFacts').innerHTML = [
-    boss ? fact(`KEEPER: ${boss.name}`, boss.rule) : '',
-    fact([next.shop, next.boss, next.best].filter(Boolean).join(' · ')),
-    fact(`${st.bells} BELLS`, BELLS_RULE.map((line) => `<span>${line}</span>`).join('')),
-    ...st.charms.map((id) => fact(CHARMS[id].name, CHARMS[id].rule)),
+    `<li class="fact-line">${[next.shop, next.boss, next.best].filter(Boolean).join(' · ')}</li>`,
+    boss ? fact(`<i class="boss-face" style="--boss: var(--boss-${g.level.boss})"></i>`, 'KEEPER', titled(boss.name), boss.rule) : '',
+    fact('<i class="bell"></i>', '', `<span class="sum">${st.bells}</span> BELLS`, '', `<small class="lines">${BELLS_RULE.map((line) => `<span>${line}</span>`).join('')}</small>`),
+    ...st.charms.map((id) => fact(sigil(id), '', sentence(CHARMS[id].name), CHARMS[id].rule)),
   ].join('');
 }
 
@@ -2783,7 +2812,7 @@ function openHelp() {
   const st = S();
   const mode = M();
   // Auto Hand's rules are the guide's pages: this sheet is its settings
-  $('helpTitle').textContent = mode.id === 'auto' ? 'SETTINGS' : `HOW TO PLAY · ${mode.name.toUpperCase()}`;
+  $('helpTitle').textContent = mode.id === 'auto' ? 'Settings' : `How to play · ${mode.name}`;
   $('helpRules').hidden = mode.id === 'auto';
   $('helpScoring').innerHTML = mode.scoringHtml || els.defaultScoring.help;
   $('helpLead').textContent = mode.help.lead;
@@ -2933,7 +2962,6 @@ function bind() {
     if (dx < -50 && app.guide.page < 3) showGuidePage(app.guide.page + 1);
     if (dx > 50 && app.guide.page > app.guide.first) showGuidePage(app.guide.page - 1);
   });
-  $('coachSkip').addEventListener('click', () => { coachStop('skipped'); if (!app.busy) render(); });
   $('tutorialBtn').addEventListener('click', () => { if (app.busy) return; $('help').hidden = true; coachStart('help'); });
   window.addEventListener('keydown', (e) => {
     if (!$('bossCard').hidden) { if (e.key === 'Enter' || e.key === ' ') e.preventDefault(); return; }

@@ -22,6 +22,13 @@ const viewports = [
 ];
 const problems = [];
 const note = (vp, msg) => problems.push(`${vp.w}x${vp.h}: ${msg}`);
+// a computed colour as [r, g, b, a] (r, g, b 0-255): rgb() and rgba(), or color(srgb …), a mixed colour in Chromium
+const rgba = (s) => {
+  const m = s.match(/rgba?\(([\d.]+), ([\d.]+), ([\d.]+)(?:, ([\d.]+))?\)/);
+  if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+  const c = s.match(/color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: \/ ([\d.]+))?\)/);
+  return c ? [c[1] * 255, c[2] * 255, c[3] * 255, c[4] === undefined ? 1 : +c[4]] : null;
+};
 
 async function center(page, index) {
   return page.$eval(`#board .cell[data-index="${index}"]`, (el) => {
@@ -162,11 +169,19 @@ for (const vp of viewports) {
   await page.waitForTimeout(1500);
   console.log(`${vp.w}x${vp.h}: 3D dice status ${await page.evaluate(() => window.__diceSnake.dice3d())}`);
 
-  // tutorial step 1 points at a die of the hand: a held die stays on the reroll that follows
-  const holdText = await text('#coachText');
-  if (!/STAYS ON REROLL/.test(holdText)) note(vp, `tutorial hold step: ${holdText}`);
+  // tutorial step 1 (Figma 1340:1340) points at a die of the hand: a held die stays on the reroll that follows; the
+  // die wears the lime «Tap» glow, and the counter and both buttons lie at 20 %
+  const holdText = `${await text('#coachText')} / ${await text('#coachSub')}`;
+  if (!/^Tap the [1-6] \/ a held die stays on reroll$/.test(holdText)) note(vp, `tutorial hold step: ${holdText}`);
   const coachTarget = await page.$$eval('#board .cell.hint', (els) => els.map((e) => Number(e.dataset.index)));
   if (coachTarget.length !== 1 || !a.hand.cells.includes(coachTarget[0])) note(vp, `tutorial hold target [${coachTarget}] should be one die of the hand [${a.hand.cells}]`);
+  const dimmed = async () => (await page.waitForTimeout(200)) || page.evaluate(() => { // the buttons fade in 150 ms
+    const o = (sel) => Number(getComputedStyle(document.querySelector(sel)).opacity);
+    return { step: document.getElementById('app').dataset.coach || '', counter: o('#handStat'), play: o('#playBtn'), reroll: o('#rerollBtn') };
+  });
+  const holdLook = { ...(await dimmed()), glow: await page.$eval('#board .cell.hint', (e) => { const g = getComputedStyle(e, '::before'); return { shadow: g.boxShadow, share: parseFloat(g.width) / e.getBoundingClientRect().width }; }) };
+  // the desktop's counter shares the notification's tile and stays lit (Figma 1392:2866)
+  if (holdLook.step !== 'hold' || holdLook.counter !== (layout.wide ? 1 : 0.2) || holdLook.play !== 0.2 || holdLook.reroll !== 0.2 || !/rgb\(192, 255, 71\).*inset|inset.*rgb\(192, 255, 71\)/.test(holdLook.glow.shadow) || Math.abs(holdLook.glow.share - 107 / 116) > 0.01) note(vp, `tutorial hold look: ${JSON.stringify(holdLook)}`);
   if (a.cells.filter((t) => t === 'die').length !== 8 || a.cells[8] !== 'bonus') note(vp, `level 1 layout: ${a.cells}`);
   // the hand is not marked on the board (owner, 01.11.2026): every die has the same pips and picture
   const pipColors = await page.$$eval('#board .cell.die .face i', (els) => [...new Set(els.map((e) => getComputedStyle(e).backgroundColor))]);
@@ -177,24 +192,28 @@ for (const vp of viewports) {
   // board on the phone; Figma 1287:1641: a 546 px board on the desktop)
   const k = await page.evaluate(() => parseFloat(getComputedStyle(document.getElementById('app')).getPropertyValue('--k')));
   if (!(k > 0.4) || Math.abs(layout.board - (layout.wide ? 546 : 360) * k) > 1) note(vp, `board ${layout.board.toFixed(1)}px does not follow k=${k}`);
-  // the tutorial's line lies over the header row: it takes no height from the owner's rows
-  const line = await page.evaluate(() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect(); const c = box('#coach'); const h = box('.hud'); return { shown: !document.getElementById('coach').hidden, top: c.top - h.top, bottom: c.bottom - h.bottom, left: c.left - h.left, right: c.right - h.right }; });
-  if (!line.shown || Math.abs(line.top) > 1 || Math.abs(line.bottom) > 1) note(vp, `the tutorial's line is not over the header row: ${JSON.stringify(line)}`);
+  // the tutorial's notification lies over the header row, from 19 px above it to 5 px below it on the phone (Figma
+  // 1340:1340), on the panel's header tile on the desktop: it takes no height from the owner's rows and leaves the board
+  const line = await page.evaluate(() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect(); const c = box('#coach'); const h = box('.hud'); const b = box('#board'); return { shown: !document.getElementById('coach').hidden, top: c.top - h.top, bottom: c.bottom - h.bottom, board: b.top - c.bottom, skip: !!document.getElementById('coachSkip') }; });
+  if (!line.shown || line.skip || line.top > 1 || line.bottom < -1 || (!layout.wide && line.board < -0.5)) note(vp, `the tutorial's notification is not over the header row: ${JSON.stringify(line)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-1-start.png` });
   // dragging does not play a hand
   await swipe(page, a.hand.cells.slice(0, 3));
   await page.waitForTimeout(200);
   if ((await auto()).hands !== 0) note(vp, 'a drag played a hand');
-  // hold the die the tutorial points at: it stays white in a #7cb823 frame (Figma 1327:1724); REROLL keeps its face, then
-  // clears the hold (owner, 01.11.2026)
+  // hold the die the tutorial points at: it stays white in a frame of #7cb823 at 60 % (Figma 1340:1566; owner, 12.11.2026);
+  // REROLL keeps its face, then clears the hold (owner, 01.11.2026)
   const keep = coachTarget[0] ?? a.hand.cells[0];
   await tap(page, keep);
   const heldLook = await page.$eval(`#board .cell[data-index="${keep}"]`, (e) => {
     const frame = getComputedStyle(e, '::after');
     return { cls: e.className, img: e.style.getPropertyValue('--die-img'), tag: getComputedStyle(e.querySelector('.tag')).display, frame: frame.borderTopColor, width: parseFloat(frame.borderTopWidth), glow: frame.boxShadow };
   });
-  if (!/held/.test(heldLook.cls) || /-held/.test(heldLook.img) || heldLook.tag !== 'none' || heldLook.frame !== 'rgb(124, 184, 35)' || heldLook.width < 3 || !/inset/.test(heldLook.glow)) note(vp, `held die look: ${JSON.stringify(heldLook)}`);
-  if (!/REROLL/.test(await text('#coachText'))) note(vp, 'tutorial did not advance to the reroll step');
+  if (!/held/.test(heldLook.cls) || /-held/.test(heldLook.img) || heldLook.tag !== 'none' || heldLook.frame !== 'rgba(124, 184, 35, 0.6)' || heldLook.width < 3 || !/inset/.test(heldLook.glow)) note(vp, `held die look: ${JSON.stringify(heldLook)}`);
+  // step 2 (Figma 1340:1566): REROLL to tap, a band of light passing across it; the counter and PLAY at 20 % (the desktop,
+  // Figma 1392:3100: PLAY alone; the band there too, owner 12.11.2026)
+  const rerollStep = { line: `${await text('#coachText')} / ${await text('#coachSub')}`, ...(await dimmed()), sweep: await page.$eval('#rerollBtn', (b) => getComputedStyle(b).animationName) };
+  if (rerollStep.line !== 'Reroll the rest / cards and bonuses stay' || rerollStep.step !== 'reroll' || rerollStep.counter !== (layout.wide ? 1 : 0.2) || rerollStep.play !== 0.2 || rerollStep.reroll !== 1 || rerollStep.sweep !== 'rerollSweep') note(vp, `tutorial reroll step: ${JSON.stringify(rerollStep)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-2-hold.png` });
   const keptFace = a.faces[keep];
   await page.click('#rerollBtn');
@@ -209,20 +228,27 @@ for (const vp of viewports) {
   if ((await text('#rerollBtn')) !== 'REROLL•2') note(vp, `reroll label after one reroll: ${await text('#rerollBtn')}`);
   // bonus cards start off: the tutorial asks to switch the ×2 on, then to play
   if (!a.off[8]) note(vp, 'the ×2 does not start switched off');
-  if (!/SWITCH IT ON/.test(await text('#coachText'))) note(vp, `tutorial does not ask to switch the ×2 on: "${await text('#coachText')}"`);
+  // step 3 (Figma 1392:2485): the card to tap glows white within and in its colour under itself; both buttons at 20 %
+  const cardStep = { line: `${await text('#coachText')} / ${await text('#coachSub')}`, ...(await dimmed()), target: await page.$$eval('#board .cell.hint', (els) => els.map((e) => Number(e.dataset.index))), glow: await page.$eval('#board .cell[data-index="8"]', (e) => getComputedStyle(e, '::before').boxShadow) };
+  if (cardStep.line !== 'Tap the bonus card / then tap to play' || cardStep.step !== 'card' || cardStep.counter !== 1 || cardStep.play !== 0.2 || cardStep.reroll !== 0.2 || cardStep.target.join() !== '8' || !/rgb\(255, 255, 255\)/.test(cardStep.glow)) note(vp, `tutorial does not ask to switch the ×2 on: ${JSON.stringify(cardStep)}`);
   await tap(page, 8);
   if ((await auto()).off[8]) note(vp, 'tapping the turned card did not switch it on');
-  // the card switched on glows under itself in its own colour, nothing over its picture (Figma 1308:2958; owner, 11.11.2026:
-  // «выделение не должно быть поверх рисунка. Сделай подсветку под выбранной картой», «у выбранной карты используй подсветку
-  // на основе ее фонового цвета»)
-  const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, glow: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).filter, ground: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).backgroundColor, ring: getComputedStyle(document.querySelector('#board .cell[data-index="8"]'), '::after').content, sticker: document.querySelector('#multSticker .ink')?.textContent, whole: `×${window.__diceSnake.hint().hand.mult * window.__diceSnake.hint().hand.bonusMult}`, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className,
+  // the card switched on glows under itself in its own colour at 48 %, nothing over its picture (Figma 1308:2958, 1392:2641;
+  // owner, 11.11.2026: «выделение не должно быть поверх рисунка. Сделай подсветку под выбранной картой», «у выбранной карты
+  // используй подсветку на основе ее фонового цвета»; 12.11.2026: the tutorial's look for the whole game), and the hand's
+  // name over its points turns lime
+  const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, glow: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).filter, ground: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).backgroundColor, ring: getComputedStyle(document.querySelector('#board .cell[data-index="8"]'), '::after').content, sticker: document.querySelector('#multSticker .ink')?.textContent, whole: `×${window.__diceSnake.hint().hand.mult * window.__diceSnake.hint().hand.bonusMult}`, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className, label: getComputedStyle(document.getElementById('bonesLabel')).color,
     // the sticker's lime is a layer under its letters: drawn with them, the number's lime covered the × (owner, 11.11.2026)
     layers: (() => { const pad = document.querySelector('#multSticker .pad'); const ink = document.querySelector('#multSticker .ink'); return !!pad && !!ink && pad.textContent === ink.textContent && getComputedStyle(pad).color === 'rgba(0, 0, 0, 0)' && getComputedStyle(ink).position === 'absolute' && getComputedStyle(ink).textShadow === 'none'; })() }));
   // the whole multiplier: on the lime sticker on the phone, in the hand's row on the desktop
   const multiplier = layout.wide ? (await text('#handMult')).replace('MULTI ', '') : on.sticker;
-  if (!/\bon\b/.test(on.cell) || !on.glow.startsWith(`drop-shadow(${on.ground} `) || on.ring !== 'none' || multiplier !== on.whole || (!layout.wide && on.shown === 'none') || !/\bon\b/.test(on.stat) || !on.layers) note(vp, `bonus on: ${JSON.stringify({ ...on, multiplier })}`);
-  const playPulse = await page.$eval('#playBtn', (b) => b.classList.contains('pulse'));
-  if (!playPulse || !/PLAY THE HAND/.test(await text('#coachText'))) note(vp, `tutorial play step: pulse=${playPulse}, "${await text('#coachText')}"`);
+  const glow = rgba(on.glow);
+  const ground = rgba(on.ground);
+  const glowOk = !!glow && !!ground && glow.slice(0, 3).every((v, i) => Math.abs(v - ground[i]) < 1.5) && Math.abs(glow[3] - 0.48) < 0.01;
+  if (!/\bon\b/.test(on.cell) || !glowOk || on.ring !== 'none' || multiplier !== on.whole || (!layout.wide && on.shown === 'none') || !/\bon\b/.test(on.stat) || on.label !== 'rgb(187, 243, 80)' || !on.layers) note(vp, `bonus on: ${JSON.stringify({ ...on, multiplier })}`);
+  // step 4 (Figma 1392:2641): the same words, PLAY to tap, REROLL at 20 %
+  const playStep = { line: `${await text('#coachText')} / ${await text('#coachSub')}`, ...(await dimmed()) };
+  if (playStep.line !== 'Tap the bonus card / then tap to play' || playStep.step !== 'play' || playStep.counter !== 1 || playStep.play !== 1 || playStep.reroll !== 0.2) note(vp, `tutorial play step: ${JSON.stringify(playStep)}`);
   // off again keeps it for later, on again uses it
   await tap(page, 8);
   if (!(await auto()).off[8]) note(vp, 'tapping the bonus again did not switch it off');
@@ -270,7 +296,7 @@ for (const vp of viewports) {
   if (hidden.length) note(vp, `dice invisible after the hand: [${hidden}]`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-6-after-first.png` });
   // the tutorial's last line says its one thing and goes with the player's next move
-  if (b.phase === 'playing' && !/NEW DICE EVERY HAND/.test(await text('#coachText'))) note(vp, `the tutorial's last line: ${await text('#coachText')}`);
+  if (b.phase === 'playing' && `${await text('#coachText')} / ${await text('#coachSub')}` !== "New dice every hand / rerolls don't refill") note(vp, `the tutorial's last line: ${await text('#coachText')} / ${await text('#coachSub')}`);
   // the level ends at the target (owner, 01.11.2026) or after the third hand
   for (let h = 0; h < 2 && (await auto()).phase === 'playing'; h++) {
     await page.click('#playBtn');
@@ -334,7 +360,7 @@ for (const vp of viewports) {
   if ((await page.$$eval('.bonus-list li', (l) => l.length)) !== 6) note(vp, 'the Bible does not show the six bonus dice');
   await page.click('#guideSettings');
   await page.waitForTimeout(100);
-  if ((await text('#helpTitle')) !== 'SETTINGS' || !(await page.$eval('#helpRules', (el) => el.hidden))) note(vp, 'the settings sheet still shows the rules');
+  if ((await text('#helpTitle')) !== 'Settings' || !(await page.$eval('#helpRules', (el) => el.hidden))) note(vp, 'the settings sheet still shows the rules');
   await page.click('#closeHelpBtn');
 
   // persistence: reload restores the level in progress
@@ -576,7 +602,7 @@ for (const vp of viewports) {
     const list = document.getElementById('runFacts');
     return { text: list.textContent, over: g.scrollHeight - g.clientHeight, shown: !document.querySelector('.guide-page[data-page="4"]').hidden, next: document.getElementById('guideNext').textContent, dots: [...document.querySelectorAll('#guideDots i')].filter((d) => d.classList.contains('on')).length, room: document.querySelector('.guide-actions').getBoundingClientRect().top - list.lastElementChild.getBoundingClientRect().bottom };
   });
-  if (!facts.shown || facts.over > 0 || facts.room < 0 || facts.next !== 'NEXT' || facts.dots !== 1 || !/BELLS/.test(facts.text) || !/SHOP IN|SHOP NEXT/.test(facts.text) || !/BELLWETHER/.test(facts.text)) note(vp, `How's first page: ${JSON.stringify(facts)}`);
+  if (!facts.shown || facts.over > 0 || facts.room < 0 || facts.next !== 'NEXT' || facts.dots !== 1 || !/BELLS/.test(facts.text) || !/SHOP IN|SHOP NEXT/.test(facts.text) || !/LUCKY COIN/i.test(facts.text)) note(vp, `How's first page: ${JSON.stringify(facts)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-15-how.png` });
   for (let n = 0; n < 3; n++) await page.click('#guideNext');
   await page.waitForTimeout(150);
@@ -691,9 +717,7 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   await page.waitForFunction(() => !document.getElementById('bonusSheet').hidden, null, { timeout: 6000 });
   await gotIt(page);
   await calls();
-  await page.click('#coachSkip');
-  await idle(page);
-  await page.click('#rerollBtn');
+  await page.click('#rerollBtn'); // the tutorial blocks nothing (no SKIP since 12.11.2026)
   await idle(page);
   const play = await calls();
   if (play.some((c) => c.startsWith('set') || c.startsWith('localStorage'))) note(vp, `playgama wrote during a hand: ${play.join(', ')}`);

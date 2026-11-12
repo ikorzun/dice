@@ -30,9 +30,10 @@
     <button class="book" id="helpBtn" type="button" aria-label="How to play"><i></i>How</button>
   </header>
   <div class="preview" id="preview" aria-live="polite" hidden></div>
-  <div class="coach" id="coach" hidden>
-    <span class="coach-text" id="coachText"></span>
-    <button class="btn-ghost coach-skip" id="coachSkip" type="button">SKIP</button>
+  <div class="toast" id="toast" hidden></div>
+  <div class="coach" id="coach" aria-live="polite" hidden>
+    <b class="coach-text" id="coachText"></b>
+    <span class="coach-sub" id="coachSub"></span>
   </div>
   <section class="board-wrap">
     <div class="board rendered" id="board" aria-label="3 by 3 dice board"></div>
@@ -62,7 +63,6 @@
       <button class="btn-ghost" id="lookBtn" type="button">LOOK</button>
     </nav>
   </section>
-  <div class="toast" id="toast" hidden></div>
 </main>
 
 <section class="overlay" id="levelEnd" hidden>
@@ -122,30 +122,30 @@
 <section class="overlay guide" id="guide" hidden>
   <div class="guide-bar">
     <span class="guide-dots" id="guideDots" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-    <button class="guide-skip" id="guideSkip" type="button">SKIP</button>
+    <button class="btn-text" id="guideSkip" type="button">SKIP</button>
   </div>
   <div class="guide-page" data-page="1">
-    <h2 class="guide-head">MATCH DICE:<br>SUM × MULTIPLIER</h2>
+    <h2 class="guide-head">Match dice:<br>sum × multiplier</h2>
     <ol class="combos" id="combos"></ol>
     <p class="guide-note">THREE 6s: 18 × 4 = 72</p>
   </div>
   <div class="guide-page" data-page="2">
-    <h2 class="guide-head">HOLD THE KEEPERS.<br>REROLL THE REST.</h2>
+    <h2 class="guide-head">Hold the keepers.<br>Reroll the rest.</h2>
     <div class="hold-pic" id="holdPic"></div>
     <p class="guide-note" id="holdNote">PLAY THROWS EVERY DIE ANEW</p>
   </div>
   <div class="guide-page" data-page="3">
-    <h2 class="guide-head">SWITCH ON BONUSES.<br>BEAT THE THRESHOLD.</h2>
+    <h2 class="guide-head">Switch on bonuses.<br>Beat the threshold.</h2>
     <div class="bonus-pic" id="bonusPic"></div>
     <p class="guide-note" id="bonusNote"></p>
   </div>
   <div class="guide-page" data-page="4">
-    <h2 class="guide-head">THIS RUN</h2>
+    <h2 class="guide-head">This run</h2>
     <ul class="run-facts" id="runFacts"></ul>
   </div>
   <div class="guide-actions">
-    <button class="btn-play" id="guideNext" type="button">NEXT</button>
-    <button class="guide-link" id="guideSettings" type="button" hidden>SETTINGS</button>
+    <button class="btn-main" id="guideNext" type="button">NEXT</button>
+    <button class="btn-text" id="guideSettings" type="button" hidden>SETTINGS</button>
   </div>
 </section>
 
@@ -162,7 +162,7 @@
 
 <section class="overlay sheet" id="help" hidden>
   <div class="panel sheet-panel">
-    <h2 class="end-title" id="helpTitle">HOW TO PLAY</h2>
+    <header class="sheet-head"><h2 class="end-title" id="helpTitle">How to play</h2><button class="btn-text" id="closeHelpBtn" type="button">CLOSE</button></header>
     <div id="helpRules" class="help-rules">
     <p class="lead" id="helpScoring"><strong>Matching dice score their sum × a multiplier that grows with rarity.</strong> Pair × 2, two pairs × 3, three of a kind × 4, straight and full house × 5 (all five dice), four of a kind × 6, five of a kind × 8. Three 3s = 9 × 4 = 36; four 4s = 16 × 6 = 96.</p>
     <p class="lead" id="helpLead"></p>
@@ -179,9 +179,9 @@
         <option value="keep">Keep · stone and heraldry</option>
       </select>
     </label>
-    <label class="opt"><input type="checkbox" id="optSound" checked> Sound effects</label>
-    <label class="opt"><input type="checkbox" id="optDice3d" checked> 3D dice</label>
-    <button class="btn-secondary" id="tutorialBtn" type="button">SHOW TUTORIAL AGAIN</button>
+    <label class="opt"><span>Sound effects</span><input type="checkbox" id="optSound" checked></label>
+    <label class="opt"><span>3D dice</span><input type="checkbox" id="optDice3d" checked></label>
+    <button class="btn-alt" id="tutorialBtn" type="button">SHOW TUTORIAL AGAIN</button>
     <!-- the tuning and data blocks are for the developer: shown with ?dev in the address (audit question 5, 09.11.2026) -->
     <div class="dev" hidden>
     <h3>EXPERIMENTS</h3>
@@ -203,7 +203,6 @@
     </div>
     <textarea id="logOut" class="log-out" readonly hidden aria-label="Event log JSON"></textarea>
     </div>
-    <button class="btn-primary" id="closeHelpBtn" type="button">CLOSE</button>
   </div>
 </section>
 <!-- The splash (Figma 1333:1876): up from the first paint, over everything, for 3 s at every start (app.js runSplash) -->

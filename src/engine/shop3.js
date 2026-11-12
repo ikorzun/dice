@@ -16,15 +16,17 @@ import { bossOf, BOSSES } from './bosses3.js';
 export const CHARM_SLOTS = 3;
 const ALL = UP_CATEGORIES;
 
+// The names and pictures are the owner's things of the portals plan (owner, 12.11.2026: «Объекты я давал с героями»;
+// his pick: the pictures only, scripts/charms.py); the ids, rules and prices are the charms' own
 export const CHARMS = Object.freeze({
-  crooked_pip: Object.freeze({ name: 'CROOKED PIP', rule: 'ONES COUNT AS SIX IN HAND SUMS', price: 9, serves: ['full_house', 'straight', 'two_pairs'] }),
-  velvet_grip: Object.freeze({ name: 'VELVET GRIP', rule: 'HELD DICE ADD ONE TO HAND SUM', price: 8, serves: ['pair', 'three_kind', 'five_kind'], habit: 'holds' }),
-  quick_pocket: Object.freeze({ name: 'QUICK POCKET', rule: 'FIRST BANK CARD STARTS ON BOARD', price: 8, serves: [], habit: 'cards' }),
-  stone_ribbon: Object.freeze({ name: 'STONE RIBBON', rule: 'FIVE-DIE HANDS ADD FIVE', price: 7, serves: ['full_house', 'straight', 'five_kind'] }),
-  echo_thimble: Object.freeze({ name: 'ECHO THIMBLE', rule: 'REFUND GIVES BACK TWO REROLLS', price: 7, serves: [], habit: 'rerolls' }),
-  bellwether: Object.freeze({ name: 'BELLWETHER', rule: 'TWO MORE BELLS EACH CLEARED LEVEL', price: 9, serves: [] }),
-  final_bow: Object.freeze({ name: 'FINAL BOW', rule: 'LAST HAND ADDS FIVE TO SUM', price: 8, serves: ALL }),
-  spare_knuckle: Object.freeze({ name: 'SPARE KNUCKLE', rule: 'ONE MORE REROLL EACH LEVEL', price: 15, serves: [], habit: 'rerolls' }),
+  crooked_pip: Object.freeze({ name: 'SIX GRIP', rule: 'ONES COUNT AS SIX IN HAND SUMS', price: 9, serves: ['full_house', 'straight', 'two_pairs'] }),
+  velvet_grip: Object.freeze({ name: 'SOLID HOLD', rule: 'HELD DICE ADD ONE TO HAND SUM', price: 8, serves: ['pair', 'three_kind', 'five_kind'], habit: 'holds' }),
+  quick_pocket: Object.freeze({ name: 'FIRST FLIGHT', rule: 'FIRST BANK CARD STARTS ON BOARD', price: 8, serves: [], habit: 'cards' }),
+  stone_ribbon: Object.freeze({ name: 'FIVE SLICES', rule: 'FIVE-DIE HANDS ADD FIVE', price: 7, serves: ['full_house', 'straight', 'five_kind'] }),
+  echo_thimble: Object.freeze({ name: 'CALLBACK', rule: 'REFUND GIVES BACK TWO REROLLS', price: 7, serves: [], habit: 'rerolls' }),
+  bellwether: Object.freeze({ name: 'LUCKY COIN', rule: 'TWO MORE BELLS EACH CLEARED LEVEL', price: 9, serves: [] }),
+  final_bow: Object.freeze({ name: 'LATE BLOOM', rule: 'LAST HAND ADDS FIVE TO SUM', price: 8, serves: ALL }),
+  spare_knuckle: Object.freeze({ name: 'REWIND', rule: 'ONE MORE REROLL EACH LEVEL', price: 15, serves: [], habit: 'rerolls' }),
 });
 
 export const CARD_PRICE = Object.freeze({ x2_any: 4, x3_straight: 6, x3_pairs: 4, x3_trips: 5, joker: 6, refund: 4, x3_kinds: 5, x3_small: 4, x4_any: 9, x3_sixes: 5 });

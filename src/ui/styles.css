@@ -201,7 +201,7 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 #targetStat { flex: none; width: calc(120.33px * var(--k, 1)); } /* Figma 1285:1300: LEVEL and the hand share the rest */
 .stat .value { font-size: calc(28px * var(--k, 1)); line-height: 1; font-variant-numeric: tabular-nums; }
 #handStat { border-left: 1px solid rgba(0, 0, 0, .3); border-right: 1px solid rgba(0, 0, 0, .3); }
-#handStat.on .label { color: #fd4e3c; opacity: 1; }
+#handStat.on .label { color: var(--hold); opacity: 1; } /* lime with a card on (the tutorial's Figma 1392:2641, for the whole game: owner, 12.11.2026; it was #fd4e3c after Figma 1308:3041) */
 /* a multiplying bonus that is on (Figma 1308:3041): the hand's whole multiplier, the combination's × the bonus's,
    on a lime sticker 6 px after the sum, in place of the yellow ×N */
 #multSticker { display: none; margin-left: .214em; white-space: nowrap; pointer-events: none; }
@@ -255,9 +255,9 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 /* The bank's cards are the small card (Figma 1339:2155 Card-mini, 11.11.2026): the hero's own lighter colour, rounded 16
    of 64, no arch, the hero's portrait 64 px from 14 px over the top, the name 6 px in black. #bank and the card on its
    way to the board: over the big card's colours. */
-#bank .cell.bonus, .bank.bank-fly .cell.bonus { --card: var(--mini-card); --card-ink: #000; border-color: var(--mini-edge); border-radius: 25%; box-shadow: inset 0 0 calc(4.655px * var(--k, 1)) rgba(255, 255, 255, .25); }
-.bank .cell.bonus .arch { display: none; }
-.bank .cell.bonus .art { left: -1.61%; top: -24.19%; width: 103.23%; height: 103.23%; } /* 64 px at 0, -14 */
+#bank .cell.bonus, .bank.bank-fly .cell.bonus, #shopBank .cell.bonus { --card: var(--mini-card); --card-ink: #000; border-color: var(--mini-edge); border-radius: 25%; box-shadow: inset 0 0 calc(4.655px * var(--k, 1)) rgba(255, 255, 255, .25); }
+.bank .cell.bonus .arch, #shopBank .cell.bonus .arch, #shopBank .cell.bonus .x2 { display: none; }
+.bank .cell.bonus .art, #shopBank .cell.bonus .art { left: -1.61%; top: -24.19%; width: 103.23%; height: 103.23%; } /* 64 px at 0, -14 */
 .bank .cell.bonus .tag { bottom: 2.37%; font-size: calc(6px * var(--k, 1)); }
 .bank .slot { background: url("../../assets/ui/bank-slot.svg") center / 100% 100% no-repeat; }
 .bank .cell.new { animation: bankIn 520ms cubic-bezier(.2, .8, .3, 1.3) both; }
@@ -278,12 +278,39 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .sticker .pad { color: transparent; }
 .sticker .ink { position: absolute; left: 0; top: 0; text-shadow: none; }
 
-/* Coach (interactive tutorial): one line lying over the header row, so the owner's rows keep their size (06.11.2026) */
-.coach { position: absolute; z-index: 5; top: max(16px, env(safe-area-inset-top, 0px)); left: calc(env(safe-area-inset-left, 0px) + 12px * var(--k, 1)); right: calc(env(safe-area-inset-right, 0px) + 12px * var(--k, 1)); height: calc(64px * var(--k, 1)); display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 0 calc(10px * var(--k, 1)); border: 1px solid var(--gold); border-radius: 12px; background: #000; }
-.coach-text { font: 700 max(11px, calc(15px * var(--k, 1)))/1.15 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--fg); min-width: 0; }
-.coach-skip { height: 30px; padding: 0 10px; }
+/* Coach (interactive tutorial) after the owner's notification (Figma 1340:1340, 1340:1566, 1392:2485, 1392:2641;
+   12.11.2026): a 28 px title and an 18 px line in the light cut at 80 %, 8 apart, centred on #030303 across the column,
+   rounded 24, 8 at the sides; it covers the header row, so the owner's rows keep their size, and ends 5 px below it, 11
+   above the board, as drawn. The mockup's header stands 35 px under the status bar and the notification starts 19 above
+   it; the game's header stands 16 px from the top, so the notification starts at the window's top and its words stand in
+   its middle (on a tablet 19 above the header was the window's top and more). No SKIP (owner, 12.11.2026): the tutorial
+   blocks nothing and ends after the first hand. On the desktop it takes the panel's header tile. */
+.coach { position: absolute; z-index: 5; top: calc(max(16px, env(safe-area-inset-top, 0px)) - 16px); left: env(safe-area-inset-left, 0px); right: env(safe-area-inset-right, 0px); height: calc(16px + 69px * var(--k, 1)); display: flex; flex-direction: column; justify-content: center; gap: calc(8px * var(--k, 1)); padding: 0 calc(8px * var(--k, 1)); border-radius: calc(24px * var(--k, 1)); background: #030303; text-align: center; }
+.coach-text { font: 700 max(16px, calc(28px * var(--k, 1)))/1 var(--font-display); color: var(--fg); text-wrap: balance; }
+.coach-sub { font: 300 max(13px, calc(18px * var(--k, 1)))/1.1 var(--font-light); color: rgba(255, 255, 255, .8); text-wrap: balance; }
+.coach-sub:empty { display: none; }
+.toast:not([hidden]) ~ .coach { visibility: hidden; } /* a toast says its word over the header alone, the notification waits */
+/* While it speaks, what its step does not use lies at 20 % (the notification covers the header): the counter and both
+   buttons while a die is to be held, the counter and PLAY before the reroll, both buttons before a card is switched on,
+   REROLL before PLAY. Nothing is blocked: a tap on a dim button still works. The desktop's counter shares its tile with
+   the notification and stays lit (Figma 1392:2866, 1392:3100). */
+body:not(.wide) .app[data-coach="hold"] .counter > *,
+body:not(.wide) .app[data-coach="reroll"] .counter > *,
+.app[data-coach="hold"] :is(#playBtn, #rerollBtn),
+.app[data-coach="reroll"] #playBtn,
+.app[data-coach="card"] :is(#playBtn, #rerollBtn),
+.app[data-coach="play"] #rerollBtn { opacity: .2; }
+/* REROLL to tap (Figma 1340:1566): its 16 % white under black at 20 %, and a band of grey 102 at 20 % that passes across
+   it every 2 s (owner, 12.11.2026: «Свет пробегает по кнопке»); still, it rests where the mockup draws it, from 53 %. On
+   the desktop too, though its mockup draws REROLL plain (Figma 1392:3100; owner, 12.11.2026: «Добавить как на телефоне»). */
+.app[data-coach="reroll"] #rerollBtn { background-image: linear-gradient(90deg, rgba(0, 0, 0, .2) 40%, rgba(102, 102, 102, .2) 40% 60%, rgba(0, 0, 0, .2) 60%); background-size: 250% 100%; background-repeat: no-repeat; background-position: 31.3% 0; animation: rerollSweep 2s ease-in-out infinite; }
+@keyframes rerollSweep { from { background-position: 100% 0; } to { background-position: 0% 0; } }
+/* The cell to tap (Figma «Tap»): a 107 px circle in the 116 px cell, white at 10 % with a 60 px glow inward, lime
+   (#c0ff47) on a die and white on a card, over its face as drawn; the card glows under itself as when it is on */
+.cell.hint::before { content: ''; position: absolute; z-index: 3; left: 50%; top: 50%; width: 92.24%; height: 92.24%; border-radius: 50%; transform: translate(-50%, -50%); background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 calc(60px * var(--kb, 1)) #c0ff47; pointer-events: none; }
+.cell.bonus.hint::before { box-shadow: inset 0 0 calc(60px * var(--kb, 1)) #fff; }
 .ghost { position: absolute; width: 17%; height: 17%; border-radius: 50%; background: rgba(255, 255, 255, .28); border: 3px solid var(--fg); box-shadow: 0 0 0 7px rgba(255, 255, 255, .14), 0 4px 14px rgba(0, 0, 0, .6); pointer-events: none; z-index: 7; transform: translate(-50%, -50%); opacity: 0; }
-.btn-primary.pulse, .btn-secondary.pulse, .btn-play.pulse, .btn-dark.pulse { animation: pulseBtn 1.1s ease-in-out infinite; }
+.btn-primary.pulse, .btn-secondary.pulse, .btn-dark.pulse { animation: pulseBtn 1.1s ease-in-out infinite; }
 @keyframes pulseBtn { 0%, 100% { box-shadow: 0 0 0 0 rgba(243, 197, 79, 0); } 50% { box-shadow: 0 0 0 6px rgba(243, 197, 79, .55); } }
 
 
@@ -314,12 +341,13 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.die { background: var(--die); box-shadow: var(--die-shadow); transition: transform 110ms ease, box-shadow 110ms ease; }
 .cell.die.pressed { transform: scale(.95); }
 .cell.die.held { animation: bonusOn 360ms cubic-bezier(.2, .8, .3, 1.3); } /* picked: the bonus die's hop (owner, 02.11.2026) */
-/* A held die stays white in a 4 px frame with a 10 px glow inward (Figma 1327:1724, 10.11.2026; was a lime die) */
-.cell.die.held::after, .gdie.held::after { content: ''; position: absolute; inset: 0; border: var(--hold-frame) solid var(--hold-edge); border-radius: inherit; box-shadow: inset 0 0 var(--hold-glow) var(--hold-edge); pointer-events: none; }
-.cell.die.held { --hold-frame: calc(4px * var(--kb, 1)); --hold-glow: calc(10px * var(--kb, 1)); }
+/* A held die stays white in a 4 px frame of #7cb823 at 60 % with an 18 px glow inward (the tutorial's Figma 1340:1566,
+   for the whole game: owner, 12.11.2026; it was 100 % and 10 px after Figma 1327:1724, and a lime die before that) */
+.cell.die.held::after, .gdie.held::after { content: ''; position: absolute; inset: 0; border: var(--hold-frame) solid rgba(124, 184, 35, .6); border-radius: inherit; box-shadow: inset 0 0 var(--hold-glow) var(--hold-edge); pointer-events: none; }
+.cell.die.held { --hold-frame: calc(4px * var(--kb, 1)); --hold-glow: calc(18px * var(--kb, 1)); }
 .cell.die.in-path { box-shadow: inset 0 0 0 4px var(--path), inset 0 -4px 0 var(--die-edge); }
 .cell.die.held.in-path { box-shadow: inset 0 0 0 4px var(--path), inset 0 0 0 7px var(--hold); }
-.cell.die.hint, .cell.die.safe-hint { box-shadow: inset 0 0 0 4px var(--gold), inset 0 -4px 0 var(--die-edge); animation: hintPulse 650ms ease-in-out infinite alternate; }
+.cell.die.safe-hint { box-shadow: inset 0 0 0 4px var(--hold-edge), inset 0 -4px 0 var(--die-edge); animation: hintPulse 650ms ease-in-out infinite alternate; }
 .cell.die.safe-next { box-shadow: inset 0 0 0 3px var(--good), inset 0 -4px 0 var(--die-edge); }
 .cell.die.safe-next::after { content: ''; position: absolute; top: 8%; right: 9%; width: 12px; height: 12px; border-radius: 50%; background: var(--good); }
 .cell.empty { background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 11px rgba(255, 255, 255, .08); } /* 8 % (owner, 02.11.2026): a banked die in Snake, an old save's hole in Auto Hand */
@@ -345,9 +373,14 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.bonus.on { animation: bonusOn 360ms cubic-bezier(.2, .8, .3, 1.3); } /* only the card moves, never its picture (owner, 02.11.2026) */
 /* switched on: a glow under the card, the picture untouched (Figma 1308:2958; owner, 11.11.2026: «выделение не должно
    быть поверх рисунка. Сделай подсветку под выбранной картой»; it was a 4 px lime ring over the card), in the card's own
-   colour (owner, 11.11.2026: «у выбранной карты используй подсветку на основе ее фонового цвета»; it was lime at 80 %).
-   In the bank --card is the small card's colour. */
-.cell.bonus.on { filter: drop-shadow(0 calc(4px * var(--kb, 1)) calc(10px * var(--kb, 1)) var(--card)); }
+   colour (owner, 11.11.2026: «у выбранной карты используй подсветку на основе ее фонового цвета»; it was lime at 80 %),
+   at 48 %, 7 px down, blurred 10 (the tutorial's Figma 1392:2641, for the whole game: owner, 12.11.2026; it was 4 px
+   down at 100 %). The tutorial's card to tap glows so before it is on (Figma 1392:2485). In the bank --card is the
+   small card's colour. A browser without color-mix() draws it at 100 %. */
+.cell.bonus.on, .cell.bonus.hint { filter: drop-shadow(0 calc(7px * var(--kb, 1)) calc(10px * var(--kb, 1)) var(--card)); }
+@supports (color: color-mix(in srgb, red 48%, transparent)) {
+  .cell.bonus.on, .cell.bonus.hint { filter: drop-shadow(0 calc(7px * var(--kb, 1)) calc(10px * var(--kb, 1)) color-mix(in srgb, var(--card) 48%, transparent)); }
+}
 .cell .arch, .cell .back { position: absolute; display: none; pointer-events: none; }
 .cell.bonus .arch { display: block; left: 3.7%; top: 12.04%; width: 92.59%; height: 65.74%; background: var(--card-arch) center / 100% 100% no-repeat; } /* 100 × 71 px at 5, 14 */
 .cell.bonus .back { inset: -1px; border: 1px solid rgba(255, 255, 255, .16); border-radius: inherit; background: var(--card-back) 0 0 / calc(var(--back-tile, 64px) * var(--kb, 1)) repeat; } /* the hero's pattern, tiled from the corner */
@@ -367,7 +400,7 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 @keyframes cardFront { 0% { opacity: 0; } 50% { opacity: 1; } }
 @keyframes bonusOn { 40% { transform: scale(1.07); } }
 .cell.bonus.used { border-color: var(--line-strong); color: var(--muted); box-shadow: none; animation: none; }
-.cell.bonus.safe-hint, .cell.bonus.hint { animation: armPulse 650ms ease-in-out infinite; }
+.cell.bonus.safe-hint { animation: armPulse 650ms ease-in-out infinite; }
 .cell .art { position: absolute; display: none; background: center / 100% 100% no-repeat; pointer-events: none; }
 /* The face: the hero's whole portrait in a square box from 15 px above the card down to the arch's bottom (Figma
    1339:2155 IMG), a still picture; the multiplier in the top right corner (none for the joker) */
@@ -450,7 +483,7 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 }
 @keyframes bankPop { 0% { transform: scale(1); opacity: 1; } 35% { transform: scale(1.14); opacity: 1; } 100% { transform: scale(.15); opacity: 0; } }
 @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6%); } 50% { transform: translateX(6%); } 75% { transform: translateX(-4%); } }
-@keyframes hintPulse { from { box-shadow: inset 0 0 0 3px var(--gold), inset 0 -4px 0 var(--die-edge); } to { box-shadow: inset 0 0 0 6px var(--gold), inset 0 -4px 0 var(--die-edge); } }
+@keyframes hintPulse { from { box-shadow: inset 0 0 0 3px var(--hold-edge), inset 0 -4px 0 var(--die-edge); } to { box-shadow: inset 0 0 0 6px var(--hold-edge), inset 0 -4px 0 var(--die-edge); } }
 @keyframes armPulse { 0%, 100% { box-shadow: inset 0 0 0 3px var(--gold), 0 0 14px rgba(255, 234, 58, .25); } 50% { box-shadow: inset 0 0 0 3px var(--gold), 0 0 28px rgba(255, 234, 58, .55); } }
 
 @keyframes heroFade { from { opacity: 0; } to { opacity: 1; } } /* the bonus sheet's backdrop */
@@ -521,10 +554,8 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 
 /* Toast */
 /* A line by an event lies over the header row: never over the dice, the counter or the buttons a decision rests on */
-.toast { pointer-events: none; position: absolute; z-index: 8; top: max(16px, env(safe-area-inset-top, 0px)); left: calc(env(safe-area-inset-left, 0px) + 12px * var(--k, 1)); right: calc(env(safe-area-inset-right, 0px) + 12px * var(--k, 1)); height: calc(64px * var(--k, 1)); display: flex; align-items: center; justify-content: center; padding: 0 10px; border-radius: 12px; background: #000; border: 1px solid var(--line-strong); color: var(--fg); font: 700 max(11px, calc(15px * var(--k, 1)))/1.2 var(--font-display); letter-spacing: .06em; text-align: center; animation: toastIn 180ms ease-out; }
-.toast.bad { border-color: var(--bad); color: var(--bad); }
-.toast.good { border-color: var(--good); color: var(--good); }
-.toast.hint { border-color: var(--gold); color: var(--gold); }
+.toast { pointer-events: none; position: absolute; z-index: 8; top: max(16px, env(safe-area-inset-top, 0px)); left: calc(env(safe-area-inset-left, 0px) + 12px * var(--k, 1)); right: calc(env(safe-area-inset-right, 0px) + 12px * var(--k, 1)); height: calc(64px * var(--k, 1)); display: flex; align-items: center; justify-content: center; padding: 0 10px; background: #000; color: var(--fg); font: 700 max(11px, calc(15px * var(--k, 1)))/1.2 var(--font-display); letter-spacing: .06em; text-align: center; animation: toastIn 180ms ease-out; }
+.toast.bad { color: var(--bad); } /* red is the loss and what is refused; a hint and good news are white */
 @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* Overlays */
@@ -704,7 +735,14 @@ body.wide .app {
 }
 body.wide .board-wrap { grid-area: board; --board: calc(546px * var(--k, 1)); }
 body.wide .board { gap: calc(12px * var(--k, 1)); }
-body.wide .coach { grid-area: hud; inset: 0; height: auto; border-radius: calc(40px * var(--k, 1)) calc(40px * var(--k, 1)) 0 0; background: var(--tile); }
+/* The tutorial on the desktop and a sideways phone (Figma 1392:2866, 1392:3100, 1392:3183; owner, 12.11.2026): the
+   notification takes the header row of the panel's tile, its words from the left like the tile's other rows (30 + 8), in
+   the row's 64 between the tile's 30 and the line's 24. Through the first hand LEVEL keeps its place unseen and the hand's
+   dice row leaves, so PLAY and REROLL grow (data-tutorial, coachRender: the panel takes its shape back only when the board
+   is still, after the first hand's count, never in a throw or a won level's moment). */
+body.wide .coach { grid-area: hud; inset: 0; height: auto; padding: calc(30px * var(--k, 1)) calc(38px * var(--k, 1)) calc(24px * var(--k, 1)); border-radius: calc(40px * var(--k, 1)) calc(40px * var(--k, 1)) 0 0; background: var(--tile); text-align: left; }
+body.wide .app[data-tutorial] #levelStat { opacity: 0; }
+body.wide .app[data-tutorial] .hand-row { display: none; }
 body.wide .toast { grid-area: hud; inset: 0; height: auto; border-radius: calc(40px * var(--k, 1)) calc(40px * var(--k, 1)) 0 0; background: var(--tile); }
 body.wide .hud { grid-area: hud; height: auto; align-items: center; justify-content: space-between; padding: calc(30px * var(--k, 1)) calc(32px * var(--k, 1)) calc(24px * var(--k, 1)); background: var(--tile); border-radius: calc(40px * var(--k, 1)) calc(40px * var(--k, 1)) 0 0; }
 body.wide .bank { gap: calc(8px * var(--k, 1)); }
@@ -743,24 +781,25 @@ body.wide .controls .cnt::before { content: '×'; }
 .guide > * { width: min(100%, 440px); }
 .guide-bar { flex: none; height: 44px; display: flex; align-items: center; justify-content: space-between; }
 .guide-dots { display: flex; gap: 8px; }
-.guide-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--tile); }
-.guide-dots i.on { background: var(--accent); }
-.guide-skip, .guide-link { margin-left: auto; padding: 10px 0; border: 0; background: none; color: var(--muted); font: 700 16px/1 var(--font-display); }
+/* How by HIG as the screens between levels (owner, 12.11.2026): CLOSE and SETTINGS are text buttons of 44 px, NEXT the
+   one white capsule, the dot of the page shown white (yellow is the bells', lime the board's), heads in classic case */
+.guide-dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, .24); }
+.guide-dots i.on { background: var(--fg); }
+.guide-bar .btn-text { margin-right: -16px; } /* its words on the column's edge */
 .guide-page { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(12px, 3vh, 26px); text-align: center; animation: pageIn 225ms ease-out; }
 @keyframes pageIn { from { opacity: 0; transform: translateX(24px); } }
 .guide-head { margin: 0; font: 700 clamp(25px, 7.2vmin, 38px)/1.08 var(--font-display); text-wrap: balance; }
 .guide-note { margin: 0; color: var(--muted); font: 700 clamp(14px, 3.9vmin, 18px)/1.2 var(--font-display); }
 .guide-actions { flex: none; display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding-top: 12px; }
-.guide-actions .btn-play { flex: none; height: clamp(60px, 9vh, 80px); font-size: clamp(20px, 5.6vmin, 26px); }
-.guide-actions .guide-link { margin: 0 auto; }
+.guide-actions .btn-main { flex: none; }
+.guide-actions .btn-text { align-self: center; }
 .gdie { display: block; width: var(--gd, 24px); height: var(--gd, 24px); background: var(--f) center / 100% 100% no-repeat; }
-.gdie.held { position: relative; border-radius: var(--die-radius); --hold-frame: calc(var(--gd, 24px) * .0362); --hold-glow: calc(var(--gd, 24px) * .0906); } /* 4 and 10 of 110.4 */
+.gdie.held { position: relative; border-radius: var(--die-radius); --hold-frame: calc(var(--gd, 24px) * .0362); --hold-glow: calc(var(--gd, 24px) * .1552); } /* 4 of 110.4, 18 of 116 */
 .combos { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; gap: clamp(5px, 1.2vh, 10px); --gd: clamp(18px, 5.4vmin, 28px); }
-.combos li { display: grid; grid-template-columns: calc(5 * var(--gd) + 12px) 1fr auto; align-items: center; gap: 12px; padding: clamp(5px, 1.1vh, 9px) 14px; border-radius: 16px; background: var(--tile); }
+.combos li { display: grid; grid-template-columns: calc(5 * var(--gd) + 12px) 1fr auto; align-items: center; column-gap: 20px; padding: clamp(3px, .8vh, 6px) 0; } /* words and dice on the black: nothing here is tapped (owner, 12.11.2026) */
 .combos .gdice { display: flex; gap: 3px; }
 .combos b { font: 700 clamp(14px, 3.9vmin, 18px)/1 var(--font-display); text-align: left; }
-.combos em { font: 700 clamp(20px, 5.6vmin, 28px)/1 var(--font-display); font-style: normal; color: var(--accent); }
-.combos em.raised { color: var(--hold); } /* raised by the run's upgrades */
+.combos em { font: 700 clamp(20px, 5.6vmin, 28px)/1 var(--font-display); font-style: normal; white-space: nowrap; color: var(--fg); } /* a run's raise reads ×m → ×m+1, as the pick says it */
 @media (max-height: 600px) { .combos { gap: 4px; } .combos li { padding-block: 3px; } } /* eight rows on a 568 px phone since the small straight */
 .hold-pic { display: flex; gap: clamp(16px, 5vmin, 28px); align-items: flex-start; --gd: clamp(48px, 15vmin, 72px); }
 .hold-pic .grp { display: flex; flex-direction: column; align-items: center; gap: 10px; }
@@ -946,16 +985,16 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
 .boss-face { display: block; flex: none; background: var(--boss) center / contain no-repeat; }
 .boss-card { position: absolute; inset: 0; z-index: 15; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; color: #fff; }
 .boss-card::before { content: ''; position: fixed; inset: 0; }
-.boss-card > div { position: relative; display: flex; align-items: center; gap: calc(14px * var(--k, 1)); width: calc(300px * var(--k, 1)); padding: calc(14px * var(--k, 1)); border: 1px solid #fff; border-radius: calc(16px * var(--k, 1)); background: #262626; }
+.boss-card > div { position: relative; display: flex; align-items: center; gap: calc(20px * var(--k, 1)); width: calc(300px * var(--k, 1)); padding: calc(16px * var(--k, 1)); border-radius: calc(16px * var(--k, 1)); background: #262626; } /* no frame: a card over the dice, not a button (owner, 12.11.2026) */
 .boss-card[hidden] { display: none; }
 /* it comes in, stands while its keeper acts (at least 2 s), and goes (showBossCard, leaveBossCard) */
 .boss-card.show > div { animation: bossIn 160ms cubic-bezier(.2, .8, .2, 1) both; }
 .boss-card.leaving > div { animation: bossOut 240ms cubic-bezier(.2, .8, .2, 1) both; }
 .boss-card .boss-face { position: relative; width: calc(84px * var(--k, 1)); height: calc(84px * var(--k, 1)); }
 .boss-card span { display: flex; flex-direction: column; gap: calc(4px * var(--k, 1)); min-width: 0; }
-.boss-card b { font-size: calc(16px * var(--k, 1)); line-height: 1.1; font-weight: inherit; }
-.boss-card em { font-style: normal; font-size: calc(12px * var(--k, 1)); line-height: 1.15; color: var(--gold); }
-.boss-card small { font-size: calc(10px * var(--k, 1)); color: #bdbdbd; }
+.boss-card b { font-size: max(13px, calc(16px * var(--k, 1))); line-height: 1.1; font-weight: inherit; }
+.boss-card em { font: 300 max(13px, calc(15px * var(--k, 1)))/1.15 var(--font-light); color: rgba(255, 255, 255, .8); text-transform: lowercase; }
+.boss-card small { font-size: max(11px, calc(11px * var(--k, 1))); letter-spacing: .08em; color: var(--muted); }
 @keyframes bossIn { from { opacity: 0; transform: translateY(calc(12px * var(--k, 1))); } }
 @keyframes bossOut { to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .boss-card.show > div, .boss-card.leaving > div, .popup-card { animation: none; } }
@@ -984,11 +1023,15 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
 .shop-head .wallet .bell { width: calc(24px * var(--k, 1)); height: calc(24px * var(--k, 1)); margin: 0; }
 .shop-head .wallet b { font-weight: inherit; font-size: calc(24px * var(--k, 1)); letter-spacing: 0; color: var(--gold); }
 .shop-held { display: flex; justify-content: space-between; }
-.shop-held > div { display: flex; flex-direction: column; gap: calc(8px * var(--k, 1)); }
+.shop-held > div { display: flex; flex-direction: column; gap: calc(14px * var(--k, 1)); } /* clear of a bank card's head, which rises 11.4 over its place */
 .shop-held > div > span, .shop-boss small { font-style: normal; font-size: max(11px, calc(11px * var(--k, 1))); line-height: 1; letter-spacing: .08em; color: var(--muted); }
 .shop-places { display: flex; gap: calc(8px * var(--k, 1)); }
 .shop-place { position: relative; display: grid; place-items: center; width: var(--place); height: var(--place); border: 0; border-radius: calc(14px * var(--k, 1)); padding: 0; background: var(--surface); overflow: hidden; }
 .shop-place .cell { --kb: calc(.4727 * var(--k, 1)); position: absolute; inset: 0; width: 100%; height: 100%; } /* 52 of the card's 110 */
+/* a bank card is the board's mini card (Figma 1339:2155 Card-mini; owner, 12.11.2026: «Карта должна быть типа mini из
+   фигмы и не обрезаться. Такой же принцип, как на игровом поле»): whole, its hero's head over the place */
+#shopBank .shop-place { overflow: visible; }
+#shopBank .cell.bonus .tag { bottom: 2.37%; font-size: calc(6px * .8125 * var(--k, 1)); } /* the mini's 6 of 64, at 52 */
 .shop-place .sigil { width: 72%; height: 72%; }
 .shop-place.swap { box-shadow: 0 0 0 2px var(--fg); cursor: pointer; } /* a full bank or belt: tap the one to replace (outside: a card fills its place) */
 .shop-place.swap:active { transform: scale(.96); }
@@ -1051,6 +1094,26 @@ body.wide .shop-leave { grid-column: 2; }
 .runs-list.shared li:not(.head, .me) { color: var(--muted); } /* on the shared table the player's own row is the white one */
 .runs-list li.none { display: block; padding-block: calc(12px * var(--k, 1)); text-align: center; font-size: max(11px, calc(11px * var(--k, 1))); letter-spacing: .08em; color: var(--muted); }
 .runs-list i, .runs-list em { font-style: normal; font-variant-numeric: tabular-nums; }
+/* The button set between levels (HIG, 12.11.2026): the main action a white capsule as the owner's card popup has it
+   (Figma 1340:923) and NEW RUN, the second a dark one as REROLL and LEAVE, one size; lime stays on the board */
+.btn-main, .btn-alt { width: 100%; height: max(44px, calc(56px * var(--k, 1))); border: 0; border-radius: 999px; font: 700 max(13px, calc(20px * var(--k, 1)))/1 var(--font-display); text-transform: uppercase; cursor: pointer; transition: transform 100ms ease; -webkit-tap-highlight-color: transparent; }
+.btn-main { background: #fff; color: #000; }
+.btn-alt { background: rgba(255, 255, 255, .16); color: var(--fg); }
+.btn-main:active, .btn-alt:active { transform: scale(.98); }
+/* Settings (HIG, 12.11.2026): the title with CLOSE beside it, as the runs sheet has it; each switch a row of 52 on the
+   surface (it is tapped), its words on the left in the game's type, the switch on the right, white when on; SHOW
+   TUTORIAL AGAIN the second capsule */
+#help { background: #000; } /* on black as every screen off the board: the board showed through its rows */
+#help .sheet-panel { --surface: rgba(255, 255, 255, .08); gap: 8px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; margin-right: -16px; }
+#help .sheet-head .end-title { margin: 0; font-size: 28px; line-height: 1.1; letter-spacing: 0; text-align: left; }
+#help .sheet-panel h3 { margin: 16px 0 0; font: 700 11px/1 var(--font-display); letter-spacing: .08em; color: var(--muted); }
+#help .opt:not([hidden]) { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 0 16px; border-radius: 16px; background: var(--surface); font: 700 16px/1.1 var(--font-display); color: var(--fg); cursor: pointer; }
+#help .opt input[type="checkbox"] { -webkit-appearance: none; appearance: none; flex: none; position: relative; width: 51px; height: 31px; margin: 0; border-radius: 999px; background: rgba(255, 255, 255, .16); transition: background 150ms; cursor: pointer; }
+#help .opt input[type="checkbox"]::before { content: ''; position: absolute; left: 2px; top: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; transition: transform 150ms; }
+#help .opt input[type="checkbox"]:checked { background: #fff; }
+#help .opt input[type="checkbox"]:checked::before { background: #000; transform: translateX(20px); }
+#help #tutorialBtn { margin-top: 8px; }
 /* A text button (HIG's plain style): white words, a target of 44 px at least, a press that shows */
 .btn-text { min-width: 44px; min-height: 44px; padding: 0 calc(16px * var(--k, 1)); border: 0; border-radius: 999px; background: none; color: var(--fg); font: 700 max(13px, calc(15px * var(--k, 1)))/1 var(--font-display); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .btn-text:active { background: rgba(255, 255, 255, .12); }
@@ -1058,14 +1121,25 @@ body.wide .shop-leave { grid-column: 2; }
 .end-next[hidden] { display: none; }
 /* How's first page, once the run holds anything: everything that left the play screen */
 .guide:not(.run) .guide-dots i:last-child { display: none; }
-.run-facts { width: 100%; margin: 0; padding: 0; list-style: none; display: grid; gap: clamp(10px, 2.4vh, 18px); font-family: var(--font-display); font-weight: 700; }
+/* each fact as the shop's note: its picture (the keeper's face, the bell, the charm's thing), a grey label, the name,
+   what it does in the light cut; the bells' sum in yellow; on the black, as nothing here is tapped (owner, 12.11.2026) */
+.run-facts { --art: clamp(32px, 9vmin, 48px); width: 100%; margin: 0; padding: 0; list-style: none; display: grid; gap: clamp(8px, 2vh, 16px); font-family: var(--font-display); font-weight: 700; text-align: left; }
+.run-facts li { display: grid; grid-template-columns: var(--art) minmax(0, 1fr); align-items: center; column-gap: 20px; }
+.run-facts .fact-line { display: block; font-size: max(11px, clamp(11px, 3vmin, 13px)); line-height: 1.3; letter-spacing: .08em; color: var(--muted); text-align: center; }
+.fact-art { display: grid; place-items: center; width: var(--art); height: var(--art); }
+.fact-art > i { display: block; width: 100%; height: 100%; margin: 0; }
+.fact-text { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .run-facts b { display: block; font-weight: inherit; font-size: clamp(16px, 4.6vmin, 20px); line-height: 1.15; color: var(--fg); }
-.run-facts small { display: block; margin-top: 3px; font-size: clamp(12px, 3.4vmin, 14px); line-height: 1.2; color: var(--muted); }
-.run-facts small span { display: inline-block; margin: 0 5px; white-space: nowrap; }
+.run-facts b .sum { color: var(--gold); }
+.run-facts small { display: block; font-size: max(11px, clamp(11px, 3vmin, 13px)); line-height: 1.2; letter-spacing: .08em; color: var(--muted); }
+.run-facts small.lines span { display: inline-block; margin-right: 10px; white-space: nowrap; }
+.run-facts em { font: 300 max(13px, clamp(13px, 3.8vmin, 16px))/1.15 var(--font-light); color: rgba(255, 255, 255, .8); text-transform: lowercase; }
 @media (max-height: 480px) { /* nothing scrolls */
-  .run-facts { grid-template-columns: 1fr 1fr; gap: 3px 16px; }
+  .run-facts { grid-template-columns: 1fr 1fr; gap: 3px 16px; --art: 28px; }
+  .run-facts .fact-line { grid-column: 1 / -1; }
   .run-facts b { font-size: 14px; }
-  .run-facts small { margin-top: 1px; font-size: 11px; }
+  .run-facts small { font-size: 11px; }
+  .run-facts em { font-size: 13px; }
 }
 
 /* ---------- Every window, both orientations (09.11.2026; Playgama 1.6) ----------
@@ -1079,31 +1153,32 @@ body.wide .shop-leave { grid-column: 2; }
 body.wide #levelEnd.run-over .run-reached { --lift: max(0px, 11px - 13px * var(--k, 1)); }
 #levelEnd.run-over .run-reached i { margin: 0 max(0px, calc(2px * var(--k, 1) - var(--lift))); }
 body.wide .stat .label, body.wide .hand-name { line-height: calc(17.2px * var(--k, 1)); }
-.boss-card em { font-size: max(11px, calc(12px * var(--k, 1))); }
-.boss-card small { font-size: max(11px, calc(10px * var(--k, 1))); }
 .stat .label { font-size: max(9px, calc(11px * var(--k, 1))); }
 body.wide .stat .label { font-size: max(9px, calc(13px * var(--k, 1))); }
 body.wide #handStat .label { font-size: calc(13px * var(--k, 1)); } /* SMALL STRAIGHT needs its third of the row; the hand row under it says it larger */
 .hand-name { font-size: max(9px, calc(12px * var(--k, 1))); }
-.boss-card b { font-size: max(11px, calc(16px * var(--k, 1))); }
 
 /* A phone held sideways, a square or any low wide window: each page of the rules puts its words on the left and its
    picture on the right, the button under the words, so nothing runs under the button or the bar. */
 @media (min-aspect-ratio: 1/1) and (max-height: 820px) {
-  .guide { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); grid-template-rows: auto minmax(0, 1fr) auto auto; column-gap: clamp(20px, 5vw, 64px); align-items: center; width: 100%; }
+  /* the words stand in the middle of the left column, on the same middle as their picture on the right (they sat at its
+     foot, far from it: HIG, 12.11.2026); empty rows above and below share the room */
+  .guide { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); grid-template-rows: auto minmax(0, 1fr) auto auto minmax(0, 1fr) auto; column-gap: clamp(20px, 5vw, 64px); align-items: center; width: 100%; }
   .guide > * { width: auto; }
   .guide-bar { grid-column: 1 / -1; grid-row: 1; }
   .guide-page:not([hidden]) { display: contents; }
-  .guide-page > * { grid-column: 2; grid-row: 2 / span 3; min-height: 0; max-height: 100%; animation: pageIn 225ms ease-out; }
-  .guide-page > .guide-head { grid-column: 1; grid-row: 2; align-self: end; text-align: center; }
-  .guide-page > .guide-note { grid-column: 1; grid-row: 3; align-self: start; padding-top: 10px; text-align: center; }
-  .guide-actions { grid-column: 1; grid-row: 4; padding-top: 8px; }
+  .guide-page > * { grid-column: 2; grid-row: 2 / span 4; min-height: 0; max-height: 100%; animation: pageIn 225ms ease-out; }
+  .guide-page > .guide-head { grid-column: 1; grid-row: 3; align-self: end; text-align: center; }
+  .guide-page > .guide-note { grid-column: 1; grid-row: 4; align-self: start; padding-top: 10px; text-align: center; }
+  .guide-actions { grid-column: 1; grid-row: 6; padding-top: 8px; }
   .guide-head { font-size: clamp(20px, min(6.4vmin, 4.4vw), 38px); }
   .guide-note { font-size: clamp(12px, min(3.6vmin, 2.4vw), 18px); }
   .combos { align-self: center; --gd: clamp(14px, 3.8vmin, 26px); }
-  .combos li { grid-template-columns: calc(5 * var(--gd) + 8px) minmax(0, 1fr) auto; gap: 8px; padding-inline: 10px; }
+  .combos li { grid-template-columns: calc(5 * var(--gd) + 8px) minmax(0, 1fr) auto; column-gap: 20px; }
   .combos b { min-width: 0; font-size: clamp(12px, 3.4vmin, 18px); }
   .hold-pic { --gd: clamp(30px, 8vmin, 64px); gap: clamp(12px, 3vmin, 28px); }
+  .bonus-list { --tile-size: min(22vmin, 15vh); row-gap: 4px; } /* the cards fit under the bar, whose CLOSE is 44 px now */
+  .bonus-list small { font-size: 11px; }
   .run-facts { align-self: center; }
 }
 @media (orientation: portrait) and (max-height: 700px) {
@@ -1112,7 +1187,7 @@ body.wide #handStat .label { font-size: calc(13px * var(--k, 1)); } /* SMALL STR
   .guide.help .guide-page { gap: 8px; }
 }
 
-.boss-card .answer { margin-top: calc(2px * var(--k, 1)); color: #fff; } /* a charm held against him */
+.boss-card .answer { margin-top: calc(4px * var(--k, 1)); color: var(--fg); } /* a charm held against him */
 .boss-card > div { width: min(100%, max(230px, calc(300px * var(--k, 1)))); } /* on a phone held sideways the floors of its text need the room */
 
 /* The splash (owner, 11.11.2026: «нам не нужен экран загрузки и все же я хочу показывать подобный экран 3 секунды при
