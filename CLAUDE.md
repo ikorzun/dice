@@ -11,7 +11,7 @@ Hand only, as an endless run that a missed target ends; the other modes keep the
 the ten heroes of the cards and the nine keepers of every fifth level, still pictures that come alive only in their acts
 (`hero-acts.js`, animated AVIF in `assets/ui/acts/`, files beside the page, never inlined: a card when it appears on the board,
 is switched on or is played, a keeper on his card; MODE3-PLAN §38); the cards follow Figma 1339:2155 «Cards»
-(§41: each hero's own colours, arch and back, the acting look while a card moves, the bank's small card; §39 before it); a card's popup (a new kind, a long press) follows Figma 1340:923 / 1333:1761 (§42). Every start of the page opens with a 3 s portal
+(§41: each hero's own colours, arch and back, the acting look, the bank's small card; §39 before it); after PLAY a played card stays as it lies and takes the acting look, its hero over the whole card, while he acts (§43); a card's popup (a new kind, a long press) follows Figma 1340:923 / 1333:1761 (§42). The acts' AVIFs carry a full frame every 12 (`pack.py` through libavif's `avifenc`, never Pillow): with only the first one, Safari fell further behind with every frame and the game took the picture away before the act ended (§43). Every start of the page opens with a 3 s portal
 splash over the game, which waits under it (Figma 1333:1876, §40, `runSplash`; pictures by `scripts/splash.py`; tests end
 it with `__diceSnake.endSplash()`); after it comes the board, with no title even on a first visit (its tutorial is on
 the board, the rules are How's pages). Animation is rigid and smooth, like paper cutouts or animatronics: no squash and
@@ -61,7 +61,7 @@ Locally the CDN loads, so the 3D throw runs in the smoke; it waits for `app.busy
 - `scripts/build.mjs` bundles modules into per-module scopes; it validates import names and
   module order. Dynamic `import()` of CDN URLs (three.js in `src/ui/dice3d.js`) is
   left untouched and must keep its CSS fallback.
-- The won level's moment (`playWin` in `app.js`, `shards.js`; the cards rise and tilt, `CARD_WIN`) is built to
+- The won level's moment (`playWin` in `app.js`, `shards.js`; the cards stay still while their heroes act, §43) is built to
   GPT's spec in `art/ai/2026-11-04-win-production` (local, not in git; MODE3-PLAN §20): times are ms from PLAY,
   `finishLevel` runs first so a reload shows the cleared screen, a tap skips to the pick. The lost run's moment
   (`playLoss`, `holdLine` in `shards.js`; `art/ai/2026-11-04-loss-production`, §21) mirrors it: `finishLevel(board)`

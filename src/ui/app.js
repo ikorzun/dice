@@ -1359,9 +1359,10 @@ function renderCounter() {
   const bonus = !!h && h.bonusMult > 1;
   els.bonesLabel.textContent = h ? h.label : 'BONES'; // the combination's name over its points (owner, 01.11.2026)
   // the sum of its dice × the combination's multiplier (owner, 02.11.2026); with a bonus on, the whole
-  // multiplier on a lime sticker (Figma 1308:3041: 12 ×6 for a ×3 combination and a ×2 bonus)
+  // multiplier on a lime sticker (Figma 1308:3041: 12 ×6 for a ×3 combination and a ×2 bonus): its lime a layer of its
+  // own under the letters, or the number's lime covers the × before it (owner, 11.11.2026: «x должно быть видно»)
   els.bones.innerHTML = h ? `${h.base}<small><i>×</i>${h.mult}</small>` : '0';
-  if (bonus) els.multSticker.innerHTML = `<small>×</small>${h.mult * h.bonusMult}`;
+  if (bonus) { const x = `<small>×</small>${h.mult * h.bonusMult}`; els.multSticker.innerHTML = `<span class="pad" aria-hidden="true">${x}</span><span class="ink">${x}</span>`; }
   els.handStat.classList.toggle('on', bonus);
   // the desktop (Figma 1287:1641): the hand's total, and below the numbers its dice, its name and its whole multiplier
   $('handTotal').textContent = String(h ? h.total : 0);
@@ -2045,7 +2046,7 @@ async function attemptBank(path, source) {
   }
   renderPath();
   setPreview(`${hand.label} +${hand.total}`, 'good');
-  if (mode.id === 'auto') await playedActs(hand); // the cards it used make way only once their heroes have acted
+  const actors = mode.id === 'auto' ? await playedActs(hand) : []; // the cards it used make way only once their heroes have acted
   popped.forEach((i) => els.cells[i].classList.add('bank-pop'));
   faded.forEach((i) => els.cells[i].classList.add('burn'));
   if (!throw3d) sfx('burn');
@@ -2053,6 +2054,7 @@ async function attemptBank(path, source) {
   if (burning.length) app.fire.out(); // the dice have burnt away: before they come back for the refill
   if (last) [...r.burned, ...spent].forEach((i) => els.cells[i].classList.add('gone')); // they stay away under the summary
   popped.forEach((i) => els.cells[i].classList.remove('bank-pop'));
+  actors.forEach(restCard); // gone with the pop, a die or a bank card comes in its place
   faded.forEach((i) => els.cells[i].classList.remove('burn'));
   if (!stillCurrent(st, modeId)) { app.busy = false; return; }
   if (throw3d) {
@@ -2101,41 +2103,37 @@ async function attemptBank(path, source) {
 // ---------- the won level's moment ----------
 // Owner's pick В11 A «Пробитый порог» (04.11.2026), built to GPT's production spec
 // (art/ai/2026-11-04-win-production/design-2.json). PLAY counts at once over the board while THRESHOLD runs down to
-// 0; each card the hand used rises and tilts, and a multiplying card sends its sticker into the count; at 0 the line
-// under THRESHOLD ruptures across the counter into yellow shards; black spreads from the rupture like an ink blot and
-// the cleared screen rises on pure black, the pick tappable after about 1.5 s. Dice never dim, and nothing else moves meanwhile (GPT's review of the build). A tap
+// 0; each card the hand used stays as it lies while its hero acts in it, and a multiplying card sends its sticker into
+// the count; at 0 the line under THRESHOLD ruptures across the counter into yellow shards; black spreads from the
+// rupture like an ink blot and the cleared screen rises on pure black, the pick tappable after about 1.5 s. Dice never dim, and nothing else moves meanwhile (GPT's review of the build). A tap
 // skips to the pick. The record and the bank are counted first, so a reload in the middle shows the cleared
 // screen. Times are ms from PLAY.
 const WIN = { lift: 80, chip: 167, step: 83, snap: 500, cover: 290, black: 860, title: 840, badges: 940, act: 960, pick: 980, choices: 1040, ready: 1480 };
-const ACT_MS = 16000 / 12; // a victory act: sixteen held drawings, twelve a second
 
-// A card the winning hand used rises and tilts, then lands: keys at drawings 1..16 of [drawing, dx px, dy px, rotate°,
-// scale x, scale y] at the phone's card size, held between drawings (the portraits are still pictures since the portals
-// redesign; the card keeps its own motion).
-const CARD_WIN = [[1, 0, 0, 0, 1, 1], [6, 0, -9, -1.5, 1.06, 1.06], [7, 0, -9, -1.5, 1.06, 1.06], [16, 0, 0, 0, 1, 1]];
-function cardFrames(sc, keys = CARD_WIN) {
-  const frames = [];
-  for (let d = 1; d <= 16; d++) {
-    let k = 0;
-    while (k < keys.length - 2 && keys[k + 1][0] <= d) k++;
-    const [d0, ...a] = keys[k];
-    const [d1, ...b] = keys[k + 1];
-    const f = Math.min(1, Math.max(0, (d - d0) / (d1 - d0)));
-    const [dx, dy, rot, sx, sy] = a.map((v, j) => v + (b[j] - v) * f);
-    frames.push({ transform: `translate(${(dx * sc).toFixed(2)}px, ${(dy * sc).toFixed(2)}px) rotate(${rot.toFixed(2)}deg) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`, offset: (d - 1) / 16, easing: 'steps(1, end)' });
-  }
-  frames.push({ transform: 'none', offset: 1 });
-  return frames;
+// A played card takes its own state, the hero over the whole card (Figma 1339:2155 Card-animation), where it lies (owner,
+// 11.11.2026: «Персонаж на всю карту, а для этого есть ее отдельное состояние, проигрывается после нажатия кнопки play,
+// если эта карта была выбрана в розыгрыш руки»; «Смещать карту не нужно, она остается статикой»).
+function actingCard(el) {
+  el.style.zIndex = '2'; // the hero's head over the card above, under the fire and the count
+  el.classList.add('acting');
+}
+function restCard(el) {
+  el.style.zIndex = '';
+  el.classList.remove('acting');
 }
 
-// The cards a hand used act, and the board waits for their heroes; any tap skips (owner, 11.11.2026: «Ждать конца»).
+// The cards a hand used act in that state, and the board waits for their heroes; any tap skips (owner, 11.11.2026:
+// «Ждать конца»). Resolves with the cards, which keep the state until they have made way.
 function playedActs(hand) {
   const used = [...hand.bonusCells, ...(hand.jokerCells || [])];
-  const acts = used.filter((i, k) => cardArt(i) && actMs(hand.bonuses[k])).map((i) => heroAct(i, hand.bonuses[used.indexOf(i)]));
-  if (!acts.length) return Promise.resolve();
+  const actors = used.filter((i, k) => cardArt(i) && actMs(hand.bonuses[k]));
+  const cards = reduceMotion ? [] : actors.map((i) => cardArt(i).parentElement);
+  cards.forEach(actingCard);
+  const acts = actors.map((i) => heroAct(i, hand.bonuses[used.indexOf(i)]));
+  if (!acts.length) return Promise.resolve(cards);
   const skip = (e) => { if (e.isPrimary === false) return; app.skipUntil = performance.now() + 300; stopActs(); };
   addEventListener('pointerdown', skip, true);
-  return Promise.all(acts).then(() => removeEventListener('pointerdown', skip, true));
+  return Promise.all(acts).then(() => { removeEventListener('pointerdown', skip, true); return cards; });
 }
 
 function playWin(hand, g0) {
@@ -2145,7 +2143,7 @@ function playWin(hand, g0) {
   const anims = [];
   const timers = [];
   const extras = []; // the moment's own elements: the black, a flying sticker, the overshoot at the line
-  const moved = []; // board elements it lifts, and stickers it hides, put back at the end
+  const moved = []; // the cards in their acting state and the stickers it hides, put back at the end
   let shards = null;
   let done = false;
   const now = () => performance.now() - t0;
@@ -2182,21 +2180,18 @@ function playWin(hand, g0) {
   countUp($('target'), remaining(g0.score, g0), 0, 0, 500);
   setPreview(`${hand.label} +${hand.total}`, 'good');
 
-  // each card the hand used rises and tilts, one after another, in its acting look while it moves (Figma 1327:1705: no
-  // text, no arch, the hero bigger)
+  // each card the hand used takes its acting state where it lies, and its hero acts in it, one after another (owner,
+  // 11.11.2026: «Смещать карту не нужно, она остается статикой, меняется только анимация в ней при розыгрыше»): the
+  // board stays until the last hero has finished, the black and the cleared screen come `lag` ms later; a tap still
+  // skips to the pick («Ждать конца»)
   const order = used.filter((i) => cardEl(i)).sort((a, b) => a - b);
-  // its hero acts in that look, and the board stays until the last hero has finished: the black and the cleared
-  // screen come `lag` ms later; a tap still skips to the pick (owner, 11.11.2026: «Ждать конца»)
   const hold = reduceMotion ? 0 : Math.max(0, ...order.map((i, k) => (actMs(kindOf(i)) ? WIN.step * k + actMs(kindOf(i)) : 0)));
   const lag = Math.max(0, hold - (WIN.snap + 60));
   order.forEach((i, k) => at(WIN.step * k, () => {
     if (reduceMotion) return;
-    const el = cardEl(i);
-    el.style.zIndex = '2'; // over its neighbours, under the fire and the count
-    el.classList.add('acting');
-    moved.push(el);
-    const acted = heroAct(i, kindOf(i));
-    play(el, cardFrames(el.offsetWidth / 118.7), { dur: ACT_MS, fill: 'none' }).finished.then(() => acted.then(() => el.classList.remove('acting')), () => {});
+    actingCard(cardEl(i));
+    moved.push(cardEl(i));
+    heroAct(i, kindOf(i));
   }));
   // the dice of the hand rise with it; with no card, they hop together instead
   const dice = rung.map((i) => els.cells[i]); // each rises on its note
@@ -2276,8 +2271,10 @@ function playWin(hand, g0) {
     const ox = (span.x0 + span.x1) / 2;
     const oy = line.y + line.h / 2;
     const far = Math.ceil(Math.hypot(Math.max(ox, innerWidth - ox), Math.max(oy, innerHeight - oy))) + 24 * u;
-    const frames = Array.from({ length: 10 }, (_, i) => ({ clipPath: blot(ox, oy, 18 * u + ((far - 18 * u) * i) / 9, 12 * u) }));
-    play(black, frames, { dur: WIN.cover, start: WIN.snap + 60 + lag, easing: 'cubic-bezier(0.55, 0.05, 0.67, 0.19)' });
+    // unseen until it spreads: its seed would lie on the counter, over the ×N, while the heroes act
+    black.style.visibility = 'hidden';
+    const frames = Array.from({ length: 10 }, (_, i) => ({ clipPath: blot(ox, oy, 18 * u + ((far - 18 * u) * i) / 9, 12 * u), visibility: 'visible' }));
+    play(black, frames, { dur: WIN.cover, start: WIN.snap + 60 + lag, easing: 'cubic-bezier(0.55, 0.05, 0.67, 0.19)', fill: 'forwards' });
   }
   at(reduceMotion ? 300 : WIN.black + lag, () => { // the board is covered: the cleared screen's own black takes over
     end.classList.remove('playing');
@@ -2316,7 +2313,7 @@ function playWin(hand, g0) {
     stopActs(); // a tap that skips ends the heroes' acts too
     if (shards) shards.stop();
     extras.forEach((el) => el.remove());
-    moved.forEach((el) => { el.style.zIndex = ''; el.style.visibility = ''; el.classList.remove('acting'); });
+    moved.forEach((el) => { el.style.visibility = ''; restCard(el); });
     if (app.fire) app.fire.out();
     rv.className = 'reveal';
     end.classList.remove('playing', 'waiting');

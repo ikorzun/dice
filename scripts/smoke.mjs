@@ -215,10 +215,12 @@ for (const vp of viewports) {
   // the card switched on glows under itself in its own colour, nothing over its picture (Figma 1308:2958; owner, 11.11.2026:
   // «выделение не должно быть поверх рисунка. Сделай подсветку под выбранной картой», «у выбранной карты используй подсветку
   // на основе ее фонового цвета»)
-  const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, glow: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).filter, ground: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).backgroundColor, ring: getComputedStyle(document.querySelector('#board .cell[data-index="8"]'), '::after').content, sticker: document.getElementById('multSticker').textContent, whole: `×${window.__diceSnake.hint().hand.mult * window.__diceSnake.hint().hand.bonusMult}`, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className }));
+  const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, glow: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).filter, ground: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).backgroundColor, ring: getComputedStyle(document.querySelector('#board .cell[data-index="8"]'), '::after').content, sticker: document.querySelector('#multSticker .ink')?.textContent, whole: `×${window.__diceSnake.hint().hand.mult * window.__diceSnake.hint().hand.bonusMult}`, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className,
+    // the sticker's lime is a layer under its letters: drawn with them, the number's lime covered the × (owner, 11.11.2026)
+    layers: (() => { const pad = document.querySelector('#multSticker .pad'); const ink = document.querySelector('#multSticker .ink'); return !!pad && !!ink && pad.textContent === ink.textContent && getComputedStyle(pad).color === 'rgba(0, 0, 0, 0)' && getComputedStyle(ink).position === 'absolute' && getComputedStyle(ink).textShadow === 'none'; })() }));
   // the whole multiplier: on the lime sticker on the phone, in the hand's row on the desktop
   const multiplier = layout.wide ? (await text('#handMult')).replace('MULTI ', '') : on.sticker;
-  if (!/\bon\b/.test(on.cell) || !on.glow.startsWith(`drop-shadow(${on.ground} `) || on.ring !== 'none' || multiplier !== on.whole || (!layout.wide && on.shown === 'none') || !/\bon\b/.test(on.stat)) note(vp, `bonus on: ${JSON.stringify({ ...on, multiplier })}`);
+  if (!/\bon\b/.test(on.cell) || !on.glow.startsWith(`drop-shadow(${on.ground} `) || on.ring !== 'none' || multiplier !== on.whole || (!layout.wide && on.shown === 'none') || !/\bon\b/.test(on.stat) || !on.layers) note(vp, `bonus on: ${JSON.stringify({ ...on, multiplier })}`);
   const playPulse = await page.$eval('#playBtn', (b) => b.classList.contains('pulse'));
   if (!playPulse || !/PLAY THE HAND/.test(await text('#coachText'))) note(vp, `tutorial play step: pulse=${playPulse}, "${await text('#coachText')}"`);
   // off again keeps it for later, on again uses it
@@ -711,7 +713,7 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
 }
 
 // The heroes are still pictures (portals redesign, 10.11.2026): a card shows its portrait inside the card, the longest tag
-// (TWO SIXES) fits it, and every card the winning hand used rises and tilts on its own; the moment still ends in the pick.
+// (TWO SIXES) fits it, and every card the winning hand used stays as it lies in its acting state; the moment still ends in the pick.
 for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) {
   const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h }, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
@@ -760,25 +762,18 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
   await page.waitForTimeout(600);
   await page.click('#board .cell:nth-child(8)');
   await page.waitForTimeout(1200);
-  const tilt = await page.evaluate(() => new Promise((resolve) => {
+  // a played card stays as it lies and takes its acting state, the hero over the whole card (owner, 11.11.2026: «Смещать
+  // карту не нужно, она остается статикой, меняется только анимация в ней при розыгрыше»; «Персонаж на всю карту, а для
+  // этого есть ее отдельное состояние»): no lift, no tilt, no name, the portrait's square 152 of the card's 108
+  const still = await page.evaluate(() => new Promise((resolve) => {
     const cells = document.querySelectorAll('#board .cell');
-    const angle = (i) => { const m = new DOMMatrix(getComputedStyle(cells[i]).transform); return (Math.atan2(m.b, m.a) * 180) / Math.PI; };
-    // the acting look (Figma 1339:2155 Card-animation): no name, no multiplier, no glow, the hero's own colour over
-    // the whole card, every corner alike, the portrait's square 152 px of the card's 108 inside, standing on its bottom
-    const acting = (i) => {
-      const c = cells[i];
-      const art = c.querySelector('.art');
-      const cs = getComputedStyle(c);
-      const hex = cs.getPropertyValue('--card').trim();
-      const own = /^#[0-9a-f]{6}$/i.test(hex) ? `rgb(${parseInt(hex.slice(1, 3), 16)}, ${parseInt(hex.slice(3, 5), 16)}, ${parseInt(hex.slice(5, 7), 16)})` : hex;
-      return c.classList.contains('acting') && getComputedStyle(c.querySelector('.tag')).visibility === 'hidden' && getComputedStyle(c.querySelector('.x2')).visibility === 'hidden'
-        && getComputedStyle(c, '::after').content === 'none' && cs.filter === 'none' && cs.backgroundImage === 'none' && cs.backgroundColor === own && cs.borderTopRightRadius === cs.borderTopLeftRadius
-        && Math.abs(art.offsetHeight / c.clientHeight - 152 / 108) < 0.02 && Math.abs(art.offsetTop + art.offsetHeight - c.clientHeight) < 1.5;
-    };
+    const rect = (i) => { const r = cells[i].getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map((v) => v.toFixed(1)).join(); };
+    const look = (i) => { const c = cells[i]; const art = c.querySelector('.art'); return c.classList.contains('acting') && getComputedStyle(c).transform === 'none' && getComputedStyle(c.querySelector('.tag')).visibility === 'hidden' && Math.abs(art.offsetHeight / c.clientHeight - 152 / 108) < 0.02; };
+    const before = [rect(6), rect(7)];
     document.getElementById('playBtn').click();
-    setTimeout(() => resolve({ knight: angle(6), bigfoot: angle(7), acting: [acting(6), acting(7)], hand: window.__diceSnake.state().game.hands.at(-1)?.bonuses }), 420);
+    setTimeout(() => resolve({ moved: [rect(6), rect(7)].filter((r, k) => r !== before[k]), look: [look(6), look(7)], hand: window.__diceSnake.state().game.hands.at(-1)?.bonuses }), 420);
   }));
-  if (!(tilt.knight < -0.5 && tilt.bigfoot < -0.5) || String(tilt.hand) !== 'x2_any,x3_sixes' || !tilt.acting.every(Boolean)) note(vp, `the winning cards: ${JSON.stringify(tilt)}`);
+  if (still.moved.length || !still.look.every(Boolean) || String(still.hand) !== 'x2_any,x3_sixes') note(vp, `the winning cards: ${JSON.stringify(still)}`);
   await page.waitForFunction(() => document.querySelector('#upList .up') && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
   if (await page.$('#board .cell.acting')) note(vp, 'a card kept its acting look after the moment');
   await ctx.close();
