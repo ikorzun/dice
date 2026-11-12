@@ -312,8 +312,11 @@ for (const vp of viewports) {
   console.log(`${vp.w}x${vp.h}: auto level finished with ${a.score}/${a.target} (${a.phase})`);
   const firstWon = a.phase === 'won';
   // the pick goes on; a door's shop opens after it, and leaving it goes on too
+  // the pick's lime burst holds the cleared screen PICK_MS (500 ms) before the way on (owner's pick, 12.11.2026)
+  const gone = () => page.waitForFunction(() => document.getElementById('levelEnd').hidden || !document.getElementById('shop').hidden, null, { timeout: 3000 });
   const pick = async () => {
     await page.click('#upList .up');
+    await gone();
     await page.waitForTimeout(80);
     if (await page.$eval('#shop', (e) => !e.hidden)) { await page.click('#shopLeave'); await page.waitForTimeout(150); }
   };
@@ -321,13 +324,14 @@ for (const vp of viewports) {
     const offer = await page.$$eval('#upList .up', (els) => els.map((e) => e.dataset.cat));
     if (offer.length !== 3 || !(await page.$eval('#nextBtn', (e) => e.hidden)) || !(await page.$eval('#retryBtn', (e) => e.hidden))) note(vp, `upgrade offer: ${offer}`);
     await page.click('#upList .up');
+    await gone();
     const ups = await page.evaluate(() => window.__diceSnake.state().ups);
     if (!ups || ups[offer[0]] !== 1) note(vp, `the pick did not upgrade ${offer[0]}: ${JSON.stringify(ups)}`);
   } else { // level 1 is almost never lost; when it is, the run is over and a new one starts at level 1
     console.log(`${vp.w}x${vp.h}: level 1 missed, the run starts again`);
     await page.click('#nextBtn');
+    await page.waitForTimeout(200);
   }
-  await page.waitForTimeout(200);
   a = await auto();
   if ((await text('#levelText')) !== (firstWon ? '2' : '1')) note(vp, `level text after level 1: ${await text('#levelText')}`);
   if (a.cells.filter((t) => t === 'die').length < 6) note(vp, `level 2 has ${a.cells.filter((t) => t === 'die').length} dice`);
@@ -572,7 +576,7 @@ for (const vp of viewports) {
   const boss = await page.evaluate(() => {
     const $ = (id) => document.getElementById(id);
     const st = window.__diceSnake.state();
-    const card = $('bossCard').firstElementChild.getBoundingClientRect();
+    const card = $('bossCard').querySelector(':scope > div').getBoundingClientRect(); // the card (its sigil's canvas lies before it)
     const counter = document.querySelector('.counter').getBoundingClientRect();
     return { level: st.game.level.levelIndex, id: st.game.level.boss, card: !$('bossCard').hidden, words: $('bossCard').textContent, shop: !$('shop').hidden, cover: !document.body.classList.contains('wide') && card.bottom > counter.top + 0.5, top: document.elementFromPoint(innerWidth / 2, innerHeight - 8)?.closest('#bossCard') != null };
   });
@@ -587,7 +591,7 @@ for (const vp of viewports) {
   await page.mouse.move(vp.w / 2, vp.h / 2);
   await page.mouse.down();
   await page.waitForTimeout(2200);
-  const pressed = await page.$eval('#bossCard', (e) => ({ up: !e.hidden, opacity: Number(getComputedStyle(e.firstElementChild).opacity) }));
+  const pressed = await page.$eval('#bossCard', (e) => ({ up: !e.hidden, opacity: Number(getComputedStyle(e.querySelector(':scope > div')).opacity) }));
   if (!pressed.up || pressed.opacity < 1) note(vp, `the boss card under a finger: ${JSON.stringify(pressed)}`);
   await page.mouse.up();
   await page.waitForFunction(() => document.getElementById('bossCard').hidden, null, { timeout: 3000 }).catch(() => note(vp, 'the boss card did not go'));
@@ -724,6 +728,7 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   await page.evaluate(() => { const st = window.__diceSnake.state(); st.game = { ...st.game, level: { ...st.game.level, target: 1 } }; document.getElementById('playBtn').click(); });
   await page.waitForFunction(() => document.querySelector('#upList .up') && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
   await page.evaluate(() => document.querySelector('#upList .up').click());
+  await page.waitForFunction(() => document.getElementById('levelEnd').hidden, null, { timeout: 3000 }); // after the pick's burst
   await page.waitForTimeout(400);
   const next = await calls();
   if (!next.includes('ad') || next.filter((c) => c.startsWith('set')).length !== 2 || !next.includes('msg level_completed') || !next.includes('msg level_started')) note(vp, `playgama level change: ${next.join(', ')}`);

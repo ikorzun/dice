@@ -617,6 +617,12 @@ body.wide #levelEnd.won .upgrades { grid-column: 2; grid-row: 1 / span 9; margin
 .win-chip { position: fixed; z-index: 21; display: flex; align-items: center; justify-content: center; border-radius: 50%; pointer-events: none; }
 .win-over { position: fixed; z-index: 21; padding: 0 calc(8px * var(--k, 1)); border-radius: calc(12px * var(--k, 1)); background: var(--gold); color: #000; font: 700 calc(12px * var(--k, 1))/calc(22px * var(--k, 1)) var(--font-display); white-space: nowrap; pointer-events: none; }
 .shards-layer { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 22; pointer-events: none; }
+/* pixelfx's effects (pixel-fx.js; owner's picks, 12.11.2026): crisp pixels over the screen they belong to, never a
+   target; the keeper's sigil lies in his card's box, under the card; the record's fireworks under the cleared screen's
+   words (#levelEnd lies over the whole window, so its box is the window's) */
+.pixel-fx { position: fixed; z-index: 23; pointer-events: none; image-rendering: pixelated; }
+.boss-card .pixel-fx { position: absolute; z-index: auto; }
+#levelEnd .pixel-fx { position: absolute; z-index: -1; }
 .reveal.win { animation: revealWin 180ms cubic-bezier(.2, 1.4, .3, 1) forwards; }
 @keyframes revealWin { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.88); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 /* A lost run (owner's pick В12 A «Честный чек», 04.11.2026), drawn by HIG as the cleared screen is (owner, 12.11.2026)

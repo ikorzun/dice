@@ -620,6 +620,12 @@ body.wide #levelEnd.won .upgrades { grid-column: 2; grid-row: 1 / span 9; margin
 .win-chip { position: fixed; z-index: 21; display: flex; align-items: center; justify-content: center; border-radius: 50%; pointer-events: none; }
 .win-over { position: fixed; z-index: 21; padding: 0 calc(8px * var(--k, 1)); border-radius: calc(12px * var(--k, 1)); background: var(--gold); color: #000; font: 700 calc(12px * var(--k, 1))/calc(22px * var(--k, 1)) var(--font-display); white-space: nowrap; pointer-events: none; }
 .shards-layer { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 22; pointer-events: none; }
+/* pixelfx's effects (pixel-fx.js; owner's picks, 12.11.2026): crisp pixels over the screen they belong to, never a
+   target; the keeper's sigil lies in his card's box, under the card; the record's fireworks under the cleared screen's
+   words (#levelEnd lies over the whole window, so its box is the window's) */
+.pixel-fx { position: fixed; z-index: 23; pointer-events: none; image-rendering: pixelated; }
+.boss-card .pixel-fx { position: absolute; z-index: auto; }
+#levelEnd .pixel-fx { position: absolute; z-index: -1; }
 .reveal.win { animation: revealWin 180ms cubic-bezier(.2, 1.4, .3, 1) forwards; }
 @keyframes revealWin { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.88); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 /* A lost run (owner's pick В12 A «Честный чек», 04.11.2026), drawn by HIG as the cleared screen is (owner, 12.11.2026)
@@ -5369,6 +5375,2731 @@ function stopActs() {
 
 return { ACTS, setupHeroActs, warmAct, actMs, actingKind, playAct, stopAct, stopActs };
 })();
+// ---- vendor/pixelfx/pfx-math.js ----
+const __mod_pfx_math = (() => {
+// pixelfx src/core/math.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
+// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
+// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
+// Numbers, easing, randomness and noise. Everything here is pure and deterministic,
+// so an effect drawn at time t always looks the same.
+
+const TAU = Math.PI * 2;
+
+const clamp = (x, a = 0, b = 1) => (x < a ? a : x > b ? b : x);
+const lerp = (a, b, t) => a + (b - a) * t;
+const invLerp = (a, b, x) => (b === a ? 0 : (x - a) / (b - a));
+const remap = (x, a0, a1, b0, b1) => lerp(b0, b1, invLerp(a0, a1, x));
+const fract = (x) => x - Math.floor(x);
+const wrap = (x, m) => ((x % m) + m) % m;
+/** Progress 0..1 of t through the window [t0, t1]: 0 before it, 1 after it. */
+const seg = (t, t0, t1) => clamp((t - t0) / (t1 - t0));
+/** Hermite smoothstep of x between e0 and e1. */
+const smooth = (e0, e1, x) => {
+  const t = seg(x, e0, e1);
+  return t * t * (3 - 2 * t);
+};
+/** 0 → 1 → 0 over the window [t0, t1] (sine bump). */
+const bump = (t, t0, t1) => (t <= t0 || t >= t1 ? 0 : Math.sin(Math.PI * seg(t, t0, t1)));
+const pingpong = (x) => 1 - Math.abs(wrap(x, 2) - 1);
+const dist = (x0, y0, x1, y1) => Math.hypot(x1 - x0, y1 - y0);
+const angleTo = (x0, y0, x1, y1) => Math.atan2(y1 - y0, x1 - x0);
+
+/** Easing curves: input 0..1, output 0..1 (back and elastic overshoot). */
+const ease = {
+  linear: (t) => t,
+  inQuad: (t) => t * t,
+  outQuad: (t) => 1 - (1 - t) * (1 - t),
+  inOutQuad: (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2),
+  inCubic: (t) => t * t * t,
+  outCubic: (t) => 1 - Math.pow(1 - t, 3),
+  inOutCubic: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+  inQuart: (t) => t * t * t * t,
+  outQuart: (t) => 1 - Math.pow(1 - t, 4),
+  inExpo: (t) => (t <= 0 ? 0 : Math.pow(2, 10 * t - 10)),
+  outExpo: (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t)),
+  inSine: (t) => 1 - Math.cos((t * Math.PI) / 2),
+  outSine: (t) => Math.sin((t * Math.PI) / 2),
+  inOutSine: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
+  inBack: (t, s = 1.70158) => (t <= 0 ? 0 : t >= 1 ? 1 : (s + 1) * t * t * t - s * t * t),
+  outBack: (t, s = 1.70158) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2)),
+  outElastic: (t) => (t <= 0 ? 0 : t >= 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * ((2 * Math.PI) / 3)) + 1),
+  outBounce: (t) => {
+    const n = 7.5625, d = 2.75;
+    if (t < 1 / d) return n * t * t;
+    if (t < 2 / d) return n * (t -= 1.5 / d) * t + 0.75;
+    if (t < 2.5 / d) return n * (t -= 2.25 / d) * t + 0.9375;
+    return n * (t -= 2.625 / d) * t + 0.984375;
+  },
+};
+
+/** 32-bit integer hash of any number of integers. */
+function hash(...ns) {
+  let h = 0x9e3779b9;
+  for (const n of ns) {
+    h = Math.imul(h ^ (n | 0), 0x85ebca6b);
+    h ^= h >>> 13;
+    h = Math.imul(h, 0xc2b2ae35);
+    h ^= h >>> 16;
+  }
+  return h >>> 0;
+}
+/** Deterministic random number in [0, 1) from integers (seed, particle index, which value...). */
+const rand = (...ns) => hash(...ns) / 4294967296;
+
+/** Seeded random generator (mulberry32). */
+class Rng {
+  constructor(seed = 1) {
+    this.s = seed >>> 0 || 1;
+  }
+  next() {
+    let t = (this.s = (this.s + 0x6d2b79f5) >>> 0);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+  range(a, b) {
+    return a + (b - a) * this.next();
+  }
+  int(a, b) {
+    return Math.floor(this.range(a, b + 1));
+  }
+  chance(p) {
+    return this.next() < p;
+  }
+  sign() {
+    return this.next() < 0.5 ? -1 : 1;
+  }
+  pick(list) {
+    return list[Math.floor(this.next() * list.length)];
+  }
+  /** Roughly normal, mean 0, sd 1. */
+  gauss() {
+    return (this.next() + this.next() + this.next() + this.next() - 2) * 1.732;
+  }
+}
+/** A generator for one particle: rng(seed, i) gives the same numbers every frame. */
+const rng = (...ns) => new Rng(hash(...ns));
+
+/** Smooth 1D value noise in [-1, 1]. */
+function noise(x, seed = 0) {
+  const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f);
+  return lerp(rand(i, seed), rand(i + 1, seed), u) * 2 - 1;
+}
+/** Smooth 2D value noise in [-1, 1]. */
+function noise2(x, y, seed = 0) {
+  const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+  const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+  const a = rand(ix, iy, seed), b = rand(ix + 1, iy, seed), c = rand(ix, iy + 1, seed), d = rand(ix + 1, iy + 1, seed);
+  return lerp(lerp(a, b, ux), lerp(c, d, ux), uy) * 2 - 1;
+}
+/** Fractal 2D noise in about [-1, 1]. */
+function fbm(x, y, seed = 0, octaves = 3) {
+  let s = 0, a = 0.5, n = 0;
+  for (let o = 0; o < octaves; o++) {
+    s += noise2(x, y, seed + o * 101) * a;
+    n += a;
+    x *= 2.03;
+    y *= 2.03;
+    a *= 0.5;
+  }
+  return s / n;
+}
+/**
+ * 2D value noise whose lattice repeats every px cells in x and py cells in y (0: no repeat). Scroll it by
+ * exactly py cells over a loop and the loop has no seam: tileNoise(x, y + phase * py, 0, py).
+ */
+function tileNoise(x, y, px = 0, py = 0, seed = 0) {
+  const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+  const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+  const x0 = px ? wrap(ix, px) : ix, x1 = px ? wrap(ix + 1, px) : ix + 1;
+  const y0 = py ? wrap(iy, py) : iy, y1 = py ? wrap(iy + 1, py) : iy + 1;
+  const a = rand(x0, y0, seed), b = rand(x1, y0, seed), c = rand(x0, y1, seed), d = rand(x1, y1, seed);
+  return lerp(lerp(a, b, ux), lerp(c, d, ux), uy) * 2 - 1;
+}
+/** Fractal tileNoise: every octave keeps the repeat, so scrolled fields still loop. */
+function tileFbm(x, y, px = 0, py = 0, seed = 0, octaves = 3) {
+  let s = 0, a = 0.5, n = 0, k = 1;
+  for (let o = 0; o < octaves; o++) {
+    s += tileNoise(x * k, y * k, px * k, py * k, seed + o * 101) * a;
+    n += a;
+    a *= 0.5;
+    k *= 2;
+  }
+  return s / n;
+}
+/** Noise that loops: the same value at phase 0 and phase 1 (for seamless loops). */
+function loopNoise(phase, radius = 1, seed = 0) {
+  const a = phase * TAU;
+  return noise2(Math.cos(a) * radius + 50, Math.sin(a) * radius + 50, seed);
+}
+
+return { TAU, clamp, lerp, invLerp, remap, fract, wrap, seg, smooth, bump, pingpong, dist, angleTo, ease, hash, rand, Rng, rng, noise, noise2, fbm, tileNoise, tileFbm, loopNoise };
+})();
+// ---- vendor/pixelfx/pfx-color.js ----
+const __mod_pfx_color = (() => {
+// pixelfx src/core/color.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
+// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
+// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
+// Colors are 32-bit integers laid out like ImageData bytes (R, G, B, A in memory),
+// so a frame's color buffer can be shown with new ImageData(new Uint8ClampedArray(buf.buffer), w, h).
+
+const { clamp } = __mod_pfx_math;
+
+const rgb = (r, g, b) => (255 << 24) | ((b & 255) << 16) | ((g & 255) << 8) | (r & 255);
+const red = (c) => c & 255;
+const green = (c) => (c >>> 8) & 255;
+const blue = (c) => (c >>> 16) & 255;
+
+/** "#rgb" or "#rrggbb" (or a color number, passed through) to a color number. */
+function hex(h) {
+  if (typeof h === "number") return h;
+  let s = h.replace("#", "");
+  if (s.length === 3) s = s[0] + s[0] + s[1] + s[1] + s[2] + s[2];
+  const v = parseInt(s.slice(0, 6), 16);
+  return rgb((v >> 16) & 255, (v >> 8) & 255, v & 255);
+}
+const toHex = (c) => "#" + [red(c), green(c), blue(c)].map((v) => v.toString(16).padStart(2, "0")).join("");
+
+/** Linear mix of two colors. */
+function mix(a, b, t) {
+  t = clamp(t);
+  return rgb(red(a) + (red(b) - red(a)) * t, green(a) + (green(b) - green(a)) * t, blue(a) + (blue(b) - blue(a)) * t);
+}
+/** Multiply a color's brightness by k. */
+const scale = (c, k) => rgb(Math.min(255, red(c) * k), Math.min(255, green(c) * k), Math.min(255, blue(c) * k));
+/** Perceived brightness 0..1. */
+const luma = (c) => (0.299 * red(c) + 0.587 * green(c) + 0.114 * blue(c)) / 255;
+
+/** A list of hex strings (dark to bright) to color numbers. */
+const ramp = (list) => list.map(hex);
+/**
+ * Resample a ramp to exactly n steps, keeping its ends (the darkest and brightest stay put). Lets an effect
+ * index steps by number (C[5]) whatever length of palette a caller passes.
+ */
+function fit(r, n) {
+  r = r.map(hex);
+  if (r.length === n) return r;
+  return Array.from({ length: n }, (_, i) => r[Math.round((i * (r.length - 1)) / Math.max(1, n - 1))]);
+}
+/** The ramp step for t in 0..1, no blending: pixel art picks a color, it doesn't fade between two. */
+const at = (r, t) => r[clamp(Math.floor(t * r.length), 0, r.length - 1)];
+/** Blended color along a ramp (for light, where smooth is right). */
+function blend(r, t) {
+  const x = clamp(t) * (r.length - 1), i = Math.min(r.length - 2, Math.floor(x));
+  return mix(r[i], r[i + 1], x - i);
+}
+
+// Hue-shifted ramps, dark to bright: shadows lean cool or deep, highlights lean warm or white.
+// Effects take `palette` as an option, so any of these (or your own) can recolor them.
+const PAL = {
+  fire: ["#1f0b10", "#4a1118", "#8c1d1c", "#cc3a1a", "#f2701f", "#ffae35", "#ffe27a", "#fff8d6"],
+  ember: ["#1a0a0e", "#3d1012", "#701a14", "#a8301a", "#e0561e", "#ff8a2a", "#ffc46a"],
+  lava: ["#14060a", "#380a10", "#6e1210", "#ac2410", "#e8501a", "#ff8c2a", "#ffd25a"],
+  smoke: ["#0e0c12", "#1d1a22", "#2e2a35", "#433e4b", "#5c5664", "#7b7484", "#a39cab"],
+  dust: ["#1c1610", "#33281c", "#4f3f2c", "#6e5a40", "#927a58", "#b89f78", "#dcc8a2"],
+  ice: ["#0c1430", "#162c5c", "#1f4f94", "#2f7fcc", "#58b4ec", "#9bdcff", "#d8f4ff", "#ffffff"],
+  water: ["#081830", "#0e2e5a", "#14508c", "#1c76bc", "#36a2e0", "#78ccf4", "#c4ecff", "#ffffff"],
+  electric: ["#0a0f2e", "#172a78", "#2550d0", "#3f8cff", "#7cc8ff", "#c8f0ff", "#ffffff"],
+  volt: ["#24160a", "#5e3a0c", "#a8680f", "#e8a218", "#ffd23c", "#fff08a", "#ffffff"],
+  poison: ["#0d1a0c", "#173a14", "#265e18", "#3f8a1e", "#6cb82a", "#a8e04a", "#e0ff8a"],
+  holy: ["#2a1c08", "#5a3e10", "#9a6c18", "#d8a428", "#ffd84a", "#fff09a", "#fffbe6", "#ffffff"],
+  heal: ["#08201a", "#0f3f2c", "#17663e", "#24924e", "#3ec466", "#7ee88a", "#c8ffc4", "#ffffff"],
+  arcane: ["#140a26", "#2b1252", "#481c88", "#6b2cc0", "#9a48ec", "#c684ff", "#ecc8ff", "#ffffff"],
+  shadow: ["#050308", "#0f0a18", "#1c1230", "#2c1a4a", "#432468", "#5e3290", "#8048b8", "#a970e0"],
+  blood: ["#14040a", "#3a0a14", "#6a101c", "#a01824", "#d42a30", "#ff5a50", "#ff9a8a"],
+  earth: ["#140e0a", "#2a1e14", "#47321e", "#69492a", "#8e6638", "#b88a52", "#dcb47c"],
+  stone: ["#0e0e12", "#1c1c24", "#2c2c38", "#42424f", "#5c5c6b", "#7d7d8c", "#a4a4b2", "#d0d0da"],
+  gold: ["#1e1206", "#4a2c08", "#86520c", "#c48412", "#f0b424", "#ffe066", "#fff6c4", "#ffffff"],
+  leaf: ["#0c1a0e", "#163418", "#225224", "#357530", "#4f9a3a", "#7cc048", "#b4e070", "#e4ffb0"],
+  wood: ["#160c06", "#2e1a0c", "#4a2c14", "#6a421e", "#8e5c2c", "#b47c40", "#d8a464"],
+  metal: ["#0c0e14", "#1c2230", "#2e3648", "#4a5468", "#6e7a90", "#9aa6ba", "#d0d8e6", "#ffffff"],
+  bone: ["#1a1814", "#3a352c", "#5e5648", "#8a806c", "#b8ad96", "#e4dcc8", "#fffaf0"],
+  neon: ["#1a0516", "#3d0a33", "#701560", "#b0228f", "#f53cd1", "#ff86e6", "#ffd2f6", "#ffffff"],
+  cyber: ["#041418", "#08303a", "#0c5260", "#108088", "#18b4b0", "#4ce8d8", "#b4fff0", "#ffffff"],
+  matrix: ["#020a04", "#05200c", "#0a3c16", "#106624", "#1a9a34", "#3cd650", "#a4ffa8", "#e8ffe8"],
+  candy: ["#ff4a5a", "#ff9a2a", "#ffe03c", "#5ad84a", "#3cc8ff", "#7a6cff", "#f53cd1"],
+  night: ["#07060d", "#0c0a18", "#131026", "#1b1734", "#241f44", "#2f2956"],
+};
+/** The same ramps as color numbers. */
+const RAMP = Object.fromEntries(Object.entries(PAL).map(([k, v]) => [k, ramp(v)]));
+
+const WHITE = hex("#ffffff");
+const BLACK = hex("#000000");
+const INK = hex("#0b0a10");
+const PATCH = hex("#f53cd1");
+
+return { rgb, red, green, blue, hex, toHex, mix, scale, luma, ramp, fit, at, blend, PAL, RAMP, WHITE, BLACK, INK, PATCH };
+})();
+// ---- vendor/pixelfx/pfx-font.js ----
+const __mod_pfx_font = (() => {
+// pixelfx src/core/font.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
+// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
+// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
+// Two pixel fonts: "mini" (3x5) for small numbers and tags, "big" (5x7) for words like LEVEL UP.
+// Glyphs are trimmed to their inked columns, so text sets proportionally (an I is narrower than an M).
+
+const MINI = {
+  A: ".#.|#.#|###|#.#|#.#", B: "##.|#.#|##.|#.#|##.", C: ".##|#..|#..|#..|.##", D: "##.|#.#|#.#|#.#|##.",
+  E: "###|#..|##.|#..|###", F: "###|#..|##.|#..|#..", G: ".##|#..|#.#|#.#|.##", H: "#.#|#.#|###|#.#|#.#",
+  I: "###|.#.|.#.|.#.|###", J: "..#|..#|..#|#.#|.#.", K: "#.#|#.#|##.|#.#|#.#", L: "#..|#..|#..|#..|###",
+  M: "#.#|###|###|#.#|#.#", N: "##.|#.#|#.#|#.#|#.#", O: ".#.|#.#|#.#|#.#|.#.", P: "##.|#.#|##.|#..|#..",
+  Q: ".#.|#.#|#.#|##.|.##", R: "##.|#.#|##.|#.#|#.#", S: ".##|#..|.#.|..#|##.", T: "###|.#.|.#.|.#.|.#.",
+  U: "#.#|#.#|#.#|#.#|###", V: "#.#|#.#|#.#|#.#|.#.", W: "#.#|#.#|###|###|#.#", X: "#.#|#.#|.#.|#.#|#.#",
+  Y: "#.#|#.#|.#.|.#.|.#.", Z: "###|..#|.#.|#..|###",
+  0: "###|#.#|#.#|#.#|###", 1: ".#.|##.|.#.|.#.|###", 2: "##.|..#|.#.|#..|###", 3: "##.|..#|.#.|..#|##.",
+  4: "#.#|#.#|###|..#|..#", 5: "###|#..|##.|..#|##.", 6: ".##|#..|###|#.#|###", 7: "###|..#|.#.|.#.|.#.",
+  8: "###|#.#|###|#.#|###", 9: "###|#.#|###|..#|##.",
+  "+": "...|.#.|###|.#.|...", "-": "...|...|###|...|...", "!": "#|#|#|.|#", "?": "##.|..#|.#.|...|.#.",
+  ".": ".|.|.|.|#", ",": "..|..|..|.#|#.", ":": ".|#|.|#|.", "/": "..#|..#|.#.|#..|#..",
+  "%": "#.#|..#|.#.|#..|#.#", x: "...|#.#|.#.|#.#|...", "*": "#.#|.#.|#.#|...|...", "'": "#|#|.|.|.",
+  "(": ".#|#.|#.|#.|.#", ")": "#.|.#|.#|.#|#.", "<": "..#|.#.|#..|.#.|..#", ">": "#..|.#.|..#|.#.|#..",
+  "=": "...|###|...|###|...", _: "...|...|...|...|###", "#": "#.#|###|#.#|###|#.#",
+};
+
+const BIG = {
+  A: ".###.|#...#|#...#|#####|#...#|#...#|#...#", B: "####.|#...#|#...#|####.|#...#|#...#|####.",
+  C: ".###.|#...#|#....|#....|#....|#...#|.###.", D: "####.|#...#|#...#|#...#|#...#|#...#|####.",
+  E: "#####|#....|#....|####.|#....|#....|#####", F: "#####|#....|#....|####.|#....|#....|#....",
+  G: ".###.|#...#|#....|#.###|#...#|#...#|.####", H: "#...#|#...#|#...#|#####|#...#|#...#|#...#",
+  I: "###|.#.|.#.|.#.|.#.|.#.|###", J: "..###|...#.|...#.|...#.|...#.|#..#.|.##..",
+  K: "#...#|#..#.|#.#..|##...|#.#..|#..#.|#...#", L: "#....|#....|#....|#....|#....|#....|#####",
+  M: "#...#|##.##|#.#.#|#.#.#|#...#|#...#|#...#", N: "#...#|#...#|##..#|#.#.#|#..##|#...#|#...#",
+  O: ".###.|#...#|#...#|#...#|#...#|#...#|.###.", P: "####.|#...#|#...#|####.|#....|#....|#....",
+  Q: ".###.|#...#|#...#|#...#|#.#.#|#..#.|.##.#", R: "####.|#...#|#...#|####.|#.#..|#..#.|#...#",
+  S: ".####|#....|#....|.###.|....#|....#|####.", T: "#####|..#..|..#..|..#..|..#..|..#..|..#..",
+  U: "#...#|#...#|#...#|#...#|#...#|#...#|.###.", V: "#...#|#...#|#...#|#...#|#...#|.#.#.|..#..",
+  W: "#...#|#...#|#...#|#.#.#|#.#.#|#.#.#|.#.#.", X: "#...#|#...#|.#.#.|..#..|.#.#.|#...#|#...#",
+  Y: "#...#|#...#|.#.#.|..#..|..#..|..#..|..#..", Z: "#####|....#|...#.|..#..|.#...|#....|#####",
+  0: ".###.|#...#|#..##|#.#.#|##..#|#...#|.###.", 1: ".#.|##.|.#.|.#.|.#.|.#.|###",
+  2: ".###.|#...#|....#|...#.|..#..|.#...|#####", 3: "#####|...#.|..#..|...#.|....#|#...#|.###.",
+  4: "...#.|..##.|.#.#.|#..#.|#####|...#.|...#.", 5: "#####|#....|####.|....#|....#|#...#|.###.",
+  6: "..##.|.#...|#....|####.|#...#|#...#|.###.", 7: "#####|....#|...#.|..#..|.#...|.#...|.#...",
+  8: ".###.|#...#|#...#|.###.|#...#|#...#|.###.", 9: ".###.|#...#|#...#|.####|....#|...#.|.##..",
+  "!": "#|#|#|#|#|.|#", "?": ".###.|#...#|....#|...#.|..#..|.....|..#..", "+": ".....|..#..|..#..|#####|..#..|..#..|.....",
+  "-": "....|....|....|####|....|....|....", ".": ".|.|.|.|.|.|#", ",": "..|..|..|..|..|.#|#.", ":": ".|.|#|.|.|#|.",
+  "/": "....#|....#|...#.|..#..|.#...|#....|#....", "%": "##...|##..#|...#.|..#..|.#...|#..##|...##",
+  x: ".....|.....|#...#|.#.#.|..#..|.#.#.|#...#", "*": ".....|..#..|#.#.#|.###.|#.#.#|..#..|.....", "'": "#|#|.|.|.|.|.",
+  "<": "...#|..#.|.#..|#...|.#..|..#.|...#", ">": "#...|.#..|..#.|...#|..#.|.#..|#...", "=": "....|....|####|....|####|....|....",
+  "(": "..#|.#.|#..|#..|#..|.#.|..#", ")": "#..|.#.|..#|..#|..#|.#.|#..", "#": ".#.#.|.#.#.|#####|.#.#.|#####|.#.#.|.#.#.",
+};
+
+function build(table, h) {
+  const out = {};
+  for (const [ch, src] of Object.entries(table)) {
+    const rows = src.split("|");
+    out[ch] = { w: rows[0].length, rows: rows.map((r) => [...r].map((c) => c === "#")) };
+    if (rows.length !== h) throw new Error(`glyph ${ch} has ${rows.length} rows, expected ${h}`);
+  }
+  return out;
+}
+
+const FONTS = {
+  mini: { h: 5, space: 2, gap: 1, glyphs: build(MINI, 5) },
+  big: { h: 7, space: 3, gap: 1, glyphs: build(BIG, 7) },
+};
+
+/** Width in font pixels of a string (before scaling). */
+function textWidth(str, font = "mini") {
+  const F = FONTS[font];
+  let w = 0;
+  for (const ch of String(str)) {
+    const g = F.glyphs[ch] ?? F.glyphs[ch.toUpperCase()];
+    w += (g ? g.w : F.space) + F.gap;
+  }
+  return Math.max(0, w - F.gap);
+}
+
+/** Calls plot(x, y) for every inked font pixel of str, with the top-left of the text at (0, 0). */
+function rasterText(str, font, plot) {
+  const F = FONTS[font];
+  let x = 0;
+  for (const ch of String(str)) {
+    const g = F.glyphs[ch] ?? F.glyphs[ch.toUpperCase()];
+    if (!g) {
+      x += F.space + F.gap;
+      continue;
+    }
+    for (let r = 0; r < F.h; r++) for (let c = 0; c < g.w; c++) if (g.rows[r][c]) plot(x + c, r);
+    x += g.w + F.gap;
+  }
+}
+
+return { FONTS, textWidth, rasterText };
+})();
+// ---- vendor/pixelfx/pfx-painter.js ----
+const __mod_pfx_painter = (() => {
+// pixelfx src/core/painter.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
+// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
+// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
+// The painter draws into a frame's two buffers: `color` (opaque pixels, faded with ordered dither, never
+// blended) and `light` (additive glow, composited on top). Effects draw in local coordinates around their
+// origin; the painter places, mirrors and rotates them, so an effect never needs to know where it is.
+
+const { clamp } = __mod_pfx_math;
+const { hex } = __mod_pfx_color;
+const { rasterText, textWidth, FONTS } = __mod_pfx_font;
+
+// 4x4 ordered (Bayer) thresholds: a pixel at alpha a is drawn when a is above its cell's threshold.
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
+const OUT = { c: 0, a: 1, l: 0, k: 0 };
+const sprites = new WeakMap();
+const call = (v, ...args) => (typeof v === "function" ? v(...args) : v);
+
+class Painter {
+  constructor(frame) {
+    this.frame = frame;
+    this.reset();
+  }
+
+  /** Re-read the frame and clear placement, fade and light strength. */
+  reset() {
+    const f = this.frame;
+    this.w = f.w; this.h = f.h; this.ox = f.ox | 0; this.oy = f.oy | 0; this.C = f.color; this.L = f.light;
+    this.tx = 0; this.ty = 0; this.fx = 1; this.cs = 1; this.sn = 0;
+    this.fade = 1; this.lightK = 1; this.layer = "front";
+    return this;
+  }
+
+  /** Put the effect's origin at (x, y) in frame space, mirrored if flip, rotated by angle (radians). */
+  place(x, y, flip = false, angle = 0) {
+    this.tx = x; this.ty = y; this.fx = flip ? -1 : 1; this.cs = Math.cos(angle); this.sn = Math.sin(angle);
+    return this;
+  }
+
+  // ---- transforms: local (effect) space <-> screen (frame) space
+  toX(x, y) { return this.tx + x * this.fx * this.cs - y * this.sn; }
+  toY(x, y) { return this.ty + x * this.fx * this.sn + y * this.cs; }
+  fromX(sx, sy) { const dx = sx - this.tx, dy = sy - this.ty; return (dx * this.cs + dy * this.sn) * this.fx; }
+  fromY(sx, sy) { const dx = sx - this.tx, dy = sy - this.ty; return -dx * this.sn + dy * this.cs; }
+  // the screen pixel of the local pixel cell holding (x, y): mirrors and rotations land on whole cells
+  cellX(x, y) { return Math.floor(this.toX(Math.floor(x) + 0.5, Math.floor(y) + 0.5)); }
+  cellY(x, y) { return Math.floor(this.toY(Math.floor(x) + 0.5, Math.floor(y) + 0.5)); }
+
+  // ---- raw writes, screen space, whole pixels. Color 0 means "nothing": it never erases what's there.
+  put(sx, sy, c, a = 1) {
+    if (!c) return;
+    a *= this.fade;
+    if (a < 1 && a <= BAYER[((sy & 3) << 2) | (sx & 3)]) return;
+    const x = sx - this.ox, y = sy - this.oy;
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+    this.C[y * this.w + x] = c;
+  }
+  add(sx, sy, c, k = 1) {
+    k *= this.fade * this.lightK;
+    if (k <= 0.004) return;
+    const x = sx - this.ox, y = sy - this.oy;
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+    const i = y * this.w + x, d = this.L[i];
+    const r = Math.min(255, (d & 255) + (c & 255) * k) | 0;
+    const g = Math.min(255, ((d >>> 8) & 255) + ((c >>> 8) & 255) * k) | 0;
+    const b = Math.min(255, ((d >>> 16) & 255) + ((c >>> 16) & 255) * k) | 0;
+    this.L[i] = (255 << 24) | (b << 16) | (g << 8) | r;
+  }
+  /**
+   * Blend a color over what's there at alpha a (0..1), keeping the result's own alpha: soft smoke, vapour and
+   * mist. Use dithered dot() for hard pixel fades and blend() for translucent volumes.
+   */
+  blendPx(sx, sy, c, a) {
+    a *= this.fade;
+    if (!c || a <= 0.004) return;
+    const x = sx - this.ox, y = sy - this.oy;
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return;
+    const i = y * this.w + x, d = this.C[i], da = (d >>> 24) / 255, oa = a + da * (1 - a), k = a / oa;
+    const ch = (s) => ((((c >>> s) & 255) * k + ((d >>> s) & 255) * (1 - k)) & 255);
+    this.C[i] = (((oa * 255) & 255) << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0);
+  }
+  /** Translucent pixel at a local point. */
+  blend(x, y, c, a) { this.blendPx(this.cellX(x, y), this.cellY(x, y), c, a); }
+  /** A translucent disc: puffs of smoke, vapour, dust. c and a may be functions of (d: 0 center..1 rim, angle). */
+  disc(cx, cy, r, c, a) {
+    if (r < 0.5) return this.blend(cx, cy, call(c, 0, 0), call(a, 0, 0));
+    this.each(cx - r, cy - r, cx + r, cy + r, (x, y, sx, sy) => {
+      const dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy;
+      if (d2 > r * r) return;
+      const d = Math.sqrt(d2) / r, ang = Math.atan2(dy, dx);
+      this.blendPx(sx, sy, call(c, d, ang), call(a, d, ang));
+    });
+  }
+  /** Read back the color under a local point (0 if empty). */
+  get(x, y) {
+    const sx = this.cellX(x, y) - this.ox, sy = this.cellY(x, y) - this.oy;
+    return sx < 0 || sy < 0 || sx >= this.w || sy >= this.h ? 0 : this.C[sy * this.w + sx];
+  }
+
+  // ---- pixels
+  /** One opaque pixel. */
+  px(x, y, c) { this.put(this.cellX(x, y), this.cellY(x, y), c, 1); }
+  /** One pixel at alpha a (0..1), faded by ordered dither. */
+  dot(x, y, c, a = 1) { if (a > 0) this.put(this.cellX(x, y), this.cellY(x, y), c, a); }
+  /** Add light to one pixel. */
+  light(x, y, c, k = 1) { this.add(this.cellX(x, y), this.cellY(x, y), c, k); }
+
+  /**
+   * Visit every screen pixel whose center falls in the local box [x0, x1] x [y0, y1], with that center in
+   * local space: fn(lx, ly, sx, sy). The basis of every filled shape, so shapes mirror and rotate exactly.
+   */
+  each(x0, y0, x1, y1, fn) {
+    let ax = Infinity, bx = -Infinity, ay = Infinity, by = -Infinity;
+    for (let k = 0; k < 4; k++) {
+      const x = k & 1 ? x1 : x0, y = k & 2 ? y1 : y0, sx = this.toX(x, y), sy = this.toY(x, y);
+      if (sx < ax) ax = sx; if (sx > bx) bx = sx; if (sy < ay) ay = sy; if (sy > by) by = sy;
+    }
+    const sx0 = Math.max(Math.floor(ax), this.ox), sx1 = Math.min(Math.ceil(bx), this.ox + this.w - 1);
+    const sy0 = Math.max(Math.floor(ay), this.oy), sy1 = Math.min(Math.ceil(by), this.oy + this.h - 1);
+    for (let sy = sy0; sy <= sy1; sy++)
+      for (let sx = sx0; sx <= sx1; sx++) {
+        const cx = sx + 0.5, cy = sy + 0.5;
+        fn(this.fromX(cx, cy), this.fromY(cx, cy), sx, sy);
+      }
+  }
+
+  /**
+   * A pixel shader over a local box. fn(x, y, out) returns a color, or sets out.c (color), out.a (alpha),
+   * out.l (light color, defaults to out.c) and out.k (light amount). Return nothing to leave the pixel alone.
+   */
+  shade(x0, y0, x1, y1, fn) {
+    const o = OUT;
+    this.each(x0, y0, x1, y1, (lx, ly, sx, sy) => {
+      o.c = 0; o.a = 1; o.l = 0; o.k = 0;
+      const c = fn(lx, ly, o) || o.c;
+      if (c) this.put(sx, sy, c, o.a);
+      if (o.k > 0) this.add(sx, sy, o.l || c, o.k);
+    });
+  }
+
+  // ---- shapes. Colors (c) and alphas (a) can be numbers or functions of the shape's own coordinates.
+  /** 1 px line. c and a may be functions of u (0 at the start, 1 at the end). */
+  line(x0, y0, x1, y1, c, a = 1) {
+    let sx = this.cellX(x0, y0), sy = this.cellY(x0, y0);
+    const ex = this.cellX(x1, y1), ey = this.cellY(x1, y1);
+    const dx = Math.abs(ex - sx), dy = -Math.abs(ey - sy), stepx = sx < ex ? 1 : -1, stepy = sy < ey ? 1 : -1;
+    const n = Math.max(dx, -dy) || 1, fc = typeof c === "function", fa = typeof a === "function";
+    let err = dx + dy, i = 0;
+    for (;;) {
+      const u = i++ / n;
+      this.put(sx, sy, fc ? c(u) : c, fa ? a(u) : a);
+      if (sx === ex && sy === ey) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; sx += stepx; }
+      if (e2 <= dx) { err += dx; sy += stepy; }
+    }
+  }
+  /** Lines through a list of points [[x, y], ...]. */
+  polyline(pts, c, a = 1) {
+    for (let i = 1; i < pts.length; i++) this.line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], c, a);
+  }
+  /** Thick segment with round ends. c and a may be functions of (u along, v across: 0 center, 1 edge). */
+  beam(x0, y0, x1, y1, width, c, a = 1) {
+    const r = width / 2, dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy || 1e-9;
+    this.shade(Math.min(x0, x1) - r, Math.min(y0, y1) - r, Math.max(x0, x1) + r, Math.max(y0, y1) + r, (x, y, o) => {
+      const u = clamp(((x - x0) * dx + (y - y0) * dy) / L2), px = x0 + dx * u - x, py = y0 + dy * u - y;
+      const d2 = px * px + py * py;
+      if (d2 > r * r) return;
+      const v = Math.sqrt(d2) / r;
+      o.c = call(c, u, v);
+      o.a = call(a, u, v);
+    });
+  }
+  /** Filled disc. c and a may be functions of (d: 0 center to 1 rim, angle). */
+  circle(cx, cy, r, c, a = 1) {
+    if (r < 0.6) return this.dot(cx, cy, call(c, 0, 0), call(a, 0, 0));
+    this.shade(cx - r, cy - r, cx + r, cy + r, (x, y, o) => {
+      const dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy;
+      if (d2 > r * r) return;
+      const d = Math.sqrt(d2) / r, ang = Math.atan2(dy, dx);
+      o.c = call(c, d, ang);
+      o.a = call(a, d, ang);
+    });
+  }
+  /** Ellipse. c and a may be functions of (d: 0 center to 1 rim, angle). */
+  ellipse(cx, cy, rx, ry, c, a = 1) {
+    if (rx <= 0 || ry <= 0) return;
+    this.shade(cx - rx, cy - ry, cx + rx, cy + ry, (x, y, o) => {
+      const dx = (x - cx) / rx, dy = (y - cy) / ry, d2 = dx * dx + dy * dy;
+      if (d2 > 1) return;
+      const d = Math.sqrt(d2), ang = Math.atan2(dy, dx);
+      o.c = call(c, d, ang);
+      o.a = call(a, d, ang);
+    });
+  }
+  /** Ring from radius r - w to r. c and a may be functions of (v: 0 inner to 1 outer, angle). */
+  ring(cx, cy, r, w, c, a = 1) {
+    const r0 = Math.max(0, r - w);
+    this.shade(cx - r, cy - r, cx + r, cy + r, (x, y, o) => {
+      const dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy;
+      if (d2 > r * r || d2 < r0 * r0) return;
+      const v = w > 0 ? (Math.sqrt(d2) - r0) / (r - r0 || 1) : 1, ang = Math.atan2(dy, dx);
+      o.c = call(c, v, ang);
+      o.a = call(a, v, ang);
+    });
+  }
+  /**
+   * Band of a ring from angle a0 to a1 (radians, a1 > a0), radius r - w to r: the slash and smear shape.
+   * c and a may be functions of (u: 0 at a0 to 1 at a1, v: 0 inner to 1 outer). w can be a function of u
+   * for a crescent that tapers at both ends.
+   */
+  arc(cx, cy, r, w, a0, a1, c, a = 1) {
+    const span = a1 - a0, wf = typeof w === "function";
+    this.shade(cx - r, cy - r, cx + r, cy + r, (x, y, o) => {
+      const dx = x - cx, dy = y - cy, d = Math.sqrt(dx * dx + dy * dy);
+      if (d > r) return;
+      let ang = Math.atan2(dy, dx) - a0;
+      ang -= Math.floor(ang / (Math.PI * 2)) * Math.PI * 2;
+      if (ang > span) return;
+      const u = ang / span, ww = wf ? w(u) : w;
+      if (ww <= 0 || d < r - ww) return;
+      const v = (d - (r - ww)) / ww;
+      o.c = call(c, u, v);
+      o.a = call(a, u, v);
+    });
+  }
+  /** Filled rectangle. */
+  rect(x, y, w, h, c, a = 1) {
+    if (this.sn === 0) {
+      const X0 = Math.round(x), Y0 = Math.round(y), X1 = Math.round(x + w), Y1 = Math.round(y + h);
+      for (let yy = Y0; yy < Y1; yy++) for (let xx = X0; xx < X1; xx++) this.put(this.cellX(xx, yy), this.cellY(xx, yy), c, a);
+      return;
+    }
+    this.shade(x, y, x + w, y + h, (lx, ly, o) => {
+      if (lx < x || ly < y || lx >= x + w || ly >= y + h) return;
+      o.c = c; o.a = a;
+    });
+  }
+  /** Filled polygon from points [[x, y], ...] (even-odd rule). */
+  poly(pts, c, a = 1) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const [x, y] of pts) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const n = pts.length;
+    this.shade(x0, y0, x1, y1, (x, y, o) => {
+      let inside = false;
+      for (let i = 0, j = n - 1; i < n; j = i++) {
+        const [xi, yi] = pts[i], [xj, yj] = pts[j];
+        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+      }
+      if (!inside) return;
+      o.c = call(c, x, y);
+      o.a = call(a, x, y);
+    });
+  }
+  tri(x0, y0, x1, y1, x2, y2, c, a = 1) { this.poly([[x0, y0], [x1, y1], [x2, y2]], c, a); }
+
+  // ---- light
+  /** Radial glow into the light buffer: k at the center, falling to 0 at radius r. */
+  glow(x, y, r, c, k = 0.5) {
+    if (r < 1 || k <= 0.004) return;
+    const cx = this.toX(x, y), cy = this.toY(x, y);
+    const x0 = Math.floor(cx - r), x1 = Math.ceil(cx + r), y0 = Math.floor(cy - r), y1 = Math.ceil(cy + r);
+    for (let sy = y0; sy <= y1; sy++) {
+      const dy = (sy + 0.5 - cy) / r;
+      for (let sx = x0; sx <= x1; sx++) {
+        const dx = (sx + 0.5 - cx) / r, d = dx * dx + dy * dy;
+        if (d >= 1) continue;
+        const f = 1 - Math.sqrt(d);
+        this.add(sx, sy, c, f * f * k);
+      }
+    }
+  }
+  /** Glow around a segment (a soft beam of light). */
+  glowLine(x0, y0, x1, y1, r, c, k = 0.5) {
+    if (r < 1 || k <= 0.004) return;
+    const ax = this.toX(x0, y0), ay = this.toY(x0, y0), bx = this.toX(x1, y1), by = this.toY(x1, y1);
+    const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1e-9;
+    const X0 = Math.floor(Math.min(ax, bx) - r), X1 = Math.ceil(Math.max(ax, bx) + r);
+    const Y0 = Math.floor(Math.min(ay, by) - r), Y1 = Math.ceil(Math.max(ay, by) + r);
+    for (let sy = Y0; sy <= Y1; sy++)
+      for (let sx = X0; sx <= X1; sx++) {
+        const px = sx + 0.5, py = sy + 0.5, u = clamp(((px - ax) * dx + (py - ay) * dy) / L2);
+        const ex = ax + dx * u - px, ey = ay + dy * u - py, d = Math.sqrt(ex * ex + ey * ey) / r;
+        if (d >= 1) continue;
+        const f = 1 - d;
+        this.add(sx, sy, c, f * f * k);
+      }
+  }
+  /** Glow hugging a circle of radius R (a shockwave's light), falling off over width r. */
+  glowRing(x, y, R, r, c, k = 0.5) {
+    if (r < 1 || k <= 0.004) return;
+    const cx = this.toX(x, y), cy = this.toY(x, y), E = R + r;
+    for (let sy = Math.floor(cy - E); sy <= Math.ceil(cy + E); sy++)
+      for (let sx = Math.floor(cx - E); sx <= Math.ceil(cx + E); sx++) {
+        const d = Math.abs(Math.hypot(sx + 0.5 - cx, sy + 0.5 - cy) - R) / r;
+        if (d >= 1) continue;
+        const f = 1 - d;
+        this.add(sx, sy, c, f * f * k);
+      }
+  }
+
+  // ---- sprites, text, masks
+  /**
+   * A little sprite from strings: rows like ["..##..", ".#oo#."], pal maps characters to colors
+   * ({ "#": "#222034", o: 0xff... }); "." and " " are empty. Top-left at (x, y).
+   * opts: { scale, a, flip (mirror left-right), flipY (upside down), tint (draw every pixel in one color) }.
+   */
+  sprite(rows, pal, x, y, opts = {}) {
+    let s = sprites.get(rows);
+    if (!s) sprites.set(rows, (s = rows.map((r) => [...r])));
+    const k = opts.scale ?? 1, a = opts.a ?? 1, W = s[0]?.length ?? 0, cache = {};
+    for (let r = 0; r < s.length; r++)
+      for (let q = 0; q < s[r].length; q++) {
+        const ch = s[r][q];
+        if (ch === "." || ch === " ") continue;
+        let c = opts.tint;
+        if (c === undefined) {
+          c = cache[ch];
+          if (c === undefined) c = cache[ch] = pal[ch] === undefined ? 0 : hex(pal[ch]);
+        }
+        if (!c) continue;
+        const col = opts.flip ? W - 1 - q : q, row = opts.flipY ? s.length - 1 - r : r;
+        if (k === 1) this.dot(x + col, y + row, c, a);
+        else this.rect(x + col * k, y + row * k, k, k, c, a);
+      }
+  }
+  /**
+   * Pixel text. opts: { font: "mini" (3x5) | "big" (5x7), scale, align: "left" | "center" | "right",
+   * outline: color, shadow: color, a }. (x, y) is the top of the text, at the left, center or right.
+   */
+  text(str, x, y, c, opts = {}) {
+    const font = opts.font ?? "mini", k = opts.scale ?? 1, a = opts.a ?? 1, w = textWidth(str, font) * k;
+    const left = Math.round(opts.align === "center" ? x - w / 2 : opts.align === "right" ? x - w : x), top = Math.round(y);
+    const ol = opts.outline, sh = opts.shadow;
+    if (ol !== undefined) rasterText(str, font, (gx, gy) => this.rect(left + gx * k - 1, top + gy * k - 1, k + 2, k + 2, ol, a));
+    if (sh !== undefined) rasterText(str, font, (gx, gy) => this.rect(left + gx * k + 1, top + gy * k + 1, k, k, sh, a));
+    rasterText(str, font, (gx, gy) => this.rect(left + gx * k, top + gy * k, k, k, call(c, gx, gy), a));
+  }
+  /** Size of text in pixels: [w, h]. */
+  measure(str, opts = {}) {
+    const k = opts.scale ?? 1;
+    return [textWidth(str, opts.font ?? "mini") * k, FONTS[opts.font ?? "mini"].h * k];
+  }
+  /** Fill a mask ({ w, h, data }) with its top-left at (x, y). c may be a function of (mx, my). */
+  mask(m, x, y, c, a = 1) {
+    for (let my = 0; my < m.h; my++)
+      for (let mx = 0; mx < m.w; mx++) if (m.data[my * m.w + mx]) this.dot(x + mx, y + my, call(c, mx, my), call(a, mx, my));
+  }
+  /** The 1 px outline just outside a mask. */
+  outline(m, x, y, c, a = 1) {
+    const at = (mx, my) => mx >= 0 && my >= 0 && mx < m.w && my < m.h && m.data[my * m.w + mx];
+    for (let my = -1; my <= m.h; my++)
+      for (let mx = -1; mx <= m.w; mx++)
+        if (!at(mx, my) && (at(mx - 1, my) || at(mx + 1, my) || at(mx, my - 1) || at(mx, my + 1)))
+          this.dot(x + mx, y + my, call(c, mx, my), call(a, mx, my));
+  }
+}
+
+return { Painter };
+})();
+// ---- vendor/pixelfx/pfx-actor.js ----
+const __mod_pfx_actor = (() => {
+// pixelfx src/core/actor.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
+// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
+// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
+const { hex } = __mod_pfx_color;
+// A stock character to try effects on: status effects wrap its silhouette, hits land on it, auras sit
+// behind it. Previews and the gallery draw it; effects only read its mask through o.actor.
+
+const HERO = [
+  "....kkkkk...",
+  "..kkhhhhhk..",
+  ".khhhhhhhhk.",
+  ".khhhhhhhhhk",
+  ".khhssssshhk",
+  ".khsessesshk",
+  ".khsessesshk",
+  "..ksssssssk.",
+  "...kkSSSkk..",
+  "..kttttttk..",
+  ".kttTttTttk.",
+  ".ksttTTttsk.",
+  ".kstttttttk.",
+  "..kbbbbbbk..",
+  "..kppkkppk..",
+  "..kppk.kppk.",
+  "..kppk.kppk.",
+  "..koook.kook",
+  "..kkkkk.kkkk",
+];
+const HERO_PAL = {
+  k: "#17121f", h: "#7a4128", s: "#f3c49d", S: "#c98b6c", e: "#17121f",
+  t: "#5f6f94", T: "#46536f", b: "#8a5a32", p: "#38334a", o: "#6a4030",
+  // the 2x character's extra detail
+  H: "#a35d34", w: "#ffffff", m: "#a3564a", g: "#e8c060", L: "#7f90b6", O: "#8f5a3f", P: "#4b4560",
+  // the scarf
+  c: "#f53cd1", C: "#ff8fe6", D: "#a31f8a",
+};
+// the dummy: a neutral shell that lets any effect's colors do the talking, near and far limbs, dark bands at the joints, a small mark
+const DUMMY_PAL = {
+  k: "#0e0c14", A: "#e4e6ec", B: "#b6b9c3", C: "#868995", D: "#5c5e6a", E: "#6e707c", F: "#4b4d58", G: "#34353f", J: "#2a2b33", m: "#f53cd1",
+};
+// The same character at twice the size (24 x 38), standing easy: the rest pose of src/core/rig.js, baked.
+const HERO2 = [
+  "...........kkk..........",
+  "..........kAABk.........",
+  ".........kAAABJk........",
+  ".........kABBJJk........",
+  ".........kBBBJCDk.......",
+  ".........kBCJDDDk.......",
+  ".........kkJJJDk........",
+  ".......kkkkABBJCkk......",
+  "......kAABCJBCCCkDk.....",
+  "......kABBCJCCCmDkDk....",
+  "......kBBCDDJCDDDkDk....",
+  "......kABCDJDDDDDkk.....",
+  ".....kAABDkDDDDJkk......",
+  ".....kABCDkDDJJGkk......",
+  ".....kABCkJJJGGGkk......",
+  "....kJJCDkFFFGGGk.......",
+  "....kAJJDkJJJGGGk.......",
+  "....kJCJJkABBJGGk.......",
+  ".....kJCCkBBCDJJJk......",
+  ".....kCCCJBBCDJJDk......",
+  ".....kCCCDJCCDkJDDk.....",
+  "......kCDDJBCDkDDDk.....",
+  ".......kDJJJCDkDDDkk....",
+  ".......kJBCJCDkDDDkk....",
+  ".......kBDJBCDkCDDkk....",
+  "........kJJBCDkCDDk.....",
+  "........kBBBCDkCCDDk....",
+  "........kBBBCDkCCDDk....",
+  ".........kBBCDkJDDDk....",
+  "........kBJJJJkCJJJk....",
+  "........kBBCCDkCCDDk....",
+  "........kBBCDDkCDDk.....",
+  "........kBBCDkCCDDk.....",
+  "........kBCCDkCCDDk.....",
+  "........kBCDDkCDDDk.....",
+  ".......kJBCJkkkDJkkkk...",
+  ".......kAJJAAAAkCCCCCk..",
+  "........kkkkkkkkkkkkk...",
+];
+
+
+function maskOf(rows, k = 1) {
+  const h = rows.length * k, w = rows[0].length * k, data = new Uint8Array(w * h);
+  rows.forEach((r, y) => [...r].forEach((ch, x) => {
+    if (ch === ".") return;
+    for (let j = 0; j < k * k; j++) data[(y * k + ((j / k) | 0)) * w + x * k + (j % k)] = 1;
+  }));
+  return { w, h, data };
+}
+
+const MASKS = { 1: maskOf(HERO, 1), 2: maskOf(HERO2, 1) };
+const SPRITES = { 1: HERO, 2: HERO2 };
+// the character's own colors, row by row (0 where empty), for effects that recolor it: frozen, poisoned, stone
+function pixelsOf(rows, pal) {
+  const w = rows[0].length, data = new Uint32Array(w * rows.length);
+  rows.forEach((r, y) => [...r].forEach((ch, x) => (data[y * w + x] = ch === "." ? 0 : hex(pal[ch]))));
+  return data;
+}
+const PIXELS = { 1: pixelsOf(HERO, HERO_PAL), 2: pixelsOf(HERO2, DUMMY_PAL) };
+
+/**
+ * The stock actor at scale k (1: 12 x 19 px, 2: 24 x 38 px), in local space with its feet at (0, 0):
+ * { mask, x, y (top-left of the mask), w, h, k, head: [x, y] (top of the head), chest: [x, y] }.
+ */
+function stockActor(k = 1) {
+  k = k === 2 ? 2 : 1;
+  const m = MASKS[k], x = -Math.floor(m.w / 2), y = -m.h;
+  return { mask: m, pixels: PIXELS[k], x, y, w: m.w, h: m.h, k, head: [0, y], chest: [0, k === 2 ? -26 : y + 11], ...(k === 2 ? { eyes: [[13, 3], [15, 3]] } : {}) };
+}
+
+/** Draw the stock actor with its feet at the painter's origin, at alpha a (dithered). */
+function drawActor(p, actor = stockActor(), a = 1) {
+  if (a > 0) p.sprite(SPRITES[actor.k === 2 ? 2 : 1], actor.k === 2 ? DUMMY_PAL : HERO_PAL, actor.x, actor.y, { a });
+}
+/** How visible an effect wants the stand-in character at time t (effects may export actorAlpha). */
+const actorAlphaOf = (mod, t, o) => (typeof mod.actorAlpha === "function" ? mod.actorAlpha(t, o) : 1);
+
+
+
+return { stockActor, drawActor, actorAlphaOf, HERO, HERO2, HERO_PAL, DUMMY_PAL };
+})();
+// ---- vendor/pixelfx/pfx-fx.js ----
+const __mod_pfx_fx = (() => {
+// pixelfx src/core/fx.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
+// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
+// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
+// Frames and live effect instances.
+
+const { Painter } = __mod_pfx_painter;
+const { clamp } = __mod_pfx_math;
+const { stockActor } = __mod_pfx_actor;
+const { fit, toHex } = __mod_pfx_color;
+
+/**
+ * A frame: w x h pixels whose top-left sits at (ox, oy) in world space. `color` holds opaque pixels,
+ * `light` additive glow; composite() puts them together. Same shape as Sprite Fusion's VFX frames.
+ */
+function createFrame(w, h, ox = 0, oy = 0) {
+  return { w, h, ox, oy, color: new Uint32Array(w * h), light: new Uint32Array(w * h) };
+}
+function clearFrame(f) {
+  f.color.fill(0);
+  f.light.fill(0);
+  return f;
+}
+
+const painters = new WeakMap();
+/** The painter for a frame (one per frame, reused). */
+function painterFor(frame) {
+  let p = painters.get(frame);
+  if (!p) painters.set(frame, (p = new Painter(frame)));
+  return p.reset();
+}
+
+const FADE = 0.3;
+
+const isRamp = (v) => Array.isArray(v) && v.length > 0 && v.every((c) => typeof c === "number" || /^#[0-9a-f]{3,8}$/i.test(c));
+
+/**
+ * An effect's options: its defaults with the caller's on top. Any color ramp (palette, or another ramp option
+ * like dust or smoke) of a different length than its default is resampled to the default's length, so effects
+ * can index steps by number whatever a caller passes.
+ */
+function resolveOptions(meta, o = {}) {
+  const opts = { ...(meta.options ?? {}), ...o };
+  for (const [k, def] of Object.entries(meta.options ?? {}))
+    if (isRamp(def) && isRamp(o[k]) && o[k].length !== def.length) opts[k] = fit(o[k], def.length).map(toHex);
+  if (meta.actor && !opts.actor) opts.actor = stockActor(meta.actor === 2 ? 2 : 1);
+  return opts;
+}
+
+/**
+ * A live instance of an effect module: { update(dt), draw(frame, layer), stop(), done() }.
+ * o: { x, y, flip, angle, seed, palette, light (glow strength), actor, ...the effect's own options }.
+ * draw(frame, "back") draws what goes behind a character, "front" what goes in front, nothing both.
+ */
+function createFx(mod, o = {}) {
+  const meta = mod.meta ?? {};
+  const opts = resolveOptions(meta, o);
+  const impl = mod.create ? mod.create(opts) : mod;
+  const D = meta.duration ?? 1;
+  let t = 0, stopAt = Infinity;
+  return {
+    meta,
+    options: opts,
+    get t() {
+      return t;
+    },
+    update(dt) {
+      t += dt;
+      if (!impl.update) return;
+      // simulations step at 120 Hz or finer whatever the caller's frame rate, so they look the same everywhere
+      const n = Math.max(1, Math.ceil(dt * 120 - 1e-9));
+      for (let i = 0; i < n; i++) impl.update(dt / n, opts);
+    },
+    draw(frame, layer) {
+      const p = painterFor(frame);
+      p.place(opts.x ?? 0, opts.y ?? 0, !!opts.flip, opts.angle ?? 0);
+      p.fade = stopAt === Infinity ? 1 : clamp(1 - (t - stopAt) / FADE);
+      p.lightK = opts.light ?? 1;
+      const tt = meta.loop ? t % D : Math.min(t, D);
+      if (layer !== "front" && impl.drawBack) {
+        p.layer = "back";
+        impl.drawBack(p, tt, opts);
+      }
+      if (layer !== "back") {
+        p.layer = "front";
+        impl.draw(p, tt, opts);
+      }
+    },
+    /** Let it end: loops fade out, one-shots cut short. */
+    stop() {
+      if (stopAt === Infinity) stopAt = t;
+    },
+    done() {
+      return t - stopAt >= FADE || (!meta.loop && t >= D);
+    },
+  };
+}
+
+/**
+ * Color over a background, plus light, into RGBA bytes (a Uint8ClampedArray or Buffer, w * h * 4).
+ * bg: null for transparent, a color number, or a Uint32Array of the frame's size. Over transparency, light
+ * becomes color with alpha (its brightest channel), which reads as additive over dark backgrounds.
+ */
+function composite(f, out, bg = null, lightK = 1) {
+  const n = f.w * f.h, C = f.color, L = f.light, flat = typeof bg === "number";
+  for (let i = 0; i < n; i++) {
+    const c = C[i], l = L[i] & 0xffffff;
+    let r, g, b, a;
+    const ca = c >>> 24;
+    if (ca === 255) {
+      r = c & 255; g = (c >>> 8) & 255; b = (c >>> 16) & 255; a = 255;
+    } else if (bg === null) {
+      // translucent color over nothing keeps its alpha
+      r = c & 255; g = (c >>> 8) & 255; b = (c >>> 16) & 255; a = ca;
+    } else {
+      const k = flat ? bg : bg[i], f = ca / 255;
+      r = (c & 255) * f + (k & 255) * (1 - f); g = ((c >>> 8) & 255) * f + ((k >>> 8) & 255) * (1 - f);
+      b = ((c >>> 16) & 255) * f + ((k >>> 16) & 255) * (1 - f); a = 255;
+    }
+    if (l) {
+      const lr = (l & 255) * lightK, lg = ((l >>> 8) & 255) * lightK, lb = ((l >>> 16) & 255) * lightK;
+      if (a < 255) {
+        // over transparency: premultiply what's there, add the light, divide by the new alpha
+        const pa = a / 255, pr = r * pa + lr, pg = g * pa + lg, pb = b * pa + lb;
+        const na = Math.min(1, Math.max(pa, Math.max(lr, lg, lb) / 255));
+        if (na > 0) { r = Math.min(255, pr / na); g = Math.min(255, pg / na); b = Math.min(255, pb / na); a = na * 255; }
+      } else {
+        r = Math.min(255, r + lr); g = Math.min(255, g + lg); b = Math.min(255, b + lb);
+      }
+    }
+    const j = i * 4;
+    out[j] = r; out[j + 1] = g; out[j + 2] = b; out[j + 3] = a;
+  }
+  return out;
+}
+
+return { createFrame, clearFrame, painterFor, resolveOptions, createFx, composite };
+})();
+// ---- vendor/pixelfx/pfx-sim.js ----
+const __mod_pfx_sim = (() => {
+// pixelfx src/core/sim.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
+// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
+// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
+// Simulated particles, debris and lights, for effects that want real physics: sparks that streak and bounce
+// off the floor, shards that tumble and settle, vapour and smoke that swell and thin, lights that flare and die.
+// Adapted from Sprite Fusion's open-source pixel art VFX (https://www.spritefusion.com/pixel-art-vfx),
+// MIT License, Copyright (c) 2026 Hugo Duprez. Units here are art pixels and seconds; draw through a Painter,
+// so effects stay in local space and mirror or rotate like any other.
+
+const { Rng, clamp, TAU } = __mod_pfx_math;
+const { hex, scale, mix, rgb, WHITE } = __mod_pfx_color;
+
+const GRAVITY = 950; // px/s²
+const CROSS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const DIAG = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+const HOT = ["#fff3a6", "#ffe26b", "#ff8a2a", "#f2561d"].map(hex);
+/** Fire from white-hot to smouldering, and smoke from fresh to thin: the ramps FIRE puffs and SMOKE walk down. */
+const FIRE_RAMP = ["#ffffff", "#fff3a6", "#ffe26b", "#ffc23d", "#ff8a2a", "#f2561d", "#c9281f", "#8a1f17", "#4a1712"].map(hex);
+const SMOKE_RAMP = ["#7b6f72", "#5d5660", "#433d48", "#2b2630", "#1a171e"].map(hex);
+const rampAt = (r, t) => r[Math.min(r.length - 1, Math.max(0, Math.floor(t * r.length)))];
+
+/** Particle kinds. */
+const P = { SPARK: 0, MOTE: 1, STREAK: 2, FLAKE: 3, VAPOUR: 4, DUST: 5, STAR: 6, EMBER: 7, SMOKE: 8, FIRE: 9, BRAND: 10, GRIT: 11 };
+/** Particle flags: SMOKES (a FIRE puff leaves smoke when it dies), BIG (bigger, slower smoke), BACK (draw behind). */
+const PF = { SMOKES: 1, BIG: 2, BACK: 4 };
+const SOFT = new Set([P.VAPOUR, P.DUST, P.SMOKE]);
+
+/**
+ * A particle system. opts: { seed, ground: (x) => floor y (local px; sparks bounce on it), sparks: [head..tail]
+ * colors for SPARK, haze: color vapour glows with }.
+ * spawn(kind, x, y, vx, vy, life, color, size); update(dt); draw(p, layer): "back" draws the soft kinds
+ * (vapour, dust, smoke), "front" the rest, nothing for both.
+ */
+class Particles {
+  constructor(opts = {}) {
+    this.R = opts.rng ?? new Rng(opts.seed ?? 1);
+    this.list = [];
+    this.t = 0;
+    this.ground = opts.ground ?? (() => Infinity);
+    this.sparks = (opts.sparks ?? HOT).map(hex);
+    this.haze = opts.haze === undefined ? null : hex(opts.haze);
+    this.onLand = opts.onLand ?? null; // (x, y) when a BRAND hits the floor
+  }
+  /** delay: seconds before it appears; flag: PF bits. col 0 lets FIRE and SMOKE use their own ramps. */
+  spawn(k, x, y, vx, vy, life, col = WHITE, size = 1, delay = 0, flag = 0) {
+    this.list.push({ k, x, y, vx, vy, life, max: life, col: col ? hex(col) : 0, size, seed: this.R.next() * 100, delay, flag });
+  }
+  get count() {
+    return this.list.length;
+  }
+  update(dt) {
+    this.t += dt;
+    const R = this.R, t = this.t;
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const p = this.list[i];
+      if (p.delay > 0) {
+        p.delay -= dt;
+        continue;
+      }
+      if ((p.life -= dt) <= 0) {
+        if (p.k === P.FIRE && p.flag & PF.SMOKES) {
+          const big = p.flag & PF.BIG;
+          this.spawn(P.SMOKE, p.x, p.y, p.vx * 0.6, p.vy * 0.6 - 6, big ? R.range(1.3, 2.3) : R.range(0.8, 1.4), 0, p.size * (big ? 0.85 : 0.7), 0, big ? PF.BIG : 0);
+        }
+        this.list.splice(i, 1);
+        continue;
+      }
+      switch (p.k) {
+        case P.FIRE:
+          p.vy -= 95 * dt;
+          p.vx += Math.sin(t * 17 + p.seed) * 30 * dt;
+          p.vx -= p.vx * 5 * dt;
+          p.vy -= p.vy * 3.2 * dt;
+          break;
+        case P.GRIT: {
+          p.vy += GRAVITY * dt;
+          p.vx -= p.vx * 0.8 * dt;
+          const g = this.ground(p.x), ny = p.y + p.vy * dt;
+          p.x += p.vx * dt;
+          if (p.vy > 0 && p.y <= g && ny >= g) {
+            p.y = g - 0.25;
+            if (p.vy > 130 && R.chance(0.4)) (p.vy = -p.vy * 0.25), (p.vx = p.vx * 0.5 + R.range(-10, 10));
+            else (p.vx = p.vy = 0), (p.life = Math.min(p.life, 0.5));
+          } else p.y = ny;
+          continue;
+        }
+        case P.BRAND: {
+          // a burning chunk: arcs, trails flame, and starts a little fire where it lands
+          p.vy += GRAVITY * 0.8 * dt;
+          p.vx -= p.vx * 0.9 * dt;
+          if (R.chance(0.9 * Math.min(1, dt * 60))) this.spawn(P.FIRE, p.x, p.y, p.vx * 0.1 + R.range(-7, 7), p.vy * 0.1 - 10, R.range(0.16, 0.32), 0, R.range(0.9, 1.7) * (0.5 + (p.life / p.max) * 0.6), 0, R.chance(0.4) ? PF.SMOKES : 0);
+          const g = this.ground(p.x), ny = p.y + p.vy * dt;
+          p.x += p.vx * dt;
+          if (p.vy > 0 && p.y <= g && ny >= g) {
+            this.onLand?.(p.x, g);
+            this.list.splice(i, 1);
+          } else p.y = ny;
+          continue;
+        }
+        case P.SPARK: {
+          p.vy += GRAVITY * 0.45 * dt;
+          p.vx -= p.vx * 2.2 * dt;
+          p.vy -= p.vy * 2.2 * dt;
+          const g = this.ground(p.x), ny = p.y + p.vy * dt;
+          p.x += p.vx * dt;
+          if (p.vy > 0 && p.y <= g && ny >= g) (p.vy = -p.vy * 0.45), (p.vx *= 0.7), (p.y = g - 0.25);
+          else p.y = ny;
+          continue;
+        }
+        case P.STREAK: (p.vx += p.vx * 3 * dt), (p.vy += p.vy * 3 * dt); break;
+        case P.FLAKE:
+          p.vx -= p.vx * 2.2 * dt;
+          p.vy -= p.vy * 2.2 * dt - 35 * dt;
+          p.x += Math.sin(this.t * 2.5 + p.seed) * 7 * dt;
+          break;
+        case P.EMBER:
+          p.vy += (-30 + Math.sin(t * 3 + p.seed) * 20) * dt;
+          p.vx += Math.cos(t * 2.3 + p.seed) * 45 * dt;
+          p.vx -= p.vx * 1.6 * dt;
+          p.vy -= p.vy * 1.6 * dt;
+          break;
+        case P.SMOKE: {
+          const big = p.flag & PF.BIG;
+          p.vy -= (big ? 23 : 16) * dt;
+          p.vx += Math.sin(t * 1.3 + p.seed) * 8 * dt;
+          p.vx -= p.vx * 1.6 * dt;
+          p.vy -= p.vy * 1.2 * dt;
+          break;
+        }
+        case P.MOTE: p.vx -= p.vx * 0.6 * dt; p.vy -= p.vy * 0.6 * dt; break;
+        default: {
+          const drag = SOFT.has(p.k) ? 4 : 1.6;
+          p.vx -= p.vx * drag * dt;
+          p.vy -= p.vy * drag * dt + 5 * dt;
+        }
+      }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+    }
+  }
+  draw(p, layer) {
+    for (const q of this.list) {
+      if (q.delay > 0) continue;
+      if (layer && (SOFT.has(q.k) || q.flag & PF.BACK ? "back" : "front") !== layer) continue;
+      const k = q.life / q.max, x = q.x, y = q.y, sp = Math.hypot(q.vx, q.vy) || 1, ux = q.vx / sp, uy = q.vy / sp;
+      switch (q.k) {
+        case P.SPARK: {
+          const S = this.sparks, head = k > 0.6 ? S[0] : k > 0.3 ? S[1] : S[2], len = Math.min(9, 1 + sp * 0.022);
+          p.line(x - ux * len, y - uy * len, x - ux * len * 0.4, y - uy * len * 0.4, k > 0.5 ? head : S[S.length - 1]);
+          p.line(x - ux * len * 0.45, y - uy * len * 0.45, x, y, head);
+          p.glow(x, y, 3, head, 0.45 * k);
+          break;
+        }
+        case P.MOTE: {
+          const len = Math.min(16, 0.5 + sp * 0.026) * q.size, a = k < 0.35 ? k / 0.35 : 1;
+          p.line(x - ux * len, y - uy * len, x - ux * len * 0.35, y - uy * len * 0.35, scale(q.col, 0.55), a);
+          p.line(x - ux * len * 0.4, y - uy * len * 0.4, x, y, q.col, a);
+          p.glow(x, y, 2.5 + q.size, q.col, 0.4 * k);
+          break;
+        }
+        case P.STREAK: {
+          const L = clamp(sp / 30, 1, 7);
+          for (let d = L; d >= 0; d -= 0.5) p.dot(x - ux * d, y - uy * d, d < 1 ? WHITE : d < L * 0.5 ? q.col : scale(q.col, 0.6), d < L * 0.5 ? 1 : 1.2 - d / L);
+          p.glow(x, y, 4, q.col, 0.4);
+          break;
+        }
+        case P.FLAKE: {
+          const a = Math.min(1, k * 3);
+          p.dot(x, y, q.col, a);
+          if (q.size > 1.3) for (const [dx, dy] of CROSS) p.dot(x + dx, y + dy, scale(q.col, 0.8), a * 0.8);
+          break;
+        }
+        case P.VAPOUR: {
+          const r = q.size * (0.6 + (1 - k) * 0.9);
+          p.disc(x, y, r, q.col, Math.pow(k, 1.3) * 0.45);
+          if (this.haze) p.glow(x, y, r * 1.8, this.haze, 0.16 * k);
+          break;
+        }
+        case P.DUST: p.disc(x, y, q.size * (0.6 + (1 - k) * 0.9), q.col, Math.pow(k, 1.3) * 0.7); break;
+        case P.SMOKE: {
+          // three soft discs: a body, a denser core sitting low, a lit cap while it's young
+          const age = 1 - k, big = q.flag & PF.BIG;
+          const r = q.size * (0.65 + Math.min(1, age * 2.5) * 0.45 + age * (big ? 0.5 : 0.4));
+          const a = Math.min(1, age * 12) * Math.min(1, k * 2.4) * (big ? 0.7 : 0.58);
+          const c = q.col ? mix(q.col, rampAt(SMOKE_RAMP, age), age) : rampAt(SMOKE_RAMP, age * 1.05);
+          p.disc(x, y, r, c, a * 0.45);
+          p.disc(x + r * 0.05, y + r * 0.06, r * 0.74, c, a * 0.62);
+          if (age < 0.5) p.disc(x - r * 0.22, y - r * 0.3, r * 0.5, mix(c, WHITE, 0.12), a * 0.4 * (1 - age * 2));
+          break;
+        }
+        case P.FIRE: {
+          // a ball of flame that cools down the ramp as it rises: a darker rim, a lit core, a tongue on top
+          const age = 1 - k, heat = Math.min(0.999, Math.pow(age, 0.62) + (q.seed % 1) * 0.1), F = FIRE_RAMP, n = F.length;
+          const idx = Math.min(n - 2, Math.floor(heat * (n - 1)));
+          const r = q.size * (0.55 + 0.45 * Math.min(1, age * 7)) * (1 - age * 0.55), c = F[idx];
+          if (idx >= n - 2) p.disc(x, y, r, c, Math.min(1, k * 3) * 0.85);
+          else {
+            p.circle(x, y, r, F[Math.min(n - 1, idx + 2)]);
+            p.circle(x - r * 0.16, y - r * 0.22, r * 0.78, c);
+            if (r > 1.6) p.circle(x, y - r * 0.9, r * 0.42, c);
+            if (idx <= 3 && r > 1.8) p.circle(x - r * 0.28, y - r * 0.34, r * 0.36, F[Math.max(0, idx - 1)]);
+            if (idx < 6) p.glow(x, y, r * 2.4 + 2, c, 0.18 * k);
+          }
+          break;
+        }
+        case P.BRAND:
+          p.circle(x, y, 1.6, HOT[3]);
+          p.px(x, y, Math.sin(this.t * 40 + q.seed) > 0 ? HOT[0] : HOT[1]);
+          p.px(x + 1, y, HOT[1]);
+          p.glow(x, y, 7, HOT[2], 0.45);
+          break;
+        case P.GRIT:
+          if (k > 0.25 || k * 4 > 0.5) {
+            p.px(x, y, q.col);
+            if (q.size >= 2) p.px(x + 1, y, q.col), p.px(x, y + 1, scale(q.col, 0.8)), p.px(x + 1, y + 1, scale(q.col, 0.7));
+          }
+          break;
+        case P.EMBER: {
+          const c = k > 0.6 ? this.sparks[0] : k > 0.3 ? this.sparks[1] : this.sparks[2];
+          if (k < 0.25 && Math.sin(this.t * 40 + q.seed) < 0) break;
+          p.px(x, y, c);
+          if (q.size > 1.5) p.px(x, y + 1, this.sparks[this.sparks.length - 1]);
+          p.glow(x, y, 3 + q.size, c, 0.35 * k);
+          break;
+        }
+        default: {
+          // STAR: a twinkling cross, arms set by size
+          const tw = 0.6 + 0.4 * Math.sin(this.t * (8 + (q.seed % 5)) + q.seed);
+          if (q.size < 1) {
+            if (tw * k > 0.25) p.px(x, y, tw > 0.8 ? WHITE : q.col);
+            p.glow(x, y, 3, q.col, 0.4 * k * tw);
+            break;
+          }
+          sparkle(p, x, y, q.size * tw * Math.min(1, k * 3), q.col, scale(q.col, 0.75), 0.5 * k * tw);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Little fires burning where something landed: add(x, y, life, power) feeds FIRE puffs (and the odd ember)
+ * into a particle system, fading over its life. update(dt); drawBack(p) adds a hot pixel and a glow at its foot.
+ */
+class Blazes {
+  constructor(ps) {
+    this.ps = ps;
+    this.list = [];
+  }
+  add(x, y, life, power) {
+    this.list.push({ x, y, life, max: life, acc: this.ps.R.next(), power });
+  }
+  get count() {
+    return this.list.length;
+  }
+  update(dt) {
+    const ps = this.ps, R = ps.R;
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const b = this.list[i];
+      if ((b.life -= dt) <= 0) {
+        this.list.splice(i, 1);
+        continue;
+      }
+      const k = b.life / b.max, intensity = b.power * (k > 0.7 ? 1 : 0.35 + (k / 0.7) * 0.65);
+      for (b.acc += dt * (6 + 16 * intensity); b.acc > 1; b.acc--) {
+        const s = R.range(1.2, 2.8) * intensity;
+        ps.spawn(P.FIRE, b.x + R.range(-1.5, 1.5), b.y - s * 0.6, R.range(-6, 6), R.range(-30, -12), R.range(0.28, 0.6), 0, s, 0, PF.BACK | (R.chance(0.3) ? PF.SMOKES : 0));
+        if (R.chance(0.06)) ps.spawn(P.EMBER, b.x, b.y - 1.5, R.range(-15, 15), R.range(-45, -15), R.range(0.6, 1.4), HOT[2], 1, 0, PF.BACK);
+      }
+    }
+  }
+  drawBack(p) {
+    for (const b of this.list) {
+      const k = b.life / b.max;
+      p.px(b.x, b.y, k > 0.4 ? (Math.sin(b.life * 31 + b.x) > 0 ? HOT[1] : HOT[2]) : HOT[3]);
+      p.glow(b.x, b.y, 6 + 5 * k * b.power, HOT[2], 0.3 * k * b.power);
+    }
+  }
+}
+
+/** Debris kinds. */
+const B = { SHARD: 0, CHUNK: 1, DRIP: 2 };
+
+/**
+ * Rigid debris that tumbles, bounces and settles. add({ kind, x, y, vx, vy, a, va, s (size), c (color), ramp
+ * (chunk shading, dark to bright), g (gravity scale), drag, bounce, life }); update(dt); draw(p).
+ */
+class Bits {
+  constructor(opts = {}) {
+    this.list = [];
+    this.ground = opts.ground ?? (() => Infinity);
+  }
+  add(b) {
+    const life = b.life ?? 1;
+    this.list.push({ kind: B.SHARD, vx: 0, vy: 0, a: 0, va: 0, s: 1, c: WHITE, g: 1, drag: 0, bounce: 0, rest: false, ...b, life, max: life });
+  }
+  get count() {
+    return this.list.length;
+  }
+  update(dt) {
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const b = this.list[i];
+      if ((b.life -= dt) <= 0) {
+        this.list.splice(i, 1);
+        continue;
+      }
+      if (b.rest) continue;
+      b.vy += GRAVITY * b.g * dt;
+      b.vx -= b.vx * b.drag * dt;
+      b.vy -= b.vy * b.drag * dt;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.a += b.va * dt;
+      const floor = this.ground(b.x), sp = b.vy;
+      if (b.g <= 0 || b.y < floor || sp <= 0) continue;
+      b.y = floor - 0.01;
+      if (b.kind === B.DRIP) b.life = 0;
+      else if (b.bounce > 0 && sp > 70) (b.vy = -sp * b.bounce), (b.vx *= 0.7), (b.va *= 0.6);
+      else (b.rest = true), (b.vx = b.vy = 0);
+    }
+  }
+  draw(p) {
+    for (const b of this.list) {
+      const a = Math.min(1, b.life / 0.4), ca = Math.cos(b.a), sa = Math.sin(b.a);
+      if (b.kind === B.SHARD) {
+        for (let d = -b.s / 2; d <= b.s / 2; d += 0.5) p.dot(b.x + ca * d, b.y + sa * d, d > b.s / 2 - 0.6 ? WHITE : hex(b.c), a);
+      } else if (b.kind === B.DRIP) {
+        p.dot(b.x, b.y, hex(b.c), a);
+        p.dot(b.x, b.y - 1, hex(b.c), a * 0.5);
+      } else {
+        // a shaded chunk: lit top-left, dark bottom-right, a dark rim
+        const R = (b.ramp ?? ["#1c2030", "#3a4a66", "#6e86a8", "#a8c0dc", "#e8f2ff"]).map(hex), n = R.length;
+        const x = Math.round(b.x), y = Math.round(b.y), r = Math.ceil(b.s) + 1;
+        for (let py = -r; py <= r; py++)
+          for (let px = -r; px <= r; px++) {
+            const u = (px + 0.5) * ca + (py + 0.5) * sa, v = -(px + 0.5) * sa + (py + 0.5) * ca;
+            const d = Math.abs(u) / b.s + Math.abs(v) / (b.s * 0.62);
+            if (d > 1.3) continue;
+            p.dot(x + px, y + py, d > 1 ? R[0] : v < 0 ? (u < 0 ? R[n - 1] : R[n - 2]) : u < 0 ? R[n - 3] : R[Math.max(1, n - 4)], a);
+          }
+      }
+    }
+  }
+}
+
+/** Lights that flare and die: add(x, y, r, color, k, life); update(dt); draw(p). */
+class Lights {
+  constructor() {
+    this.list = [];
+  }
+  add(x, y, r, color, k, life) {
+    this.list.push({ x, y, r, color: hex(color), k, life, max: life });
+  }
+  update(dt) {
+    for (let i = this.list.length - 1; i >= 0; i--) if ((this.list[i].life -= dt) <= 0) this.list.splice(i, 1);
+  }
+  draw(p) {
+    for (const l of this.list) {
+      const k = l.life / l.max;
+      p.glow(l.x, l.y, l.r * (0.55 + 0.45 * k), l.color, l.k * k * k);
+    }
+  }
+}
+
+/** A star glint: arms of length arm in color c with tips in tip, a white heart, light. */
+function sparkle(p, x, y, arm, c, tip = c, k = 0.6) {
+  const n = Math.round(arm);
+  if (n < 1) return;
+  const X = Math.floor(x), Y = Math.floor(y);
+  for (let d = 1; d <= n; d++) {
+    const cc = d > n * 0.6 ? tip : c;
+    for (const [dx, dy] of CROSS) p.px(X + dx * d, Y + dy * d, cc);
+  }
+  if (n >= 3) for (const [dx, dy] of DIAG) p.px(X + dx, Y + dy, c);
+  if (n >= 6) for (const [dx, dy] of DIAG) p.px(X + dx * 2, Y + dy * 2, tip);
+  p.px(X, Y, WHITE);
+  p.glow(x, y, 4 + n * 2, c, k);
+}
+
+/** An 8-ray flare: long rays on the axes, shorter between, fading out along their length. ramp dark to bright. */
+function flare(p, x, y, L, k, ramp) {
+  if (L < 1) return;
+  const R = ramp.map(hex), n = R.length;
+  for (let i = 0; i < 8; i++) {
+    const an = (i * Math.PI) / 4, len = i % 4 === 0 ? L : i % 2 === 0 ? L * 0.6 : L * 0.3, ca = Math.cos(an), sa = Math.sin(an);
+    for (let d = 0; d <= len; d += 0.5) {
+      const u = d / len;
+      p.dot(x + ca * d, y + sa * d, u < 0.35 ? WHITE : u < 0.7 ? R[n - 2] : R[n - 3], u < 0.6 ? 1 : k * 1.5 * (1 - u) + 0.2);
+    }
+  }
+}
+
+/**
+ * A ring on a tilted plane (sy squashes it: 0.16 lies on the floor, 1 stands up), thickness th inward, alpha k,
+ * colored by depth through the band with ramp (dark to bright). keep(angle) picks which part to draw, so the
+ * far half can go behind things and the near half in front: (g) => Math.sin(g) < 0 is the far half.
+ */
+function band(p, cx, cy, r, sy, th, k, ramp, keep = () => true, hot = false) {
+  if (r <= 0 || k <= 0) return;
+  const R = ramp.map(hex), n = R.length;
+  for (let j = 0, m = Math.ceil(r * TAU * 1.2); j < m; j++) {
+    const ang = (j / m) * TAU, ca = Math.cos(ang), sa = Math.sin(ang);
+    if (!keep(ang)) continue;
+    for (let o = th; o >= 0; o -= 0.5) {
+      const u = o / th, c = u < 0.15 ? (hot ? WHITE : R[n - 1]) : u < 0.4 ? R[n - 2] : u < 0.7 ? R[n - 3] : R[n - 4];
+      p.dot(cx + ca * (r - o), cy + sa * (r - o) * sy, c, k * (u < 0.4 ? 1.2 : 1.15 - u));
+    }
+  }
+}
+
+/**
+ * A faceted crystal spike standing on (x, base), height h, base width w, leaning lean px at the tip, shaded in
+ * ramp (dark to bright, 6+ steps): a lit ridge, a bright left face, a darker right face, a dark rim.
+ * opts: { a (alpha), white (flash it white), glint (0..1 height of a sweeping highlight, or -1) }.
+ */
+function crystal(p, x, base, h, w, lean, ramp, opts = {}) {
+  if (h < 1.5) return;
+  const R = ramp.map(hex), n = R.length, C = (i) => R[Math.max(0, n - 1 - i)];
+  const a = opts.a ?? 1, top = base - h, ridge0 = x - w * 0.14, glint = opts.glint ?? -1;
+  const inside = (px, py) => {
+    const u = (base - (py + 0.5)) / h;
+    return u >= 0 && u <= 1 && Math.abs(px + 0.5 - (x + lean * u)) <= (w / 2) * (1 - u) + 0.35;
+  };
+  for (let py = Math.floor(top) - 1; py < Math.ceil(base); py++)
+    for (let px = Math.floor(x - w / 2 - Math.abs(lean) - 2); px <= Math.ceil(x + w / 2 + Math.abs(lean) + 2); px++) {
+      if (!inside(px, py)) {
+        if (inside(px - 1, py) || inside(px + 1, py) || inside(px, py + 1) || (inside(px, py - 1) && py < base - 1)) p.dot(px, py, R[0], a);
+        continue;
+      }
+      if (opts.white) {
+        p.dot(px, py, WHITE, a);
+        continue;
+      }
+      const u = (base - (py + 0.5)) / h, rx = ridge0 + (x + lean - ridge0) * u, c = x + lean * u, hw = (w / 2) * (1 - u) + 0.35, fx = px + 0.5;
+      let col = u > 0.9 ? WHITE : Math.abs(fx - rx) < 0.55 ? C(1)
+        : fx < rx ? (fx - (c - hw) < 1 ? C(1) : (fx - (c - hw)) / Math.max(1, rx - (c - hw)) > 0.55 ? C(2) : C(3))
+        : c + hw - fx < 1.2 ? C(Math.min(n - 2, 6)) : (fx - rx) / Math.max(1, c + hw - rx) > 0.5 ? C(5) : C(4);
+      if (glint >= 0 && fx <= rx + 0.6) {
+        const g = Math.abs(u - glint);
+        if (g < 0.05) col = WHITE;
+        else if (g < 0.1) col = C(1);
+      }
+      p.dot(px, py, col, a);
+    }
+}
+
+return { GRAVITY, FIRE_RAMP, SMOKE_RAMP, P, PF, Particles, Blazes, B, Bits, Lights, sparkle, flare, band, crystal };
+})();
+// ---- vendor/pixelfx/pfx-pickups-lib.js ----
+const __mod_pfx_pickups_lib = (() => {
+// pixelfx src/fx/pickups/_lib.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
+// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
+// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
+// Helpers for the pickups: a scratch layer to build outlined sprites in, floor shadows, twinkles and bobs.
+// Not an effect (the file name starts with _).
+
+const { createFrame } = __mod_pfx_fx;
+const { Painter } = __mod_pfx_painter;
+const { TAU, rand } = __mod_pfx_math;
+const { WHITE, hex, ramp, scale } = __mod_pfx_color;
+
+/**
+ * The palette as at least n color steps, dark to bright, so effects can index C[0]..C[n-1] whatever ramp a
+ * caller passes: a 7-step ramp repeats its brightest step, a short one is stretched step by step (no blending).
+ */
+function fit(palette, n = 8) {
+  const r = ramp(palette);
+  if (!r.length) return Array(n).fill(WHITE);
+  if (r.length >= n - 1) {
+    while (r.length < n) r.push(r[r.length - 1]);
+    return r;
+  }
+  return Array.from({ length: n }, (_, i) => r[Math.round((i * (r.length - 1)) / (n - 1))]);
+}
+
+/**
+ * A scratch layer: draw a sprite into it with its own painter (same local coordinates as the effect), give
+ * it a dark outline, recolor it, then stamp it onto the frame. Lets a procedural shape get a hand-made
+ * 1 px outline and lets shines sweep across exactly the sprite's pixels.
+ */
+class Layer {
+  constructor(w = 64, h = 64) {
+    this.f = createFrame(w, h);
+    this.q = new Painter(this.f);
+    this.tmp = new Uint32Array(w * h);
+  }
+  /** Clear it and put its top-left at local (x0, y0). Returns the layer's painter. */
+  begin(x0, y0) {
+    const f = this.f;
+    f.ox = Math.floor(x0);
+    f.oy = Math.floor(y0);
+    f.color.fill(0);
+    f.light.fill(0);
+    return this.q.reset().place(0, 0);
+  }
+  idx(x, y) {
+    const f = this.f, i = Math.floor(x) - f.ox, j = Math.floor(y) - f.oy;
+    return i < 0 || j < 0 || i >= f.w || j >= f.h ? -1 : j * f.w + i;
+  }
+  get(x, y) {
+    const i = this.idx(x, y);
+    return i < 0 ? 0 : this.f.color[i];
+  }
+  set(x, y, c) {
+    const i = this.idx(x, y);
+    if (i >= 0) this.f.color[i] = c;
+  }
+  /** Fill each pixel from fn(x, y) at the pixel's center (x + 0.5, y + 0.5): return a color or 0. */
+  fill(x0, y0, x1, y1, fn) {
+    for (let y = Math.floor(y0); y <= y1; y++)
+      for (let x = Math.floor(x0); x <= x1; x++) {
+        const c = fn(x + 0.5, y + 0.5);
+        if (c) this.set(x, y, c);
+      }
+  }
+  /** A 1 px outline around everything drawn: c is a color or fn(x, y, neighbour color). corners adds diagonals. */
+  outline(c, corners = false) {
+    const f = this.f, C = f.color, T = this.tmp, w = f.w, h = f.h;
+    T.fill(0);
+    for (let j = 0; j < h; j++)
+      for (let i = 0; i < w; i++) {
+        const k = j * w + i;
+        if (C[k]) continue;
+        let n = (i > 0 && C[k - 1]) || (i < w - 1 && C[k + 1]) || (j > 0 && C[k - w]) || (j < h - 1 && C[k + w]);
+        if (!n && corners) n = (i > 0 && j > 0 && C[k - w - 1]) || (i < w - 1 && j > 0 && C[k - w + 1]) || (i > 0 && j < h - 1 && C[k + w - 1]) || (i < w - 1 && j < h - 1 && C[k + w + 1]);
+        if (n) T[k] = typeof c === "function" ? c(i + f.ox, j + f.oy, n) : c;
+      }
+    for (let k = 0; k < w * h; k++) if (T[k]) C[k] = T[k];
+    return this;
+  }
+  /** Recolor every drawn pixel: fn(x, y, c) returns the new color. */
+  map(fn) {
+    const f = this.f, C = f.color;
+    for (let k = 0; k < C.length; k++) if (C[k]) C[k] = fn((k % f.w) + f.ox, Math.floor(k / f.w) + f.oy, C[k]) || C[k];
+    return this;
+  }
+  /** Stamp the layer onto p, offset by (dx, dy), at alpha a (dithered); clip [x0, x1] keeps x0 <= x < x1. */
+  draw(p, dx = 0, dy = 0, a = 1, clip = null) {
+    const f = this.f, C = f.color;
+    for (let k = 0; k < C.length; k++) {
+      if (!C[k]) continue;
+      const x = (k % f.w) + f.ox + dx;
+      if (clip && (x < clip[0] || x >= clip[1])) continue;
+      p.dot(x, Math.floor(k / f.w) + f.oy + dy, C[k], a);
+    }
+    return this;
+  }
+}
+
+const SHADOW = hex("#100e17");
+/**
+ * A floor shadow centered on x, half-width rx: a solid dark band on the floor line (y = 0) and a narrower one
+ * under it, with dithered ends. Shrink rx as the thing above rises.
+ */
+function shadow(p, x, rx, k = 1) {
+  if (rx < 1) return;
+  for (let row = 0; row < 2; row++) {
+    const w = rx - row * 2;
+    for (let i = Math.floor(x - w); i < Math.ceil(x + w); i++) {
+      const e = Math.abs(i + 0.5 - x) / w;
+      if (e <= 1) p.dot(i, row, SHADOW, row ? k : k * (e < 0.8 ? 1 : 0.5));
+    }
+  }
+}
+
+/** A four-point twinkle of arm length s (whole pixels): white core, bright inner arms, colored tips. */
+function twinkle(p, x, y, s, c, mid = c, core = WHITE) {
+  s = Math.round(s);
+  if (s <= 0) return;
+  for (let d = 1; d <= s - 1; d++) {
+    const k = d < s / 2 ? mid : c;
+    p.px(x + d, y, k), p.px(x - d, y, k), p.px(x, y + d, k), p.px(x, y - d, k);
+  }
+  if (s >= 4) p.px(x + 1, y + 1, c), p.px(x - 1, y - 1, c), p.px(x + 1, y - 1, c), p.px(x - 1, y + 1, c);
+  p.px(x, y, core);
+}
+
+/** A seamless bob: up-and-down offset in px for loop phase ph (0..1), n bobs a loop. */
+const bob = (ph, amp, n = 1, off = 0) => -amp * Math.sin((ph * n + off) * TAU);
+
+/**
+ * Fill a puffy shape into layer L from a signed distance sdf(x, y) in px (negative inside). The surface is
+ * flat in the middle and rounds over in a bevel px wide at the edge; color(b, e, x, y) gets the light b
+ * (about -0.3 facing away .. 1 facing the light, 0.62 flat) and the depth e in px from the edge. clip(x, y)
+ * returning true cuts a pixel away without shading the cut (a break, a bite).
+ */
+function pillow(L, x0, y0, x1, y1, sdf, color, { bevel = 3, light = [-0.5, -0.6, 0.62], clip = null } = {}) {
+  L.fill(x0, y0, x1, y1, (x, y) => {
+    const d = sdf(x, y);
+    if (d > 0 || (clip && clip(x, y))) return 0;
+    const e = -d;
+    let gx = sdf(x + 0.5, y) - sdf(x - 0.5, y), gy = sdf(x, y + 0.5) - sdf(x, y - 0.5);
+    const gl = Math.hypot(gx, gy) || 1;
+    gx /= gl;
+    gy /= gl;
+    const k = Math.max(0, 1 - e / bevel) * 1.25, sn = Math.sin(k), cs = Math.cos(k);
+    return color(gx * sn * light[0] + gy * sn * light[1] + cs * light[2], e, x, y);
+  });
+}
+
+/** Signed distance (px, roughly) to a heart of half-width w centered at (cx, cy): the classic sextic curve. */
+function heartSdf(x, y, cx, cy, w, h = w) {
+  const S = w / 1.14, X = (x - cx) / S, Y = -(y - cy) / (h / 1.14) + 0.12;
+  const q = X * X + Y * Y - 1, f = q * q * q - X * X * Y * Y * Y;
+  const gx = 6 * X * q * q - 2 * X * Y * Y * Y, gy = 6 * Y * q * q - 3 * X * X * Y * Y;
+  return (f / Math.max(Math.hypot(gx, gy), 0.6)) * S;
+}
+
+// ---- the rebuilt pickups (techniques from Sprite Fusion's open-source pickup and sparkle, MIT, Hugo Duprez)
+
+const INK = hex("#0b0814");
+
+/**
+ * A soft floor shadow at x, half-width rx: dithered darkness on the floor line, fuller in the middle, with a
+ * shorter second row under it. k (0..1) is its strength: lift the thing above and the shadow shrinks and thins.
+ */
+function blobShadow(p, x, rx, k = 1, y = 0) {
+  if (rx < 0.8 || k <= 0) return;
+  for (let i = Math.floor(x - rx); i <= Math.ceil(x + rx); i++) {
+    const u = Math.abs(i + 0.5 - x) / rx;
+    if (u > 1) continue;
+    const a = k * (1 - u * u);
+    p.dot(i, y, INK, a * 1.1);
+    if (u < 0.6) p.dot(i, y + 1, INK, a * 0.6);
+  }
+}
+
+/** A four-point star glint: arms of arm px in c, dimmer tips, a white heart, its own light. */
+function glint(p, x, y, arm, c, k = 0.4, tip = scale(c, 0.8)) {
+  const n = Math.round(arm), X = Math.floor(x), Y = Math.floor(y);
+  if (n < 0) return;
+  for (let d = 1; d <= n; d++) {
+    const cc = d === n && n > 1 ? tip : c;
+    p.px(X + d, Y, cc), p.px(X - d, Y, cc), p.px(X, Y + d, cc), p.px(X, Y - d, cc);
+  }
+  p.px(X, Y, n > 0 ? WHITE : c);
+  p.glow(X + 0.5, Y + 0.5, 3 + n * 2.5, c, k);
+}
+
+/** Additive light in an ellipse (a pool of light on the floor): k at the center falling off to the rim. */
+function pool(p, x, y, rx, ry, c, k) {
+  if (k <= 0.004 || rx < 1) return;
+  p.shade(x - rx, y - ry, x + rx, y + ry, (px, py, out) => {
+    const dx = (px - x) / rx, dy = (py - y) / ry, d = dx * dx + dy * dy;
+    if (d >= 1) return;
+    const f = 1 - Math.sqrt(d);
+    out.l = c;
+    out.k = f * f * k;
+  });
+}
+
+/**
+ * A coin of radius r tumbling: its face turns by `spin` about an axis at screen angle `ax`, showing its rim
+ * as it goes edge-on. A lit rim round a face with a shine, built in layer L with a dark outline, lit from the
+ * top left. C: an 8-step gold ramp. snap puts its center on a pixel corner (even sizes) so it holds its shape
+ * while it moves; pass snap false and a pixel-center y for odd heights.
+ */
+function coin(L, p, x, y, r, ax, spin, C, white = false, a = 1, snap = true) {
+  const X = snap ? Math.round(x) : x, Y = snap ? Math.round(y) : y, cs = Math.cos(spin), sn = Math.sin(spin);
+  const b = Math.max(0.5, r * Math.abs(cs)), th = 1.2 * sn * Math.sign(cs || 1), ca = Math.cos(ax), sa = Math.sin(ax);
+  const face = Math.abs(cs), R = Math.ceil(r) + 2;
+  L.begin(Math.floor(X) - R, Math.floor(Y) - R);
+  L.fill(Math.floor(X) - R, Math.floor(Y) - R, Math.floor(X) + R, Math.floor(Y) + R, (px, py) => {
+    const dx = px - X, dy = py - Y, u = dx * ca + dy * sa, w = -dx * sa + dy * ca;
+    const ef = Math.hypot(u / r, w / b), er = Math.hypot(u / r, (w - th) / b);
+    if (white && (ef <= 1 || er <= 1)) return WHITE;
+    if (ef <= 1) {
+      // in the face's own frame: the raised rim, a recessed ring inside it, a raised middle with a shine
+      const lit = -(dx * 0.62 + dy * 0.78) / Math.max(1, Math.hypot(dx, dy)), dim = face < 0.45 ? 1 : 0;
+      if (b < 1.1) return lit > 0 ? C[6] : C[4];
+      if (ef > 0.72) return C[(lit > 0.3 ? 6 : lit > -0.35 ? 5 : 3) - dim];
+      if (b > 2.2 && ef > 0.42) return C[(lit > 0.2 ? 4 : 5) - dim];
+      if (face > 0.6 && lit > 0.5) return C[7];
+      return C[5 - dim];
+    }
+    if (er <= 1) return Math.abs(w - th) < Math.abs(w) ? C[2] : C[3];
+    return 0;
+  });
+  L.outline(C[1]).draw(p, 0, 0, a);
+}
+
+/**
+ * A small cut gem of radius r turned to angle `ang` (radians, on screen): a crown with a table over a pointed
+ * pavilion, its facets lit from the top left, a white glint on the table; G is a ramp dark to bright (6+
+ * steps). Built in L with a dark outline.
+ */
+function gemlet(L, p, x, y, r, ang, G, white = false, a = 1) {
+  const X = Math.round(x), Y = Math.round(y), ca = Math.cos(ang), sa = Math.sin(ang), n = G.length, R = Math.ceil(r * 1.4) + 2;
+  const ct = r * 0.75, tw = r * 0.5, pv = r * 1.3;
+  L.begin(X - R, Y - R);
+  L.fill(X - R, Y - R, X + R - 1, Y + R - 1, (px, py) => {
+    const dx = px - X, dy = py - Y, u = dx * ca + dy * sa, w = -dx * sa + dy * ca;
+    let facet;
+    if (w < 0) {
+      if (w < -ct || Math.abs(u) > r - ((-w) / ct) * (r - tw)) return 0;
+      facet = w < -ct * 0.45 && Math.abs(u) < tw * 0.95 ? 0 : u < 0 ? 1 : 2;
+    } else {
+      if (w > pv || Math.abs(u) > r * (1 - w / pv)) return 0;
+      facet = Math.abs(u) < 0.5 ? 4 : u < 0 ? 3 : 5;
+    }
+    if (white) return WHITE;
+    // each facet's normal, turned with the gem; the light comes from the top left of the screen
+    const N = [[0, -1], [-0.7, -0.7], [0.7, -0.7], [-0.6, 0.8], [0, 1], [0.6, 0.8]][facet];
+    const nx = N[0] * ca - N[1] * sa, ny = N[0] * sa + N[1] * ca, l = -(nx * 0.62 + ny * 0.78);
+    if (facet === 0 && l > 0.3 && u < 0) return WHITE;
+    return l > 0.6 ? G[n - 1] : l > 0.2 ? G[n - 2] : l > -0.2 ? G[n - 3] : l > -0.6 ? G[n - 4] : G[n - 5];
+  });
+  L.outline(G[0]).draw(p, 0, 0, a);
+}
+
+/**
+ * A cut gem as a convex solid: facet planes { n: [x, y, z] outward unit normal, d, kind }, y up, z towards
+ * the viewer, the girdle on y = 0. brilliant() builds a round brilliant: a table, crown facets, a thin
+ * girdle, pavilion facets down to a point; n facets round (8 by default).
+ */
+function brilliant({ r = 7.5, crown = 3.6, table = 0.52, pavilion = 8, girdle = 0.8, n = 8 } = {}) {
+  const planes = [{ n: [0, 1, 0], d: crown + girdle / 2, kind: 0 }];
+  const cs = Math.atan2(crown, r * (1 - table)), ps = Math.atan2(pavilion, r);
+  for (let i = 0; i < n * 2; i++) {
+    const a = (i * Math.PI) / n, half = i % 2;
+    const c = half ? Math.min(1.45, cs + 0.22) : cs, pv = half ? ps - 0.1 : ps;
+    // crown: main facets, and steeper ones between them by the girdle
+    planes.push({ n: [Math.sin(c) * Math.cos(a), Math.cos(c), Math.sin(c) * Math.sin(a)], d: r * Math.sin(c) * (half ? 1.012 : 1) + (girdle / 2) * Math.cos(c), kind: half ? 2 : 1 });
+    // the girdle: a ring of thin upright faces
+    planes.push({ n: [Math.cos(a), 0, Math.sin(a)], d: r * (half ? 1.0 : 1.0), kind: 3 });
+    // pavilion: main facets to the point, shallower ones between them by the girdle
+    planes.push({ n: [Math.sin(pv) * Math.cos(a), -Math.cos(pv), Math.sin(pv) * Math.sin(a)], d: r * Math.sin(pv) * (half ? 1.03 : 1) + (girdle / 2) * Math.cos(pv), kind: half ? 5 : 4 });
+  }
+  return { planes, r, top: crown + girdle / 2, bottom: pavilion + girdle / 2 };
+}
+
+/**
+ * A crystal: an n-sided prism (apothem r, half-height half) with a pointed cap of height top and a shorter
+ * point of height bottom, as facet planes for drawGem (kinds 6 prism, 7 cap, 8 point).
+ */
+function prism({ r = 4.6, half = 5.5, top = 7.5, bottom = 6, n = 6 } = {}) {
+  const planes = [], ct = Math.atan2(top, r), cb = Math.atan2(bottom, r);
+  for (let i = 0; i < n; i++) {
+    const a = (i * TAU) / n;
+    planes.push({ n: [Math.cos(a), 0, Math.sin(a)], d: r, kind: 6 });
+    planes.push({ n: [Math.sin(ct) * Math.cos(a), Math.cos(ct), Math.sin(ct) * Math.sin(a)], d: Math.sin(ct) * r + Math.cos(ct) * half, kind: 7 });
+    planes.push({ n: [Math.sin(cb) * Math.cos(a), -Math.cos(cb), Math.sin(cb) * Math.sin(a)], d: Math.sin(cb) * r + Math.cos(cb) * half, kind: 8 });
+  }
+  return { planes, r: r / Math.cos(Math.PI / n), top: half + top, bottom: half + bottom };
+}
+
+/**
+ * Draw gem g turned by spin (radians about its upright axis), its center (the girdle) at (x, y), seen from a
+ * little above (tilt), into layer L with a dark outline. Each pixel finds the facet it looks at; crown facets
+ * catch the light from the top left, pavilion facets glow with the light bouncing up through the stone.
+ * C: ramp dark to bright (8). Returns the brightest spot { x, y } for a glint.
+ */
+function drawGem(L, p, g, x, y, spin, C, { tilt = 0.32, white = false, a = 1, edges = true, gain = 1 } = {}) {
+  const cs = Math.cos(spin), sn = Math.sin(spin), ct = Math.cos(tilt), st = Math.sin(tilt);
+  const P = g.planes.map((q) => ({ n: [q.n[0] * cs - q.n[2] * sn, q.n[1], q.n[0] * sn + q.n[2] * cs], d: q.d, kind: q.kind }));
+  // light from the top left, a little in front; the eye looks down the tilted z axis
+  const Lx = -0.55, Ly = 0.72, Lz = 0.42, D = [0, -st, -ct], V = [0, st, ct];
+  const Hl = Math.hypot(Lx + V[0], Ly + V[1], Lz + V[2]), H = [(Lx + V[0]) / Hl, (Ly + V[1]) / Hl, (Lz + V[2]) / Hl];
+  const X = Math.round(x), Y = Math.round(y), R = Math.ceil(g.r) + 2, top = Math.ceil(g.top + 2), bot = Math.ceil(g.bottom + 2);
+  let best = -1, bx = X, by = Y;
+  const ids = new Map();
+  L.begin(X - R, Y - top);
+  L.fill(X - R, Y - top, X + R, Y + bot, (px, py) => {
+    const sx = px - X, sy = -(py - Y);
+    // the ray through this pixel: origin on the screen plane, straight down the view axis
+    const o = [sx, sy * ct, -sy * st];
+    let t0 = -1e9, t1 = 1e9, hit = null;
+    for (const q of P) {
+      const nd = q.n[0] * D[0] + q.n[1] * D[1] + q.n[2] * D[2], no = q.n[0] * o[0] + q.n[1] * o[1] + q.n[2] * o[2];
+      if (Math.abs(nd) < 1e-6) {
+        if (no > q.d) return 0;
+        continue;
+      }
+      const tt = (q.d - no) / nd;
+      if (nd < 0) {
+        if (tt > t0) (t0 = tt), (hit = q);
+      } else if (tt < t1) t1 = tt;
+    }
+    if (!hit || t0 > t1) return 0;
+    if (white) return WHITE;
+    ids.set((Math.floor(px) + 500) * 1000 + Math.floor(py) + 500, P.indexOf(hit));
+    const n = hit.n, pav = hit.kind === 4 || hit.kind === 5 || hit.kind === 8;
+    // the pavilion shows light that came in through the crown and bounced back: mirror its normal
+    const m = pav ? [n[0], -n[1] * 0.6, n[2]] : n, ml = Math.hypot(m[0], m[1], m[2]);
+    const lam = Math.max(0, (m[0] * Lx + m[1] * Ly + m[2] * Lz) / ml), spec = Math.pow(Math.max(0, (m[0] * H[0] + m[1] * H[1] + m[2] * H[2]) / ml), 18);
+    let b = pav ? 0.02 + 0.72 * Math.pow(lam, 2.4) : hit.kind === 3 ? 0.12 + 0.4 * lam : 0.04 + 0.66 * Math.pow(lam, 1.8);
+    // a crystal's upright faces are lit by the light's level direction; its cap catches it from above
+    if (hit.kind === 6) b = 0.16 + 0.66 * Math.pow(Math.max(0, (n[0] * Lx + n[2] * Lz) / Math.hypot(Lx, Lz)), 1.3);
+    else if (hit.kind === 7) b = 0.22 + 0.62 * Math.pow(lam, 1.2);
+    // a fracture shows the lit inside of the stone, rough and grainy; chips are small rough facets
+    else if (hit.kind === 9) b = 0.62 + 0.25 * lam;
+    else if (hit.kind === 10) b = 0.3 + 0.5 * lam + (rand(Math.floor(px - X), Math.floor(py - Y), 43) - 0.5) * 0.08;
+    if (hit.kind !== 9) b *= gain;
+    if (hit.kind === 0) b -= 0.04;
+    const s = b + spec * 0.6;
+    if (s > best) (best = s), (bx = px), (by = py);
+    if (spec > 0.8) return pav ? C[6] : WHITE;
+    return C[Math.max(1, Math.min(6, Math.round(1 + s * 5.6)))];
+  });
+  // the cut: where two facets meet, a pavilion edge sinks a shade and a crown ridge catches a shade more light
+  if (!white && edges) {
+    const out = [];
+    for (const [key, id] of ids) {
+      const kx = Math.floor(key / 1000), ky = key - kx * 1000, x = kx - 500, y = ky - 500, r = ids.get(key + 1000), d = ids.get(key + 1);
+      if ((r !== undefined && r !== id) || (d !== undefined && d !== id)) {
+        const c = L.get(x, y) >>> 0, i = C.findIndex((k) => k >>> 0 === c), pav = [4, 5, 8].includes(P[id].kind);
+        if (i > 0) out.push([x, y, pav ? C[Math.max(1, i - 1)] : C[Math.min(7, i + 1)]]);
+      }
+    }
+    for (const [x, y, c] of out) L.set(x, y, c);
+  }
+  L.outline(C[0]).draw(p, 0, 0, a);
+  return { x: bx, y: by, k: best };
+}
+
+/**
+ * A thick coin turning on its upright axis: radius r, thickness th, turned by theta (0 faces you). Each row
+ * shows the face (squashed by cos theta, a raised rim, a recessed field, an embossed star) and, beside it,
+ * the reeded edge band (th |sin theta| wide). Lit from the top left; the face flashes white as it squares
+ * to the light. Built in L with a dark outline. C: 8-step ramp. Returns the flash strength 0..1.
+ */
+function coin3d(L, p, x, y, r, th, theta, C, { a = 1, white = false } = {}) {
+  const ct = Math.cos(theta), st = Math.sin(theta), sg = ct < 0 ? -1 : 1, act = Math.abs(ct), ast = Math.abs(st);
+  const xc = (th / 2) * st * sg, nfx = st * sg, Lx = -0.55, Ly = 0.45, Lz = 0.7, Ln = Math.hypot(Lx, Ly, Lz);
+  // the face's normal stays level, so its flash comes when it squares to the light's level direction
+  const lam = (nfx * Lx + act * Lz) / Ln, Hx = Lx / Ln, Hz = Lz / Ln + 1, Hn = Math.hypot(Hx, Hz);
+  const base = Math.max(2, Math.min(5, Math.round(2 + lam * 3.2)));
+  const X = Math.round(x), Y = Math.round(y), B = Math.ceil(r + th) + 2;
+  let flash = 0;
+  L.begin(X - B, Y - B);
+  L.fill(X - B, Y - B, X + B, Y + B, (px, py) => {
+    const sx = px - X, sy = -(py - Y);
+    if (Math.abs(sy) > r) return 0;
+    const s = Math.sqrt(1 - (sy / r) ** 2), hw = r * s * act, xr = -(st < 0 ? -1 : 1) * s * r * ct, rw = (th / 2) * ast;
+    if (white && (Math.abs(sx - xc) <= hw || Math.abs(sx - xr) <= rw + 0.05)) return WHITE;
+    if (Math.abs(sx - xc) <= hw && act > 0.08) {
+      // on the face: un-squash to the face's own coordinates
+      const fx = (sx - xc) / act, fy = sy, d = Math.hypot(fx, fy) / r;
+      // a faint curve across the face makes the flash sweep over it as it turns
+      const tx = nfx + (fx / r) * 0.3 * act, sp = Math.pow(Math.max(0, (tx * Hx + act * Hz) / Hn / Math.hypot(tx, act)), 130);
+      flash = Math.max(flash, sp);
+      // relief in whole ramp steps so it shows at every angle: a raised rim lit on its upper left, a recessed
+      // field, a raised diamond with lit and shaded faces
+      const lit = (-fx * 0.6 + fy * 0.8) / Math.max(0.5, Math.hypot(fx, fy));
+      let k;
+      if (d > 0.76) k = base + (lit > 0.75 ? 2 : lit > 0.3 ? 1 : lit < -0.35 ? -1 : 0);
+      else {
+        const q = (Math.abs(fx) + Math.abs(fy)) / (r * 0.52);
+        k = q >= 1 ? base - 1 : q < 0.45 ? base + 1 : fx <= 0 && fy >= 0 ? base + 1 : fx > 0 && fy < 0 ? base - 2 : base;
+      }
+      if (sp > 0.5) return sp > 0.8 ? WHITE : C[Math.min(7, k + 2)];
+      return C[Math.max(2, Math.min(6, k))];
+    }
+    if (Math.abs(sx - xr) <= rw + 0.05) {
+      // the reeded edge: grooves across the band, lit by the edge's own normal
+      const cphi = xr < 0 ? -s : s, n = [cphi * ct, sy / r, -cphi * st], l = (n[0] * Lx + n[1] * Ly + n[2] * Lz) / Ln;
+      const groove = Math.floor((Math.asin(sy / r) + Math.PI) * 9) % 2;
+      const edge = Math.abs(sx - xr) > rw - 0.6 && Math.sign(sx - xr) === Math.sign(xc - xr);
+      return C[Math.max(1, Math.min(6, Math.round(2.6 + l * 2.6) - groove + (edge ? 1 : 0)))];
+    }
+    return 0;
+  });
+  L.outline(C[1]).draw(p, 0, 0, a);
+  return flash;
+}
+
+return { fit, Layer, shadow, twinkle, bob, pillow, heartSdf, blobShadow, glint, pool, coin, gemlet, brilliant, prism, drawGem, coin3d };
+})();
+// ---- vendor/pixelfx/pfx-shadow-lib.js ----
+const __mod_pfx_shadow_lib = (() => {
+// pixelfx src/fx/shadow/_lib.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
+// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
+// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
+// The flame puff (after sim.js's FIRE) and the swirling pull (attract) are adapted from Sprite Fusion's
+// open-source black-hole (https://www.spritefusion.com/pixel-art-vfx/black-hole),
+// MIT License, Copyright (c) 2026 Hugo Duprez.
+//
+// Shared bits for the shadow effects (files starting with _ are helpers, not effects): the void palette,
+// light that black shapes cut, smoke lit from one side, violet flame, obsidian slivers, ink drops.
+
+const { hex, mix, ramp, WHITE } = __mod_pfx_color;
+const { clamp, noise } = __mod_pfx_math;
+const { GRAVITY } = __mod_pfx_sim;
+
+/** Dark magic, dark to bright: void black, deep violet, a white-lilac edge. */
+const VOID = ["#06040b", "#150c26", "#2a1150", "#461a84", "#6f2cc0", "#9d5cec", "#cfa6ff", "#f6eaff"];
+
+/**
+ * Take the light back off every pixel in a local box where dark(x, y) is true, keeping a share keep (0..1):
+ * call it last, so black shapes stay black under every glow, spark and ring drawn before.
+ */
+function unlight(p, x0, y0, x1, y1, dark, keep = 0) {
+  const L = p.L, w = p.w, ox = p.ox, oy = p.oy;
+  p.each(x0, y0, x1, y1, (x, y, sx, sy) => {
+    if (!dark(x, y)) return;
+    const i = (sy - oy) * w + (sx - ox), d = L[i];
+    if (!d) return;
+    if (keep <= 0) L[i] = 0;
+    else L[i] = (255 << 24) | ((((d >>> 16) & 255) * keep) << 16) | ((((d >>> 8) & 255) * keep) << 8) | ((d & 255) * keep);
+  });
+}
+
+// the pixel cells of the annulus r0 <= d < r1 round (x, y), row by row, jumping the hole: fn(cx, cy, d)
+function annulus(x, y, r0, r1, fn) {
+  const r02 = r0 > 0 ? r0 * r0 : -1, r12 = r1 * r1;
+  for (let py = Math.floor(y - r1); py <= Math.ceil(y + r1); py++) {
+    const cy = py + 0.5, dy = cy - y, dy2 = dy * dy;
+    if (dy2 >= r12) continue;
+    const xo = Math.sqrt(r12 - dy2), xi = dy2 < r02 ? Math.sqrt(r02 - dy2) : 0;
+    for (let px = Math.floor(x - xo), x1 = Math.ceil(x + xo); px <= x1; px++) {
+      const cx = px + 0.5, dx = cx - x;
+      if (xi > 0 && dx > -xi && dx < xi) {
+        px = Math.max(px, Math.floor(x + xi) - 1);
+        continue;
+      }
+      const d2 = dx * dx + dy2;
+      if (d2 < r12 && d2 >= r02) fn(cx, cy, Math.sqrt(d2));
+    }
+  }
+}
+
+/**
+ * A ring from radius r - w out to r round (x, y), like p.ring (c and a may be functions of v: 0 inner to 1
+ * outer, and angle) but visiting only the band's own pixels, so a big thin shock ring stays cheap.
+ */
+function ringFast(p, x, y, r, w, c, a = 1) {
+  if (r <= 0) return;
+  const r0 = Math.max(0, r - w), fc = typeof c === "function", fa = typeof a === "function";
+  annulus(x, y, r0, r, (cx, cy, d) => {
+    const v = (d - r0) / (r - r0 || 1), ang = fc || fa ? Math.atan2(cy - y, cx - x) : 0;
+    p.dot(cx, cy, fc ? c(v, ang) : c, fa ? a(v, ang) : a);
+  });
+}
+
+/** Light hugging a circle of radius R at (x, y), falling off over w either side, only where keep(x, y). */
+function ringLight(p, x, y, R, w, c, k, keep = null) {
+  if (w < 1 || k <= 0.004) return;
+  const col = hex(c);
+  annulus(x, y, Math.max(0, R - w), R + w, (cx, cy, d) => {
+    if (keep && !keep(cx, cy)) return;
+    const f = 1 - Math.abs(d - R) / w;
+    p.light(cx, cy, col, f * f * k);
+  });
+}
+
+/** A ring of light hugging a black disc: k at radius r0, falling to nothing at r1, and none inside r0. */
+function halo(p, x, y, r0, r1, c, k) {
+  if (r1 <= r0 || k <= 0.004) return;
+  const col = hex(c), w = r1 - r0;
+  annulus(x, y, Math.max(0, r0), r1, (cx, cy, d) => {
+    const f = 1 - (d - r0) / w;
+    p.light(cx, cy, col, f * f * k);
+  });
+}
+
+/**
+ * A black star rasterized once: four long arms (L) and four short ones, turned rot, at (0, cy), its cells
+ * in a grid. { at(x, y) } says if a local point is black; draw(p, c, rim, skip) fills it and burns a rim on
+ * the cells just outside it (except where skip(x, y)). The arms keep a 1 px black spine to their tips.
+ */
+function blackStar(cy, L, rot, short = 0.46, q = 0.32) {
+  const R0 = Math.ceil(L) + 2, n = R0 * 2 + 1, data = new Uint8Array(n * n);
+  for (let j = 0; j < n; j++)
+    for (let i = 0; i < n; i++) {
+      const x = i - R0 + 0.5, y = cy + j - R0 + 0.5;
+      if (inStar(x, y, 0, cy, L, rot, q) || inStar(x, y, 0, cy, L * short, rot + Math.PI / 4, q)) data[j * n + i] = 1;
+    }
+  for (let a = 0; a < 4; a++)
+    for (let d = 0, ca = Math.cos(rot + (a * Math.PI) / 2), sa = Math.sin(rot + (a * Math.PI) / 2); d < L - 1; d += 0.5) {
+      const i = Math.floor(ca * d) + R0, j = Math.floor(sa * d) + R0;
+      data[j * n + i] = 1;
+    }
+  const at = (x, y) => {
+    const i = Math.floor(x) + R0, j = Math.floor(y - cy) + R0;
+    return i >= 0 && j >= 0 && i < n && j < n && data[j * n + i] === 1;
+  };
+  return {
+    R0,
+    at,
+    /** take the light off its black cells (call last, like unlight) */
+    unlight(p) {
+      const Lb = p.L, w = p.w, h = p.h, ox = p.ox, oy = p.oy;
+      for (let j = 0; j < n; j++)
+        for (let i = 0; i < n; i++) {
+          if (!data[j * n + i]) continue;
+          const x = i - R0 + 0.5, y = cy + j - R0 + 0.5, sx = p.cellX(x, y) - ox, sy = p.cellY(x, y) - oy;
+          if (sx >= 0 && sy >= 0 && sx < w && sy < h) Lb[sy * w + sx] = 0;
+        }
+    },
+    draw(p, c, rim, skip) {
+      for (let j = 0; j < n; j++)
+        for (let i = 0; i < n; i++) {
+          const x = i - R0 + 0.5, y = cy + j - R0 + 0.5;
+          if (data[j * n + i]) p.px(x, y, c);
+          else if (rim && !skip(x, y) && (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1))) p.px(x, y, rim);
+        }
+    },
+  };
+}
+
+/** Is (x, y) inside a four-point star at (cx, cy), arms L long, turned rot? q < 1 hollows the sides into thin spikes. */
+function inStar(x, y, cx, cy, L, rot, q = 0.42) {
+  if (L <= 0) return false;
+  const c = Math.cos(rot), s = Math.sin(rot), dx = x - cx, dy = y - cy;
+  const u = Math.abs(dx * c + dy * s) / L, v = Math.abs(-dx * s + dy * c) / L;
+  // inside needs the smaller of u, v under 0.5^(1/q): most points fail that before any pow
+  return u < 1 && v < 1 && Math.min(u, v) <= Math.pow(0.5, 1 / q) && Math.pow(u, q) + Math.pow(v, q) <= 1;
+}
+
+/**
+ * Pull particles (anything with x, y, vx, vy) toward (x, y): gravity softened at r0, a swirl round it, drag
+ * that grows inside reach. Those that reach r0 are eaten (removed); returns how many. w(q) weighs each one
+ * (0 leaves it alone).
+ */
+function attract(list, x, y, G, reach, swirl, r0, dt, w = () => 1, vmax = Infinity) {
+  let eaten = 0;
+  for (let i = list.length - 1; i >= 0; i--) {
+    const q = list[i], wt = w(q);
+    if (!wt || q.delay > 0) continue;
+    const dx = x - q.x, dy = y - q.y, d2 = dx * dx + dy * dy;
+    if (d2 > reach * reach) continue;
+    const d = Math.sqrt(d2) || 1;
+    if (d < r0) {
+      list.splice(i, 1);
+      eaten++;
+      continue;
+    }
+    const a = (G / (d2 + r0 * r0)) * Math.min(1, (reach - d) / (reach * 0.25)) * wt * dt, ux = dx / d, uy = dy / d;
+    q.vx += (ux - uy * swirl) * a;
+    q.vy += (uy + ux * swirl) * a;
+    const drag = Math.min(0.2, (1 - d / reach) * 1.6 * dt);
+    q.vx -= q.vx * drag;
+    q.vy -= q.vy * drag;
+    const v = Math.hypot(q.vx, q.vy);
+    if (v > vmax) (q.vx *= vmax / v), (q.vy *= vmax / v);
+  }
+  return eaten;
+}
+
+/** Puff kinds: FLAME (a ball of flame cooling down a ramp), SOOT (dark smoke lit on the side facing a light). */
+const PK = { FLAME: 0, SOOT: 1 };
+
+/**
+ * Violet flame and dark smoke. opts: { rng, flame: ramp white-hot to burnt out, soot: [fresh, old] smoke
+ * colours, cap: the soot's dim lit top, rim: [hot, warm, dim] colours of its lit side, floor: (x) => y }.
+ * spawn(kind, x, y, vx, vy, life, size, delay, smokes): smokes turns a dying flame into soot.
+ * draw(p, kind, light): light = { x, y, k, reach } is what the soot's rims face (k 0 leaves them dark).
+ */
+class Puffs {
+  constructor(o) {
+    this.R = o.rng;
+    this.list = [];
+    this.t = 0;
+    this.F = ramp(o.flame);
+    this.soot = ramp(o.soot);
+    this.cap = hex(o.cap);
+    this.rim = ramp(o.rim);
+    this.floor = o.floor ?? null;
+  }
+  spawn(k, x, y, vx, vy, life, size, delay = 0, smokes = false) {
+    this.list.push({ k, x, y, vx, vy, life, max: life, size, delay, smokes, seed: this.R.next() * 100 });
+  }
+  get count() {
+    return this.list.length;
+  }
+  update(dt) {
+    this.t += dt;
+    const t = this.t;
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const q = this.list[i];
+      if (q.delay > 0) {
+        q.delay -= dt;
+        continue;
+      }
+      if ((q.life -= dt) <= 0) {
+        if (q.k === PK.FLAME && q.smokes) this.spawn(PK.SOOT, q.x, q.y - 1, q.vx * 0.5, q.vy * 0.5 - 6, this.R.range(0.9, 1.6), q.size * 1.25);
+        this.list.splice(i, 1);
+        continue;
+      }
+      if (q.k === PK.FLAME) {
+        q.vy -= 95 * dt;
+        q.vx += Math.sin(t * 17 + q.seed) * 30 * dt;
+        q.vx -= q.vx * 5 * dt;
+        q.vy -= q.vy * 3.2 * dt;
+      } else {
+        q.vy -= 18 * dt;
+        q.vx += Math.sin(t * 1.3 + q.seed) * 8 * dt;
+        q.vx -= q.vx * 1.6 * dt;
+        q.vy -= q.vy * 1.3 * dt;
+      }
+      q.x += q.vx * dt;
+      q.y += q.vy * dt;
+      // smoke rolls along the floor rather than through it
+      if (this.floor && q.k === PK.SOOT) {
+        const f = this.floor(q.x) - q.size * 0.6;
+        if (q.y > f) (q.y = f), (q.vy = Math.min(0, q.vy)), (q.vx *= 1 - 2 * dt);
+      }
+    }
+  }
+  draw(p, kind, light = null) {
+    const F = this.F, n = F.length;
+    for (const q of this.list) {
+      if (q.delay > 0 || q.k !== kind) continue;
+      const k = q.life / q.max, age = 1 - k, x = q.x, y = q.y;
+      if (q.k === PK.FLAME) {
+        // a ball of flame: a darker rim, a lit core up and left, a tongue on top, a hot heart while young
+        const heat = Math.min(0.999, Math.pow(age, 0.62) + (q.seed % 1) * 0.1), idx = Math.min(n - 2, Math.floor(heat * (n - 1)));
+        const r = q.size * (0.55 + 0.45 * Math.min(1, age * 7)) * (1 - age * 0.55), c = F[idx];
+        if (idx >= n - 3) p.disc(x, y, r, c, Math.min(1, k * 3) * 0.8);
+        else {
+          p.circle(x, y, r, F[Math.min(n - 1, idx + 2)]);
+          p.circle(x - r * 0.16, y - r * 0.22, r * 0.78, c);
+          if (r > 1.6) p.circle(x, y - r * 0.9, r * 0.42, c);
+          if (idx <= 3 && r > 1.8) p.circle(x - r * 0.28, y - r * 0.34, r * 0.36, F[Math.max(0, idx - 1)]);
+          if (idx < 6) p.glow(x, y, r * 2.4 + 2, c, 0.2 * k);
+        }
+        continue;
+      }
+      // soot: a soft body and a denser core, a dim cap on top, and lit from the side facing the light by two
+      // discs pushed toward it (a soft wash over the near half, a brighter lip at its edge)
+      const r = q.size * (0.65 + Math.min(1, age * 2.5) * 0.45 + age * 0.45);
+      const a = Math.min(1, age * 10) * Math.min(1, k * 2.2) * 0.72, body = mix(this.soot[0], this.soot[1], age);
+      // one pass for the body: thinner at the edge, denser in the core (two layers' worth)
+      const edge = a * 0.5, core = 1 - (1 - a * 0.5) * (1 - a * 0.62);
+      p.disc(x, y + r * 0.06, r, body, (d) => (d < 0.72 ? core : edge));
+      const lk = light ? light.k : 0;
+      if (lk < 0.5) p.disc(x - r * 0.2, y - r * 0.32, r * 0.48, this.cap, a * 0.32 * (1 - age * 0.7) * (1 - lk * 2));
+      if (lk <= 0.02) continue;
+      const lx = light.x - x, ly = light.y - y, dl = Math.sqrt(lx * lx + ly * ly) || 1, ux = lx / dl, uy = ly / dl;
+      const lit = Math.min(1, light.k * clamp(1.3 - dl / light.reach)) * a;
+      if (lit <= 0.02) continue;
+      const [hot, warm, dim] = this.rim;
+      p.disc(x + ux * r * 0.26, y + uy * r * 0.26, r * 0.72, dim, lit * 0.55);
+      p.disc(x + ux * r * 0.5, y + uy * r * 0.5, r * 0.46, warm, lit * 0.5);
+      if (r > 3) p.disc(x + ux * r * 0.68, y + uy * r * 0.68, r * 0.24, hot, lit * 0.4);
+    }
+  }
+}
+
+/**
+ * An obsidian shard from core Bits ({ x, y, a, s, life }): a thin triangle pointing along its spin angle, a
+ * dark violet body, the long edge facing the light at (lx, ly) lit (brighter with lk), the other in shadow,
+ * a white glint at the tip while the light is strong. C is an 8-step palette.
+ */
+function shard(p, b, C, lx, ly, lk) {
+  const fa = Math.min(1, b.life / 0.4), ca = Math.cos(b.a), sa = Math.sin(b.a), L = Math.max(2, b.s), W = Math.max(2, L * 0.55);
+  const side = -sa * (lx - b.x) + ca * (ly - b.y) > 0 ? 1 : -1;
+  const rim = lk > 0.6 ? C[6] : lk > 0.3 ? C[5] : lk > 0.08 ? C[4] : C[3], E = L / 2 + 1.5;
+  p.shade(b.x - E, b.y - E, b.x + E, b.y + E, (x, y, out) => {
+    const dx = x - b.x, dy = y - b.y, u = dx * ca + dy * sa, v = (-dx * sa + dy * ca) * side;
+    if (u < -L / 2 - 0.4 || u > L / 2 + 0.4) return;
+    const half = ((W / 2) * (L / 2 - u)) / L + 0.4;
+    if (Math.abs(v) > half) return;
+    out.a = fa;
+    if (u > L / 2 - 1.3 && lk > 0.3) return WHITE;
+    if (v > half - 1) return u > -L / 4 ? rim : C[Math.max(3, C.indexOf(rim) - 1)];
+    return v < -half + 1 ? C[1] : C[2];
+  });
+  if (lk > 0.04) p.glow(b.x, b.y, 3 + L * 0.6, C[5], 0.2 * lk * fa);
+}
+
+/**
+ * Ink drops: fly under gravity, land on the floor (y = floor(x)) and call onLand(x, y, speed).
+ * add(x, y, vx, vy, size); update(dt); draw(p, body, shine) draws a dark drop with a lit top.
+ */
+class Drops {
+  constructor(o = {}) {
+    this.list = [];
+    this.floor = o.floor ?? (() => 0);
+    this.onLand = o.onLand ?? null;
+    this.g = o.g ?? 0.8;
+  }
+  add(x, y, vx, vy, size = 1) {
+    this.list.push({ x, y, vx, vy, size });
+  }
+  update(dt) {
+    for (let i = this.list.length - 1; i >= 0; i--) {
+      const d = this.list[i];
+      d.vy += GRAVITY * this.g * dt;
+      d.vx -= d.vx * 0.4 * dt;
+      d.x += d.vx * dt;
+      d.y += d.vy * dt;
+      const f = this.floor(d.x);
+      if (d.vy > 0 && d.y >= f) {
+        this.onLand?.(d.x, f, d.vy, d.size);
+        this.list.splice(i, 1);
+      }
+    }
+  }
+  draw(p, body, shine) {
+    for (const d of this.list) {
+      const up = d.vy < 0;
+      p.px(d.x, d.y, body);
+      if (d.size > 1.4) p.px(d.x, d.y + (up ? 1 : -1), body);
+      p.px(d.x, d.y - (d.size > 1.4 && !up ? 1 : 0), shine);
+    }
+  }
+}
+
+/**
+ * A dark pool opened in the floor, seen at a slant (radius rx, centred on the floor at x = 0): the far lip lit,
+ * the near lip dark, ripples ({ x, t0, life, w }) running out across it, a sheen along the far side, a wet fringe.
+ */
+function floorPool(p, C, rx, t, ripples) {
+  if (rx < 1) return;
+  const ry = rx * 0.17 + 0.6;
+  p.shade(-rx - 3, -ry - 2, rx + 3, ry + 2, (x, y) => {
+    const dx = x / rx, dy = (y - 0.5) / ry, d = Math.sqrt(dx * dx + dy * dy);
+    if (d > 1.18) return;
+    if (d > 1) {
+      if (dy < 0 && d < 1.09) return Math.abs(dx) < 0.55 ? C[6] : Math.abs(dx) < 0.85 ? C[5] : C[4];
+      if (dy >= 0 && d < 1.09) return C[2];
+      return y > -0.5 && noise(x * 0.7, 9) > 0.15 ? C[1] : undefined;
+    }
+    // ripples: ellipses on the slanted surface, kept about a pixel thick all the way round
+    for (const r of ripples) {
+      const age = t - r.t0, rr = age * 46 * r.w + 1, ex = x - r.x, ey = (y - 0.5) / 0.17, e = Math.sqrt(ex * ex + ey * ey) || 1;
+      const g = Math.sqrt(ex * ex + (ey / 0.17) ** 2) / e;
+      if (Math.abs(e - rr) < 0.55 * g && age < r.life) return age < r.life * 0.5 ? C[4] : C[3];
+    }
+    if (dy < -0.55 && dy > -0.85 && noise(x * 0.25 + t * 1.3, 4) > 0.2) return noise(x * 0.6 - t * 2, 6) > 0.55 ? C[5] : C[2];
+    // the far inner wall catches the glow from below: violet just under the lip, falling to black
+    if (dy < -0.35 && d > 0.72) return d > 0.9 ? C[3] : C[2];
+    return d > 0.86 ? C[1] : C[0];
+  });
+}
+
+return { VOID, unlight, ringFast, ringLight, halo, blackStar, inStar, attract, PK, Puffs, shard, Drops, floorPool };
+})();
+// ---- vendor/pixelfx/pfx-collect-burst.js ----
+const __mod_pfx_collect_burst = (() => {
+// pixelfx src/fx/pickups/collect-burst.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
+// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
+// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
+// The pop (a white flash, a ring snapping out, star sparks with short trails) follows Sprite Fusion's
+// open-source pickup (https://www.spritefusion.com/pixel-art-vfx/pickup), MIT License, Copyright (c) 2026 Hugo Duprez.
+const { Lights } = __mod_pfx_sim;
+const { Rng, clamp, ease, TAU } = __mod_pfx_math;
+const { fit, WHITE } = __mod_pfx_color;
+const { glint } = __mod_pfx_pickups_lib;
+
+const meta = {
+  name: "Collect burst",
+  desc: "The moment of pickup: a white flash and a cross of light, a thin ring snapping out ahead of a softer one, twinkles thrown wide on curving paths that brake, hang and wink out.",
+  tags: ["pickup", "collect", "burst", "sparkle", "reward", "one-shot"],
+  size: [112, 108],
+  origin: [56, 94],
+  duration: 1.35,
+  loop: false,
+  fps: 30,
+  bg: "ground",
+  options: { palette: ["#1a0516", "#3d0a33", "#701560", "#b0228f", "#f53cd1", "#ff86e6", "#ffd2f6", "#ffffff"], seed: 3 },
+};
+
+const CY = -30;
+
+function create(o) {
+  const C = fit(o.palette, 8), R = new Rng(o.seed), lights = new Lights();
+  lights.add(0, CY, 36, C[5], 0.85, 0.32);
+  lights.add(0, CY, 14, WHITE, 0.75, 0.08);
+  // twinkles thrown out on curving paths: each one's heading turns as it flies, and drag brakes it
+  const stars = Array.from({ length: 14 }, (_, i) => {
+    const a = (i / 14) * TAU + R.range(-0.2, 0.2), sp = R.range(145, 225) * (i % 3 === 0 ? 1.12 : 0.85);
+    return { x: 0, y: CY, a, sp, turn: (i % 2 ? 1 : -1) * R.range(2.5, 5), life: R.range(0.75, 1.15), age: 0, size: i % 3 === 0 ? 2.6 : R.range(1.2, 2), tr: [], c: i % 4 === 0 ? WHITE : i % 2 ? C[6] : C[5], ph: R.range(0, TAU) };
+  });
+  const motes = Array.from({ length: 7 }, () => ({ x: R.range(-8, 8), y: CY + R.range(-4, 6), vy: -R.range(12, 30), life: R.range(0.5, 0.9), d: R.range(0.05, 0.25), w: R.range(0, TAU) }));
+  let t = 0;
+  return {
+    update(dt) {
+      t += dt;
+      for (const s of stars) {
+        if (s.age > s.life) continue;
+        s.age += dt;
+        s.tr.unshift([s.x, s.y]);
+        if (s.tr.length > 4) s.tr.pop();
+        s.a += s.turn * dt * Math.max(0, 1 - s.age * 1.5);
+        s.sp -= s.sp * 4.3 * dt;
+        s.x += Math.cos(s.a) * s.sp * dt;
+        s.y += Math.sin(s.a) * s.sp * dt + 6 * s.age * dt;
+        // the floor turns them back up
+        if (s.y > -2) (s.y = -2), (s.a = -Math.abs(s.a)), (s.sp *= 0.5);
+      }
+      lights.update(dt);
+    },
+    draw(p) {
+      // the flash: a white disc and a cross of light, gone in a few frames
+      if (t < 0.07) p.circle(0, CY, 5.5 * (1 - t / 0.07) + 1, WHITE);
+      if (t < 0.16) {
+        const k = 1 - t / 0.16, L = 26 * ease.outCubic(Math.min(1, t / 0.03 + 0.4)) * k;
+        for (const [dx, dy, l] of [[1, 0, 1], [-1, 0, 1], [0, 1, 0.6], [0, -1, 0.6]])
+          p.line(0, CY, dx * L * l, CY + dy * L * l, (u) => (u < 0.3 ? WHITE : u < 0.65 ? C[6] : C[5]), (u) => (u < 0.5 ? 1 : (1 - u) * 2) * (0.5 + k));
+        p.glow(0, CY, 20 * k + 4, C[5], 0.6 * k);
+      }
+      // a thin ring snapping out fast, a softer ring following
+      const u1 = t / 0.32;
+      if (u1 < 1) {
+        const r = 3 + 23 * ease.outExpo(u1);
+        p.ring(0, CY, r, 1, u1 < 0.3 ? WHITE : C[6], 1.3 - u1 * 1.2);
+        p.glowRing(0, CY, r, 4, C[5], 0.4 * (1 - u1));
+      }
+      const u2 = (t - 0.04) / 0.5;
+      if (u2 > 0 && u2 < 1) {
+        const r = 2 + 16 * ease.outCubic(u2);
+        p.ring(0, CY, r, Math.max(1, 2.6 * (1 - u2)), C[5], 1 - u2);
+      }
+      // the twinkles, with short trails, flickering as they hang and wink out
+      for (const s of stars) {
+        if (s.age > s.life) continue;
+        const k = 1 - s.age / s.life, tw = 0.65 + 0.35 * Math.sin(s.age * 26 + s.ph);
+        s.tr.forEach(([x, y], i) => i > 0 && p.dot(x, y, i < 2 ? C[5] : C[4], (1 - i / 4) * k * 1.4));
+        if (k < 0.3 && Math.sin(s.age * 40 + s.ph) < 0) continue;
+        glint(p, s.x, s.y, Math.round(s.size * tw * Math.min(1, k * 2.5)), s.c, 0.45 * k);
+      }
+      // motes drifting up after
+      for (const m of motes) {
+        const a = t - m.d;
+        if (a < 0 || a > m.life) continue;
+        const k = 1 - a / m.life, x = m.x + Math.sin(a * 6 + m.w) * 1.5, y = m.y + m.vy * a;
+        p.dot(x, y, k > 0.5 ? C[6] : C[5], k * 1.5);
+        p.glow(x + 0.5, y + 0.5, 3, C[5], 0.3 * k);
+      }
+      lights.draw(p);
+    },
+  };
+}
+
+return { meta, create };
+})();
+// ---- vendor/pixelfx/pfx-firework-burst.js ----
+const __mod_pfx_firework_burst = (() => {
+// pixelfx src/fx/explosions/firework-burst.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
+// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
+// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
+// The flare, the twinkling crosses and the glitter are adapted from Sprite Fusion's open-source sparkle
+// (https://www.spritefusion.com/pixel-art-vfx/sparkle), MIT License, Copyright (c) 2026 Hugo Duprez.
+const { Particles, Lights, P, sparkle } = __mod_pfx_sim;
+const { Rng, ease, TAU } = __mod_pfx_math;
+const { fit, WHITE, hex, mix } = __mod_pfx_color;
+
+const meta = {
+  name: "Firework burst",
+  desc: "A shell climbs, slows and bursts into a sphere of coloured trailing stars round a gold core; they droop, crackle into white pops and fade, leaving glitter.",
+  tags: ["firework", "celebration", "sparkle", "sky", "burst", "one-shot"],
+  size: [240, 248],
+  origin: [120, 100],
+  duration: 3.6,
+  loop: false,
+  fps: 30,
+  bg: "sky",
+  options: {
+    palette: ["#3d0a33", "#701560", "#b0228f", "#f53cd1", "#ff86e6", "#ffd2f6", "#ffffff"],
+    core: ["#4a2c08", "#86520c", "#c48412", "#f0b424", "#ffe066", "#fff6c4", "#ffffff"],
+    seed: 9,
+  },
+};
+
+const RISE = 0.42, Y0 = 72, DRAG = 2.6, G = 88, TRAIL = 0.34, TURN = 0.22;
+
+function create(o) {
+  const C = fit(o.palette, 7), K = fit(o.core, 7), R = new Rng(o.seed);
+  const ps = new Particles({ rng: R, sparks: [K[6], K[5], K[4], K[3]] }), lights = new Lights();
+  const stars = [], pops = [];
+  let t = 0, burst = false;
+
+  // a shell of stars thrown over a sphere: seen side-on, the ones flying at us or away look slower
+  // the outer stars burn gold for a beat, then turn to their color
+  const shell = (n, speed, ramp, life, first) => {
+    for (let i = 0; i < n; i++) {
+      const z = R.range(-1, 1), a = R.range(0, TAU), s = Math.sqrt(1 - z * z), v = speed * R.range(0.93, 1.05);
+      stars.push({ x: 0, y: 0, vx: Math.cos(a) * s * v, vy: Math.sin(a) * s * v, life: R.range(life[0], life[1]), age: 0, ramp, first, big: R.chance(0.2), pts: [], acc: R.next(), seed: R.range(0, 100) });
+    }
+  };
+
+  return {
+    update(dt) {
+      t += dt;
+      // the shell climbs, slowing, shedding a fizz of gold sparks
+      if (t < RISE) {
+        const y = Y0 * (1 - ease.outCubic(t / RISE));
+        if (R.chance(50 * dt)) ps.spawn(P.SPARK, R.range(-0.5, 0.5), y + 2, R.range(-25, 25), R.range(20, 70), R.range(0.15, 0.35));
+        if (R.chance(14 * dt)) ps.spawn(P.VAPOUR, R.range(-1, 1), y + 3, R.range(-3, 3), R.range(5, 15), R.range(0.5, 0.8), hex("#4a4458"), R.range(1.5, 2.5));
+      }
+      if (!burst && t >= RISE) {
+        burst = true;
+        lights.add(0, 0, 110, C[4], 0.6, 1.5);
+        lights.add(0, 0, 30, WHITE, 0.5, 0.07);
+        shell(66, 236, C, [1.35, 1.9], K);
+        shell(26, 120, K, [1.0, 1.4], K);
+        // the burst charge's smoke, drifting where the shell broke
+        for (let i = 0; i < 7; i++) {
+          const a = R.range(0, TAU), d = R.range(0, 8);
+          ps.spawn(P.VAPOUR, Math.cos(a) * d, Math.sin(a) * d, Math.cos(a) * R.range(10, 30), Math.sin(a) * R.range(10, 30), R.range(2.2, 3), hex("#4a4458"), R.range(6, 11));
+        }
+        for (let i = 0; i < 24; i++) {
+          const a = R.range(0, TAU), sp = R.range(40, 140);
+          ps.spawn(P.SPARK, 0, 0, Math.cos(a) * sp, Math.sin(a) * sp, R.range(0.15, 0.35));
+        }
+      }
+      for (let i = stars.length - 1; i >= 0; i--) {
+        const s = stars[i];
+        s.age += dt;
+        const k = s.age / s.life;
+        if (k >= 1) {
+          // the star crackles out in a few white pops
+          for (let j = 0; j < 2 + (s.big ? 1 : 0); j++) pops.push({ x: s.x + R.range(-3, 3), y: s.y + R.range(-3, 3), t0: t + R.range(0, 0.18), life: R.range(0.06, 0.12), c: R.chance(0.6) ? WHITE : s.ramp[5] });
+          stars.splice(i, 1);
+          continue;
+        }
+        s.vx -= s.vx * DRAG * dt;
+        s.vy -= s.vy * DRAG * dt - G * dt;
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+        s.pts.push(s.x, s.y, t);
+        while (s.pts.length > 3 && t - s.pts[2] > TRAIL) s.pts.splice(0, 3);
+        // glitter shed along the way: specks that hang, twinkle and fall
+        for (s.acc += dt * (k < 0.25 ? 4 : 11); s.acc > 1; s.acc--) ps.spawn(P.STAR, s.x, s.y, s.vx * 0.15 + R.range(-6, 6), s.vy * 0.15 + R.range(0, 10), R.range(0.35, 0.8), R.chance(0.5) ? K[5] : WHITE, R.chance(0.15) ? R.range(1, 1.6) : 0.5);
+      }
+      for (let i = pops.length - 1; i >= 0; i--) if (t > pops[i].t0 + pops[i].life) pops.splice(i, 1);
+      ps.update(dt);
+      lights.update(dt);
+    },
+    drawBack(p) {
+      ps.draw(p, "back");
+    },
+    draw(p) {
+      if (t < RISE) {
+        // the shell: a hot dot with a short tail
+        const u = t / RISE, y = Y0 * (1 - ease.outCubic(u));
+        p.line(0, y, 0, y + 3 + 6 * (1 - u), (q) => (q < 0.3 ? K[5] : K[3]));
+        p.px(0, y, WHITE);
+        p.glow(0, y, 7, K[4], 0.5);
+      }
+      for (const s of stars) {
+        const k = s.age / s.life, P2 = s.pts, n = P2.length / 3;
+        // the trail: a 1 px line from the head back along where it has been, cooling and dithering out; the part
+        // laid while the star burned gold stays gold
+        for (let j = n - 1; j > 0; j--) {
+          const u = (t - P2[j * 3 + 2]) / TRAIL;
+          if (u >= 1) break;
+          const ramp = s.age - (t - P2[j * 3 + 2]) < TURN ? s.first : s.ramp;
+          const c = u < 0.3 ? ramp[5] : u < 0.6 ? ramp[4] : ramp[3];
+          p.line(P2[j * 3], P2[j * 3 + 1], P2[j * 3 - 3], P2[j * 3 - 2], c, Math.pow(1 - u, 0.8) * (1.3 - k * 0.6));
+        }
+        // the head: white-hot, then its color; late on it flickers before it crackles out
+        if (k > 0.72 && Math.sin(t * 60 + s.seed) < -0.2) continue;
+        // white only on the burst frame; the glow comes in as the stars spread, so the heart never blooms into a blob
+        const ramp = s.age < TURN ? s.first : s.ramp, head = s.age < 0.04 ? WHITE : k < 0.55 ? ramp[s.age < TURN ? 5 : 6] : ramp[5];
+        p.px(s.x, s.y, head);
+        if (s.big && k < 0.6 && s.age > 0.06) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) p.px(s.x + dx, s.y + dy, ramp[5]);
+        p.glow(s.x, s.y, s.big ? 7 : 5, ramp[4], (s.big ? 0.7 : 0.5) * (1 - k * 0.6) * Math.min(1, s.age / 0.2));
+      }
+      for (const q of pops) {
+        const u = (t - q.t0) / q.life;
+        if (u < 0 || u > 1) continue;
+        sparkle(p, q.x, q.y, 2.6 * Math.sin(Math.PI * u), q.c, mix(q.c, C[3], 0.5), 0.5);
+      }
+      // the burst: a flare and a white heart, the sky lit up behind it
+      const b = t - RISE;
+      if (b >= 0 && b < 0.28) {
+        const u = b / 0.28, L = 32 * Math.pow(1 - u, 1.3);
+        flareRays(p, 0, 0, L, u * 0.6, C, K);
+        if (b < 0.07) p.circle(0, 0, 2.6 - b * 20, WHITE);
+      }
+      ps.draw(p, "front");
+      lights.draw(p);
+    },
+  };
+}
+
+// an 8-ray flare: long rays on the axes with a white core and tinted ends, short gold diagonals, turning slowly
+function flareRays(p, x, y, L, ang, C, K) {
+  if (L < 1) return;
+  for (let i = 0; i < 8; i++) {
+    const diag = i % 2 === 1, an = ang + (i * TAU) / 8, len = diag ? L * 0.42 : L, ca = Math.cos(an), sa = Math.sin(an);
+    for (let d = 0; d <= len; d += 0.5) {
+      const u = d / len;
+      p.dot(x + ca * d, y + sa * d, diag ? (u < 0.5 ? K[5] : K[4]) : u < 0.3 ? WHITE : u < 0.65 ? C[5] : C[4], u < 0.7 ? 1 : 1 - (u - 0.7) / 0.35);
+    }
+  }
+  p.glow(x, y, 4 + L * 1.2, C[4], 0.3);
+  p.glow(x, y, 2 + L * 0.3, WHITE, 0.25);
+}
+
+return { meta, create };
+})();
+// ---- vendor/pixelfx/pfx-hex-sigil.js ----
+const __mod_pfx_hex_sigil = (() => {
+// pixelfx src/fx/shadow/hex-sigil.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
+// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
+// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
+const { Particles, Bits, P, B, sparkle } = __mod_pfx_sim;
+const { Rng, rng, clamp, smooth, ease, TAU } = __mod_pfx_math;
+const { fit, WHITE, mix } = __mod_pfx_color;
+const { VOID, Puffs, PK, ringFast } = __mod_pfx_shadow_lib;
+
+const meta = {
+  name: "Hex sigil",
+  desc: "A burning pen traces a cursed sigil in the air, its glyphs pop in one by one, then it flares white and crumbles into falling embers.",
+  tags: ["shadow", "hex", "sigil", "rune", "curse", "magic", "circle", "one-shot"],
+  size: [168, 128],
+  origin: [84, 112],
+  duration: 4.2,
+  loop: false,
+  fps: 30,
+  bg: "ground",
+  options: { palette: VOID, seed: 7 },
+};
+
+// the sigil's centre and radii; the beats: traced, glyphs pop, holds, flares, crumbles
+const CY = -50, RO = 28, RI = 22, RC = 6, GLYPH = 1.62, FLARE = 2.6, BREAK = 2.74;
+
+// the strokes, in the order the pen draws them, as points with the moment the pen passes each
+function strokes(seed) {
+  const paths = [], circle = (r, a0, n = 0) => Array.from({ length: (n || Math.ceil(r * TAU)) + 1 }, (_, i) => [Math.cos(a0 + (i / (n || Math.ceil(r * TAU))) * TAU) * r, CY + Math.sin(a0 + (i / (n || Math.ceil(r * TAU))) * TAU) * r]);
+  paths.push(circle(RO, -Math.PI / 2));
+  // a seven-pointed star, drawn in one stroke, three points round each time
+  const star = [];
+  for (let i = 0; i <= 7; i++) {
+    const a = -Math.PI / 2 + ((i * 3) % 7) * (TAU / 7);
+    star.push([Math.cos(a) * RI, CY + Math.sin(a) * RI]);
+  }
+  paths.push(star);
+  paths.push(circle(RI, -Math.PI / 2));
+  paths.push(circle(RC, Math.PI / 2));
+  paths.push([[0, CY - 3.5], [2, CY], [0, CY + 3.5], [-2, CY], [0, CY - 3.5]]);
+  // sample every half pixel, timing the pen along it: the outer circle fast, the star with more weight
+  const pts = [], speeds = [420, 700, 550, 380, 300];
+  let t = 0.12;
+  paths.forEach((path, k) => {
+    for (let i = 1; i < path.length; i++) {
+      const [x0, y0] = path[i - 1], [x1, y1] = path[i], L = Math.hypot(x1 - x0, y1 - y0);
+      for (let d = 0; d < L; d += 0.5) pts.push({ x: x0 + ((x1 - x0) * d) / L, y: y0 + ((y1 - y0) * d) / L, t: t + d / speeds[k] });
+      t += L / speeds[k];
+    }
+    t += 0.04;
+  });
+  return { pts, end: t };
+}
+
+// seven small glyphs of our own: a spine and two or three branches on a 3x3 grid of nodes
+function glyphs(seed) {
+  return Array.from({ length: 7 }, (_, i) => {
+    const r = rng(seed, i, 31), segs = [[[1, 0], [1, 2]]];
+    for (let k = 0; k < 2 + (r.next() < 0.5 ? 1 : 0); k++) {
+      const a = [r.int(0, 2), r.int(0, 2)], b = [Math.max(0, Math.min(2, a[0] + r.int(-1, 1))), Math.max(0, Math.min(2, a[1] + r.int(-1, 1)))];
+      if (a[0] !== b[0] || a[1] !== b[1]) segs.push([a, b]);
+    }
+    const ang = -Math.PI / 2 + (i * TAU) / 7 + Math.PI / 7, rr = (RO + RI) / 2;
+    return { x: Math.cos(ang) * rr, y: CY + Math.sin(ang) * rr, segs, t: GLYPH + i * 0.07 };
+  });
+}
+
+function create(o) {
+  const C = fit(o.palette, 8), R = new Rng(o.seed), floor = () => 0, S = strokes(o.seed), G = glyphs(o.seed);
+  const ps = new Particles({ rng: R, ground: floor, sparks: [WHITE, C[7], C[6], C[5]] });
+  const embers = new Particles({ rng: R, ground: floor, sparks: [C[7], C[6], C[5], C[4]] });
+  const puffs = new Puffs({ rng: R, flame: [WHITE, C[7], C[6], C[5], C[4], C[3], C[2], C[1], C[0]], soot: [mix(C[3], C[2], 0.5), mix(C[2], C[1], 0.5)], cap: mix(C[4], C[2], 0.5), rim: [C[6], C[5], C[4]], floor });
+  const bits = new Bits({ ground: floor }), lights = [];
+  let t = 0, pi = 0, flared = false, broke = false;
+  const pen = () => S.pts[Math.min(S.pts.length - 1, pi)];
+  return {
+    update(dt) {
+      t += dt;
+      // the pen: it spits sparks and drips burning embers as it writes
+      while (pi < S.pts.length - 1 && S.pts[pi + 1].t <= t) pi++;
+      if (t > 0.12 && t < S.end) {
+        const q = pen();
+        if (R.chance(dt * 70)) ps.spawn(P.SPARK, q.x, q.y, R.range(-70, 70), R.range(-100, 20), R.range(0.12, 0.35));
+        if (R.chance(dt * 10)) embers.spawn(P.EMBER, q.x, q.y, R.range(-12, 12), R.range(5, 25), R.range(0.5, 0.9));
+      }
+      // power drawn into the sigil while it's written and held: streaks racing in to its heart
+      if (t > 0.2 && t < FLARE - 0.05 && R.chance(dt * (8 + 14 * smooth(0.2, FLARE, t)))) {
+        const a = R.range(0, TAU), D0 = R.range(40, 60), T = R.range(0.22, 0.32), v = (D0 * 3) / (Math.exp(3 * T) - 1);
+        ps.spawn(P.STREAK, Math.cos(a) * D0, CY + Math.sin(a) * D0, -Math.cos(a) * v, -Math.sin(a) * v, T, R.chance(0.5) ? C[7] : C[6]);
+      }
+      for (const g of G)
+        if (!g.popped && t >= g.t) {
+          g.popped = true;
+          lights.push({ x: g.x, y: g.y, r: 14, k: 0.7, life: 0.2, max: 0.2 });
+          for (let i = 0; i < 4; i++) ps.spawn(P.SPARK, g.x, g.y, R.range(-60, 60), R.range(-70, 20), R.range(0.1, 0.25));
+        }
+      if (t >= FLARE && !flared) {
+        flared = true;
+        lights.push({ x: 0, y: CY, r: 96, k: 1.4, life: 0.45, max: 0.45 }, { x: 0, y: CY, r: 44, k: 1, life: 0.14, max: 0.14 });
+        for (let i = 0; i < 24; i++) {
+          const a = R.range(0, TAU), sp = R.range(60, 130);
+          ps.spawn(P.SPARK, Math.cos(a) * 13, CY + Math.sin(a) * 13, Math.cos(a) * sp, Math.sin(a) * sp - 30, R.range(0.2, 0.45));
+        }
+      }
+      if (t >= BREAK && !broke) {
+        // it crumbles: every stroke breaks into burning fragments that tumble down and bounce
+        broke = true;
+        // pieces drop nearly straight at first, so the sigil's shape lingers as it falls apart
+        for (let i = 0; i < S.pts.length - 1; i += 7) {
+          const q = S.pts[i], n = S.pts[i + 1], a = Math.atan2(n.y - q.y, n.x - q.x);
+          bits.add({ kind: B.SHARD, x: q.x, y: q.y, vx: R.range(-8, 8), vy: R.range(-12, 6), g: R.range(0.22, 0.45), drag: 0.6, bounce: 0.25, life: R.range(0.8, 1.2), a, va: R.range(-3, 3), s: R.range(2.5, 3.5), c: R.pick([C[7], C[6], C[6], C[5]]) });
+          if (i % 27 === 0) embers.spawn(P.EMBER, q.x, q.y, R.range(-10, 10), -R.range(10, 40), R.range(0.6, 1.1));
+        }
+        for (const g of G) puffs.spawn(PK.SOOT, g.x, g.y, R.range(-6, 6), -R.range(8, 18), R.range(0.7, 1.1), R.range(3, 5));
+        for (let i = 0; i < 8; i++) puffs.spawn(PK.SOOT, R.range(-20, 20), CY + R.range(-20, 20), R.range(-8, 8), -R.range(6, 16), R.range(0.8, 1.2), R.range(3, 6), R.range(0, 0.15));
+      }
+      for (let i = lights.length - 1; i >= 0; i--) if ((lights[i].life -= dt) <= 0) lights.splice(i, 1);
+      bits.update(dt);
+      ps.update(dt);
+      embers.update(dt);
+      puffs.update(dt);
+    },
+    drawBack(p) {
+      puffs.draw(p, PK.SOOT, { x: 0, y: CY, k: broke ? 0.3 : 0, reach: 50 });
+      const k = t < BREAK ? smooth(0.1, 0.6, t) : 1 - smooth(BREAK, BREAK + 0.6, t);
+      if (k > 0) p.glow(0, CY, 52, C[4], 0.3 * k);
+    },
+    draw(p) {
+      if (!broke) {
+        // the traced lines: white where the pen just passed, cooling to violet; pulsing as it holds; white in the flare
+        const hold = t > S.end ? 0.5 + 0.5 * Math.sin((t - S.end) * 9) : 0, white = t >= FLARE;
+        for (const q of S.pts) {
+          if (q.t > t) break;
+          const age = t - q.t;
+          p.px(q.x, q.y, white ? WHITE : age < 0.05 ? WHITE : age < 0.15 ? C[7] : age < 0.35 ? C[6] : hold > 0.75 ? C[6] : C[5]);
+        }
+        if (white) for (const q of S.pts) if (((q.x * 2) | 0) % 3 === 0) p.light(q.x, q.y, C[6], 0.5);
+        // glyphs: each pops in white and settles
+        for (const g of G) {
+          if (t < g.t) continue;
+          const age = t - g.t, col = white || age < 0.06 ? WHITE : age < 0.2 ? C[7] : hold > 0.75 ? C[7] : C[6];
+          for (const [a, b] of g.segs) p.line(g.x - 2 + a[0] * 2, g.y - 2 + a[1] * 2, g.x - 2 + b[0] * 2, g.y - 2 + b[1] * 2, col);
+          if (age < 0.18) ringFast(p, g.x, g.y, 2 + 4 * (age / 0.18), 1, age < 0.09 ? C[7] : C[5]);
+          p.glow(g.x, g.y, 6, C[5], 0.25);
+        }
+        // the pen: a white-hot point with a little cross of light
+        if (t > 0.12 && t < S.end + 0.05) {
+          const q = pen();
+          sparkle(p, q.x, q.y, 3 + Math.sin(t * 60), C[7], C[6], 0.6);
+          p.glow(q.x, q.y, 16, C[6], 0.55);
+        }
+      }
+      // the flare: a burst ring as it goes white
+      const fu = (t - FLARE) / 0.35, bu = (t - FLARE) / 0.22;
+      if (bu > 0 && bu < 1) sparkle(p, 0, CY, 18 * (1 - bu), C[7], C[5], 0.9 * (1 - bu));
+      if (fu > 0 && fu < 1) ringFast(p, 0, CY, RO + 3 + 12 * ease.outCubic(fu), Math.max(1, 3 * (1 - fu)), fu < 0.4 ? WHITE : fu < 0.7 ? C[6] : C[4]);
+      bits.draw(p);
+      puffs.draw(p, PK.FLAME);
+      ps.draw(p);
+      embers.draw(p);
+      for (const l of lights) {
+        const q = l.life / l.max;
+        p.glow(l.x, l.y, l.r * (0.6 + 0.4 * q), l.k > 1 ? C[5] : C[6], l.k * q * q);
+      }
+    },
+  };
+}
+
+return { meta, create };
+})();
+// ---- src/ui/pixel-fx.js ----
+const __mod_pixel_fx = (() => {
+// Pixel effects on the game's moments (owner, 12.11.2026: «Прекрасные эффекты… Добавь подходящие в игру»; his picks):
+// pixelfx's own code (vendor/pixelfx, MIT, scripts/pixelfx.py) draws each into a small canvas laid over the screen, one
+// effect pixel 2 px on the phone and growing with the board like every size, and takes it away when it ends. Each plays
+// once, for a real result (digest §8: an effect is a function of merit): a passed record's fireworks, a purchase's and
+// an upgrade's burst in the bells' yellow and the board's lime, the keeper's sigil. None under «reduce motion».
+// Off unless the page's address has ?fx (12.11.2026, MODE3-PLAN §47): asked to look at them critically, I found their
+// pixel look foreign to the game, whose effects are drawn like its pictures (the fire: flat bands, an ink outline, no
+// glow), so players do not see them while the owner tests them.
+const { createFrame, clearFrame, createFx, composite } = __mod_pfx_fx;
+const { meta: burstMeta, create: burstCreate } = __mod_pfx_collect_burst;
+const { meta: fireworkMeta, create: fireworkCreate } = __mod_pfx_firework_burst;
+const { meta: sigilMeta, create: sigilCreate } = __mod_pfx_hex_sigil;
+
+const EFFECTS = {
+  burst: { meta: burstMeta, create: burstCreate }, // Collect burst: its burst stands 30 effect pixels over its origin
+  firework: { meta: fireworkMeta, create: fireworkCreate }, // Firework burst: it bursts at its origin
+  sigil: { meta: sigilMeta, create: sigilCreate }, // Hex sigil: its origin is the floor its embers fall on
+};
+const BURST_RISE = 30;
+
+// the game's colours as dark-to-bright ramps: the bells' yellow (#ffea3a), the board's lime (#bbf350; held #7cb823)
+const RAMPS = {
+  gold: ['#1e1400', '#3d2900', '#6e4c00', '#a87600', '#f0b400', '#ffea3a', '#fff6b0', '#ffffff'],
+  lime: ['#11200a', '#1f3a0e', '#355f14', '#5a8f1a', '#7cb823', '#bbf350', '#e3ffb0', '#ffffff'],
+};
+
+const still = !/[?&]fx\b/.test(location.search) || (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const live = new Set();
+
+// One effect pixel in CSS px: 2 at the phone's scale, the board's scale on the desktop (×1.5), whole device pixels
+function fxPixel() {
+  const k = parseFloat(getComputedStyle(document.getElementById('app')).getPropertyValue('--k')) || 1;
+  const kb = document.body.classList.contains('wide') ? 1.5 * k : k;
+  const dpr = window.devicePixelRatio || 1;
+  return Math.max(1, Math.round(2 * kb * dpr)) / dpr;
+}
+
+// Plays an effect with its origin at (x, y): window coordinates, or the parent's when one is given (the canvas then
+// lies inside it, before its other children, so they cover it). anchor, a function giving [x, y], keeps the origin on a
+// box that may still move (a card whose words settle). speed > 1 plays it faster. Returns { stop() }, or null when off
+// (no ?fx) or under «reduce motion», and the moment then goes as it did before them; a stopped effect fades out in 0.3 s.
+function playFx(name, x, y, { opts = {}, parent = null, speed = 1, anchor = null } = {}) {
+  if (still) return null;
+  const mod = EFFECTS[name];
+  const [w, h] = mod.meta.size;
+  const [ox, oy] = mod.meta.origin;
+  const px = fxPixel();
+  const dpr = window.devicePixelRatio || 1;
+  const snap = (v) => Math.round(v * dpr) / dpr;
+  const canvas = document.createElement('canvas');
+  canvas.className = 'pixel-fx';
+  canvas.width = w;
+  canvas.height = h;
+  const place = (ax, ay) => Object.assign(canvas.style, { left: `${snap(ax - ox * px)}px`, top: `${snap(ay - oy * px)}px` });
+  Object.assign(canvas.style, { width: `${w * px}px`, height: `${h * px}px` });
+  place(x, y);
+  canvas.setAttribute('aria-hidden', 'true');
+  if (parent) parent.prepend(canvas);
+  else document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  const frame = createFrame(w, h);
+  const img = new ImageData(w, h);
+  const fx = createFx(mod, { x: ox, y: oy, ...opts });
+  let last = performance.now();
+  const handle = { stop: () => fx.stop() };
+  const end = () => { live.delete(handle); canvas.remove(); };
+  const tick = (now) => {
+    if (!canvas.isConnected) { end(); return; }
+    if (anchor) place(...anchor());
+    fx.update(Math.min(0.05, (now - last) / 1000) * speed); // a hidden tab's gap is not played at once
+    last = now;
+    clearFrame(frame);
+    fx.draw(frame);
+    composite(frame, img.data, null);
+    ctx.putImageData(img, 0, 0);
+    if (fx.done()) end();
+    else requestAnimationFrame(tick);
+  };
+  live.add(handle);
+  requestAnimationFrame(tick);
+  return handle;
+}
+
+// Every effect on screen fades out (the screen it belongs to is going)
+function stopFx() {
+  for (const f of live) f.stop();
+}
+
+return { BURST_RISE, RAMPS, fxPixel, playFx, stopFx };
+})();
 // ---- src/ui/app.js ----
 const __mod_app = (() => {
 // Dice Snake — portrait mobile UI driving three rule sets: "Snake 4+4" (engine/game.js), "Poker 5"
@@ -5399,6 +8130,7 @@ const { nextUp, afterClear, bossRule, bellsPaid, BELLS_RULE } = __mod_acts;
 const { withRun, submitRun, fetchBoard, hasBoard, setupBoard } = __mod_board;
 const { setupPlatform, load, save, followHostAudio, gameReady, tellLevel, tell, interstitial } = __mod_platform;
 const { setupHeroActs, playAct, warmAct, stopAct, stopActs, actMs, actingKind } = __mod_hero_acts;
+const { playFx, stopFx, fxPixel, RAMPS, BURST_RISE } = __mod_pixel_fx;
 
 const APP_VERSION = '0.2.0';
 const STORAGE_KEY = 'dicefool-portals.v1'; // the portals redesign starts clean: the old game's saves name keepers it no longer has
@@ -6087,6 +8819,7 @@ function onNext() {
   const st = S();
   if ($('levelEnd').dataset.mode !== app.modeId || !st.game || st.game.phase === 'playing') return;
   if (app.endPlaying || performance.now() < (app.skipUntil || 0)) return; // the tap that completed the receipt does not start a run
+  stopFx(); // the screen's effects go with it
   interstitial(); // a natural pause between levels: on Playgama the Bridge decides whether an ad shows now
   if (st.pendingTier != null) st.tier = st.pendingTier;
   st.levelIndex += 1;
@@ -6571,6 +9304,8 @@ function showBossCard(level) {
   void card.offsetWidth; // the animation starts over
   card.classList.add('show');
   clearTimeout(app.bossTimer);
+  if (app.bossFx) app.bossFx.stop();
+  app.bossFx = null; // the new card's sigil comes as it stands (bossStands)
   if (!app.hostPaused) bossStands(); // under an ad it waits (holdGame)
 }
 
@@ -6580,10 +9315,19 @@ function bossStands() {
   const face = card.querySelector('.boss-face');
   const since = performance.now();
   clearTimeout(app.bossTimer);
+  // his rule is laid: pixelfx's Hex sigil burns over his card and crumbles onto it, its floor the card's top edge (owner's
+  // pick, 12.11.2026), once a card, when it stands (not under an ad); twice as fast, so its break (2.74 s) lands at 1.37 s,
+  // before the card begins to go at 1.76 s, and its embers fall on the card
+  if (!app.bossFx) {
+    const tile = card.querySelector(':scope > div');
+    const floor = () => [tile.offsetLeft + tile.offsetWidth / 2, tile.offsetTop]; // the card's top edge, as its words settle
+    app.bossFx = playFx('sigil', ...floor(), { parent: card, speed: 2, anchor: floor });
+  }
   playAct(face, card.dataset.boss, { wait: 2500 }).then(() => {
     if (card.hidden || !face.isConnected || !card.classList.contains('show') || app.hostPaused) return;
     app.bossTimer = setTimeout(() => {
       card.classList.add('leaving');
+      if (app.bossFx) app.bossFx.stop(); // the sigil fades with the card
       app.bossTimer = setTimeout(hideBossCard, BOSS_OUT_MS);
     }, Math.max(0, BOSS_CARD_MS - BOSS_OUT_MS - (performance.now() - since)));
   });
@@ -6591,6 +9335,8 @@ function bossStands() {
 
 function hideBossCard() {
   clearTimeout(app.bossTimer);
+  if (app.bossFx) app.bossFx.stop();
+  app.bossFx = null;
   stopAct($('bossCard').querySelector('.boss-face'));
   $('bossCard').hidden = true;
   $('bossCard').classList.remove('show', 'leaving');
@@ -6604,6 +9350,7 @@ const sigil = (id) => `<i class="sigil" style="--sig: var(--charm-${id})"></i>`;
 function openShop() {
   const st = S();
   const level = st.game.level.levelIndex;
+  stopFx(); // the cleared screen's effects go with it
   if (!st.shop) {
     const h = st.habit;
     const habits = { rerolls: Math.min(1, h.rerolls / (3 * Math.max(1, h.levels))), holds: Math.min(1, h.holds / (6 * Math.max(1, h.levels))), cards: st.bank.length / BANK_SIZE };
@@ -6710,7 +9457,15 @@ function buy(slot) {
   sfx('refund', { vol: 0.8 });
   sfx('bird', { at: 0.14, vol: 0.8 }); // the shop sounds like the bird, as on the board (LORE §2.4)
   renderShop();
+  burstOn($('shop').querySelector(`.ware[data-slot="${slot}"] .ware-art`), RAMPS.gold); // the thing bought, in the bells' yellow
   persist(true);
+}
+
+// pixelfx's Collect burst on a picture (owner's pick, 12.11.2026): a purchase in the bells' yellow, an upgrade in lime
+function burstOn(el, palette) {
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return playFx('burst', r.left + r.width / 2, r.top + r.height / 2 + BURST_RISE * fxPixel(), { opts: { palette } });
 }
 
 function leaveShop() {
@@ -7495,6 +10250,7 @@ async function attemptBank(path, source) {
 // skips to the pick. The record and the bank are counted first, so a reload in the middle shows the cleared
 // screen. Times are ms from PLAY.
 const WIN = { lift: 80, chip: 167, step: 83, snap: 500, cover: 290, black: 860, title: 840, badges: 940, act: 960, pick: 980, choices: 1040, ready: 1480 };
+const PICK_MS = 500; // an upgrade's burst before the screen goes (burstOn)
 
 // A played card takes its own state, the hero over the whole card (Figma 1339:2155 Card-animation), where it lies (owner,
 // 11.11.2026: «Персонаж на всю карту, а для этого есть ее отдельное состояние, проигрывается после нажатия кнопки play,
@@ -7675,6 +10431,13 @@ function playWin(hand, g0) {
   rise(end.querySelector('.end-score'), WIN.title + lag);
   rise($('endBells'), WIN.badges + lag, 0, 240);
   rise($('endBest'), WIN.badges + lag, 0, 240);
+  // the run passes its record: pixelfx's Firework burst at NEW BEST in lime round a gold core (owner's pick, 12.11.2026),
+  // a rare peak for a real result (digest §8), behind the screen's words (readability over style); a lost run's new
+  // record stays uncelebrated (rule 27)
+  if (!$('endBest').hidden) at(WIN.badges + lag, () => {
+    const r = $('endBest').getBoundingClientRect();
+    playFx('firework', r.left + r.width / 2, r.top + r.height / 2, { opts: { palette: RAMPS.lime }, parent: end });
+  });
   rise(end.querySelector('.up-head'), WIN.pick + lag, 6, 240);
   rise(end.querySelector('.up-sub'), WIN.pick + lag, 6, 240);
   play($('endAct'), [{ opacity: 0 }, { opacity: 1 }], { dur: reduceMotion ? 200 : 160, start: reduceMotion ? 300 : WIN.act + lag });
@@ -8272,12 +11035,19 @@ function bind() {
   $('upList').addEventListener('click', (e) => {
     const b = e.target.closest('.up');
     const st = S();
-    if (!b || !st.game || st.game.phase !== 'won' || app.endPlaying || performance.now() < (app.skipUntil || 0)) return; // the tap that skipped the moment does not pick
+    if (!b || !st.game || st.game.phase !== 'won' || app.endPlaying || app.picked || performance.now() < (app.skipUntil || 0)) return; // the tap that skipped the moment does not pick
     st.ups = withUpgrade(st.ups, b.dataset.cat);
     logEvent('upgrade', { category: b.dataset.cat, ups: st.ups });
     ringNote(5, 0.7);
-    if (M().id === 'auto' && doorAfter(st.game.level.levelIndex)) openShop();
-    else onNext();
+    const go = () => {
+      app.picked = false;
+      if (M().id === 'auto' && doorAfter(st.game.level.levelIndex)) openShop();
+      else onNext();
+    };
+    // the upgrade's burst in lime on its dice, then the way on: its flash and ring want PICK_MS before the screen goes
+    if (!burstOn(b.querySelector('.art-tile'), RAMPS.lime)) { go(); return; }
+    app.picked = true;
+    setTimeout(go, PICK_MS);
   });
   $('shop').addEventListener('click', shopTap);
   $('shopLeave').addEventListener('click', (e) => { e.stopPropagation(); leaveShop(); });

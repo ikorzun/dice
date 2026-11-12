@@ -39,6 +39,20 @@ const MODULES = [
   'src/ui/platform.js',
   'src/ui/board.js',
   'src/ui/hero-acts.js',
+  // pixelfx (MIT), vendored by scripts/pixelfx.py, and the game's pixel effects on it
+  'vendor/pixelfx/pfx-math.js',
+  'vendor/pixelfx/pfx-color.js',
+  'vendor/pixelfx/pfx-font.js',
+  'vendor/pixelfx/pfx-painter.js',
+  'vendor/pixelfx/pfx-actor.js',
+  'vendor/pixelfx/pfx-fx.js',
+  'vendor/pixelfx/pfx-sim.js',
+  'vendor/pixelfx/pfx-pickups-lib.js',
+  'vendor/pixelfx/pfx-shadow-lib.js',
+  'vendor/pixelfx/pfx-collect-burst.js',
+  'vendor/pixelfx/pfx-firework-burst.js',
+  'vendor/pixelfx/pfx-hex-sigil.js',
+  'src/ui/pixel-fx.js',
   'src/ui/app.js',
 ];
 

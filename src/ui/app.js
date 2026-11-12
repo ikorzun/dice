@@ -42,6 +42,7 @@ import { nextUp, afterClear, bossRule, bellsPaid, BELLS_RULE } from './acts.js';
 import { withRun, submitRun, fetchBoard, hasBoard, setupBoard } from './board.js';
 import { setupPlatform, load, save, followHostAudio, gameReady, tellLevel, tell, interstitial } from './platform.js';
 import { setupHeroActs, playAct, warmAct, stopAct, stopActs, actMs, actingKind } from './hero-acts.js';
+import { playFx, stopFx, fxPixel, RAMPS, BURST_RISE } from './pixel-fx.js';
 
 const APP_VERSION = '0.2.0';
 const STORAGE_KEY = 'dicefool-portals.v1'; // the portals redesign starts clean: the old game's saves name keepers it no longer has
@@ -730,6 +731,7 @@ function onNext() {
   const st = S();
   if ($('levelEnd').dataset.mode !== app.modeId || !st.game || st.game.phase === 'playing') return;
   if (app.endPlaying || performance.now() < (app.skipUntil || 0)) return; // the tap that completed the receipt does not start a run
+  stopFx(); // the screen's effects go with it
   interstitial(); // a natural pause between levels: on Playgama the Bridge decides whether an ad shows now
   if (st.pendingTier != null) st.tier = st.pendingTier;
   st.levelIndex += 1;
@@ -1214,6 +1216,8 @@ function showBossCard(level) {
   void card.offsetWidth; // the animation starts over
   card.classList.add('show');
   clearTimeout(app.bossTimer);
+  if (app.bossFx) app.bossFx.stop();
+  app.bossFx = null; // the new card's sigil comes as it stands (bossStands)
   if (!app.hostPaused) bossStands(); // under an ad it waits (holdGame)
 }
 
@@ -1223,10 +1227,19 @@ function bossStands() {
   const face = card.querySelector('.boss-face');
   const since = performance.now();
   clearTimeout(app.bossTimer);
+  // his rule is laid: pixelfx's Hex sigil burns over his card and crumbles onto it, its floor the card's top edge (owner's
+  // pick, 12.11.2026), once a card, when it stands (not under an ad); twice as fast, so its break (2.74 s) lands at 1.37 s,
+  // before the card begins to go at 1.76 s, and its embers fall on the card
+  if (!app.bossFx) {
+    const tile = card.querySelector(':scope > div');
+    const floor = () => [tile.offsetLeft + tile.offsetWidth / 2, tile.offsetTop]; // the card's top edge, as its words settle
+    app.bossFx = playFx('sigil', ...floor(), { parent: card, speed: 2, anchor: floor });
+  }
   playAct(face, card.dataset.boss, { wait: 2500 }).then(() => {
     if (card.hidden || !face.isConnected || !card.classList.contains('show') || app.hostPaused) return;
     app.bossTimer = setTimeout(() => {
       card.classList.add('leaving');
+      if (app.bossFx) app.bossFx.stop(); // the sigil fades with the card
       app.bossTimer = setTimeout(hideBossCard, BOSS_OUT_MS);
     }, Math.max(0, BOSS_CARD_MS - BOSS_OUT_MS - (performance.now() - since)));
   });
@@ -1234,6 +1247,8 @@ function bossStands() {
 
 function hideBossCard() {
   clearTimeout(app.bossTimer);
+  if (app.bossFx) app.bossFx.stop();
+  app.bossFx = null;
   stopAct($('bossCard').querySelector('.boss-face'));
   $('bossCard').hidden = true;
   $('bossCard').classList.remove('show', 'leaving');
@@ -1247,6 +1262,7 @@ const sigil = (id) => `<i class="sigil" style="--sig: var(--charm-${id})"></i>`;
 function openShop() {
   const st = S();
   const level = st.game.level.levelIndex;
+  stopFx(); // the cleared screen's effects go with it
   if (!st.shop) {
     const h = st.habit;
     const habits = { rerolls: Math.min(1, h.rerolls / (3 * Math.max(1, h.levels))), holds: Math.min(1, h.holds / (6 * Math.max(1, h.levels))), cards: st.bank.length / BANK_SIZE };
@@ -1353,7 +1369,15 @@ function buy(slot) {
   sfx('refund', { vol: 0.8 });
   sfx('bird', { at: 0.14, vol: 0.8 }); // the shop sounds like the bird, as on the board (LORE §2.4)
   renderShop();
+  burstOn($('shop').querySelector(`.ware[data-slot="${slot}"] .ware-art`), RAMPS.gold); // the thing bought, in the bells' yellow
   persist(true);
+}
+
+// pixelfx's Collect burst on a picture (owner's pick, 12.11.2026): a purchase in the bells' yellow, an upgrade in lime
+function burstOn(el, palette) {
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return playFx('burst', r.left + r.width / 2, r.top + r.height / 2 + BURST_RISE * fxPixel(), { opts: { palette } });
 }
 
 function leaveShop() {
@@ -2138,6 +2162,7 @@ async function attemptBank(path, source) {
 // skips to the pick. The record and the bank are counted first, so a reload in the middle shows the cleared
 // screen. Times are ms from PLAY.
 const WIN = { lift: 80, chip: 167, step: 83, snap: 500, cover: 290, black: 860, title: 840, badges: 940, act: 960, pick: 980, choices: 1040, ready: 1480 };
+const PICK_MS = 500; // an upgrade's burst before the screen goes (burstOn)
 
 // A played card takes its own state, the hero over the whole card (Figma 1339:2155 Card-animation), where it lies (owner,
 // 11.11.2026: «Персонаж на всю карту, а для этого есть ее отдельное состояние, проигрывается после нажатия кнопки play,
@@ -2318,6 +2343,13 @@ function playWin(hand, g0) {
   rise(end.querySelector('.end-score'), WIN.title + lag);
   rise($('endBells'), WIN.badges + lag, 0, 240);
   rise($('endBest'), WIN.badges + lag, 0, 240);
+  // the run passes its record: pixelfx's Firework burst at NEW BEST in lime round a gold core (owner's pick, 12.11.2026),
+  // a rare peak for a real result (digest §8), behind the screen's words (readability over style); a lost run's new
+  // record stays uncelebrated (rule 27)
+  if (!$('endBest').hidden) at(WIN.badges + lag, () => {
+    const r = $('endBest').getBoundingClientRect();
+    playFx('firework', r.left + r.width / 2, r.top + r.height / 2, { opts: { palette: RAMPS.lime }, parent: end });
+  });
   rise(end.querySelector('.up-head'), WIN.pick + lag, 6, 240);
   rise(end.querySelector('.up-sub'), WIN.pick + lag, 6, 240);
   play($('endAct'), [{ opacity: 0 }, { opacity: 1 }], { dur: reduceMotion ? 200 : 160, start: reduceMotion ? 300 : WIN.act + lag });
@@ -2915,12 +2947,19 @@ function bind() {
   $('upList').addEventListener('click', (e) => {
     const b = e.target.closest('.up');
     const st = S();
-    if (!b || !st.game || st.game.phase !== 'won' || app.endPlaying || performance.now() < (app.skipUntil || 0)) return; // the tap that skipped the moment does not pick
+    if (!b || !st.game || st.game.phase !== 'won' || app.endPlaying || app.picked || performance.now() < (app.skipUntil || 0)) return; // the tap that skipped the moment does not pick
     st.ups = withUpgrade(st.ups, b.dataset.cat);
     logEvent('upgrade', { category: b.dataset.cat, ups: st.ups });
     ringNote(5, 0.7);
-    if (M().id === 'auto' && doorAfter(st.game.level.levelIndex)) openShop();
-    else onNext();
+    const go = () => {
+      app.picked = false;
+      if (M().id === 'auto' && doorAfter(st.game.level.levelIndex)) openShop();
+      else onNext();
+    };
+    // the upgrade's burst in lime on its dice, then the way on: its flash and ring want PICK_MS before the screen goes
+    if (!burstOn(b.querySelector('.art-tile'), RAMPS.lime)) { go(); return; }
+    app.picked = true;
+    setTimeout(go, PICK_MS);
   });
   $('shop').addEventListener('click', shopTap);
   $('shopLeave').addEventListener('click', (e) => { e.stopPropagation(); leaveShop(); });
