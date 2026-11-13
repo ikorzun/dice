@@ -39,6 +39,13 @@ function setBonuses(game, wantOn) {
 }
 
 function play(game, rng) {
+  // a hand of five that counts more held (SOLID HOLD) is held before PLAY, as a player reading the counter would
+  const opts = handOptionsOf(game);
+  if (opts && opts.rules && (opts.rules.ups || []).some((u) => u.held)) {
+    const now = currentHand(game);
+    const held = now && now.cells.length === 5 ? setHolds(game, new Set(now.cells)) : game;
+    if (held !== game && currentHand(held).total > now.total) game = held;
+  }
   const r = playHand(game, () => rng.die());
   if (!r.ok) throw new Error(`bot produced an illegal play: ${r.code}`);
   return r.state;
@@ -129,6 +136,9 @@ export function expectedBest(heldFaces, rerolled, { kinds = [], hand = null } = 
 }
 
 const onKinds = (game) => bonusCells(game).filter((i) => !isOff(game, i)).map((i) => bonusKind(game, i)).filter((kind) => awake(game, kind));
+// The lookahead counts multisets of faces, which have no cells: a rule bound to a cell (CENTER KNIGHT) is left out of its
+// estimates, and the hand played still counts it.
+const unplaced = (opts) => (opts && opts.rules && (opts.rules.cells || []).length ? { ...opts, rules: { ...opts.rules, cells: [] } } : opts);
 
 // Greedy one-step lookahead (`hand`: experiment scoring options, passed to the engine as handOptions): for every hold mask of the dice, the exact expected best-hand
 // total after one reroll; rerolls while the best mask beats the standing hand by `margin`.
@@ -146,7 +156,7 @@ export function playGreedyBot3(level, { rng, config = {}, hand = null, margin = 
     while (game.rerollsLeft > 0) {
       game = setBonuses(game, policy);
       if (finishes(game)) break;
-      const ctx = contextFor(onKinds(game), handOptionsOf(game) ?? hand); // the run's upgrades, charms and boss too
+      const ctx = contextFor(onKinds(game), unplaced(handOptionsOf(game)) ?? hand); // the run's upgrades, things and boss too
       const cells = diceCells(game);
       const now = currentHand(game);
       const standing = now.total;

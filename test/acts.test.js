@@ -37,10 +37,13 @@ test('the next keeper\'s rule comes with the pick before him, and only then', ()
 });
 
 test('a level\'s pay names what earned each amount, and the rule in How matches the pay', () => {
-  const pay = (handsLeft, rerollsLeft, boss = null, charms = []) => levelBells({ handsLeft, rerollsLeft, level: { boss, charms } });
+  const pay = (handsLeft, rerollsLeft, boss = null, things = []) => levelBells({ handsLeft, rerollsLeft, level: { boss, things } });
   assert.deepEqual(bellsPaid(pay(0, 0)), ['CLEAR +2']);
   assert.deepEqual(bellsPaid(pay(2, 3)), ['CLEAR +2', '2 HANDS LEFT +4', '3 REROLLS LEFT +3']);
-  assert.deepEqual(bellsPaid(pay(1, 1, 'ghoul_old', ['bellwether'])), ['CLEAR +2', '1 HAND LEFT +2', '1 REROLL LEFT +1', 'KEEPER +3', 'LUCKY COIN +2']);
+  assert.deepEqual(bellsPaid(pay(1, 1, 'ghoul_old', [{ id: 'lucky_coin', stars: 1 }])), ['CLEAR +2', '1 HAND LEFT +2', '1 REROLL LEFT +1', 'KEEPER +3', 'LUCKY COIN +2']);
+  assert.deepEqual(bellsPaid(pay(2, 0, 'fatman', [{ id: 'royal_toll', stars: 2 }, { id: 'spare_hat', stars: 3 }, { id: 'lucky_coin', stars: 3 }])),
+    ['CLEAR +2', '2 HANDS LEFT +4', 'KEEPER +3', 'ROYAL TOLL +7', 'SPARE HAT +6', 'LUCKY COIN +4']); // each thing by its name, at its stars
+  assert.deepEqual(bellsPaid(pay(0, 1, null, [{ id: 'royal_toll', stars: 1 }, { id: 'spare_hat', stars: 1 }])), ['CLEAR +2', '1 REROLL LEFT +1']); // no keeper, no hand left: they pay nothing
   assert.deepEqual(bellsPaid(pay(0, 0, 'knight_golden')), ['CLEAR +2', 'KEEPER +8']); // a golden keeper pays 5 more
   const one = pay(1, 1);
   assert.deepEqual(BELLS_RULE, [`CLEAR +${one.clear}`, `EACH HAND LEFT +${one.hand}`, `EACH REROLL LEFT +${one.reroll}`]);

@@ -32,7 +32,8 @@ import { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } from
 import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
 import { generateRunLevel, RUN3_VERSION } from '../engine/run3.js';
 import { upgradeOffer, withUpgrade } from '../engine/upgrades3.js';
-import { CHARMS, CHARM_SLOTS, doorAfter, bossNext, levelBells, fitWeights, shopStock, buyGood } from '../engine/shop3.js';
+import { doorAfter, bossNext, levelBells, fitWeights, shopStock, buyGood } from '../engine/shop3.js';
+import { THINGS, MAX_STARS, pocketPlaces, ruleOf, starsOf, takeThing, cleanPocket, helpsAgainst, portalOf, CATALOGUE, cleanGallery } from '../engine/things3.js';
 import { BOSSES, bossOf } from '../engine/bosses3.js';
 import { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } from './dice3d.js';
 import { createFire } from './fire.js';
@@ -268,7 +269,7 @@ const MODES = {
     defaultSettings: { settingsVersion: 1, maxHolds: null, scoreTable: 'pips', autoBonusOnFinalHand: false, pathMode: false, hands: 3, rerolls: 3 },
     gameConfig: (st) => ({ hands: st.hands, rerolls: st.rerolls }),
     // one curve for everyone (questionnaire В1 A, 04.11.2026): the level depends on the run seed and its number only
-    generate: ({ runSeed, levelIndex, settings, bank, ups, charms }) => generateRunLevel({ runSeed, levelIndex, bank, ups, charms, config: MODES.auto.gameConfig(settings) }),
+    generate: ({ runSeed, levelIndex, settings, bank, ups, things }) => generateRunLevel({ runSeed, levelIndex, bank, ups, things, config: MODES.auto.gameConfig(settings) }),
     scoringHtml: '<strong>Matching dice score their sum × a multiplier that grows with rarity.</strong> Pair × 2, two pairs × 3, three of a kind × 4, full house × 5, four of a kind × 6, straight × 8, five of a kind × 8. Bonus dice add up: ×2 and ×3 together make ×4.',
     difficultyText: 'One curve for everyone: each level asks for more than the one before, and its board is drawn to fit the level, never the player. A missed target ends the run.',
     summary: (g) => ({ recipe: g.level.recipe, chance: g.level.chance }),
@@ -282,7 +283,7 @@ const MODES = {
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
         'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back); deeper in the run ×3 KINDS, ×3 SMALL, ×4 LAST HAND and ×3 TWO SIXES. They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus makes way for a new die, or for a bonus waiting above the board.',
         'Reach the target and the level ends at once; a level has three hands at most. Miss it and the run is over. There is no last level: each asks for more.',
-        'A cleared level pays bells: 2, plus 2 for each hand and 1 for each reroll left unused. A shop opens after the second and fourth level of each act: one card, one +1 and one charm. Charms last for the run, three at most.',
+        'A cleared level pays bells: 2, plus 2 for each hand and 1 for each reroll left unused. A shop opens after the second and fourth level of each act: one thing and one +1. Things work by themselves for the run, three at most, four after level 15, five after 35; the same thing again gains a star.',
         'Every fifth level is a keeper with one rule, named in the shop before it. Beat him for 3 more bells, a golden one for 8.',
         'Bonuses you did not play on a won level are kept for the next level of the run (three at most, the rest burn). They come in on its first reroll, each in place of a die being rerolled while six dice stay on the board; the rest wait above the board from then on: tap one there to switch it on like a card on the board.',
       ],
@@ -323,7 +324,10 @@ function freshModeState(mode) {
     best: null, // Auto Hand: the record on this device, { level, score }: the furthest level a run got to, then points
     lastEnd: null, // Auto Hand: what the last level end brought (bells, record), for its summary after a reload
     bells: 0, // Auto Hand: the run's money
-    charms: [], // Auto Hand: the run's charms, three at most
+    pocket: [], // Auto Hand: the run's things, [{ id, stars }] (things3.js)
+    gallery: [], // Auto Hand: the things this device has seen in a portal or bought, by id; it outlives the run (portalOf)
+    runGallery: [], // the gallery as this run began: a find joins the shop's shelf in the runs after it (spec, unlocks)
+    upsBought: 0, // the +1s bought in shops this run: each costs 2 more
     shop: null, // Auto Hand: the open shop, { level, stock }, so a reload finds it as it was
     plays: [], // Auto Hand: the run's hands, { category, cleared, level }, and those that ended the last run (level 0)
     habit: { rerolls: 0, holds: 0, levels: 0 }, // Auto Hand: how this run has been played, for the shop's fit
@@ -439,7 +443,10 @@ function serializeMode(st, engine) {
     best: st.best,
     lastEnd: st.lastEnd,
     bells: st.bells,
-    charms: st.charms,
+    pocket: st.pocket,
+    gallery: st.gallery,
+    runGallery: st.runGallery,
+    upsBought: st.upsBought,
     shop: st.shop,
     plays: st.plays,
     habit: st.habit,
@@ -482,8 +489,13 @@ function hydrateMode(id, saved) {
   st.best = saved.best && Number.isInteger(saved.best.level) && Number.isFinite(saved.best.score) ? { level: saved.best.level, score: saved.best.score } : null;
   st.lastEnd = saved.lastEnd && typeof saved.lastEnd === 'object' ? saved.lastEnd : null;
   st.bells = Number.isInteger(saved.bells) ? saved.bells : 0;
-  st.charms = Array.isArray(saved.charms) ? saved.charms.filter((c) => CHARMS[c]).slice(0, CHARM_SLOTS) : [];
-  st.shop = saved.shop && Array.isArray(saved.shop.stock) ? saved.shop : null;
+  st.pocket = cleanPocket(saved.pocket, pocketPlaces(st.levelIndex + 1)); // a save from the charms' days starts with an empty pocket; a portal after level 15 fills a 4th place before the next level
+  st.gallery = cleanGallery(saved.gallery);
+  st.runGallery = Array.isArray(saved.runGallery) ? cleanGallery(saved.runGallery) : [...st.gallery];
+  st.upsBought = Number.isInteger(saved.upsBought) && saved.upsBought > 0 ? saved.upsBought : 0;
+  // a shop saved with a good the game no longer has (a charm, before the pocket) is drawn again
+  const known = (g) => g && ((g.type === 'card' && BONUS_KINDS[g.id]) || (g.type === 'up' && AUTO_MULT[g.id]) || (g.type === 'thing' && THINGS[g.id]));
+  st.shop = saved.shop && Array.isArray(saved.shop.stock) && saved.shop.stock.every(known) ? saved.shop : null;
   st.plays = Array.isArray(saved.plays) ? saved.plays : [];
   st.habit = saved.habit && Number.isFinite(saved.habit.levels) ? saved.habit : st.habit;
   st.runs = Array.isArray(saved.runs) ? saved.runs.filter((r) => r && Number.isInteger(r.level)) : [];
@@ -538,6 +550,7 @@ function startGame(level, attempt) {
   });
   $('levelEnd').hidden = true;
   if (level.boss) showBossCard(level); // first: the deal waits for it
+  if (mode.id === 'auto' && level.boss) warmPortal(portalOf(st.runSeed, level.levelIndex, { pocket: st.pocket, gallery: st.gallery })); // the portal after him loads meanwhile
   if (level.boss && BOSSES[level.boss].hands && !app.hostPaused) sfx('snip', { at: 0.3 }); // scissors cut the third ticket (under an ad, when it ends)
   if (mode.id === 'auto' && bossNext(level.levelIndex)) warmAct(bossOf(st.runSeed, level.levelIndex + 1)); // the next keeper's act loads meanwhile
   render();
@@ -547,7 +560,7 @@ function startGame(level, attempt) {
 
 function newLevel() {
   const st = S();
-  const level = M().generate({ runSeed: st.runSeed, levelIndex: st.levelIndex, tier: st.tier, settings: st.settings, history: st.levels, bank: st.bank, ups: st.ups, charms: st.charms });
+  const level = M().generate({ runSeed: st.runSeed, levelIndex: st.levelIndex, tier: st.tier, settings: st.settings, history: st.levels, bank: st.bank, ups: st.ups, things: st.pocket });
   startGame(level, 1);
 }
 
@@ -593,6 +606,13 @@ function tallyRun(st, g, won, board) {
     st.bells += end.bells.total;
     end.passedBest = !!st.best && level === st.best.level; // from here on the run goes further than any before
     if (g.level.boss) tell('boss_defeated');
+    // a beaten keeper's portal: drawn now, with the pocket of the level and the gallery as they were (portalOf); the
+    // thing is found the moment it is seen, taken or not
+    const portal = g.level.boss ? portalOf(st.runSeed, level, { pocket: st.pocket, gallery: st.gallery }) : null;
+    if (portal && portal.thing) {
+      end.portal = { ...portal, done: false };
+      st.gallery = foundIn(st.gallery, portal.thing);
+    }
     if (end.passedBest) tell('player_got_achievement');
   } else {
     end.newBest = !st.best || level > st.best.level || (level === st.best.level && st.runScore > st.best.score);
@@ -675,12 +695,13 @@ function showLevelEnd() {
   // a won level of the run offers three combinations to upgrade; the pick goes on (owner, 02.11.2026)
   const fit = mode.id === 'auto' ? fitWeights({ plays: st.plays, ups: st.ups }, g.level.levelIndex) : null; // questionnaire В9
   const offer = mode.id === 'auto' && won ? upgradeOffer(st.runSeed, g.level.levelIndex, Object.fromEntries(Object.entries(fit).map(([c, f]) => [c, f.weight]))) : [];
-  $('upgrades').hidden = !offer.length;
-  $('nextBtn').hidden = offer.length > 0;
+  const portal = cleared ? portalPending(st) : null; // the pick comes after it, so it can answer the new thing
+  $('upgrades').hidden = !offer.length || !!portal;
+  $('nextBtn').hidden = offer.length > 0 || !!portal;
   // a cleared level goes on through its upgrade (owner, 03.11.2026: RETRY confused); a missed one ends the run
   $('retryBtn').hidden = won || mode.id === 'auto';
   $('runsBtn').hidden = !over;
-  $('upList').innerHTML = offer.map((cat) => {
+  $('upList').innerHTML = portal ? '' : offer.map((cat) => {
     const m = AUTO_MULT[cat] + (st.ups[cat] || 0);
     // the shop's row (HIG, 12.11.2026): the combination's dice, its name, the raise as the value
     return `<button class="up" type="button" data-cat="${cat}"><span class="art-tile">${comboDice(cat)}</span><b>${sentence(CATEGORY5_LABELS[cat])}</b><em>×${m} → ×${m + 1}</em></button>`;
@@ -690,10 +711,11 @@ function showLevelEnd() {
   const forMode = app.modeId;
   // Auto Hand opens the summary at once: the level's last hand plays its moment over the board as the summary rises
   app.endTimer = setTimeout(() => { if (app.modeId === forMode) { $('levelEnd').hidden = false; fitOverlay($('levelEnd')); } }, mode.id === 'auto' ? 0 : T.endDelay);
+  if (portal && !app.endPlaying && $('portal').hidden) playPortal(true); // a reload: its last beat, at once
 }
 
 // A played hand's sum, multiplier and bonus as the count shows them: 24 × 6 ×2.
-const handFormula = (h) => `${h.formula || h.points}${h.multiplier > 1 ? ` ×${h.multiplier}` : ''}`;
+const handFormula = (h) => `${h.formula || h.points}${h.multiplier > 1 ? ` ×${h.multiplier}` : ''}${h.pct ? ` +${h.pct}%` : ''}`; // a thing's percent comes last
 
 // The run's marks on the level's summary: on a clear, the record passed; when the
 // run is over, the level it got to, why it ended (digest rules 7 and 17: the player sees the cause), its points,
@@ -743,7 +765,9 @@ function onNext() {
     st.ups = {}; // and so do the upgrades
     st.runScore = 0;
     st.bells = 0;
-    st.charms = [];
+    st.pocket = [];
+    st.upsBought = 0;
+    st.runGallery = [...st.gallery]; // this run's shops offer what earlier runs found
     st.habit = { rerolls: 0, holds: 0, levels: 0 };
     const left = st.game.rerollsLeft;
     newLevel();
@@ -781,6 +805,9 @@ function switchMode(id, { silent = false } = {}) {
   clearTimeout(app.endTimer);
   stopGhost();
   $('levelEnd').hidden = true;
+  stopPortal();
+  $('portal').hidden = true;
+  $('gallery').hidden = true;
   $('help').hidden = true;
   const st = S();
   if (!st.runSeed) st.runSeed = `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -1044,6 +1071,7 @@ function buildBoard() {
 // tall as the room between the system's insets (owner, then: «тянуть правую часть на всю ширину не нужно. Части
 // пропорциональны и фиксируются по центру вьюхи. А вот по вертикали нужно занять свободное пространство»).
 const MOCKUP = Object.freeze({ width: 393, rows: 597, board: 360 }); // Figma 1285:1244: 64 + 16 + 360 + 16 + 45 + 16 + 80
+const POCKET_ROW = 16 + 52; // the gap and the pocket's row under the buttons, while it holds a thing (MODE3-PLAN §54)
 const DESKTOP = Object.freeze({ width: 1134 + 2 * 73, height: 546 + 2 * 73, board: 546 }); // Figma 1287:1641: 546 + 42 + 546, 73 px round
 const SIDE_HEIGHT = 500; // the tallest phone held sideways, its toolbar gone, is 440
 function fitBoard() {
@@ -1051,7 +1079,7 @@ function fitBoard() {
   const col = getComputedStyle(els.app);
   const width = view.clientWidth - parseFloat(col.paddingLeft) - parseFloat(col.paddingRight);
   const height = view.clientHeight - parseFloat(col.paddingTop) - parseFloat(col.paddingBottom);
-  const phone = Math.min(width / MOCKUP.width, height / MOCKUP.rows);
+  const phone = Math.min(width / MOCKUP.width, height / (MOCKUP.rows + ($('pocket').hidden ? 0 : POCKET_ROW)));
   const desk = Math.min(width / DESKTOP.width, height / DESKTOP.height);
   const wide = DESKTOP.board * desk > MOCKUP.board * phone;
   document.body.classList.toggle('wide', wide);
@@ -1217,24 +1245,26 @@ function renderHud() {
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
 }
 
-// A keeper's level opens with his notification at the top (MODE3-PLAN §48): the board plays under it and the cards wait
-// for it (dealCard); it goes by itself, at a tap on it, or when a toast comes (the newest word is the one seen).
-// Afterwards the rule is in the numbers, and in How. The keeper acts on it, and it stands until he has finished,
-// BOSS_CARD_MS at least (owner, 11.11.2026).
+// A keeper's level opens with his notification at the top (MODE3-PLAN §48). It holds the screen as his card did (owner,
+// 13.11.2026, on «Баннер хранителя не держит экран…»: «верни»): until it goes, or a tap anywhere sends it away, nothing
+// plays by accident under it, and the cards wait for it (dealCard). Afterwards the rule is in the numbers, and in How.
+// The keeper acts on it, and it stands until he has finished, BOSS_CARD_MS at least (owner, 11.11.2026).
 const BOSS_CARD_MS = 2000;
 const BOSS_OUT_MS = 240; // its slide up (styles.css: bannerOut)
 // The keeper's notification (owner, 12.11.2026: «Стиль и практика как у apple»; MODE3-PLAN §48): a title and a
 // description, as Apple's notifications have them (HIG: a brief title in title case, a body of whole sentences): his name,
-// his rule, and the player's charms that answer him in one more sentence, so THE CONVICT's two rerolls beside REROLL•3 is
+// his rule, and the player's things that answer him in one more sentence, so THE CONVICT's two rerolls beside REROLL•3 is
 // no contradiction
 function showBossCard(level) {
   const card = $('bossCard');
   const boss = BOSSES[level.boss];
-  const helps = (S().charms || []).filter((id) => boss.counters.includes(id)).map((id) => sentence(CHARMS[id].name));
-  const answer = helps.length ? ` ${helps.join(' and ')} help${helps.length > 1 ? '' : 's'}.` : '';
+  const helps = (S().pocket || []).filter((t) => helpsAgainst(t.id, level.boss)).map((t) => sentence(THINGS[t.id].name));
+  // two names at most, the rest a count: five things answering him would not fit the banner's lines
+  const who = helps.length > 2 ? `${helps[0]}, ${helps[1]} and ${helps.length - 2} more` : helps.join(' and ');
+  const answer = helps.length ? ` ${who} help${helps.length > 1 ? '' : 's'}.` : '';
   card.innerHTML = `<i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><b>${titled(boss.name)}</b><em>${sentence(boss.rule)}.${answer}</em></span>`;
   card.dataset.boss = level.boss;
-  card.hidden = false;
+  card.hidden = false; // and its cover with it: it holds the screen until it goes (styles.css)
   card.classList.remove('show', 'leaving');
   void card.offsetWidth; // the animation starts over
   card.classList.add('show');
@@ -1268,12 +1298,15 @@ function hideBossCard() {
   stopAct($('bossCard').querySelector('.boss-face'));
   $('bossCard').hidden = true;
   $('bossCard').classList.remove('show', 'leaving');
+  pulseThings(S().game && S().game.level.help); // CALM START's points and DISTRACTION's cut were there from the start
   app.afterGuide.splice(0).forEach((start) => start()); // the deal that waited for it
 }
 
 // ---------- the shop (GPT's design, art/ai/2026-11-06-shop-bosses): after the pick, every second and fourth level of an act ----------
-const runOf = (st) => ({ bells: st.bells, bank: st.bank, ups: st.ups, charms: st.charms });
-const sigil = (id) => `<i class="sigil" style="--sig: var(--charm-${id})"></i>`;
+// the run as the shop sees it; the pocket's places are the next level's (a 4th once level 15 is cleared)
+const runOf = (st) => ({ bells: st.bells, bank: st.bank, ups: st.ups, upsBought: st.upsBought, pocket: st.pocket, gallery: st.runGallery, levelIndex: st.game.level.levelIndex + 1 }); // the finds of earlier runs
+const sigil = (id) => `<i class="sigil" style="--sig: var(--thing-${id})"></i>`; // a thing's picture
+const stars = (n) => (n > 1 ? `<i class="stars">${'★'.repeat(n)}</i>` : '');
 
 function openShop() {
   const st = S();
@@ -1300,7 +1333,7 @@ function openShop() {
 
 function placeNeeded(st, good) {
   if (good.type === 'card' && st.bank.length >= BANK_SIZE) return 'bank';
-  if (good.type === 'charm' && st.charms.length >= CHARM_SLOTS) return 'charm';
+  if (good.type === 'thing' && good.star === 1 && st.pocket.length >= pocketPlaces(st.game.level.levelIndex + 1)) return 'thing';
   return null;
 }
 
@@ -1310,11 +1343,11 @@ function goodHtml(st, good, i) {
   const place = placeNeeded(st, good);
   const ready = pick && (!place || app.shopPick.replace !== null);
   const art = good.type === 'card' ? guideTile(good.id, false)
-    : good.type === 'charm' ? sigil(good.id)
+    : good.type === 'thing' ? sigil(good.id)
       : comboDice(good.id);
   const m = good.type === 'up' ? AUTO_MULT[good.id] + (st.ups[good.id] || 0) : 0;
-  const name = sentence(good.type === 'card' ? `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}` : good.type === 'charm' ? CHARMS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`);
-  const rule = good.type === 'card' ? BONUS_WHAT[good.id].toUpperCase().replace('.', '') : good.type === 'charm' ? CHARMS[good.id].rule : `×${m} → ×${m + 1} FOR THIS RUN`;
+  const name = sentence(good.type === 'card' ? `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}` : good.type === 'thing' ? THINGS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`) + (good.type === 'thing' && good.star > 1 ? ` ${'★'.repeat(good.star)}` : '');
+  const rule = good.type === 'card' ? BONUS_WHAT[good.id].toUpperCase().replace('.', '') : good.type === 'thing' ? ruleOf(good.id, good.star) : `×${m} → ×${m + 1} FOR THIS RUN`;
   const price = good.sold ? '' : ready ? `BUY • ${good.price}` : `<i class="bell"></i>${good.price}`;
   // what it is and what it does; why it is offered is said no more (owner, 12.11.2026: «Зачеркнутое убери»)
   return `<li class="ware${pick ? ' pick' : ''}${good.sold ? ' sold' : ''}${short > 0 ? ' poor' : ''}" data-slot="${i}"><span class="ware-art">${art}</span><span class="ware-text"><b>${name}</b><small>${rule}</small></span><button class="price${ready ? ' buy' : ''}" type="button"${good.sold ? ' hidden' : ''}>${price}</button>${good.sold ? '<em class="sold-stamp">SOLD</em>' : ''}</li>`;
@@ -1330,9 +1363,9 @@ function renderShop() {
     const kind = st.bank[k];
     return `<button type="button" class="shop-place${place === 'bank' ? ' swap' : ''}${pick && pick.replace === k && place === 'bank' ? ' gone' : ''}" data-bank="${k}"${place === 'bank' ? '' : ' tabindex="-1"'}>${kind ? guideTile(kind, false) : ''}</button>`;
   }).join('');
-  $('shopCharms').innerHTML = Array.from({ length: CHARM_SLOTS }, (_, k) => {
-    const id = st.charms[k];
-    return `<button type="button" class="shop-place small${place === 'charm' ? ' swap' : ''}${pick && pick.replace === k && place === 'charm' ? ' gone' : ''}" data-charm-place="${k}"${place === 'charm' ? '' : ' tabindex="-1"'}>${id ? sigil(id) : ''}</button>`;
+  $('shopCharms').innerHTML = Array.from({ length: pocketPlaces(level + 1) }, (_, k) => {
+    const t = st.pocket[k];
+    return `<button type="button" class="shop-place small${place === 'thing' ? ' swap' : ''}${pick && pick.replace === k && place === 'thing' ? ' gone' : ''}" data-thing-place="${k}"${place === 'thing' ? '' : ' tabindex="-1"'}>${t ? sigil(t.id) + stars(t.stars) : ''}</button>`;
   }).join('');
   const bossId = bossNext(level) ? bossOf(st.runSeed, level + 1) : null;
   $('shopBoss').hidden = !bossId;
@@ -1340,8 +1373,8 @@ function renderShop() {
   // выглядит как блоки ниже, но нельзя нажать»)
   $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><small>NEXT LEVEL</small><b>${titled(BOSSES[bossId].name)}</b><em>${BOSSES[bossId].rule}</em></span>` : '';
   $('shopList').innerHTML = stock.map((g, i) => goodHtml(st, g, i)).join('');
-  // one line, for the moment it matters: how to buy (once), what to replace, what a tapped charm does
-  $('shopHint').textContent = app.shopNote || (place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'CHARM'}` : st.tips.firstBuy ? '' : 'TAP AN OFFER, THEN TAP BUY');
+  // one line, for the moment it matters: how to buy (once), what to replace, what a tapped thing does
+  $('shopHint').textContent = app.shopNote || (place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'THING'}` : st.tips.firstBuy ? '' : 'TAP AN OFFER, THEN TAP BUY');
   if (!$('shop').hidden) fitOverlay($('shop')); // a note or a sold stamp can change its height
 }
 
@@ -1350,15 +1383,15 @@ function shopTap(e) {
   if (!st.shop) return;
   const row = e.target.closest('.ware');
   const bank = e.target.closest('[data-bank]');
-  const charm = e.target.closest('[data-charm-place]');
+  const thing = e.target.closest('[data-thing-place]');
   const pick = app.shopPick;
   app.shopNote = '';
-  if (bank || charm) {
+  if (bank || thing) {
     const place = pick ? placeNeeded(st, st.shop.stock[pick.slot]) : null;
-    if (place === (bank ? 'bank' : 'charm')) app.shopPick = { ...pick, replace: Number(bank ? bank.dataset.bank : charm.dataset.charmPlace) };
-    const owned = charm && CHARMS[st.charms[Number(charm.dataset.charmPlace)]];
-    if (owned) app.shopNote = `${owned.name}: ${owned.rule}`;
-    const banked = bank && !place && st.bank[Number(bank.dataset.bank)]; // a banked card answers a tap as a charm does
+    if (place === (bank ? 'bank' : 'thing')) app.shopPick = { ...pick, replace: Number(bank ? bank.dataset.bank : thing.dataset.thingPlace) };
+    const owned = thing && st.pocket[Number(thing.dataset.thingPlace)];
+    if (owned) app.shopNote = `${THINGS[owned.id].name}: ${ruleOf(owned.id, owned.stars)}`;
+    const banked = bank && !place && st.bank[Number(bank.dataset.bank)]; // a banked card answers a tap as a thing does
     if (banked) app.shopNote = `${BONUS_KINDS[banked].label}: ${BONUS_WHAT[banked].replace(/\.$/, '')}`;
   } else if (row) {
     const slot = Number(row.dataset.slot);
@@ -1377,7 +1410,8 @@ function buy(slot) {
   const r = buyGood(runOf(st), st.shop.stock, slot, { replace: app.shopPick.replace });
   if (!r.ok) { toast(r.message, 'bad'); return; }
   logEvent('shop_buy', { good: st.shop.stock[slot], bells: r.run.bells });
-  Object.assign(st, { bells: r.run.bells, bank: r.run.bank, ups: r.run.ups, charms: r.run.charms });
+  if (st.shop.stock[slot].type === 'thing') st.gallery = foundIn(st.gallery, st.shop.stock[slot].id);
+  Object.assign(st, { bells: r.run.bells, bank: r.run.bank, ups: r.run.ups, upsBought: r.run.upsBought || 0, pocket: r.run.pocket || [] });
   st.shop = { ...st.shop, stock: r.stock };
   st.tips.firstBuy = true;
   app.shopPick = null;
@@ -1402,6 +1436,323 @@ function leaveShop() {
   st.shop = null;
   $('shop').hidden = true;
   onNext();
+}
+
+// ---------- the portal (portals spec, step 3; MODE3-PLAN §55) ----------
+// A beaten keeper opens a portal on the cleared screen, after its bells and before its pick, so the pick can answer the
+// new thing. Its draw (things3.js portalOf) is made with the level's count (tallyRun) and kept in lastEnd until the
+// player takes the thing, gives up a place for it, leaves it for 3 bells or takes its star; a reload shows its last beat.
+// The beats, in ms from its start: the cleared screen goes black as the ring comes in from 60 % with a thud; the thing
+// grows in its middle from 40 % as a black shape; the hands slide in from both sides and grip the rim; the shape lights
+// up into the picture with one bell; the words and the buttons come. A tap jumps to the last beat, and reduced motion
+// shows it at once. Rigid motion only, a uniform scale, a slide and a light, never an overshoot (owner, 11.11.2026).
+const PORTAL = { black: 200, rise: 700, hands: 1100, light: 1500, words: 1800, fly: 250, hold: 260, leave: 220 };
+const PORTAL_LEFT = 3; // the bells for leaving the thing in the portal
+const SILHOUETTE = 'brightness(0) drop-shadow(0 0 3px rgba(255, 255, 255, .6))'; // a black shape a black ring still shows
+const LIT = 'brightness(1) drop-shadow(0 0 0 rgba(255, 255, 255, 0))';
+const OBJECT = 0.34; // a thing's object fills about this much of its square: what a flight scales to a pocket's place
+const foundIn = (gallery, id) => (gallery.includes(id) ? gallery : [...gallery, id]);
+
+function portalPending(st = S()) {
+  const p = M().id === 'auto' && st.game && st.game.phase === 'won' && st.lastEnd && st.lastEnd.seed === st.game.level.seed ? st.lastEnd.portal : null;
+  return p && p.thing && THINGS[p.thing] && !p.done ? p : null;
+}
+
+// What the portal asks: a free place takes the thing, a full pocket gives one up for it, a thing carried takes a star.
+function portalState(st, p) {
+  if (starsOf(st.pocket, p.thing)) return 'star';
+  return st.pocket.length >= pocketPlaces(st.game.level.levelIndex + 1) ? 'full' : 'free';
+}
+
+// The portal's three pictures load before its first beat; the keeper's level warms them as it starts. Plain pictures:
+// a page opened as a file shows them too. The claude.ai fragment has none (their custom properties are none).
+const portalFiles = new Map();
+function warmPortal(p) {
+  if (!p || !p.thing) return Promise.resolve();
+  return Promise.all([`--portal-ring-${p.ring}`, `--portal-hands-${p.hands}`, `--portal-thing-${p.thing}`].map(cssUrl).filter(Boolean).map((url) => {
+    if (!portalFiles.has(url)) {
+      const img = new Image();
+      img.src = url;
+      portalFiles.set(url, typeof img.decode === 'function' ? img.decode().catch(() => {}) : Promise.resolve());
+    }
+    return portalFiles.get(url);
+  }));
+}
+
+function renderPortal(p) {
+  const st = S();
+  const stage = $('portalStage');
+  const files = !!cssUrl(`--portal-ring-${p.ring}`);
+  $('portalThing').style.visibility = ''; // a flight that a mode switch cut short hid it
+  stage.classList.toggle('lone', !files); // the fragment: the thing alone, from the pocket's own picture
+  stage.style.setProperty('--ring', files ? `var(--portal-ring-${p.ring})` : 'none');
+  stage.style.setProperty('--hands', files ? `var(--portal-hands-${p.hands})` : 'none');
+  stage.style.setProperty('--thing', files ? `var(--portal-thing-${p.thing})` : `var(--thing-${p.thing})`);
+  $('portal').dataset.state = portalState(st, p);
+  $('portalNew').hidden = !p.fresh; // a first find (the gallery's); a later one says nothing more
+  $('portalName').innerHTML = `${sentence(THINGS[p.thing].name)}${p.star > 1 ? ` <span class="stars">${'★'.repeat(p.star - 1)}<b>★</b></span>` : ''}`;
+  $('portalRule').textContent = sentence(ruleOf(p.thing, p.star)); // the rule at the star it brings
+  renderPortalFoot(p);
+}
+
+// The buttons, and with a full pocket its places: the one tapped is given up (the shop's way, red), and the line says
+// what it does, so the player reads what goes before TAKE.
+function renderPortalFoot(p) {
+  const st = S();
+  const state = portalState(st, p);
+  const full = state === 'full';
+  const pick = app.portalPick;
+  const row = $('portalPocket');
+  row.classList.remove('landing');
+  row.hidden = !full;
+  row.innerHTML = full ? st.pocket.map((t, k) => `<button type="button" class="shop-place small swap${pick === k ? ' gone' : ''}" data-place="${k}" aria-label="${sentence(THINGS[t.id].name)}">${sigil(t.id)}${stars(t.stars)}</button>`).join('') : '';
+  const given = full && pick !== null ? st.pocket[pick] : null;
+  $('portalHint').textContent = !full ? '' : given ? `${THINGS[given.id].name}: ${ruleOf(given.id, given.stars)}` : 'TAP A PLACE TO REPLACE';
+  $('portalTake').textContent = state === 'star' ? 'OK' : 'TAKE';
+  $('portalTake').disabled = full && pick === null;
+  $('portalLeave').hidden = state === 'star'; // a star is taken: one button
+}
+
+// The stage is a square as large as the window leaves beside the words: on the phone its full width at most, in a wide
+// window 62 % of its height. Short of the window's sides, its sides fade.
+function fitPortal() {
+  const el = $('portal');
+  if (el.hidden) return;
+  const cs = getComputedStyle(el);
+  const wide = document.body.classList.contains('wide');
+  const roomW = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const roomH = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const side = $('portalSide');
+  const gap = parseFloat(wide ? cs.columnGap : cs.rowGap) || 0;
+  const s = Math.floor(wide ? Math.min(0.62 * el.clientHeight, roomH, roomW - side.offsetWidth - gap) : Math.min(el.clientWidth, roomH - side.offsetHeight - gap));
+  $('portalStage').style.setProperty('--stage', `${Math.max(120, s)}px`);
+  $('portalStage').classList.toggle('inset', wide || s < el.clientWidth - 1);
+}
+
+function stopPortalBeats() {
+  for (const a of app.portalAnims || []) a.cancel(); // every part back to its own look: the last beat as drawn
+  app.portalAnims = [];
+  clearTimeout(app.portalTimer);
+  if (app.portalSkip) $('portal').removeEventListener('pointerdown', app.portalSkip);
+  app.portalSkip = null;
+}
+function stopPortal() {
+  stopPortalBeats();
+  clearTimeout(app.portalCloseTimer);
+  const el = $('portal');
+  el.classList.remove('waiting', 'flying');
+  el.getAnimations().forEach((a) => a.cancel());
+  $('portalThing').getAnimations().forEach((a) => a.cancel());
+}
+
+function portalReady() {
+  stopPortalBeats();
+  const el = $('portal');
+  el.classList.remove('waiting');
+  el.classList.add('ready');
+}
+
+function playPortal(last = false) {
+  const p = portalPending();
+  if (!p) return false;
+  const el = $('portal');
+  stopPortal();
+  app.portalPick = null;
+  el.classList.remove('ready');
+  renderPortal(p);
+  el.hidden = false;
+  fitPortal();
+  document.fonts.ready.then(fitPortal); // the light cut may come late and set the rule taller
+  if (last || reduceMotion) { portalReady(); return true; }
+  el.classList.add('waiting'); // the cleared screen still shows while the pictures come in
+  const skip = (e) => { if (e.isPrimary === false) return; app.skipUntil = performance.now() + 300; portalReady(); }; // that tap presses nothing
+  app.portalSkip = skip;
+  el.addEventListener('pointerdown', skip);
+  Promise.race([warmPortal(p), new Promise((r) => { setTimeout(r, 700); })]).then(() => {
+    if (app.portalSkip !== skip) return; // skipped or closed while they loaded
+    el.classList.remove('waiting');
+    const anims = [];
+    const play = (node, frames, start, dur, easing = 'linear') => anims.push(node.animate(frames, { duration: dur, delay: start, easing, fill: 'both' }));
+    const out = 'cubic-bezier(.2, .7, .3, 1)'; // decelerates to a stop, never past it
+    play(el, [{ backgroundColor: 'rgba(0, 0, 0, 0)' }, { backgroundColor: '#000' }], 0, PORTAL.black);
+    play($('portalRing'), [{ opacity: 0, transform: 'scale(.6)' }, { opacity: 1, transform: 'none' }], 0, PORTAL.black, out);
+    play($('portalThing'), [{ opacity: 0, transform: 'scale(.4)', filter: SILHOUETTE }, { opacity: 1, transform: 'scale(.4)', filter: SILHOUETTE, offset: 0.1 }, { opacity: 1, transform: 'none', filter: SILHOUETTE }], PORTAL.black, PORTAL.rise - PORTAL.black, out);
+    play($('portalThing'), [{ filter: SILHOUETTE }, { filter: LIT }], PORTAL.hands, PORTAL.light - PORTAL.hands, 'ease-in-out');
+    play($('portalHandL'), [{ transform: 'translateX(-55%)' }, { transform: 'none' }], PORTAL.rise, PORTAL.hands - PORTAL.rise, out);
+    play($('portalHandR'), [{ transform: 'translateX(55%)' }, { transform: 'none' }], PORTAL.rise, PORTAL.hands - PORTAL.rise, out);
+    [$('portalNew'), $('portalName'), $('portalRule'), $('portalFoot')].forEach((node, k) => play(node, [{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], PORTAL.light + 60 * k, PORTAL.words - PORTAL.light - 60 * k + 40, out));
+    app.portalAnims = anims;
+    sfx('thud');
+    sfx('medal', { at: PORTAL.hands / 1000 }); // one bell as the thing lights up
+    app.portalTimer = setTimeout(portalReady, PORTAL.words);
+  });
+  return true;
+}
+
+const portalBlocked = () => $('portal').hidden || !$('portal').classList.contains('ready') || $('portal').classList.contains('flying') || performance.now() < (app.skipUntil || 0);
+
+function portalPlace(e) {
+  const b = e.target.closest('[data-place]');
+  const p = portalPending();
+  if (!b || !p || portalBlocked() || portalState(S(), p) !== 'full') return;
+  const k = Number(b.dataset.place);
+  app.portalPick = app.portalPick === k ? null : k; // a second tap keeps it
+  renderPortalFoot(p);
+}
+
+function portalTake() {
+  if (portalBlocked()) return;
+  const st = S();
+  const p = portalPending(st);
+  if (!p) return;
+  const level = st.game.level.levelIndex;
+  const state = portalState(st, p);
+  const before = st.pocket;
+  const r = takeThing(before, p.thing, pocketPlaces(level + 1), app.portalPick);
+  if (!r.ok) return;
+  // the change and its mark in one go: a reload can neither give a second star nor take it again
+  st.pocket = r.pocket;
+  st.lastEnd = { ...st.lastEnd, portal: { ...p, done: 'taken' } };
+  logEvent('portal_take', { level, thing: p.thing, star: r.star, replaced: state === 'full' ? before[app.portalPick].id : null });
+  persist(true);
+  haptic(10);
+  flyPortalThing(p.thing, before, r.pocket, state);
+}
+
+function portalLeave() {
+  if (portalBlocked()) return;
+  const st = S();
+  const p = portalPending(st);
+  if (!p || portalState(st, p) === 'star') return;
+  const paid = st.lastEnd.bells || { total: 0 };
+  st.bells += PORTAL_LEFT;
+  st.lastEnd = { ...st.lastEnd, bells: { ...paid, portal: PORTAL_LEFT, total: paid.total + PORTAL_LEFT }, portal: { ...p, done: 'left' } }; // a line of the receipt
+  logEvent('portal_leave', { level: st.game.level.levelIndex, thing: p.thing, bells: st.bells });
+  persist(true);
+  closePortal();
+}
+
+// TAKE: the thing flies from the ring to its place in the pocket in 250 ms. With a free place or a star the pocket's
+// row comes up where the buttons were, with the empty places; with a full pocket it is already there.
+function flyPortalThing(id, before, after, state) {
+  const el = $('portal');
+  const row = $('portalPocket');
+  const place = after.findIndex((t) => t.id === id);
+  const places = Math.max(after.length, pocketPlaces(S().game.level.levelIndex + 1));
+  const box = (k) => {
+    const t = state === 'star' || k !== place ? before[k] : null; // the thing it replaces goes as this one comes
+    return `<span class="shop-place small" data-place="${k}">${t ? sigil(t.id) + stars(t.stars) : ''}</span>`;
+  };
+  row.innerHTML = Array.from({ length: state === 'full' ? before.length : places }, (_, k) => box(k)).join('');
+  row.classList.toggle('landing', state !== 'full');
+  row.hidden = false;
+  el.classList.add('flying');
+  const land = () => {
+    const target = row.querySelector(`[data-place="${place}"]`);
+    if (target) {
+      target.innerHTML = sigil(id) + stars(after[place].stars);
+      target.firstChild.animate([{ filter: 'brightness(1.35) drop-shadow(0 0 8px rgba(255, 255, 255, .85))' }, { filter: 'none' }], { duration: 350, easing: 'ease-out' });
+    }
+    $('portalThing').style.visibility = 'hidden';
+    app.portalCloseTimer = setTimeout(closePortal, PORTAL.hold);
+  };
+  const target = row.querySelector(`[data-place="${place}"]`);
+  if (reduceMotion || !target) { land(); return; }
+  const from = $('portalStage').getBoundingClientRect();
+  const to = target.getBoundingClientRect();
+  const scale = (0.72 * to.width) / (OBJECT * from.width); // its object to the size of a place's picture
+  const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+  const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+  const a = $('portalThing').animate([{ transform: 'none' }, { transform: `translate(${dx}px, ${dy}px) scale(${scale})` }], { duration: PORTAL.fly, easing: 'cubic-bezier(.45, 0, .55, 1)', fill: 'forwards' });
+  a.onfinish = land;
+}
+
+// The portal goes and the cleared screen's pick rises in its place.
+function closePortal() {
+  const el = $('portal');
+  const done = () => {
+    if (el.hidden) return;
+    stopPortal();
+    el.hidden = true;
+    el.classList.remove('ready');
+    $('portalThing').style.visibility = '';
+    app.portalPick = null;
+    showLevelEnd();
+    risePick();
+  };
+  if (reduceMotion) { done(); return; }
+  el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: PORTAL.leave, easing: 'ease-out', fill: 'forwards' }).onfinish = done;
+}
+
+function risePick() {
+  const end = $('levelEnd');
+  const rise = (node, start, dy) => node && node.animate(reduceMotion ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${dy}px) scale(.97)` }, { opacity: 1, transform: 'none' }], { duration: reduceMotion ? 200 : 300, delay: reduceMotion ? 0 : start, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'backwards' });
+  rise(end.querySelector('.up-head'), 0, 6);
+  rise(end.querySelector('.up-sub'), 0, 6);
+  end.querySelectorAll('.up').forEach((b, k) => {
+    rise(b, 120 + 60 * k, 24);
+    if (!reduceMotion) setTimeout(() => ringNote(k + 3, 0.25), 120 + 60 * k); // the upgrades land softly, as after the win
+  });
+  rise($('endAct'), 300, 0);
+}
+
+// ---------- the gallery (portals spec, step 3b; MODE3-PLAN §56) ----------
+// Every thing of the game in one grid, the ones this device has seen in a portal or bought in their colours, the rest a
+// dark shape with no words; the line under it says what a tapped one is. It opens from How (the title screen of the spec
+// is gone since 11.11.2026). What a find changes is the shop's shelf in later runs (things3.js shopPool).
+function openGallery() {
+  app.galleryPick = null;
+  renderGallery();
+  $('gallery').hidden = false;
+  fitGallery();
+  document.fonts.ready.then(fitGallery);
+}
+
+function renderGallery() {
+  const found = new Set(S().gallery || []);
+  const pick = app.galleryPick;
+  $('galleryCount').textContent = `${CATALOGUE.filter((t) => found.has(t.id)).length} / ${CATALOGUE.length}`;
+  $('galleryGrid').innerHTML = CATALOGUE.map((t, k) => {
+    const known = found.has(t.id) && THINGS[t.id];
+    return `<button type="button" class="${known ? 'found' : 'unfound'}${pick === k ? ' on' : ''}" data-k="${k}" aria-label="${known ? sentence(THINGS[t.id].name) : 'Not found yet'}">${sigil(t.id)}</button>`;
+  }).join('');
+  const t = pick === null ? null : CATALOGUE[pick];
+  const known = t && found.has(t.id) && THINGS[t.id];
+  $('galleryLine').innerHTML = !t ? '<small>THINGS SEEN IN PORTALS AND SHOPS</small>'
+    : known ? `<b>${sentence(THINGS[t.id].name)}</b><em>${ruleOf(t.id, 1)}</em>` : '<small>NOT FOUND YET</small>';
+}
+
+function galleryTap(e) {
+  const b = e.target.closest('[data-k]');
+  if (!b) return;
+  const k = Number(b.dataset.k);
+  app.galleryPick = app.galleryPick === k ? null : k;
+  renderGallery();
+}
+
+// The places as large as the grid's room lets them be, in the number of columns that makes them largest, 44 px at least
+// (a window too low for that scrolls the grid) and 80 at most; 4 px apart on a phone, so 59 of them fit its height.
+function fitGallery() {
+  const grid = $('galleryGrid');
+  if ($('gallery').hidden || !grid.clientWidth) return;
+  const k = parseFloat(document.documentElement.style.getPropertyValue('--k')) || 1;
+  const gap = Math.max(4, Math.round(4 * k));
+  const n = CATALOGUE.length;
+  const W = grid.clientWidth;
+  const H = grid.clientHeight;
+  let best = { s: 0, c: 1 };
+  for (let c = 1; c <= n; c++) {
+    const r = Math.ceil(n / c);
+    const s = Math.min((W - (c - 1) * gap) / c, (H - (r - 1) * gap) / r);
+    if (s > best.s) best = { s, c };
+  }
+  let { c } = best;
+  let cell = Math.floor(Math.min(best.s, 80 * k));
+  if (cell < 44) { cell = 44; c = Math.max(1, Math.floor((W + gap) / (44 + gap))); }
+  grid.classList.toggle('scrolls', Math.ceil(n / c) * (cell + gap) - gap > H + 0.5);
+  grid.style.setProperty('--cols', String(c));
+  grid.style.setProperty('--cell', `${cell}px`);
+  grid.style.setProperty('--gap', `${gap}px`);
 }
 
 // ---------- the best runs: the shared table on Playgama, this device's runs elsewhere (board.js) ----------
@@ -1430,14 +1781,14 @@ function renderCounter() {
   // the sum of its dice × the combination's multiplier (owner, 02.11.2026); with a bonus on, the whole
   // multiplier on a lime sticker (Figma 1308:3041: 12 ×6 for a ×3 combination and a ×2 bonus): its lime a layer of its
   // own under the letters, or the number's lime covers the × before it (owner, 11.11.2026: «x должно быть видно»)
-  els.bones.innerHTML = h ? `${h.base}<small><i>×</i>${h.mult}</small>` : '0';
+  els.bones.innerHTML = h ? `${h.base}<small><i>×</i>${h.mult}${h.pct ? ` +${h.pct}%` : ''}</small>` : '0'; // a thing's percent where it counts (MODE3-PLAN §54)
   if (bonus) { const x = `<small>×</small>${h.mult * h.bonusMult}`; els.multSticker.innerHTML = `<span class="pad" aria-hidden="true">${x}</span><span class="ink">${x}</span>`; }
   els.handStat.classList.toggle('on', bonus);
   // the desktop (Figma 1287:1641): the hand's total, and below the numbers its dice, its name and its whole multiplier
   $('handTotal').textContent = String(h ? h.total : 0);
   $('handDice').innerHTML = h ? h.faces.slice().sort((x, y) => x - y).map((v) => guideDie(v)).join('') : '';
   $('handName').textContent = h ? h.label : '';
-  $('handMult').textContent = h ? `MULTI ×${h.mult * h.bonusMult}` : '';
+  $('handMult').textContent = h ? `MULTI ×${h.mult * h.bonusMult}${h.pct ? ` +${h.pct}%` : ''}` : '';
   $('handRow').classList.toggle('on', bonus);
 }
 
@@ -1556,11 +1907,69 @@ function render() {
   for (let i = 0; i < 9; i++) renderCell(i);
   renderHud();
   renderBank();
+  renderPocket();
   if (M().id === 'auto') renderCounter();
   renderControls();
   renderPath();
   renderPreview();
   renderHeldFire();
+}
+
+// The pocket (portals plan, step 2; MODE3-PLAN §54): the run's things in a row under the buttons, the panel's last row on
+// the desktop. Pictures only, no frame, no words, no stars: none while it is empty, so the owner's base stays as it is
+// until a thing comes. A tap opens a thing's sheet; a thing that changed a count lights up (pulseThings).
+function renderPocket() {
+  const st = S();
+  const el = $('pocket');
+  const things = M().id === 'auto' ? st.pocket || [] : [];
+  const key = things.map((t) => `${t.id}:${t.stars}`).join(',');
+  if (el.dataset.key !== key) {
+    el.innerHTML = things.map((t) => `<button class="thing" type="button" data-thing="${t.id}" aria-label="${sentence(THINGS[t.id].name)}">${sigil(t.id)}</button>`).join('');
+    el.dataset.key = key;
+  }
+  if (el.hidden !== !things.length) {
+    el.hidden = !things.length;
+    fitBoard(); // a row more in the phone's column
+  }
+}
+
+// A thing that changed a count lights up for 350 ms where it lies (the spec); nothing flies, and its number is where it
+// counts: the sum and the multiplier on the counter, its percent beside them, its bells on the receipt.
+function pulseThings(ids) {
+  for (const id of new Set(ids || [])) {
+    const el = $('pocket').querySelector(`[data-thing="${id}"]`);
+    if (!el) continue;
+    el.classList.remove('pulse');
+    void el.offsetWidth;
+    el.classList.add('pulse');
+  }
+}
+
+// A thing's sheet: its picture, its name with its stars, its rule at those stars.
+function openThingSheet(id) {
+  const t = (S().pocket || []).find((x) => x.id === id);
+  if (!t) return;
+  $('thingSheetArt').innerHTML = sigil(id);
+  $('thingSheetName').innerHTML = `${sentence(THINGS[id].name)}${t.stars > 1 ? ` <span class="stars">${'★'.repeat(t.stars)}</span>` : ''}`;
+  $('thingSheetRule').textContent = sentence(ruleOf(id, t.stars));
+  $('thingSheet').hidden = false;
+}
+
+// ?dev: the things from level 1, the spec's owner check: the next thing not yet carried, else a star; a full pocket gives
+// up its first place. It works on the level being played.
+function giveThing() {
+  const st = S();
+  if (M().id !== 'auto' || !st.game) return;
+  const ids = Object.keys(THINGS);
+  const id = ids.find((x) => !starsOf(st.pocket, x)) || ids.find((x) => starsOf(st.pocket, x) < MAX_STARS);
+  if (!id) return;
+  const r = takeThing(st.pocket, id, pocketPlaces(st.levelIndex), 0);
+  if (!r.ok) return;
+  st.pocket = r.pocket;
+  st.game.level.things = st.pocket.map((t) => ({ ...t }));
+  render();
+  persist(true);
+  toast(`${THINGS[id].name} ${'★'.repeat(r.star)}`, 'hint');
 }
 
 // The bonus bank above the board (owner, 02.11.2026): the bonuses this level started with from earlier
@@ -1758,11 +2167,13 @@ function showReveal(hand, { remaining = Infinity } = {}) {
   r.querySelector('.cat').textContent = hand.label;
   const pipsOn = S().settings.scoreTable === 'pips' && hand.formula && hand.points > 0;
   const base = pipsOn ? hand.formula : String(hand.points);
-  const full = hand.multiplier > 1 ? `${base} ×${hand.multiplier}${hand.bonusAuto ? ' AUTO' : ''}` : (pipsOn ? base : '');
+  const plus = hand.pct ? ` +${hand.pct}%` : ''; // a thing's percent, after the cards
+  const full = hand.multiplier > 1 ? `${base} ×${hand.multiplier}${hand.bonusAuto ? ' AUTO' : ''}${plus}` : (pipsOn || plus ? `${base}${plus}` : '');
   // Auto Hand builds the total in visible steps: the combination first, then the bonus dice hit.
   const auto = M().id === 'auto';
   const staged = auto && hand.multiplier > 1 && !reduceMotion;
   const rung = ringHand(hand);
+  pulseThings(hand.things); // the things that changed its count light up where they lie
   if (!reduceMotion) rung.forEach((i, k) => els.cells[i].animate([{ transform: 'none' }, { transform: 'scale(1.06)', offset: 0.35 }, { transform: 'none' }], { duration: 160, delay: k * RING_STEP * 1000, composite: 'add' })); // each die answers its note
   if (hand.multiplier > 1 && !staged) sfx('mult'); // a staged bonus sounds when it hits
   const fire = auto && remaining > 0 && hand.total >= remaining;
@@ -2112,7 +2523,6 @@ async function attemptBank(path, source) {
     els.rerollBtn.classList.add('bump');
     sfx('refund');
     sfx('bird', { at: 0.14 });
-    if ((g.level.charms || []).includes('echo_thimble')) sfx('bird', { at: 0.44, vol: 0.6 }); // ECHO THIMBLE: the second reroll is its echo
   }
   renderPath();
   setPreview(`${hand.label} +${hand.total}`, 'good');
@@ -2196,6 +2606,87 @@ function restCard(el) {
   el.classList.remove('acting');
 }
 
+// A played card bends space round it as its hero begins (owner, 13.11.2026: «На карту, да»; Upwell's air jump's bend,
+// «При повторном прыжке сделай на 0,5 секунды фильтр искривления пространства»): a wave of liquid glass runs out of the
+// card across the board and bends what it passes, while the dice never move (owner, on a first cut that pushed them: «Это
+// не искажение пространства, которое визуально видно, а просто волна сдвига. Я прошу добавить не сдвиг, а пробегающую
+// волну по полю, которая искривляет эффектом, словно пробегающее жидкое стекло. При этом кубики не двигаются»). Upwell
+// bends its frame pixel by pixel, by d/r · A · exp(−((r − R)/σ)²); a page has no frame, and an SVG displacement filter left
+// black frames on an iPhone (Playgama MCP's finding). So the board's cells are copied into layers over it, each seen only
+// through a band round the card (a radial mask) and scaled about the card by as much as bends that band outward. The bands
+// nest, widest first, each nearer the wave's middle and bent more (TERRACES: half width in σ, bend in A), so every point of
+// the glass shows one copy and the board itself shows only past its edge: a soft mask over the board left a second, still
+// image behind the bent one. A faint light runs on the glass's outer edge. The acting cards stay out of the copies and
+// over them, and so do the fire and the throw. A card's ×N bends harder (the digest: an effect measures what was earned);
+// none under «reduce motion».
+const BEND = { ms: 600, from: 0.4, to: 3.2, sigma: 0.25, push: 0.12, perMult: 0.015, attack: 0.12, feather: 0.15, rim: 0.12 }; // lengths in board pitches
+const TERRACES = [2, 1.4, 1, 0.65, 0.3].map((h, k, all) => ({ h, d: Math.exp(-(((h + (all[k + 1] || 0)) / 2) ** 2)) }));
+const bends = [];
+function bendFrom(card, mult = 1) {
+  if (reduceMotion || !card) return;
+  const box = els.board.getBoundingClientRect();
+  const centre = (el) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2 - box.left, r.top + r.height / 2 - box.top]; };
+  const [x, y] = centre(card);
+  const cells = els.cells.map(centre);
+  const pitch = Math.hypot(cells[1][0] - cells[0][0], cells[1][1] - cells[0][1]);
+  const far = Math.max(...cells.map(([cx, cy]) => Math.hypot(cx - x, cy - y))) / pitch; // a bank card's wave crosses the whole board too
+  const margin = Math.round(0.5 * pitch); // room for what the glass bends past the board's edge
+  const grid = getComputedStyle(els.board);
+  const glass = document.createElement('div');
+  glass.className = 'bend';
+  glass.setAttribute('aria-hidden', 'true'); // a picture of the board, read once (the board's own cells are its direct children)
+  glass.style.inset = `${-margin}px`;
+  const rings = TERRACES.map(() => {
+    const ring = document.createElement('div');
+    ring.className = 'bend-ring';
+    const copy = document.createElement('div');
+    copy.className = 'bend-copy';
+    Object.assign(copy.style, { left: `${margin}px`, top: `${margin}px`, width: `${box.width}px`, height: `${box.height}px`, gridTemplateColumns: grid.gridTemplateColumns, gridTemplateRows: grid.gridTemplateRows, gap: grid.gap, transformOrigin: `${x}px ${y}px` });
+    for (const cell of els.cells) {
+      const c = cell.cloneNode(true);
+      c.querySelectorAll('.act-img').forEach((el) => el.remove());
+      if (cell.classList.contains('acting')) c.style.visibility = 'hidden'; // the acting card stays over the glass, as it is
+      copy.append(c);
+    }
+    ring.append(copy);
+    glass.append(ring);
+    return { ring, copy };
+  });
+  const rim = document.createElement('div');
+  rim.className = 'bend-rim';
+  glass.append(rim);
+  els.board.append(glass);
+  bends.push({ x: x + margin, y: y + margin, pitch, to: Math.max(BEND.to, far + 0.5), push: (BEND.push + BEND.perMult * (mult - 1)) * pitch, t0: null, glass, rings, rim }); // timed from its first frame: PLAY's own work may hold the first ones
+  if (bends.length === 1) requestAnimationFrame(bendFrame);
+}
+function bendFrame() {
+  const now = performance.now();
+  for (const b of bends) if (b.t0 === null) b.t0 = now;
+  for (let k = bends.length - 1; k >= 0; k--) if (now - bends[k].t0 >= BEND.ms) { bends[k].glass.remove(); bends.splice(k, 1); }
+  for (const b of bends) {
+    const u = (now - b.t0) / BEND.ms;
+    const fade = Math.min(1, u / BEND.attack) * (1 - u); // the glass comes up over its first 70 ms and thins out to the end
+    const R = (BEND.from + u * (b.to - BEND.from)) * b.pitch;
+    const s = BEND.sigma * b.pitch;
+    const f = BEND.feather * s;
+    const px = (n) => `${Math.max(0, n).toFixed(1)}px`;
+    b.rings.forEach(({ ring, copy }, k) => {
+      const { h, d } = TERRACES[k];
+      copy.style.transform = `scale(${(1 + (b.push * fade * d) / Math.max(1, R)).toFixed(5)})`;
+      const mask = `radial-gradient(circle at ${b.x}px ${b.y}px, transparent ${px(R - h * s - f)}, #000 ${px(R - h * s + f)}, #000 ${px(R + h * s - f)}, transparent ${px(R + h * s + f)})`;
+      ring.style.webkitMaskImage = mask;
+      ring.style.maskImage = mask;
+    });
+    const edge = R + TERRACES[0].h * s;
+    b.rim.style.background = `radial-gradient(circle at ${b.x}px ${b.y}px, transparent ${px(edge - 0.4 * s)}, rgba(255, 255, 255, ${(BEND.rim * fade).toFixed(3)}) ${px(edge)}, transparent ${px(edge + 0.4 * s)})`;
+  }
+  if (bends.length) requestAnimationFrame(bendFrame);
+}
+function stopBend() {
+  for (const b of bends) b.glass.remove();
+  bends.length = 0;
+}
+
 // The cards a hand used act in that state, and the board waits for their heroes; any tap skips (owner, 11.11.2026:
 // «Ждать конца»). Resolves with the cards, which keep the state until they have made way.
 function playedActs(hand) {
@@ -2203,9 +2694,10 @@ function playedActs(hand) {
   const actors = used.filter((i, k) => cardArt(i) && actMs(hand.bonuses[k]));
   const cards = reduceMotion ? [] : actors.map((i) => cardArt(i).parentElement);
   cards.forEach(actingCard);
+  cards.forEach((card, k) => bendFrom(card, BONUS_KINDS[hand.bonuses[used.indexOf(actors[k])]].mult)); // its hero bends space round it
   const acts = actors.map((i) => heroAct(i, hand.bonuses[used.indexOf(i)]));
   if (!acts.length) return Promise.resolve(cards);
-  const skip = (e) => { if (e.isPrimary === false) return; app.skipUntil = performance.now() + 300; stopActs(); };
+  const skip = (e) => { if (e.isPrimary === false) return; app.skipUntil = performance.now() + 300; stopActs(); stopBend(); }; // the dice fly at once, from their places
   addEventListener('pointerdown', skip, true);
   return Promise.all(acts).then(() => { removeEventListener('pointerdown', skip, true); return cards; });
 }
@@ -2251,6 +2743,7 @@ function playWin(hand, g0) {
   rv.className = 'reveal win fire';
   if (app.fire && FIRE_HANDS.has(hand.category)) app.fire.flare(); // the burning dice flare up with the win
   const rung = ringHand(hand);
+  pulseThings(hand.things);
   countUp($('target'), remaining(g0.score, g0), 0, 0, 500);
   setPreview(`${hand.label} +${hand.total}`, 'good');
 
@@ -2266,6 +2759,7 @@ function playWin(hand, g0) {
     actingCard(cardEl(i));
     moved.push(cardEl(i));
     heroAct(i, kindOf(i));
+    bendFrom(cardEl(i), BONUS_KINDS[kindOf(i)].mult); // its hero bends space round it, as in any hand
   }));
   // the dice of the hand rise with it; with no card, they hop together instead
   const dice = rung.map((i) => els.cells[i]); // each rises on its note
@@ -2400,6 +2894,7 @@ function playWin(hand, g0) {
     end.classList.remove('playing', 'waiting');
     app.endPlaying = false;
     app.busy = false;
+    if (portalPending()) playPortal(); // a beaten keeper's portal, after the bells and before the pick
     if (app.sheetQueue.length && $('bonusSheet').hidden) showBonusSheet(app.sheetQueue.shift()); // a sheet that waited
   }
 }
@@ -2761,7 +3256,7 @@ function openGuide() {
   // How says the one rule no screen shows in words since the card's sheet lost its line (audit, 09.11.2026)
   $('holdNote').innerHTML = 'PLAY THROWS EVERY DIE ANEW<br>A REROLL CLEARS HOLDS AND SWITCHES CARDS OFF';
   // How opens on what the run holds, once it holds anything; the rules follow it
-  const run = S().bells > 0 || S().charms.length > 0 || !!S().game.level.boss;
+  const run = S().bells > 0 || S().pocket.length > 0 || !!S().game.level.boss;
   if (run) renderRunFacts();
   const first = run ? 0 : 1;
   app.guide = { run, first, page: first };
@@ -2769,6 +3264,7 @@ function openGuide() {
   guide.classList.toggle('run', run);
   $('guideSkip').textContent = 'CLOSE';
   $('guideSettings').hidden = false;
+  $('guideGallery').hidden = M().id !== 'auto';
   showGuidePage(app.guide.page);
   guide.hidden = false;
 }
@@ -2786,7 +3282,7 @@ function renderRunFacts() {
     `<li class="fact-line">${[next.shop, next.boss, next.best].filter(Boolean).join(' · ')}</li>`,
     boss ? fact(`<i class="boss-face" style="--boss: var(--boss-${g.level.boss})"></i>`, 'KEEPER', titled(boss.name), boss.rule) : '',
     fact('<i class="bell"></i>', '', `<span class="sum">${st.bells}</span> BELLS`, '', `<small class="lines">${BELLS_RULE.map((line) => `<span>${line}</span>`).join('')}</small>`),
-    ...st.charms.map((id) => fact(sigil(id), '', sentence(CHARMS[id].name), CHARMS[id].rule)),
+    ...st.pocket.map((t) => fact(sigil(t.id), t.stars > 1 ? '★'.repeat(t.stars) : '', sentence(THINGS[t.id].name), ruleOf(t.id, t.stars))),
   ].join('');
 }
 
@@ -2947,6 +3443,7 @@ function bind() {
   board.addEventListener('lostpointercapture', (e) => { if (app.gesture && app.gesture.id === e.pointerId) onPointerCancel(e); });
   board.addEventListener('contextmenu', (e) => e.preventDefault());
   board.addEventListener('keydown', (e) => {
+    if (!$('bossCard').hidden) return; // the keeper's notification holds the screen
     const cell = e.target.closest && e.target.closest('.cell');
     if (!cell) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(Number(cell.dataset.index)); }
@@ -2981,11 +3478,17 @@ function bind() {
     setTimeout(go, PICK_MS);
   });
   $('shop').addEventListener('click', shopTap);
+  $('portalTake').addEventListener('click', portalTake);
+  $('portalLeave').addEventListener('click', portalLeave);
+  $('portalPocket').addEventListener('click', portalPlace);
   $('shopLeave').addEventListener('click', (e) => { e.stopPropagation(); leaveShop(); });
   // a press holds the card up and its click sends it away: gone sooner, the click would land on the button under it
-  $('bossCard').addEventListener('click', bossLeaves);
-  $('bossCard').addEventListener('pointerdown', () => { clearTimeout(app.bossTimer); $('bossCard').classList.remove('show', 'leaving'); }); // nor does it go under the finger
-  for (const type of ['pointerup', 'pointercancel']) $('bossCard').addEventListener(type, () => { app.bossTimer = setTimeout(bossLeaves, 300); });
+  const leaving = () => $('bossCard').classList.contains('leaving'); // once it goes, a press holds it no more: a quick second tap would bring it back
+  for (const el of [$('bossCard'), $('bossCover')]) { // a tap on it or anywhere on its cover sends it away
+    el.addEventListener('click', bossLeaves);
+    el.addEventListener('pointerdown', () => { if (leaving()) return; clearTimeout(app.bossTimer); $('bossCard').classList.remove('show', 'leaving'); }); // nor does it go under the finger
+    for (const type of ['pointerup', 'pointercancel']) el.addEventListener(type, () => { if (!leaving()) app.bossTimer = setTimeout(bossLeaves, 300); });
+  }
   $('runsBtn').addEventListener('click', openRuns);
   $('runsClose').addEventListener('click', () => { $('runsSheet').hidden = true; });
   $('bank').addEventListener('click', (e) => {
@@ -3008,10 +3511,16 @@ function bind() {
   $('resetBtn').addEventListener('click', resetProgress);
   $('nextBtn').addEventListener('click', onNext);
   $('retryBtn').addEventListener('click', onRetry);
+  $('pocket').addEventListener('click', (e) => { const b = e.target.closest('[data-thing]'); if (b && !app.busy) openThingSheet(b.dataset.thing); });
+  $('thingSheet').addEventListener('click', (e) => { if (e.target === e.currentTarget || e.target.closest('#thingSheetOk')) $('thingSheet').hidden = true; });
+  $('giveThingBtn').addEventListener('click', giveThing);
   $('bonusSheet').addEventListener('click', (e) => { if ((e.target === e.currentTarget || e.target.closest('#bonusSheetTile, #bonusSheetOk')) && performance.now() - app.sheetAt > 500) closeBonusSheet(); });
   $('guideNext').addEventListener('click', guideNext);
   $('guideSkip').addEventListener('click', guideGone);
   $('guideSettings').addEventListener('click', () => { guideGone(); openHelp(); });
+  $('guideGallery').addEventListener('click', () => { guideGone(); openGallery(); });
+  $('galleryGrid').addEventListener('click', galleryTap);
+  $('galleryClose').addEventListener('click', () => { $('gallery').hidden = true; });
   let swipeX = null; // swiping the guide turns its pages
   $('guide').addEventListener('pointerdown', (e) => { swipeX = e.clientX; });
   $('guide').addEventListener('pointerup', (e) => {
@@ -3022,13 +3531,14 @@ function bind() {
   });
   $('tutorialBtn').addEventListener('click', () => { if (app.busy) return; $('help').hidden = true; coachStart('help'); });
   window.addEventListener('keydown', (e) => {
+    if (!$('bossCard').hidden) { if (e.key === 'Enter' || e.key === ' ') e.preventDefault(); return; } // nor do keys play under it
     if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
     if (M().id !== 'auto') { // the old modes' keys: Auto Hand never marks its hand (owner, 01.11.2026), and its REROLL is the button
       if (e.key === 'r' || e.key === 'R') doReroll('key');
       if (e.key === 'h' || e.key === 'H') onHint();
     }
   });
-  const refit = () => { fitBoard(); fitOverlays(); };
+  const refit = () => { fitBoard(); fitOverlays(); fitPortal(); fitGallery(); };
   window.addEventListener('resize', refit);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', refit);
   if (typeof ResizeObserver === 'function') {

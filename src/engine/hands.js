@@ -46,11 +46,42 @@ export function classifyExact(faces) {
   return null;
 }
 
-// The sum of a hand's dice under a charm's or a keeper's rules. Faces still decide the combination. A keeper's ones add
-// nothing whatever a charm says (ones: 0, THE GOLDEN BONES); CROOKED PIP counts a natural one as six.
-function sumOf(picked, jokerFaces, r) {
-  const pip = (f, natural) => (f === 1 && r.ones === 0 ? 0 : f === 1 && natural && r.ones ? r.ones : f === 6 && r.sixes === 0 ? 0 : f);
-  return picked.reduce((s, d) => s + pip(d.face, true) + (d.held ? r.heldAdd || 0 : 0), 0) + jokerFaces.reduce((s, f) => s + pip(f, false), 0) + (r.sumAdd || 0);
+export const CENTER = 4; // the board's middle cell (three rows of three, cells 0–8)
+
+// The sum of a hand's faces (dice and jokers alike) under the pocket's things and a keeper's rules, in the spec's order:
+// each face and the additions to it (a keeper's zero beats them) and to its cell (the middle die's, whatever its face
+// adds), then the hand's additions (its jokers and cards among them), then the keeper's toll, never below zero. Faces
+// still decide the combination. `center`: the index in `faces` of the die in the middle cell, or -1. `used` collects the
+// things that changed it.
+function sumOf(faces, r, used, { center = -1, jokers = 0, cards = 0 } = {}) {
+  const zero = (f) => (f === 1 && r.ones === 0) || (f === 6 && r.sixes === 0);
+  let sum = 0;
+  faces.forEach((f, k) => {
+    if (k === center) for (const a of r.cells || []) { sum += a.n; used.add(a.id); }
+    if (zero(f)) return;
+    sum += f;
+    for (const a of r.faces || []) if (a.face === f) { sum += a.n; used.add(a.id); }
+  });
+  for (const a of r.adds || []) {
+    if (a.when === 'any' || (a.when === 'five' && faces.length === 5) || (a.when === 'has' && faces.includes(a.face))) { sum += a.n; used.add(a.id); }
+  }
+  if (jokers) for (const a of r.jokers || []) { sum += a.n * jokers; used.add(a.id); }
+  if (cards) for (const a of r.cards || []) { sum += a.n * cards; used.add(a.id); }
+  return Math.max(0, sum + (r.sumAdd || 0));
+}
+
+// What the things add to each card the hand uses (card_up): ALL SEEING every card, BRAIN BOOST the level's first cards,
+// PATIENT BEADS its first card from the bank; multipliers before REFUND, in board order. A joker has no number to raise
+// and is never among them. +4 at most on one card (the spec's limit).
+function raisesOf(applied, r, used) {
+  const up = applied.map(() => 0);
+  const order = applied.map((b, k) => k).sort((a, b) => Number(!!BONUS_KINDS[applied[a].kind].refund) - Number(!!BONUS_KINDS[applied[b].kind].refund));
+  for (const u of r.raise || []) {
+    const ks = u.which === 'all' ? order : u.which === 'first' ? order.slice(0, u.count) : order.filter((k) => applied[k].bank).slice(0, 1);
+    for (const k of ks) up[k] += u.n;
+    if (ks.length) used.add(u.id);
+  }
+  return up.map((n) => Math.min(4, n));
 }
 
 const better = (a, b) => {
@@ -64,7 +95,8 @@ const better = (a, b) => {
   return ka < kb;
 };
 
-// dice: [{ cell, face, held }]; bonuses: [{ cell, kind }] that are on and may be used.
+// dice: [{ cell, face, held }]; bonuses: [{ cell, kind, bank }] that are on and may be used (`bank`: it came from the
+// bank, for PATIENT BEADS).
 // Returns the best hand or null when the board holds no combination.
 // Options are for balance experiments only; without them the rules above apply. stacking:
 // 'add' (rules, owner 01.11.2026), 'multiply' (the first rule: ×2 · ×3 = ×6) or 'single' (only
@@ -72,9 +104,11 @@ const better = (a, b) => {
 // affected. table { base, mult }: score = (category base + pip sum) × mult. straightMult:
 // multiplier of the straight (5 = the Poker 5 table). ups { category: n }: the run's upgrades, +n to that
 // combination's multiplier (owner, 02.11.2026: after a won level the player picks one of three to upgrade). rules:
-// what the run's charms and a keeper change in the count (`handRules` in auto.js): ones, what a natural 1 adds to the
-// sum (0: every one); sixes, what a six adds; heldAdd, the extra for each held die of the hand; sumAdd, the extra on the
-// sum; half, the combinations whose multiplier halves; halfSum, the sum halves (rounding up).
+// what the pocket's things and a keeper change in the count (`handRules` in auto.js, `thingRules` in things3.js): adds,
+// faces, cells, jokers, cards, ups, raise, pct, the things' (each names its thing); ones and sixes, 0 when a keeper
+// zeroes them; sumAdd, the keeper's toll on the sum; half, the combinations whose multiplier halves; halfSum, the sum
+// halves (rounding up). A hand names the things that changed its count (`things`), its percent (`pct`) comes after the
+// cards, rounding down, and `refund` is the rerolls its REFUND cards give back.
 export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, straightMult = null, ups = null, rules = null } = {}) {
   const jokers = bonuses.filter((b) => BONUS_KINDS[b.kind].wild).map((b) => b.cell);
   const mults = bonuses.filter((b) => !BONUS_KINDS[b.kind].wild);
@@ -94,16 +128,27 @@ export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, s
         const faces = [...picked.map((d) => d.face), ...jokerFaces];
         const category = classifyExact(faces);
         if (!category) continue;
-        // STONE RIBBON adds to the five-die hands; THE EATER's toll can take a small hand's sum to nothing, never below
-        const sum = rules ? Math.max(0, sumOf(picked, jokerFaces, rules) + (rules.fiveAdd && faces.length === 5 ? rules.fiveAdd : 0)) : faces.reduce((s, f) => s + f, 0) + (table ? table.base[category] : 0);
-        const base = rules && rules.halfSum ? Math.ceil(sum / 2) : sum; // THE GOLDEN KNIGHT's first hand: the counter shows the halved sum
-        const full = multOf[category] + ((ups && ups[category]) || 0);
-        const mult = rules && rules.half && rules.half.includes(category) ? Math.ceil(full / 2) : full; // OLD HORNS halves it, rounding up: never ×4.5 on the counter
         const fitting = mults.filter((b) => BONUS_KINDS[b.kind].fits(category, faces));
         const applied = stacking === 'single' && fitting.length > 1 ? [fitting.reduce(largest)] : fitting;
+        const used = new Set();
+        // THE EATER's toll can take a small hand's sum to nothing, never below
+        const sum = rules
+          ? sumOf(faces, rules, used, { center: picked.findIndex((d) => d.cell === CENTER), jokers: j, cards: applied.length + j })
+          : faces.reduce((s, f) => s + f, 0) + (table ? table.base[category] : 0);
+        const base = rules && rules.halfSum ? Math.ceil(sum / 2) : sum; // THE GOLDEN KNIGHT's first hand: the counter shows the halved sum
+        let full = multOf[category] + ((ups && ups[category]) || 0);
+        const fiveHeld = picked.length === 5 && picked.every((d) => d.held); // SOLID HOLD's hand
+        for (const u of (rules && rules.ups) || []) if ((!u.category || u.category === category) && (!u.held || fiveHeld)) { full += u.n; used.add(u.id); }
+        const mult = rules && rules.half && rules.half.includes(category) ? Math.ceil(full / 2) : full; // OLD HORNS halves it, rounding up: never ×4.5 on the counter
+        let pct = 0;
+        for (const p of (rules && rules.pct) || []) { pct += p.n; used.add(p.id); }
+        // a card's number, raised by the things: a multiplier counts higher, REFUND gives more rerolls back (+1 AS +2)
+        const raise = rules ? raisesOf(applied, rules, used) : applied.map(() => 0);
+        const own = (b, k) => (BONUS_KINDS[b.kind].refund ? 1 : BONUS_KINDS[b.kind].mult + raise[k]);
         const bonusMult = stacking === 'add'
-          ? applied.reduce((m, b) => m + BONUS_KINDS[b.kind].mult - 1, 1)
-          : applied.reduce((m, b) => m * BONUS_KINDS[b.kind].mult, 1);
+          ? applied.reduce((m, b, k) => m + own(b, k) - 1, 1)
+          : applied.reduce((m, b, k) => m * own(b, k), 1);
+        const refund = applied.reduce((n, b, k) => n + (BONUS_KINDS[b.kind].refund ? BONUS_KINDS[b.kind].refund + raise[k] : 0), 0);
         const cand = {
           cells: picked.map((d) => d.cell),
           faces,
@@ -117,8 +162,11 @@ export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, s
           points: Math.floor(base * mult),
           formula: `${base} × ${mult}`,
           bonusMult,
-          total: Math.floor(base * mult) * bonusMult,
+          refund,
+          pct,
+          total: Math.floor((Math.floor(base * mult) * bonusMult * (100 + pct)) / 100),
           heldBurned: picked.filter((d) => d.held).length,
+          things: [...used],
         };
         if (!best || better(cand, best)) best = cand;
       }

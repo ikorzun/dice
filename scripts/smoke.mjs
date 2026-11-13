@@ -31,7 +31,7 @@ const rgba = (s) => {
 };
 
 async function center(page, index) {
-  return page.$eval(`#board .cell[data-index="${index}"]`, (el) => {
+  return page.$eval(`#board > .cell[data-index="${index}"]`, (el) => {
     const r = el.getBoundingClientRect();
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   });
@@ -57,6 +57,43 @@ const idle = (page) => page.waitForFunction(() => !window.__diceSnake.app.busy, 
 const gotIt = async (page) => { await page.waitForTimeout(550); await page.click('#bonusSheetOk'); }; // a sheet answers half a second after it comes
 // the splash covers every start for 3 s (checked once, on the first page); elsewhere it goes at once
 const unsplash = async (page) => { await page.evaluate(() => window.__diceSnake.endSplash()); await page.waitForTimeout(350); };
+// The pick taken, the next level on the board, How and its GALLERY (MODE3-PLAN §56): the count says the device's finds,
+// each of them in its colours, the page does not scroll, and the places, the head, the line and CLOSE fit the window.
+async function galleryAfterPick(page, vp, shot) {
+  await page.evaluate(() => document.querySelector('#upList .up').click());
+  await page.waitForFunction(() => window.__diceSnake.state().game.phase === 'playing' && document.getElementById('levelEnd').hidden, null, { timeout: 6000 }).catch(() => note(vp, 'no level after the pick'));
+  for (let n = 0; n < 3; n++) { await page.waitForTimeout(1100); if (!(await page.$eval('#bonusSheet', (el) => el.hidden))) await gotIt(page); }
+  await idle(page);
+  await page.click('#helpBtn');
+  await page.waitForSelector('#guide:not([hidden])');
+  await page.click('#guideGallery');
+  await page.waitForSelector('#gallery:not([hidden])');
+  await page.waitForTimeout(200);
+  const g = await page.evaluate(() => {
+    const st = window.__diceSnake.state();
+    const tiles = [...document.querySelectorAll('#galleryGrid button')];
+    const box = document.getElementById('galleryGrid').getBoundingClientRect();
+    const cut = [...document.querySelectorAll('#gallery :is(h2, span, p, button)')].filter((e) => e.checkVisibility()).filter((e) => { const r = e.getBoundingClientRect(); return r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1; }).length;
+    return { count: document.getElementById('galleryCount').textContent, want: `${st.gallery.length} / 59`, n: st.gallery.length, found: tiles.filter((t) => t.classList.contains('found')).length, tiles: tiles.length, small: tiles.filter((t) => t.getBoundingClientRect().width < 43.5).length, scroll: document.scrollingElement.scrollHeight - innerHeight, below: tiles.filter((t) => t.getBoundingClientRect().bottom > box.bottom + 0.5).length, cut };
+  });
+  if (g.count !== g.want || !g.n || g.found !== g.n || g.tiles !== 59 || g.small || g.scroll > 1 || g.below || g.cut) note(vp, `the gallery: ${JSON.stringify(g)}`);
+  await page.screenshot({ path: shot });
+  await page.click('#galleryClose');
+}
+
+// Wins the level on the board with a threshold of 1: up to three hands, since a keeper's rule can bring a weak one to 0
+// (THE EATER takes 5 from every hand); true once it is won.
+async function winLevel(page) {
+  for (let k = 0; k < 3; k++) {
+    await idle(page);
+    const phase = await page.evaluate(() => { const st = window.__diceSnake.state(); if (st.game.phase === 'playing') { st.game.level.target = 1; document.getElementById('playBtn').click(); } return st.game.phase; });
+    if (phase !== 'playing') break;
+    await page.waitForFunction(() => window.__diceSnake.state().game.phase !== 'playing' || !window.__diceSnake.app.busy, null, { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(300);
+  }
+  await page.waitForFunction(() => window.__diceSnake.state().game.phase !== 'playing', null, { timeout: 5000 }).catch(() => {});
+  return page.evaluate(() => window.__diceSnake.state().game.phase === 'won');
+}
 
 // The play screen is the owner's base and nothing else (owner, 06.11.2026): every text on it outside the board.
 const BASE_TEXT = new Set(['bank', 'toast', 'levelStat', 'levelText', 'bonesLabel', 'bones', 'handTotal', 'multSticker', 'targetStat', 'target', 'playBtn', 'rerollBtn', 'helpBtn', 'handName', 'handMult']);
@@ -81,7 +118,7 @@ for (const vp of viewports) {
   // Blocked CDN resources (fonts, three.js) are expected offline; everything else is a problem.
   page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) note(vp, `console ${m.text()}`); });
   await page.goto(url);
-  await page.waitForSelector('#board .cell');
+  await page.waitForSelector('#board > .cell');
   // the splash (owner, 11.11.2026; Figma 1333:1876): over everything at every start, any hands and three things one
   // second each, the game held under it; 3 s later it is gone and the game goes on
   const splash = await page.evaluate(() => {
@@ -92,7 +129,7 @@ for (const vp of viewports) {
   if (!splash.shown || !splash.run || splash.things !== 3 || !splash.hands || !splash.held) note(vp, `the splash: ${JSON.stringify(splash)}`);
   // the first visit has no title and no guide (owner, 11.11.2026: «этого экрана нигде быть не должно, после него сразу
   // игровое поле»): under the splash the board waits with its tutorial and the ×2 card face down
-  const first = await page.evaluate(() => ({ guide: !document.getElementById('guide').hidden, title: !!document.getElementById('gameName'), tutorial: window.__diceSnake.state().coach.active, down: document.querySelector('#board .cell[data-index="8"]').classList.contains('face-down') }));
+  const first = await page.evaluate(() => ({ guide: !document.getElementById('guide').hidden, title: !!document.getElementById('gameName'), tutorial: window.__diceSnake.state().coach.active, down: document.querySelector('#board > .cell[data-index="8"]').classList.contains('face-down') }));
   if (first.guide || first.title || !first.tutorial || !first.down) note(vp, `the first visit under the splash: ${JSON.stringify(first)}`);
   await page.waitForFunction(() => document.getElementById('splash').hidden, null, { timeout: 4500 });
   if (await page.evaluate(() => window.__diceSnake.app.hostPaused)) note(vp, 'the game stayed held after the splash');
@@ -103,8 +140,8 @@ for (const vp of viewports) {
   const text = (sel) => page.$eval(sel, (el) => el.textContent);
   // after the splash the ×2 card turns over by itself (owner, 02.11.2026); a kind never seen brings its sheet a
   // second later, and the bonus stays off
-  await page.waitForFunction(() => !document.querySelector('#board .cell[data-index="8"]').classList.contains('face-down'), null, { timeout: 1500 }).catch(() => {});
-  const turning = await page.$eval('#board .cell[data-index="8"]', (e) => ({ cls: e.className, anim: getComputedStyle(e).animationName }));
+  await page.waitForFunction(() => !document.querySelector('#board > .cell[data-index="8"]').classList.contains('face-down'), null, { timeout: 1500 }).catch(() => {});
+  const turning = await page.$eval('#board > .cell[data-index="8"]', (e) => ({ cls: e.className, anim: getComputedStyle(e).animationName }));
   if (/face-down/.test(turning.cls) || !/^cardFlip\b/.test(turning.anim)) note(vp, `the ×2 card did not turn over by itself: ${JSON.stringify(turning)}`);
   await page.waitForFunction(() => !document.getElementById('bonusSheet').hidden, null, { timeout: 3000 }).catch(() => {});
   // no line about switching the card on in it (owner, 11.11.2026: «убери эту строку во всех попапах и на всех платформах»)
@@ -144,7 +181,7 @@ for (const vp of viewports) {
   const layout = await page.evaluate(() => {
     const d = document.documentElement;
     const box = (sel) => document.querySelector(sel).getBoundingClientRect();
-    return { wide: document.body.classList.contains('wide'), scrollW: d.scrollWidth, clientW: d.clientWidth, board: box('#board').width, cell: box('#board .cell').width, controlsBottom: box('.controls').bottom, counterTop: box('.counter').top, boardTop: box('#board').top, boardBottom: box('#board').bottom, panelTop: Math.min(box('.hud').top, document.getElementById('coach').hidden ? Infinity : box('#coach').top), play: box('#playBtn'), reroll: box('#rerollBtn') };
+    return { wide: document.body.classList.contains('wide'), scrollW: d.scrollWidth, clientW: d.clientWidth, board: box('#board').width, cell: box('#board > .cell').width, controlsBottom: box('.controls').bottom, counterTop: box('.counter').top, boardTop: box('#board').top, boardBottom: box('#board').bottom, panelTop: Math.min(box('.hud').top, document.getElementById('coach').hidden ? Infinity : box('#coach').top), play: box('#playBtn'), reroll: box('#rerollBtn') };
   });
   if (layout.scrollW > layout.clientW) note(vp, `horizontal overflow ${layout.scrollW}>${layout.clientW}`);
   if (layout.controlsBottom > vp.h + 0.5) note(vp, `buttons below viewport (${layout.controlsBottom.toFixed(0)} > ${vp.h})`);
@@ -173,20 +210,20 @@ for (const vp of viewports) {
   // die wears the lime «Tap» glow, and the counter and both buttons lie at 20 %
   const holdText = `${await text('#coachText')} / ${await text('#coachSub')}`;
   if (!/^Tap the [1-6] \/ a held die stays on reroll$/.test(holdText)) note(vp, `tutorial hold step: ${holdText}`);
-  const coachTarget = await page.$$eval('#board .cell.hint', (els) => els.map((e) => Number(e.dataset.index)));
+  const coachTarget = await page.$$eval('#board > .cell.hint', (els) => els.map((e) => Number(e.dataset.index)));
   if (coachTarget.length !== 1 || !a.hand.cells.includes(coachTarget[0])) note(vp, `tutorial hold target [${coachTarget}] should be one die of the hand [${a.hand.cells}]`);
   const dimmed = async () => (await page.waitForTimeout(200)) || page.evaluate(() => { // the buttons fade in 150 ms
     const o = (sel) => Number(getComputedStyle(document.querySelector(sel)).opacity);
     return { step: document.getElementById('app').dataset.coach || '', counter: o('#handStat'), play: o('#playBtn'), reroll: o('#rerollBtn') };
   });
-  const holdLook = { ...(await dimmed()), glow: await page.$eval('#board .cell.hint', (e) => { const g = getComputedStyle(e, '::before'); return { shadow: g.boxShadow, share: parseFloat(g.width) / e.getBoundingClientRect().width }; }) };
+  const holdLook = { ...(await dimmed()), glow: await page.$eval('#board > .cell.hint', (e) => { const g = getComputedStyle(e, '::before'); return { shadow: g.boxShadow, share: parseFloat(g.width) / e.getBoundingClientRect().width }; }) };
   // the desktop's counter shares the notification's tile and stays lit (Figma 1392:2866)
   if (holdLook.step !== 'hold' || holdLook.counter !== (layout.wide ? 1 : 0.2) || holdLook.play !== 0.2 || holdLook.reroll !== 0.2 || !/rgb\(192, 255, 71\).*inset|inset.*rgb\(192, 255, 71\)/.test(holdLook.glow.shadow) || Math.abs(holdLook.glow.share - 107 / 116) > 0.01) note(vp, `tutorial hold look: ${JSON.stringify(holdLook)}`);
   if (a.cells.filter((t) => t === 'die').length !== 8 || a.cells[8] !== 'bonus') note(vp, `level 1 layout: ${a.cells}`);
   // the hand is not marked on the board (owner, 01.11.2026): every die has the same pips and picture
-  const pipColors = await page.$$eval('#board .cell.die .face i', (els) => [...new Set(els.map((e) => getComputedStyle(e).backgroundColor))]);
+  const pipColors = await page.$$eval('#board > .cell.die .face i', (els) => [...new Set(els.map((e) => getComputedStyle(e).backgroundColor))]);
   if (pipColors.length !== 1) note(vp, `dice pips differ in colour: ${pipColors}`);
-  const pictures = await page.$$eval('#board .cell.die', (els) => els.map((e) => e.style.getPropertyValue('--die-img')));
+  const pictures = await page.$$eval('#board > .cell.die', (els) => els.map((e) => e.style.getPropertyValue('--die-img')));
   if (pictures.some((v) => /-hand/.test(v))) note(vp, `a die uses a hand picture: ${pictures}`);
   // the whole screen scales with the window: k fits the mockup's 393 × 597 px of rows (Figma 1285:1244: a 360 px
   // board on the phone; Figma 1287:1641: a 546 px board on the desktop)
@@ -205,7 +242,7 @@ for (const vp of viewports) {
   // REROLL keeps its face, then clears the hold (owner, 01.11.2026)
   const keep = coachTarget[0] ?? a.hand.cells[0];
   await tap(page, keep);
-  const heldLook = await page.$eval(`#board .cell[data-index="${keep}"]`, (e) => {
+  const heldLook = await page.$eval(`#board > .cell[data-index="${keep}"]`, (e) => {
     const frame = getComputedStyle(e, '::after');
     return { cls: e.className, img: e.style.getPropertyValue('--die-img'), tag: getComputedStyle(e.querySelector('.tag')).display, frame: frame.borderTopColor, width: parseFloat(frame.borderTopWidth), glow: frame.boxShadow };
   });
@@ -229,7 +266,7 @@ for (const vp of viewports) {
   // bonus cards start off: the tutorial asks to switch the ×2 on, then to play
   if (!a.off[8]) note(vp, 'the ×2 does not start switched off');
   // step 3 (Figma 1392:2485): the card to tap glows white within and in its colour under itself; both buttons at 20 %
-  const cardStep = { line: `${await text('#coachText')} / ${await text('#coachSub')}`, ...(await dimmed()), target: await page.$$eval('#board .cell.hint', (els) => els.map((e) => Number(e.dataset.index))), glow: await page.$eval('#board .cell[data-index="8"]', (e) => getComputedStyle(e, '::before').boxShadow) };
+  const cardStep = { line: `${await text('#coachText')} / ${await text('#coachSub')}`, ...(await dimmed()), target: await page.$$eval('#board > .cell.hint', (els) => els.map((e) => Number(e.dataset.index))), glow: await page.$eval('#board > .cell[data-index="8"]', (e) => getComputedStyle(e, '::before').boxShadow) };
   if (cardStep.line !== 'Tap the bonus card / then tap to play' || cardStep.step !== 'card' || cardStep.counter !== 1 || cardStep.play !== 0.2 || cardStep.reroll !== 0.2 || cardStep.target.join() !== '8' || !/rgb\(255, 255, 255\)/.test(cardStep.glow)) note(vp, `tutorial does not ask to switch the ×2 on: ${JSON.stringify(cardStep)}`);
   await tap(page, 8);
   if ((await auto()).off[8]) note(vp, 'tapping the turned card did not switch it on');
@@ -237,7 +274,7 @@ for (const vp of viewports) {
   // owner, 11.11.2026: «выделение не должно быть поверх рисунка. Сделай подсветку под выбранной картой», «у выбранной карты
   // используй подсветку на основе ее фонового цвета»; 12.11.2026: the tutorial's look for the whole game), and the hand's
   // name over its points turns lime
-  const on = await page.evaluate(() => ({ cell: document.querySelector('#board .cell[data-index="8"]').className, glow: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).filter, ground: getComputedStyle(document.querySelector('#board .cell[data-index="8"]')).backgroundColor, ring: getComputedStyle(document.querySelector('#board .cell[data-index="8"]'), '::after').content, sticker: document.querySelector('#multSticker .ink')?.textContent, whole: `×${window.__diceSnake.hint().hand.mult * window.__diceSnake.hint().hand.bonusMult}`, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className, label: getComputedStyle(document.getElementById('bonesLabel')).color,
+  const on = await page.evaluate(() => ({ cell: document.querySelector('#board > .cell[data-index="8"]').className, glow: getComputedStyle(document.querySelector('#board > .cell[data-index="8"]')).filter, ground: getComputedStyle(document.querySelector('#board > .cell[data-index="8"]')).backgroundColor, ring: getComputedStyle(document.querySelector('#board > .cell[data-index="8"]'), '::after').content, sticker: document.querySelector('#multSticker .ink')?.textContent, whole: `×${window.__diceSnake.hint().hand.mult * window.__diceSnake.hint().hand.bonusMult}`, shown: getComputedStyle(document.getElementById('multSticker')).display, stat: document.getElementById('handStat').className, label: getComputedStyle(document.getElementById('bonesLabel')).color,
     // the sticker's lime is a layer under its letters: drawn with them, the number's lime covered the × (owner, 11.11.2026)
     layers: (() => { const pad = document.querySelector('#multSticker .pad'); const ink = document.querySelector('#multSticker .ink'); return !!pad && !!ink && pad.textContent === ink.textContent && getComputedStyle(pad).color === 'rgba(0, 0, 0, 0)' && getComputedStyle(ink).position === 'absolute' && getComputedStyle(ink).textShadow === 'none'; })() }));
   // the whole multiplier: on the lime sticker on the phone, in the hand's row on the desktop
@@ -273,7 +310,7 @@ for (const vp of viewports) {
   await page.click('#playBtn');
   // four of a kind, five of a kind and the straight burn first (owner, 01.11.2026): only the hand's dice
   await page.waitForTimeout(120);
-  const burning = await page.$$eval('#board .cell.on-fire', (els) => els.map((e) => Number(e.dataset.index)).sort());
+  const burning = await page.$$eval('#board > .cell.on-fire', (els) => els.map((e) => Number(e.dataset.index)).sort());
   const strong = ['four_kind', 'five_kind', 'straight'].includes(a.hand.hand.category);
   const shouldBurn = strong ? [...a.hand.cells, ...(a.hand.hand.jokerCells || [])].sort() : [];
   if (burning.join() !== shouldBurn.join()) note(vp, `fire on [${burning}] for a ${a.hand.hand.category} on [${shouldBurn}]`);
@@ -292,7 +329,7 @@ for (const vp of viewports) {
   // THRESHOLD counts down to what the level still needs (owner, 02.11.2026)
   await page.waitForTimeout(600);
   if (b.phase === 'playing' && (Number(await text('#target')) !== b.target - b.score || (await text('#playBtn')) !== 'PLAY•2')) note(vp, `after the hand: THRESHOLD ${await text('#target')} (needs ${b.target - b.score}), ${await text('#playBtn')}`);
-  const hidden = await page.$$eval('#board .cell.die', (els) => els.filter((e) => Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
+  const hidden = await page.$$eval('#board > .cell.die', (els) => els.filter((e) => Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
   if (hidden.length) note(vp, `dice invisible after the hand: [${hidden}]`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-6-after-first.png` });
   // the tutorial's last line says its one thing and goes with the player's next move
@@ -336,7 +373,7 @@ for (const vp of viewports) {
   if ((await text('#levelText')) !== (firstWon ? '2/5' : '1/5')) note(vp, `level text after level 1: ${await text('#levelText')}`);
   if (a.cells.filter((t) => t === 'die').length < 6) note(vp, `level 2 has ${a.cells.filter((t) => t === 'die').length} dice`);
   // level 2: its cards are dealt face down and turn over one by one, 2 s apart; each new kind's sheet follows
-  const dealt = await page.$$eval('#board .cell.bonus', (els) => els.map((e) => e.classList.contains('face-down')));
+  const dealt = await page.$$eval('#board > .cell.bonus', (els) => els.map((e) => e.classList.contains('face-down')));
   if (firstWon && (!dealt.length || dealt.some((d) => !d))) note(vp, `level 2 cards not dealt face down: ${dealt}`);
   // level 2 without the tutorial: the same rows, and nothing but the base on them
   const plain = await page.$eval('#board', (e) => e.getBoundingClientRect().width);
@@ -349,9 +386,9 @@ for (const vp of viewports) {
     await gotIt(page);
   }
   await page.waitForTimeout(400);
-  const turned = await page.$$eval('#board .cell.bonus', (els) => els.filter((e) => e.classList.contains('face-down')).length);
+  const turned = await page.$$eval('#board > .cell.bonus', (els) => els.filter((e) => e.classList.contains('face-down')).length);
   if (turned) note(vp, `${turned} level 2 card(s) still face down after the deal`);
-  const invisible = await page.$$eval('#board .cell.die', (els) => els.filter((e) => e.classList.contains('bank-pop') || Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
+  const invisible = await page.$$eval('#board > .cell.die', (els) => els.filter((e) => e.classList.contains('bank-pop') || Number(getComputedStyle(e).opacity) < 0.9).map((e) => e.dataset.index));
   if (invisible.length) note(vp, `dice invisible after a new level: [${invisible}]`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-8-level2.png` });
   // the Bible: the run's page once it has bells, else the guide's pages, every bonus, then the settings
@@ -370,7 +407,7 @@ for (const vp of viewports) {
   // persistence: reload restores the level in progress
   const beforeReload = await auto();
   await page.reload();
-  await page.waitForSelector('#board .cell');
+  await page.waitForSelector('#board > .cell');
   await unsplash(page);
   const after = await auto();
   if (after.level !== beforeReload.level || JSON.stringify(after.faces) !== JSON.stringify(beforeReload.faces)) note(vp, 'state not restored after reload');
@@ -431,7 +468,7 @@ for (const vp of viewports) {
   const fresh = await page.evaluate(() => { const st = window.__diceSnake.state(); return { level: st.game.level.levelIndex, phase: st.game.phase, runScore: st.runScore, ups: st.ups, bank: st.bank, best: st.best }; });
   if (fresh.level !== 1 || fresh.phase !== 'playing' || fresh.runScore !== 0 || Object.keys(fresh.ups).length || fresh.bank.length || (await text('#levelText')) !== '1/5') note(vp, `new run: ${JSON.stringify(fresh)}`);
   await page.reload();
-  await page.waitForSelector('#board .cell');
+  await page.waitForSelector('#board > .cell');
   await unsplash(page);
   const kept = await page.evaluate(() => window.__diceSnake.state().best);
   if (!kept || kept.level !== reachedLevel) note(vp, `the record did not survive a reload: ${JSON.stringify(kept)}`);
@@ -474,7 +511,7 @@ for (const vp of viewports) {
   await page.click('#playBtn');
   await page.waitForTimeout(300);
   await page.reload();
-  await page.waitForSelector('#board .cell');
+  await page.waitForSelector('#board > .cell');
   await unsplash(page);
   await page.waitForTimeout(300);
   const back = await page.evaluate(() => ({ shown: !document.getElementById('levelEnd').hidden, cls: document.getElementById('levelEnd').className, ups: [...document.querySelectorAll('#upList .up')].map((b) => getComputedStyle(b).opacity) }));
@@ -489,7 +526,7 @@ for (const vp of viewports) {
   const saved = await page.evaluate(() => { const m = JSON.parse(localStorage.getItem('dicefool-portals.v1')).modes.auto; return { phase: m.game.phase, counted: !!m.lastEnd && m.lastEnd.seed === m.game.level.seed, board: !!(m.lastEnd && m.lastEnd.board) }; });
   if (saved.phase !== 'lost' || !saved.counted || !saved.board) note(vp, `the run was not counted with its board at PLAY: ${JSON.stringify(saved)}`);
   await page.reload();
-  await page.waitForSelector('#board .cell');
+  await page.waitForSelector('#board > .cell');
   await unsplash(page);
   await page.waitForTimeout(300);
   const again = await receipt();
@@ -507,7 +544,7 @@ for (const vp of viewports) {
     const st = d.state();
     st.levelIndex = 4;
     st.bells = 30;
-    st.charms = ['bellwether'];
+    st.pocket = [{ id: 'lucky_coin', stars: 1 }];
     st.bank = ['joker', 'x2_any', 'refund'];
     st.game = null;
     st.shop = null;
@@ -515,7 +552,7 @@ for (const vp of viewports) {
     st.game.level.target = 1;
   });
   await idle(page);
-  if ((await extras(page)).length) note(vp, `more than the base with bells, a charm and a bank: ${await extras(page)}`);
+  if ((await extras(page)).length) note(vp, `more than the base with bells, a thing and a bank: ${await extras(page)}`);
   // the bank's cards are the small card (Figma 1339:2155 Card-mini, 11.11.2026): the hero's own lighter colour, the name
   // black, no arch, the hero's whole portrait 64 px from 14 px over the top, never cut
   const minis = await page.$$eval('#bank .cell.bonus', (els) => els.map((c) => {
@@ -553,11 +590,11 @@ for (const vp of viewports) {
     const leave = $('shopLeave').getBoundingClientRect();
     return { rows: rows.length, bottom: Math.max(r.bottom, leave.bottom), overlap: rows.some((g, k) => k && g.top < rows[k - 1].bottom - 0.5) || leave.top < rows[rows.length - 1].bottom - 0.5, boss: $('shopBoss').textContent, stock: window.__diceSnake.state().shop.stock.length };
   });
-  const shop = await fits();
-  if (shop.rows !== 3 || shop.bottom > vp.h + 0.5 || shop.overlap || !/NEXT/.test(shop.boss)) note(vp, `the shop at ${vp.w}x${vp.h}: ${JSON.stringify(shop)}`);
+  const shop = await fits(); // two shelves: a thing (a hero's card before level 5) and a +1
+  if (shop.rows !== 2 || shop.bottom > vp.h + 0.5 || shop.overlap || !/NEXT/.test(shop.boss)) note(vp, `the shop at ${vp.w}x${vp.h}: ${JSON.stringify(shop)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-13-shop.png` });
   await page.reload();
-  await page.waitForSelector('#board .cell');
+  await page.waitForSelector('#board > .cell');
   await unsplash(page);
   await page.waitForTimeout(300);
   if (!(await page.$eval('#shop', (e) => !e.hidden))) note(vp, 'a reload lost the shop');
@@ -573,28 +610,28 @@ for (const vp of viewports) {
   if (swapped.bank.length !== 3 || swapped.bank[1] !== swapped.kind || !swapped.sold) note(vp, `the replaced card: ${JSON.stringify(swapped)}`);
   await page.click('#shopLeave');
   await page.waitForTimeout(250);
-  // the keeper's notification (MODE3-PLAN §48) holds nothing: on the phone it stands at the top clear of the board, on the
-  // desktop on the panel tile's header row, and the board under it takes taps
+  // the keeper's notification (MODE3-PLAN §48): on the phone it stands at the top clear of the board, on the desktop on the
+  // panel tile's header row, and it holds the screen as his card did (owner, 13.11.2026: «верни»): its clear cover takes a
+  // tap anywhere, the bottom of the window too
   const boss = await page.evaluate(() => {
     const $ = (id) => document.getElementById(id);
     const st = window.__diceSnake.state();
     const card = $('bossCard').getBoundingClientRect();
-    const board = Math.min(...[...document.querySelectorAll('#board .cell')].map((c) => c.getBoundingClientRect().top));
+    const board = Math.min(...[...document.querySelectorAll('#board > .cell')].map((c) => c.getBoundingClientRect().top));
     const hud = document.querySelector('.hud').getBoundingClientRect();
     const clear = document.body.classList.contains('wide') ? Math.abs(card.bottom - hud.bottom) <= 1 : card.bottom <= board + 0.5;
     // the full bank's heroes rise to the window's top: they fade while it stands, or they would show over its top edge
     const bank = Number(getComputedStyle($('bank')).opacity);
-    return { level: st.game.level.levelIndex, id: st.game.level.boss, card: !$('bossCard').hidden, words: $('bossCard').textContent, shop: !$('shop').hidden, clear, bank, free: document.elementFromPoint(innerWidth / 2, innerHeight - 8)?.closest('#bossCard') == null };
+    return { level: st.game.level.levelIndex, id: st.game.level.boss, card: !$('bossCard').hidden, words: $('bossCard').textContent, shop: !$('shop').hidden, clear, bank, covered: document.elementFromPoint(innerWidth / 2, innerHeight - 8)?.closest('#bossCover, #bossCard') != null };
   });
-  if (boss.level !== 5 || !boss.id || !boss.card || boss.shop || !boss.clear || !boss.free || boss.bank > 0.05 || /THRESHOLD/.test(boss.words)) note(vp, `the boss's level: ${JSON.stringify(boss)}`);
+  if (boss.level !== 5 || !boss.id || !boss.card || boss.shop || !boss.clear || !boss.covered || boss.bank > 0.05 || /THRESHOLD/.test(boss.words)) note(vp, `the boss's level: ${JSON.stringify(boss)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-14-boss.png` });
-  // under it a key holds a die as on any board, and a finger held on it keeps it in full view past its two seconds
+  // under it no key moves a die, and a finger held on it keeps it in full view past its two seconds
   const dice = () => page.evaluate(() => JSON.stringify(window.__diceSnake.state().game.held));
   const heldBefore = await dice();
-  await page.focus('#board .cell.die');
+  await page.focus('#board > .cell.die');
   await page.keyboard.press('Enter');
-  if ((await dice()) === heldBefore) note(vp, 'a key did not hold a die under the keeper\'s notification');
-  await page.keyboard.press('Enter');
+  if ((await dice()) !== heldBefore) note(vp, 'a key held a die under the keeper\'s notification');
   const [px, py] = await page.$eval('#bossCard', (e) => { const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
   await page.mouse.move(px, py);
   await page.mouse.down();
@@ -607,7 +644,7 @@ for (const vp of viewports) {
   if ((await extras(page)).length) note(vp, `more than the base on a boss's level: ${await extras(page)}`);
   // the cards dealt after his notification turn over 2 s apart and a new kind's sheet comes a second later: How opens on a
   // board whose deal has ended (a sheet would come over How's pages)
-  await page.waitForFunction(() => ![...document.querySelectorAll('#board .cell')].some((c) => c.waiting), null, { timeout: 10000 }).catch(() => note(vp, 'the deal after the keeper did not end'));
+  await page.waitForFunction(() => ![...document.querySelectorAll('#board > .cell')].some((c) => c.waiting), null, { timeout: 10000 }).catch(() => note(vp, 'the deal after the keeper did not end'));
   for (let n = 0; n < 3; n++) { await page.waitForTimeout(1100); await sheetAway(); }
   // what left the play screen is one tap away: How opens on it, and no page scrolls
   await idle(page);
@@ -625,10 +662,40 @@ for (const vp of viewports) {
   if ((await text('#guideNext')) !== 'GOT IT') note(vp, `How's last button: ${await text('#guideNext')}`);
   await page.click('#guideNext');
   await page.reload();
-  await page.waitForSelector('#board .cell');
+  await page.waitForSelector('#board > .cell');
   await unsplash(page);
   await page.waitForTimeout(200);
   if (!(await page.$eval('#bossCard', (e) => !e.hidden))) note(vp, 'a reload on a boss\'s level did not show his card');
+  // the keeper beaten: his portal opens over the cleared screen before its pick (MODE3-PLAN §55); a reload in its middle
+  // shows its last beat, TAKE puts the thing in the pocket and the pick comes after it
+  await page.click('#bossCover');
+  await page.waitForFunction(() => document.getElementById('bossCard').hidden, null, { timeout: 3000 });
+  await page.waitForFunction(() => ![...document.querySelectorAll('#board > .cell')].some((c) => c.waiting), null, { timeout: 10000 }).catch(() => {});
+  for (let n = 0; n < 3; n++) { await page.waitForTimeout(1100); await sheetAway(); }
+  if (!(await winLevel(page))) { note(vp, 'the keeper\'s level was not won in three hands'); await ctx.close(); continue; }
+  if (!(await page.waitForFunction(() => !document.getElementById('portal').hidden, null, { timeout: 12000 }).then(() => true, () => false))) { note(vp, 'no portal after the keeper'); await ctx.close(); continue; }
+  const opened = await page.evaluate(() => ({ pick: !document.getElementById('upgrades').hidden, next: !document.getElementById('nextBtn').hidden, portal: window.__diceSnake.state().lastEnd.portal }));
+  if (opened.pick || opened.next || !opened.portal || opened.portal.done) note(vp, `the cleared screen under the portal: ${JSON.stringify(opened)}`);
+  await page.reload();
+  await page.waitForSelector('#board > .cell');
+  await unsplash(page);
+  if (!(await page.waitForSelector('#portal.ready', { timeout: 3000 }).then(() => true, () => false))) { note(vp, 'a reload in the portal did not show its last beat'); await ctx.close(); continue; }
+  const last = await page.evaluate(() => {
+    const $ = (id) => document.getElementById(id);
+    const stage = $('portalStage').getBoundingClientRect();
+    const take = $('portalTake').getBoundingClientRect();
+    const pictures = ['portalRing', 'portalThing', 'portalHandL'].map((id) => getComputedStyle($(id)).backgroundImage);
+    return { state: $('portal').dataset.state, name: $('portalName').textContent, square: Math.abs(stage.width - stage.height) < 1, inside: stage.top >= -1 && stage.bottom <= innerHeight + 1, take: take.height, under: take.top > stage.bottom || take.left > stage.right, pictures: pictures.every((b) => /portal\/|data:/.test(b)) };
+  });
+  // the shop before the keeper may have sold this very thing: then it brings a star (OK), and a full pocket a place to give up
+  if (!['free', 'star', 'full'].includes(last.state) || !last.name || !last.square || !last.inside || last.take < 44 || !last.under || !last.pictures) note(vp, `the portal's last beat: ${JSON.stringify(last)}`);
+  await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-16-portal.png` });
+  if (last.state === 'full') await page.click('#portalPocket [data-place="0"]');
+  await page.click('#portalTake');
+  await page.waitForFunction(() => document.getElementById('portal').hidden && document.querySelector('#upList .up'), null, { timeout: 4000 }).catch(() => note(vp, 'the pick did not follow the portal'));
+  const taken = await page.evaluate(() => { const st = window.__diceSnake.state(); return { pocket: st.pocket.map((t) => t.id), thing: st.lastEnd.portal.thing, done: st.lastEnd.portal.done, gallery: st.gallery }; });
+  if (!taken.pocket.includes(taken.thing) || taken.done !== 'taken' || !taken.gallery.includes(taken.thing)) note(vp, `the portal's thing: ${JSON.stringify(taken)}`);
+  await galleryAfterPick(page, vp, `${shots}/${vp.w}x${vp.h}-17-gallery.png`);
   await ctx.close();
 }
 
@@ -645,7 +712,7 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   const page = await ctx.newPage();
   page.on('pageerror', (e) => note(vp, `pageerror ${e.message}`));
   await page.goto(url);
-  await page.waitForSelector('#board .cell');
+  await page.waitForSelector('#board > .cell');
   await page.evaluate(() => { window.__diceSnake.state().tips['seen:x2_any'] = true; }); // no card's sheet over the rules
   await unsplash(page);
   await page.click('#helpBtn'); // the first visit has no guide: the rules are How's pages
@@ -667,7 +734,7 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
     for (const id of ['guide', 'levelEnd', 'shop', 'bonusSheet', 'help', 'runsSheet']) document.getElementById(id).hidden = true;
     st.tips = { bankReroll: true, switchOn: true };
     for (const k of KINDS) { st.tips[`seen:${k}`] = true; st.tips[`sheet:${k}`] = true; }
-    Object.assign(st, { levelIndex: o.level, runSeed: 'smoke-fit', bells: 23, charms: ['crooked_pip'], bank: ['x2_any', 'joker', 'refund'], best: { level: 8, score: 900 }, ups: {}, game: null, shop: null, runs: [{ level: 8, score: 900 }] });
+    Object.assign(st, { levelIndex: o.level, runSeed: 'smoke-fit', bells: 23, pocket: [{ id: 'six_bite', stars: 2 }], bank: ['x2_any', 'joker', 'refund'], best: { level: 8, score: 900 }, ups: {}, game: null, shop: null, runs: [{ level: 8, score: 900 }] });
     d.switchMode('auto', { silent: true });
   }, { o, KINDS });
   await setState({ level: 4 });
@@ -692,6 +759,28 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   cut = await outside(page, '#levelEnd :is(h2, p, button, li)');
   if (cut.length) note(vp, `run over cut: ${cut.join(' ')}`);
   await page.screenshot({ path: `${shots}/fit-${vp.w}x${vp.h}-run-over.png` });
+  // a keeper's portal (MODE3-PLAN §55): the stage a square inside the window, its words and buttons uncut and clear of it
+  await setState({ level: 5 });
+  await page.waitForSelector('#bossCard:not([hidden])', { timeout: 6000 }).catch(() => {});
+  await page.evaluate(() => document.getElementById('bossCover').click());
+  await page.waitForTimeout(900);
+  const won = await winLevel(page);
+  if (!won || !(await page.waitForFunction(() => !document.getElementById('portal').hidden, null, { timeout: 12000 }).then(() => true, () => false))) { note(vp, `no portal after the keeper (won: ${won})`); await ctx.close(); continue; }
+  await page.mouse.click(4, 4); // a tap jumps to its last beat; for 300 ms it presses nothing (app.skipUntil)
+  await page.waitForSelector('#portal.ready', { timeout: 3000 }).catch(() => note(vp, 'a tap did not jump to the portal\'s last beat'));
+  await page.waitForTimeout(350);
+  cut = await outside(page, '#portal :is(h3, p, button)');
+  const stage = await page.evaluate((meetSrc) => {
+    const meet = new Function(`return ${meetSrc}`)();
+    const r = document.getElementById('portalStage').getBoundingClientRect();
+    const words = [...document.querySelectorAll('#portal :is(h3, p, button)')].filter((e) => e.checkVisibility());
+    return { square: Math.abs(r.width - r.height) < 1, inside: r.left >= -1 && r.top >= -1 && r.right <= innerWidth + 1 && r.bottom <= innerHeight + 1, over: words.filter((e) => meet(e.getBoundingClientRect(), r)).map((e) => e.id || e.tagName), small: words.filter((e) => parseFloat(getComputedStyle(e).fontSize) < 11).map((e) => e.id || e.tagName) };
+  }, meet.toString());
+  if (cut.length || !stage.square || !stage.inside || stage.over.length || stage.small.length) note(vp, `the portal: ${cut.join(' ')} ${JSON.stringify(stage)}`);
+  await page.screenshot({ path: `${shots}/fit-${vp.w}x${vp.h}-portal.png` });
+  await page.click('#portalTake');
+  await page.waitForFunction(() => document.getElementById('portal').hidden && document.querySelector('#upList .up'), null, { timeout: 4000 }).catch(() => note(vp, 'the pick did not follow the portal'));
+  await galleryAfterPick(page, vp, `${shots}/fit-${vp.w}x${vp.h}-gallery.png`);
   await ctx.close();
 }
 
@@ -760,7 +849,7 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
   const page = await ctx.newPage();
   page.on('pageerror', (e) => note(vp, `pageerror ${e.message}`));
   await page.goto(url);
-  await page.waitForSelector('#board .cell');
+  await page.waitForSelector('#board > .cell');
   await page.evaluate(() => { window.__diceSnake.state().tips['seen:x2_any'] = true; }); // the first visit's card brings no sheet
   await unsplash(page);
   await page.evaluate(({ KINDS }) => {
@@ -769,7 +858,7 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
     for (const id of ['guide', 'levelEnd', 'shop', 'bonusSheet', 'help', 'runsSheet']) document.getElementById(id).hidden = true;
     st.tips = { bankReroll: true, switchOn: true };
     for (const k of KINDS) { st.tips[`seen:${k}`] = true; st.tips[`sheet:${k}`] = true; }
-    Object.assign(st, { levelIndex: 1, runSeed: 'smoke-heroes', bells: 0, charms: [], bank: [], ups: {}, game: null, shop: null });
+    Object.assign(st, { levelIndex: 1, runSeed: 'smoke-heroes', bells: 0, pocket: [], bank: [], ups: {}, game: null, shop: null });
     d.switchMode('auto', { silent: true });
   }, { KINDS });
   await idle(page);
@@ -786,7 +875,7 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
   });
   await page.waitForTimeout(4500); // the two cards are dealt face down and turn themselves
   const faces = await page.evaluate(() => [6, 7].map((i) => {
-    const card = document.querySelectorAll('#board .cell')[i];
+    const card = document.querySelectorAll('#board > .cell')[i];
     const art = card.querySelector('.art');
     const tag = card.querySelector('.tag');
     const c = card.getBoundingClientRect();
@@ -799,15 +888,15 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
   for (const f of faces) if (!f.picture || !f.inside || !f.tagFits || f.size < 40) note(vp, `a hero's card: ${JSON.stringify(f)}`);
   if (faces[1].tag !== 'TWO SIXES') note(vp, `Bigfoot's tag: ${faces[1].tag}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-16-heroes.png` });
-  await page.click('#board .cell:nth-child(7)');
+  await page.click('#board > .cell:nth-child(7)');
   await page.waitForTimeout(600);
-  await page.click('#board .cell:nth-child(8)');
+  await page.click('#board > .cell:nth-child(8)');
   await page.waitForTimeout(1200);
   // a played card stays as it lies and takes its acting state, the hero over the whole card (owner, 11.11.2026: «Смещать
   // карту не нужно, она остается статикой, меняется только анимация в ней при розыгрыше»; «Персонаж на всю карту, а для
   // этого есть ее отдельное состояние»): no lift, no tilt, no name, the portrait's square 152 of the card's 108
   const still = await page.evaluate(() => new Promise((resolve) => {
-    const cells = document.querySelectorAll('#board .cell');
+    const cells = document.querySelectorAll('#board > .cell');
     const rect = (i) => { const r = cells[i].getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map((v) => v.toFixed(1)).join(); };
     const look = (i) => { const c = cells[i]; const art = c.querySelector('.art'); return c.classList.contains('acting') && getComputedStyle(c).transform === 'none' && getComputedStyle(c.querySelector('.tag')).visibility === 'hidden' && Math.abs(art.offsetHeight / c.clientHeight - 152 / 108) < 0.02; };
     const before = [rect(6), rect(7)];
@@ -816,7 +905,7 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
   }));
   if (still.moved.length || !still.look.every(Boolean) || String(still.hand) !== 'x2_any,x3_sixes') note(vp, `the winning cards: ${JSON.stringify(still)}`);
   await page.waitForFunction(() => document.querySelector('#upList .up') && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
-  if (await page.$('#board .cell.acting')) note(vp, 'a card kept its acting look after the moment');
+  if (await page.$('#board > .cell.acting')) note(vp, 'a card kept its acting look after the moment');
   await ctx.close();
 }
 

@@ -47,14 +47,65 @@
   --boss-knight_golden: url("../../assets/ui/portraits/knight_golden.webp");
   --boss-robot_golden: url("../../assets/ui/portraits/robot_golden.webp");
   --boss-skeleton_golden: url("../../assets/ui/portraits/skeleton_golden.webp");
-  --charm-crooked_pip: url("../../assets/ui/charms/crooked_pip.webp");
-  --charm-velvet_grip: url("../../assets/ui/charms/velvet_grip.webp");
-  --charm-quick_pocket: url("../../assets/ui/charms/quick_pocket.webp");
-  --charm-stone_ribbon: url("../../assets/ui/charms/stone_ribbon.webp");
-  --charm-echo_thimble: url("../../assets/ui/charms/echo_thimble.webp");
-  --charm-bellwether: url("../../assets/ui/charms/bellwether.webp");
-  --charm-final_bow: url("../../assets/ui/charms/final_bow.webp");
-  --charm-spare_knuckle: url("../../assets/ui/charms/spare_knuckle.webp");
+  --thing-brain_boost: url("../../assets/ui/things/brain_boost.webp");
+  --thing-lucky_coin: url("../../assets/ui/things/lucky_coin.webp");
+  --thing-best_guess: url("../../assets/ui/things/best_guess.webp");
+  --thing-pair_chime: url("../../assets/ui/things/pair_chime.webp");
+  --thing-sweet_scoop: url("../../assets/ui/things/sweet_scoop.webp");
+  --thing-three_greens: url("../../assets/ui/things/three_greens.webp");
+  --thing-second_shot: url("../../assets/ui/things/second_shot.webp");
+  --thing-sharp_wit: url("../../assets/ui/things/sharp_wit.webp");
+  --thing-royal_toll: url("../../assets/ui/things/royal_toll.webp");
+  --thing-big_bang: url("../../assets/ui/things/big_bang.webp");
+  --thing-full_head: url("../../assets/ui/things/full_head.webp");
+  --thing-spare_hat: url("../../assets/ui/things/spare_hat.webp");
+  --thing-distraction: url("../../assets/ui/things/distraction.webp");
+  --thing-hat_trick: url("../../assets/ui/things/hat_trick.webp");
+  --thing-second_wind: url("../../assets/ui/things/second_wind.webp");
+  --thing-locked_in: url("../../assets/ui/things/locked_in.webp");
+  --thing-solid_hold: url("../../assets/ui/things/solid_hold.webp");
+  --thing-full_arc: url("../../assets/ui/things/full_arc.webp");
+  --thing-six_arms: url("../../assets/ui/things/six_arms.webp");
+  --thing-chainmaker: url("../../assets/ui/things/chainmaker.webp");
+  --thing-space_wild: url("../../assets/ui/things/space_wild.webp");
+  --thing-toad_hop: url("../../assets/ui/things/toad_hop.webp");
+  --thing-first_flight: url("../../assets/ui/things/first_flight.webp");
+  --thing-odd_punk: url("../../assets/ui/things/odd_punk.webp");
+  --thing-matched_pair: url("../../assets/ui/things/matched_pair.webp");
+  --thing-power_paint: url("../../assets/ui/things/power_paint.webp");
+  --thing-late_bloom: url("../../assets/ui/things/late_bloom.webp");
+  --thing-even_floor: url("../../assets/ui/things/even_floor.webp");
+  --thing-web_step: url("../../assets/ui/things/web_step.webp");
+  --thing-lucky_six: url("../../assets/ui/things/lucky_six.webp");
+  --thing-peace_bonus: url("../../assets/ui/things/peace_bonus.webp");
+  --thing-five_slices: url("../../assets/ui/things/five_slices.webp");
+  --thing-hidden_move: url("../../assets/ui/things/hidden_move.webp");
+  --thing-six_grip: url("../../assets/ui/things/six_grip.webp");
+  --thing-magnified_one: url("../../assets/ui/things/magnified_one.webp");
+  --thing-flying_pips: url("../../assets/ui/things/flying_pips.webp");
+  --thing-callback: url("../../assets/ui/things/callback.webp");
+  --thing-dead_one: url("../../assets/ui/things/dead_one.webp");
+  --thing-center_knight: url("../../assets/ui/things/center_knight.webp");
+  --thing-six_bite: url("../../assets/ui/things/six_bite.webp");
+  --thing-victory_honk: url("../../assets/ui/things/victory_honk.webp");
+  --thing-face_spread: url("../../assets/ui/things/face_spread.webp");
+  --thing-hot_trips: url("../../assets/ui/things/hot_trips.webp");
+  --thing-bounce_back: url("../../assets/ui/things/bounce_back.webp");
+  --thing-first_slice: url("../../assets/ui/things/first_slice.webp");
+  --thing-one_shot: url("../../assets/ui/things/one_shot.webp");
+  --thing-calm_start: url("../../assets/ui/things/calm_start.webp");
+  --thing-card_value: url("../../assets/ui/things/card_value.webp");
+  --thing-pip_growth: url("../../assets/ui/things/pip_growth.webp");
+  --thing-first_gear: url("../../assets/ui/things/first_gear.webp");
+  --thing-lucky_pair: url("../../assets/ui/things/lucky_pair.webp");
+  --thing-cube_four: url("../../assets/ui/things/cube_four.webp");
+  --thing-rewind: url("../../assets/ui/things/rewind.webp");
+  --thing-patient_beads: url("../../assets/ui/things/patient_beads.webp");
+  --thing-five_carats: url("../../assets/ui/things/five_carats.webp");
+  --thing-double_date: url("../../assets/ui/things/double_date.webp");
+  --thing-lifeline: url("../../assets/ui/things/lifeline.webp");
+  --thing-all_seeing: url("../../assets/ui/things/all_seeing.webp");
+  --thing-knockout_pay: url("../../assets/ui/things/knockout_pay.webp");
   /* and the heroes of the cards, still pictures, each bust resting on the arch's bottom */
   --peek-x2_any: url("../../assets/ui/portraits/knight.webp");
   --peek-x3_straight: url("../../assets/ui/portraits/elf.webp");
@@ -86,6 +137,75 @@
   --act-knight_golden: url("../../assets/ui/acts/knight_golden.avif");
   --act-robot_golden: url("../../assets/ui/acts/robot_golden.avif");
   --act-skeleton_golden: url("../../assets/ui/acts/skeleton_golden.avif");
+  /* the portal's rings, hands and things, in register on one 1000 px square (scripts/portal.py): files beside the page,
+     never inlined (scripts/build.mjs); the claude.ai fragment has none and shows the thing alone (playPortal) */
+  --portal-ring-anus: url("../../assets/ui/portal/ring-anus.webp");
+  --portal-ring-bread: url("../../assets/ui/portal/ring-bread.webp");
+  --portal-ring-cristall: url("../../assets/ui/portal/ring-cristall.webp");
+  --portal-ring-hole: url("../../assets/ui/portal/ring-hole.webp");
+  --portal-ring-kpss: url("../../assets/ui/portal/ring-kpss.webp");
+  --portal-ring-man: url("../../assets/ui/portal/ring-man.webp");
+  --portal-ring-mouth: url("../../assets/ui/portal/ring-mouth.webp");
+  --portal-ring-mucus: url("../../assets/ui/portal/ring-mucus.webp");
+  --portal-ring-rick: url("../../assets/ui/portal/ring-rick.webp");
+  --portal-ring-snake: url("../../assets/ui/portal/ring-snake.webp");
+  --portal-ring-spaghetti: url("../../assets/ui/portal/ring-spaghetti.webp");
+  --portal-ring-torba: url("../../assets/ui/portal/ring-torba.webp");
+  --portal-hands-alien: url("../../assets/ui/portal/hands-alien.webp");
+  --portal-hands-fatman: url("../../assets/ui/portal/hands-fatman.webp");
+  --portal-hands-ghoul: url("../../assets/ui/portal/hands-ghoul.webp");
+  --portal-hands-ghoul_nofinger: url("../../assets/ui/portal/hands-ghoul_nofinger.webp");
+  --portal-hands-man: url("../../assets/ui/portal/hands-man.webp");
+  --portal-hands-man_nofinger: url("../../assets/ui/portal/hands-man_nofinger.webp");
+  --portal-hands-monkey: url("../../assets/ui/portal/hands-monkey.webp");
+  --portal-hands-monkey_ice: url("../../assets/ui/portal/hands-monkey_ice.webp");
+  --portal-hands-robot_gold: url("../../assets/ui/portal/hands-robot_gold.webp");
+  --portal-hands-robot_silver: url("../../assets/ui/portal/hands-robot_silver.webp");
+  --portal-hands-skeleton: url("../../assets/ui/portal/hands-skeleton.webp");
+  --portal-hands-wizard_blue: url("../../assets/ui/portal/hands-wizard_blue.webp");
+  --portal-hands-wizard_gold: url("../../assets/ui/portal/hands-wizard_gold.webp");
+  --portal-hands-wizard_metall: url("../../assets/ui/portal/hands-wizard_metall.webp");
+  --portal-hands-wizard_old: url("../../assets/ui/portal/hands-wizard_old.webp");
+  --portal-hands-wizard_purple: url("../../assets/ui/portal/hands-wizard_purple.webp");
+  --portal-hands-wizard_red: url("../../assets/ui/portal/hands-wizard_red.webp");
+  --portal-hands-zombie: url("../../assets/ui/portal/hands-zombie.webp");
+  --portal-hands-zombie_old: url("../../assets/ui/portal/hands-zombie_old.webp");
+  --portal-thing-all_seeing: url("../../assets/ui/portal/thing-all_seeing.webp");
+  --portal-thing-bounce_back: url("../../assets/ui/portal/thing-bounce_back.webp");
+  --portal-thing-brain_boost: url("../../assets/ui/portal/thing-brain_boost.webp");
+  --portal-thing-callback: url("../../assets/ui/portal/thing-callback.webp");
+  --portal-thing-calm_start: url("../../assets/ui/portal/thing-calm_start.webp");
+  --portal-thing-card_value: url("../../assets/ui/portal/thing-card_value.webp");
+  --portal-thing-center_knight: url("../../assets/ui/portal/thing-center_knight.webp");
+  --portal-thing-chainmaker: url("../../assets/ui/portal/thing-chainmaker.webp");
+  --portal-thing-cube_four: url("../../assets/ui/portal/thing-cube_four.webp");
+  --portal-thing-dead_one: url("../../assets/ui/portal/thing-dead_one.webp");
+  --portal-thing-distraction: url("../../assets/ui/portal/thing-distraction.webp");
+  --portal-thing-double_date: url("../../assets/ui/portal/thing-double_date.webp");
+  --portal-thing-first_gear: url("../../assets/ui/portal/thing-first_gear.webp");
+  --portal-thing-first_slice: url("../../assets/ui/portal/thing-first_slice.webp");
+  --portal-thing-five_carats: url("../../assets/ui/portal/thing-five_carats.webp");
+  --portal-thing-five_slices: url("../../assets/ui/portal/thing-five_slices.webp");
+  --portal-thing-full_arc: url("../../assets/ui/portal/thing-full_arc.webp");
+  --portal-thing-full_head: url("../../assets/ui/portal/thing-full_head.webp");
+  --portal-thing-knockout_pay: url("../../assets/ui/portal/thing-knockout_pay.webp");
+  --portal-thing-late_bloom: url("../../assets/ui/portal/thing-late_bloom.webp");
+  --portal-thing-lucky_coin: url("../../assets/ui/portal/thing-lucky_coin.webp");
+  --portal-thing-magnified_one: url("../../assets/ui/portal/thing-magnified_one.webp");
+  --portal-thing-matched_pair: url("../../assets/ui/portal/thing-matched_pair.webp");
+  --portal-thing-patient_beads: url("../../assets/ui/portal/thing-patient_beads.webp");
+  --portal-thing-peace_bonus: url("../../assets/ui/portal/thing-peace_bonus.webp");
+  --portal-thing-pip_growth: url("../../assets/ui/portal/thing-pip_growth.webp");
+  --portal-thing-royal_toll: url("../../assets/ui/portal/thing-royal_toll.webp");
+  --portal-thing-sharp_wit: url("../../assets/ui/portal/thing-sharp_wit.webp");
+  --portal-thing-six_bite: url("../../assets/ui/portal/thing-six_bite.webp");
+  --portal-thing-solid_hold: url("../../assets/ui/portal/thing-solid_hold.webp");
+  --portal-thing-space_wild: url("../../assets/ui/portal/thing-space_wild.webp");
+  --portal-thing-spare_hat: url("../../assets/ui/portal/thing-spare_hat.webp");
+  --portal-thing-sweet_scoop: url("../../assets/ui/portal/thing-sweet_scoop.webp");
+  --portal-thing-three_greens: url("../../assets/ui/portal/thing-three_greens.webp");
+  --portal-thing-victory_honk: url("../../assets/ui/portal/thing-victory_honk.webp");
+  --portal-thing-web_step: url("../../assets/ui/portal/thing-web_step.webp");
   /* the splash (Figma 1333:1876), packed by scripts/splash.py from the owner's library; app.js picks the hands and things */
   --img-splash-portal: url("../../assets/ui/splash/portal.webp");
   --img-splash-logo: url("../../assets/ui/splash/logo.svg");
@@ -436,6 +556,13 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
    the board before PLAY). A shader in a canvas over the board (fire.js); without WebGL the dice glow. */
 .fire-layer { position: absolute; display: none; pointer-events: none; z-index: 5; }
 body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 1)) calc(6px * var(--kb, 1)) rgba(255, 110, 20, .85); }
+/* A played card's wave of liquid glass (app.js bendFrom, MODE3-PLAN §53): copies of the board's cells, each seen through a
+   soft ring round the card and a little larger, over the cells (z 1, after them), under an acting card (2), the fire and
+   the throw (5). Still copies: nothing in them plays. */
+.bend { position: absolute; z-index: 1; pointer-events: none; }
+.bend-ring, .bend-rim { position: absolute; inset: 0; }
+.bend-copy { position: absolute; display: grid; will-change: transform; }
+.bend *, .bend *::before, .bend *::after { animation: none !important; transition: none !important; }
 .cell.block { background: url("../../assets/ui/lock.svg") center / 100% 100% no-repeat; }
 /* A card from the bank on its way (owner, 03.11.2026): on the first reroll into a die's cell, or into the cell of a
    card just played; the cell stays bare, then the card lands face up with a pop */
@@ -543,6 +670,19 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .tapbar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 /* PLAY•hands left and REROLL•rerolls left, side by side */
 .controls { display: flex; gap: calc(8px * var(--k, 1)); padding: 0 calc(12px * var(--k, 1)); }
+/* The pocket (MODE3-PLAN §54): the run's things under the buttons, pictures only, no surface and no frame (a picture is the
+   target, 44 px at least); none while it is empty. A thing that changed a count lights up for 350 ms where it lies, a
+   light and no motion, so «reduce motion» keeps it. */
+.pocket { display: flex; justify-content: center; gap: calc(12px * var(--k, 1)); height: max(44px, calc(52px * var(--k, 1))); }
+.pocket[hidden] { display: none; }
+.pocket .thing { flex: none; width: max(44px, calc(52px * var(--k, 1))); height: 100%; padding: 0; border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pocket .thing .sigil { width: 100%; height: 100%; }
+.pocket .thing.pulse .sigil { animation: thingLit 350ms ease-out; }
+@keyframes thingLit {
+  0% { filter: none; }
+  30% { filter: brightness(1.35) drop-shadow(0 0 calc(10px * var(--k, 1)) rgba(255, 255, 255, .85)); }
+  100% { filter: none; }
+}
 .btn-play, .btn-dark { flex: 1 0 0; min-width: 0; height: calc(80px * var(--k, 1)); padding: 4px 0; border: 0; border-radius: calc(72px * var(--k, 1)); font: 700 calc(20px * var(--k, 1))/normal var(--font-display); text-transform: uppercase; white-space: nowrap; transition: transform 100ms ease, opacity 150ms; }
 .btn-play { background: var(--accent); color: #000; }
 #playBtn { background: var(--hold); } /* the game's PLAY is lime (Figma 1308:3079) */
@@ -736,8 +876,8 @@ body.wide .app {
   height: auto; /* as tall as the board: the buttons' 1fr row takes what the tile leaves */
   display: grid;
   grid-template-columns: calc(546px * var(--k, 1)) calc(546px * var(--k, 1));
-  grid-template-rows: auto auto 1fr;
-  grid-template-areas: "board hud" "board counter" "board controls";
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-areas: "board hud" "board counter" "board controls" "board pocket";
   column-gap: calc(42px * var(--k, 1));
   row-gap: 0;
   justify-content: center;
@@ -783,6 +923,8 @@ body.wide #bones, body.wide #handStat.on #multSticker { display: none; }
 body.wide #handTotal { display: inline; }
 body.wide .hand-row { order: 4; flex-basis: 100%; display: flex; align-items: center; gap: calc(12px * var(--k, 1)); --gd: calc(32px * var(--k, 1)); }
 body.wide .controls { grid-area: controls; gap: calc(12px * var(--k, 1)); min-height: 0; margin-top: calc(12px * var(--k, 1)); padding: 0; }
+body.wide .pocket { grid-area: pocket; margin-top: calc(12px * var(--k, 1)); height: max(44px, calc(64px * var(--k, 1))); }
+body.wide .pocket .thing { width: max(44px, calc(64px * var(--k, 1))); }
 body.wide .btn-play, body.wide .btn-dark { height: auto; border-radius: calc(48px * var(--k, 1)); font-size: calc(36px * var(--k, 1)); line-height: normal; }
 body.wide .controls .dot { display: none; }
 body.wide .controls .cnt { display: block; font-size: .778em; opacity: .5; } /* the count below, 28 px at half strength */
@@ -817,6 +959,7 @@ body.wide .controls .cnt::before { content: '×'; }
 .guide-actions { flex: none; display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding-top: 12px; }
 .guide-actions .btn-main { flex: none; }
 .guide-actions .btn-text { align-self: center; }
+.guide-more { display: flex; justify-content: center; gap: calc(8px * var(--k, 1)); }
 .gdie { display: block; width: var(--gd, 24px); height: var(--gd, 24px); background: var(--f) center / 100% 100% no-repeat; }
 .gdie.held { position: relative; border-radius: var(--die-radius); --hold-frame: calc(var(--gd, 24px) * .0362); --hold-glow: calc(var(--gd, 24px) * .1552); } /* 4 of 110.4, 18 of 116 */
 .combos { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; gap: clamp(5px, 1.2vh, 10px); --gd: clamp(18px, 5.4vmin, 28px); }
@@ -862,11 +1005,56 @@ body.wide .popup-card { margin-top: 0; }
 /* the art square 221.09 at −31.14, −61.39 of the 160 card (Figma 1340:1006); the acting look's own numbers count from inside
    a 1 px border, which a browser rounds to whole screen pixels, so this card has none (it is see-through when acting anyway) */
 .popup-hero .cell.bonus.acting .art { left: -19.46%; top: -38.37%; width: 138.18%; height: 138.18%; }
+.thing-hero .sigil { width: calc(160px * var(--k, 1)); height: calc(160px * var(--k, 1)); } /* a thing's sheet: its picture as large as a card */
+.popup-text h3 .stars { font: 400 .7em/1 system-ui, sans-serif; color: rgba(255, 255, 255, .8); letter-spacing: .05em; vertical-align: .15em; }
 .popup-text { display: flex; flex-direction: column; gap: calc(10px * var(--k, 1)); width: 100%; text-align: center; }
 .popup-text h3 { margin: 0; font: 700 calc(28px * var(--k, 1))/1 var(--font-display); color: #fff; }
 .popup-text p { margin: 0; font: 300 max(11px, calc(18px * var(--k, 1)))/1.1 var(--font-light); color: rgba(255, 255, 255, .8); text-wrap: balance; }
 .popup-ok { flex: none; height: calc(80px * var(--k, 1)); padding: 0 calc(80px * var(--k, 1)); border: 0; border-radius: calc(72px * var(--k, 1)); background: #fff; color: #000; font: 700 calc(24px * var(--k, 1))/1 var(--font-display); white-space: nowrap; transition: transform 100ms ease; }
 .popup-ok:active { transform: scale(.98); }
+
+/* a beaten keeper's portal (portals spec, step 3; MODE3-PLAN §55): its own layer over the cleared screen, pure black. The
+   stage is a square (--stage, fitPortal) where the ring, the thing and the hands lie in register; the hands are one
+   picture cut down its middle, so each slides in from its own side. On the phone the words and buttons stand under the
+   stage, in a wide window to its right; where the stage stops short of the window's sides, 6 % of black fades the wrists
+   instead of cutting them. Its buttons are the controls' row (a white TAKE as the popup's PLAY, a dark LEAVE); a full
+   pocket shows its places as the shop does, to tap the one given up. */
+.portal { position: fixed; inset: 0; z-index: 25; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(16px * var(--k, 1)); padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px)); background: #000; overflow: hidden; --surface: rgba(255, 255, 255, .08); --place: max(44px, calc(52px * var(--k, 1))); }
+.portal-stage { position: relative; flex: none; width: var(--stage, 100vw); height: var(--stage, 100vw); }
+.portal-stage > i { position: absolute; inset: 0; background-position: center; background-size: contain; background-repeat: no-repeat; }
+.portal-ring { background-image: var(--ring); }
+.portal-thing { background-image: var(--thing); }
+.portal-hand { background-image: var(--hands); clip-path: inset(0 50% 0 0); }
+.portal-hand.right { clip-path: inset(0 0 0 50%); }
+.portal-stage.lone .portal-thing { inset: 32%; } /* the claude.ai fragment has no portal files: the pocket's own picture, cut to its object */
+.portal-stage.inset::before, .portal-stage.inset::after { content: ''; position: absolute; z-index: 1; top: 0; bottom: 0; width: 6%; pointer-events: none; }
+.portal-stage.inset::before { left: 0; background: linear-gradient(90deg, #000, rgba(0, 0, 0, 0)); }
+.portal-stage.inset::after { right: 0; background: linear-gradient(270deg, #000, rgba(0, 0, 0, 0)); }
+.portal-side { display: flex; flex-direction: column; align-items: center; gap: calc(20px * var(--k, 1)); width: 100%; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); box-sizing: border-box; }
+.portal-words { display: flex; flex-direction: column; align-items: center; gap: calc(8px * var(--k, 1)); max-width: calc(340px * var(--k, 1)); text-align: center; }
+.portal-words .portal-new { font: 700 max(11px, calc(14px * var(--k, 1)))/1 var(--font-display); letter-spacing: .08em; color: var(--muted); }
+.portal-words .stars b { color: #fff; font-weight: inherit; } /* the star this portal brings */
+.portal-foot { position: relative; display: flex; flex-direction: column; align-items: center; gap: calc(12px * var(--k, 1)); width: min(100%, calc(370px * var(--k, 1))); }
+.portal-hint { margin: 0; font: 300 max(13px, calc(15px * var(--k, 1)))/1.15 var(--font-light); color: rgba(255, 255, 255, .8); text-align: center; text-transform: lowercase; text-wrap: balance; } /* the shop's hint */
+.portal-hint:empty { display: none; }
+.portal-pocket { justify-content: center; }
+.portal-pocket .stars { position: absolute; right: 6%; bottom: 4%; font: 400 max(9px, calc(10px * var(--k, 1)))/1 system-ui, sans-serif; color: rgba(255, 255, 255, .8); }
+.portal-buttons { display: flex; gap: calc(12px * var(--k, 1)); width: 100%; }
+.portal .portal-buttons > button { flex: 1 0 0; min-width: 0; height: calc(80px * var(--k, 1)); padding: 0; border-radius: calc(72px * var(--k, 1)); font-size: calc(20px * var(--k, 1)); line-height: 1; }
+.portal .portal-buttons .popup-ok { font-size: calc(24px * var(--k, 1)); }
+.portal-buttons .popup-ok:disabled { opacity: .35; transform: none; }
+.portal-buttons .btn-dark b { color: var(--gold); font-weight: inherit; }
+.portal-buttons .btn-dark .bell { width: 1em; height: 1em; margin: 0 0 0 .15em; vertical-align: -.14em; }
+.portal:not(.ready) .portal-foot { pointer-events: none; } /* nothing to press until the last beat */
+.portal.waiting { background: transparent; } /* the cleared screen still shows while the pictures come in */
+.portal.waiting > * { visibility: hidden; }
+.portal[data-state="full"] .portal-hint { min-height: 2.3em; } /* two lines kept, so the stage stays still as a place is tapped */
+.portal.flying .portal-thing { z-index: 2; } /* over the hands and the words on its way to the pocket */
+.portal.flying .portal-buttons, .portal.flying .portal-hint { visibility: hidden; }
+.portal.flying .portal-pocket.landing { position: absolute; left: 0; right: 0; bottom: 0; height: calc(80px * var(--k, 1)); align-items: center; }
+.portal-fly { position: fixed; z-index: 26; margin: 0; pointer-events: none; }
+body.wide .portal { flex-direction: row; gap: calc(40px * var(--k, 1)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+body.wide .portal-side { width: calc(370px * var(--k, 1)); padding: 0; }
 
 /* ================= LOOKS (visual concepts) =================
    The viewer's light/dark theme does not apply: each look sets every colour explicitly. */
@@ -1002,7 +1190,7 @@ body:not([data-look="modern"]) .btn-secondary { font-size: 16px; letter-spacing:
 body:not([data-look="modern"]) .cell .tag { font-size: 10px; letter-spacing: .1em; }
 body:not([data-look="modern"]) .cell .order { font-size: 12px; }
 
-/* The bells and the charms' marks, for the receipts and the shop */
+/* The bells and the things' pictures, for the receipts and the shop */
 .bell { display: inline-block; width: 1.25em; height: 1.25em; margin-right: .2em; vertical-align: -.25em; background: var(--bell) center / contain no-repeat; }
 .sigil { display: block; flex: none; width: calc(18px * var(--k, 1)); height: calc(18px * var(--k, 1)); border: 0; padding: 0; background: var(--sig) center / contain no-repeat; }
 /* A boss's level opens with his notification (owner, 12.11.2026, on his iPhone: «Героя в нотифайке нужно ставить по нижнему
@@ -1011,10 +1199,14 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
    column's sides, rounded 24, in the tiles' grey (opaque: through a translucent material How showed under it, unblurred
    in WebKit), 80 high and so 8 clear of the board (the header strip is 88: the longest words, a golden keeper's three
    lines, leave 4). His bust stands on its bottom edge with no gap, where a communication notification shows its sender
-   (HIG). His name and his rule are in Basteleur Bold at two sizes. It holds nothing: the board stays in play under it.
-   It slides down, stands while he acts (2 s at least) and slides up; a tap on it or a toast sends it away (showBossCard,
-   bossLeaves). */
+   (HIG). His name and his rule are in Basteleur Bold at two sizes. It holds the screen as his card did (owner, 13.11.2026:
+   «верни»): a clear cover over the whole window, the banner too (#bossCover, its own element right after the banner,
+   there whenever the banner is: the banner's slide is a transform, which would shut a fixed ::before inside it), takes
+   every tap, and a tap anywhere sends it away. It slides down, stands while he acts (2 s at least) and slides up
+   (showBossCard, bossLeaves). */
 .boss-face { display: block; flex: none; background: var(--boss) center / contain no-repeat; }
+.boss-cover { position: fixed; inset: 0; z-index: 15; cursor: pointer; }
+.boss-card[hidden] + .boss-cover { display: none; }
 .boss-card { position: absolute; z-index: 15; top: calc(max(16px, env(safe-area-inset-top, 0px)) - 8px * var(--k, 1)); left: calc(env(safe-area-inset-left, 0px) + 8px * var(--k, 1)); right: calc(env(safe-area-inset-right, 0px) + 8px * var(--k, 1)); display: flex; align-items: flex-end; gap: calc(12px * var(--k, 1)); min-height: calc(80px * var(--k, 1)); padding: 0 calc(16px * var(--k, 1)) 0 calc(12px * var(--k, 1)); border-radius: calc(24px * var(--k, 1)); background: var(--tile); overflow: hidden; color: #fff; font-family: var(--font-display); font-weight: 700; cursor: pointer; }
 .boss-card[hidden] { display: none; }
 .boss-card .boss-face { position: relative; width: calc(80px * var(--k, 1)); height: calc(80px * var(--k, 1)); }
@@ -1055,6 +1247,28 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
 .shop-head .wallet { display: flex; align-items: center; gap: calc(6px * var(--k, 1)); font-size: max(11px, calc(13px * var(--k, 1))); line-height: 1; letter-spacing: .08em; color: var(--muted); white-space: nowrap; }
 .shop-head .wallet .bell { width: calc(24px * var(--k, 1)); height: calc(24px * var(--k, 1)); margin: 0; }
 .shop-head .wallet b { font-weight: inherit; font-size: calc(24px * var(--k, 1)); letter-spacing: 0; color: var(--gold); }
+/* the gallery (MODE3-PLAN §56): the shop's head and surface; 59 places as large as the window lets them be (fitGallery),
+   44 px at least, the grid scrolling in a window too low for that; a found thing in its colours, the others a dark shape.
+   Every place answers a tap in the line under them: a find's name and rule, or NOT FOUND YET. */
+.overlay.gallery { background: #000; }
+.gallery-panel { --surface: rgba(255, 255, 255, .08); display: flex; flex-direction: column; gap: calc(12px * var(--k, 1)); width: 100%; max-width: 720px; height: 100%; font-family: var(--font-display); font-weight: 700; color: var(--fg); }
+.gallery-grid { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: repeat(var(--cols, 7), var(--cell, 44px)); grid-auto-rows: var(--cell, 44px); gap: var(--gap, 6px); justify-content: center; align-content: center; overflow-y: auto; overscroll-behavior: contain; }
+.gallery-grid.scrolls { align-content: start; }
+.gallery-grid button { display: grid; place-items: center; width: 100%; height: 100%; padding: 0; border: 0; border-radius: calc(12px * var(--k, 1)); background: var(--surface); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.gallery-grid .sigil { width: 76%; height: 76%; }
+.gallery-grid .unfound .sigil { filter: brightness(0); } /* a dark shape and nothing else */
+.gallery-grid .on { box-shadow: 0 0 0 2px var(--fg); }
+.gallery-line { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(4px * var(--k, 1)); min-height: max(50px, calc(58px * var(--k, 1))); margin: 0; text-align: center; } /* a name and two lines of a rule: a tap never grows it under the grid */
+.gallery-line b { font-weight: inherit; font-size: max(13px, calc(16px * var(--k, 1))); line-height: 1.1; }
+.gallery-line em { font: 300 max(13px, calc(15px * var(--k, 1)))/1.15 var(--font-light); color: rgba(255, 255, 255, .8); text-transform: lowercase; text-wrap: balance; }
+.gallery-line small { font-size: max(11px, calc(13px * var(--k, 1))); letter-spacing: .08em; color: var(--muted); }
+.overlay.gallery .gallery-close { flex: none; height: max(44px, calc(56px * var(--k, 1))); border-radius: 999px; font-size: max(13px, calc(20px * var(--k, 1))); line-height: 1; }
+/* a phone held sideways: the grid takes the whole height, its head, line and CLOSE stand to its right */
+body.side .gallery-panel { display: grid; grid-template-columns: minmax(0, 1fr) calc(220px * var(--k, 1)); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "grid head" "grid line" "grid close"; column-gap: calc(24px * var(--k, 1)); max-width: none; }
+body.side .gallery-panel .shop-head { grid-area: head; flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; }
+body.side .gallery-grid { grid-area: grid; }
+body.side .gallery-line { grid-area: line; }
+body.side .overlay.gallery .gallery-close, body.side .gallery-close { grid-area: close; }
 .shop-held { display: flex; justify-content: space-between; }
 .shop-held > div { display: flex; flex-direction: column; gap: calc(14px * var(--k, 1)); } /* clear of a bank card's head, which rises 11.4 over its place */
 .shop-held > div > span, .shop-boss small { font-style: normal; font-size: max(11px, calc(11px * var(--k, 1))); line-height: 1; letter-spacing: .08em; color: var(--muted); }
@@ -1156,6 +1370,9 @@ body.wide .shop-leave { grid-column: 2; }
 .guide:not(.run) .guide-dots i:last-child { display: none; }
 /* each fact as the shop's note: its picture (the keeper's face, the bell, the charm's thing), a grey label, the name,
    what it does in the light cut; the bells' sum in yellow; on the black, as nothing here is tapped (owner, 12.11.2026) */
+/* THIS RUN with a full pocket: what a phone's height cannot hold scrolls inside the page, never under NEXT or the bar (in a
+   wide window the page is laid out by the guide's grid and this does nothing) */
+.guide-page[data-page="4"] { justify-content: safe center; overflow-y: auto; }
 .run-facts { --art: clamp(32px, 9vmin, 48px); width: 100%; margin: 0; padding: 0; list-style: none; display: grid; gap: clamp(8px, 2vh, 16px); font-family: var(--font-display); font-weight: 700; text-align: left; }
 .run-facts li { display: grid; grid-template-columns: var(--art) minmax(0, 1fr); align-items: center; column-gap: 20px; }
 .run-facts .fact-line { display: block; font-size: max(11px, clamp(11px, 3vmin, 13px)); line-height: 1.3; letter-spacing: .08em; color: var(--muted); text-align: center; }

@@ -25,6 +25,7 @@
     <button class="tab" type="button" data-mode="auto" id="tabAuto">AUTO HAND</button>
   </nav>
   <div class="boss-card" id="bossCard" role="status" hidden></div>
+  <div class="boss-cover" id="bossCover"></div>
   <header class="hud">
     <div class="stat" id="levelHud"><span class="label">LEVEL</span><span class="value level-text">1</span></div>
     <div class="bank" id="bank" aria-label="Bonus bank: bonuses kept from earlier levels"></div>
@@ -63,6 +64,8 @@
       <button class="btn-ghost" id="lookBtn" type="button">LOOK</button>
     </nav>
   </section>
+  <!-- the pocket (MODE3-PLAN §54): the things the run carries, pictures only, none while it is empty; a tap opens a thing -->
+  <section class="pocket" id="pocket" aria-label="Things" hidden></section>
 </main>
 
 <section class="overlay" id="levelEnd" hidden>
@@ -98,12 +101,40 @@
   </div>
 </section>
 
+<!-- a beaten keeper's portal (portals spec, step 3; MODE3-PLAN §55): his own layer over the cleared screen, before its
+     pick. The ring, the thing inside it and the hands at its sides lie in register on one square; under it the thing's
+     name and rule, and what to do with it: TAKE or LEAVE it for bells, with a full pocket a place to give up, a thing
+     already carried its next star -->
+<section class="portal" id="portal" hidden aria-label="Portal">
+  <div class="portal-stage" id="portalStage" aria-hidden="true">
+    <i class="portal-ring" id="portalRing"></i>
+    <i class="portal-thing" id="portalThing"></i>
+    <i class="portal-hand" id="portalHandL"></i>
+    <i class="portal-hand right" id="portalHandR"></i>
+  </div>
+  <div class="portal-side" id="portalSide">
+    <div class="popup-text portal-words">
+      <p class="portal-new" id="portalNew">NEW</p>
+      <h3 id="portalName"></h3>
+      <p id="portalRule"></p>
+    </div>
+    <div class="portal-foot" id="portalFoot">
+      <p class="portal-hint" id="portalHint"></p>
+      <div class="shop-places portal-pocket" id="portalPocket"></div>
+      <div class="portal-buttons" id="portalButtons">
+        <button class="popup-ok" id="portalTake" type="button">TAKE</button>
+        <button class="btn-dark" id="portalLeave" type="button">LEAVE <b>+3</b><i class="bell"></i></button>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="overlay shop" id="shop" hidden>
   <div class="shop-panel">
     <header class="shop-head"><h2>Shop</h2><span class="wallet"><i class="bell"></i><b id="shopBells">0</b> BELLS</span></header>
     <div class="shop-held">
       <div><span>BANK</span><div class="shop-places" id="shopBank"></div></div>
-      <div><span>CHARMS</span><div class="shop-places" id="shopCharms"></div></div>
+      <div><span>THINGS</span><div class="shop-places" id="shopCharms"></div></div>
     </div>
     <div class="shop-boss" id="shopBoss"></div>
     <ul class="shop-list" id="shopList"></ul>
@@ -145,7 +176,32 @@
   </div>
   <div class="guide-actions">
     <button class="btn-main" id="guideNext" type="button">NEXT</button>
-    <button class="btn-text" id="guideSettings" type="button" hidden>SETTINGS</button>
+    <div class="guide-more">
+      <button class="btn-text" id="guideGallery" type="button" hidden>GALLERY</button>
+      <button class="btn-text" id="guideSettings" type="button" hidden>SETTINGS</button>
+    </div>
+  </div>
+</section>
+
+<!-- the gallery (portals spec, step 3b; MODE3-PLAN §56): every thing this device has seen in a portal or bought, kept for
+     good, the rest a dark shape with no words; a tap says what a thing is. It opens from How. -->
+<section class="overlay gallery" id="gallery" hidden>
+  <div class="gallery-panel">
+    <header class="shop-head"><h2>Gallery</h2><span class="wallet" id="galleryCount">0 / 59</span></header>
+    <div class="gallery-grid" id="galleryGrid"></div>
+    <p class="gallery-line" id="galleryLine"></p>
+    <button class="btn-dark gallery-close" id="galleryClose" type="button">CLOSE</button>
+  </div>
+</section>
+
+<section class="popup" id="thingSheet" hidden>
+  <div class="popup-card" role="dialog" aria-labelledby="thingSheetName">
+    <div class="popup-hero thing-hero" id="thingSheetArt"></div>
+    <div class="popup-text">
+      <h3 id="thingSheetName"></h3>
+      <p id="thingSheetRule"></p>
+    </div>
+    <button class="popup-ok" id="thingSheetOk" type="button">CLOSE</button>
   </div>
 </section>
 
@@ -194,6 +250,7 @@
     <label class="opt" id="optGoldRow"><input type="checkbox" id="optGold" checked> Gold ×2 cell replaces one die (off: nine dice, ×2 badge only)</label>
     <label class="opt"><input type="checkbox" id="optAutoBonus" checked> Auto-apply an unused ×2 to the final hand</label>
     <p class="muted small">Changes apply from the next level.</p>
+    <button class="btn-secondary" id="giveThingBtn" type="button">GIVE A THING</button>
     <h3>DATA</h3>
     <p class="muted small" id="runInfo"></p>
     <p class="muted small" id="difficultyRule"></p>

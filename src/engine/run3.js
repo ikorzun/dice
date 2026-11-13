@@ -13,6 +13,7 @@ import { unlockedKinds, newKind, firstLayout, shuffledCells, placeLayout } from 
 import { createAutoGame, currentHand } from './auto.js';
 import { UP_LIFT } from './uplift3.js';
 import { bossOf, BOSSES } from './bosses3.js';
+import { keeperHelp } from './things3.js';
 
 export const RUN3_VERSION = `run-3/${RECIPES3_VERSION}`;
 export const RUN3 = Object.freeze({
@@ -95,8 +96,10 @@ export function chooseRecipe(levelIndex, rng, curve = RUN3) {
   return near[rng.int(near.length)].recipe;
 }
 
-// `bank`, `ups` and `charms` only travel with the level into the game: the level itself never looks at them.
-export function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], ups = {}, charms = [], curve = RUN3 }) {
+// `bank`, `ups` and `things` (the pocket, [{ id, stars }]) only travel with the level into the game: the layout and the
+// table's target never look at them. On a keeper's level the things that answer him work before it starts, in plain
+// sight: CALM START's points scored, DISTRACTION's cut of the threshold (`help` names them for the screen).
+export function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], ups = {}, things = [], curve = RUN3 }) {
   const seed = `${runSeed}/A${levelIndex}/run`;
   const rng = createRng(seed);
   const boss = bossOf(runSeed, levelIndex);
@@ -104,6 +107,8 @@ export function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], 
   const recipe = chooseRecipe(levelIndex, rng, curve);
   const layout = levelIndex <= 1 ? firstLayout() : placeLayout(shuffledCells(rng), recipe.kinds, recipe.blocks);
   const faces = layout.map((c) => (c.type === 'die' ? rng.die() : null));
+  const help = boss ? keeperHelp(things) : { points: 0, cut: 0, by: [] };
+  const target = runTarget(levelIndex, curve);
   const level = {
     mode: 'auto',
     seed,
@@ -112,7 +117,10 @@ export function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], 
     tier: 1,
     layout,
     faces,
-    target: runTarget(levelIndex, curve),
+    target: help.cut ? Math.round((target * (100 - help.cut)) / 100) : target,
+    tableTarget: target, // the table's, before a thing's cut
+    startScore: help.points,
+    help: help.by, // the things that worked before the level, pulsed as it opens
     hands: rule.hands ?? config.hands,
     rerolls: rule.rerolls ?? config.rerolls,
     boss,
@@ -120,7 +128,7 @@ export function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], 
     chance: typicalChance(recipe, levelIndex, curve), // the model's, for the log; never shown
     bank: bank.slice(), // the bonuses carried over, kinds
     ups: { ...ups }, // the run's upgrades of the combinations
-    charms: charms.slice(), // the run's charms
+    things: things.map((t) => ({ ...t })), // the pocket as the level starts
     generatorVersion: RUN3_VERSION,
   };
   const opening = currentHand(createAutoGame(level, config));

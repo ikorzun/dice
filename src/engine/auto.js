@@ -18,6 +18,7 @@
 import { bestHand, BONUS_KINDS } from './hands.js';
 import { createRng } from './rng.js';
 import { BOSSES } from './bosses3.js';
+import { thingRules } from './things3.js';
 
 export const AUTO_DEFAULT_CONFIG = Object.freeze({
   hands: 3,          // hands per level, all of them are played
@@ -30,26 +31,24 @@ export const BANK = 100;    // the first banked bonus's cell number (the board's
 export const BANK_SIZE = 3; // places in the bank (owner, 02.11.2026); the rest burn
 export const MIN_DICE = 6; // every layout keeps this many dice (levels3.js), and so does a kept card coming in
 const waiting = (b) => !b.used && !b.placed; // a banked card still above the board
-const hasCharm = (level, id) => !!level.charms && level.charms.includes(id);
 export const bankOpen = (state) => !!state.stats.rerollsUsed;
 const keeperOf = (level) => (level.boss && BOSSES[level.boss]) || null;
 
-// What the run's charms and the level's keeper change in a hand's count (bestHand's `rules`), or null; the keeper's word
-// comes last. FINAL BOW goes by the hands left and THE GOLDEN KNIGHT by the hands played, so a hand's count can change as
-// the level goes on, never between the preview and PLAY.
-export function handRules(level, handsLeft, played = 0) {
-  const r = {};
-  if (hasCharm(level, 'crooked_pip')) r.ones = 6;
-  if (hasCharm(level, 'velvet_grip')) r.heldAdd = 1;
-  if (hasCharm(level, 'final_bow') && handsLeft === 1) r.sumAdd = 5;
-  if (hasCharm(level, 'stone_ribbon')) r.fiveAdd = 5;
+// What the pocket's things (`level.things`, things3.js) and the level's keeper change in a hand's count (bestHand's
+// `rules`), or null; the keeper's word comes last. A first or a last hand's things, the first cards' and THE GOLDEN KNIGHT
+// go by the hands played (`hands`, the level's so far) and left, so a hand's count can change as the level goes on, never
+// between the preview and PLAY.
+export function handRules(level, handsLeft, played = 0, hands = []) {
+  const numbered = (h) => (h.bonuses || []).filter((kind) => BONUS_KINDS[kind] && !BONUS_KINDS[kind].wild).length;
+  const r = thingRules(level.things, { first: played === 0, last: handsLeft === 1, cards: hands.reduce((n, h) => n + numbered(h), 0), bank: hands.some((h) => h.bank > 0) });
+  const none = Object.values(r).every((list) => !list.length);
   const k = keeperOf(level);
-  if (k && k.sumAdd) r.sumAdd = (r.sumAdd || 0) + k.sumAdd; // THE EATER's toll on every hand
+  if (k && k.sumAdd) r.sumAdd = k.sumAdd; // THE EATER's toll on every hand
   if (k && k.sixes === 0) r.sixes = 0;
   if (k && k.ones === 0) r.ones = 0;
   if (k && k.half) r.half = k.half;
   if (k && k.firstHalf && played === 0) r.halfSum = true;
-  return Object.keys(r).length ? r : null;
+  return none && !k ? null : r;
 }
 
 // How many dice may be held at once (LOOSE GRIP: three), or Infinity.
@@ -78,14 +77,6 @@ export function createAutoGame(level, configOverrides = {}, attempt = 1) {
     return { kind, off: true, used: false, placed: false };
   });
   const faces = level.faces.slice();
-  // QUICK POCKET: the first kept card is on the board from the start, in place of the last die, while 6 dice stay
-  const dice = cells.flatMap((c, i) => (c.type === 'die' ? [i] : []));
-  if (hasCharm(level, 'quick_pocket') && bank.length && dice.length > MIN_DICE) {
-    const i = dice[dice.length - 1];
-    cells[i] = { type: 'bonus', kind: bank[0].kind, fromBank: 0 };
-    faces[i] = null;
-    bank[0].placed = true;
-  }
   return {
     mode: 'auto',
     level,
@@ -96,10 +87,10 @@ export function createAutoGame(level, configOverrides = {}, attempt = 1) {
     held: new Array(9).fill(false),
     off: cells.map((c) => c.type === 'bonus'), // bonuses start off; the player switches them on
     bank,
-    rerollsLeft: (level.rerolls ?? config.rerolls) + (hasCharm(level, 'spare_knuckle') ? 1 : 0),
+    rerollsLeft: level.rerolls ?? config.rerolls,
     handsLeft: level.hands ?? config.hands,
     hands: [],
-    score: 0,
+    score: level.startScore || 0, // CALM START: a keeper's level starts with points scored (run3.js)
     phase: 'playing',
     stats: { rerollsUsed: 0, holdToggles: 0, rejectedPaths: 0, hintsUsed: 0, bonusToggles: 0 },
   };
@@ -111,15 +102,16 @@ const banked = (state, i) => (i >= BANK ? state.bank[i - BANK] : null);
 // The scoring options of a hand: the experiment's, with the run's upgrades of the combinations (`level.ups`), its
 // charms and the boss.
 export function handOptionsOf(state) {
-  const rules = handRules(state.level, state.handsLeft, state.hands.length);
+  const rules = handRules(state.level, state.handsLeft, state.hands.length, state.hands);
   if (!state.level.ups && !rules) return state.config.handOptions ?? undefined;
   return { ...(state.config.handOptions || {}), ups: state.level.ups, rules };
 }
 export const bonusKind = (state, i) => (i >= BANK ? state.bank[i - BANK].kind : state.cells[i].kind);
-// The bonuses switched on: the board's and the bank's, as bestHand takes them.
+// The bonuses switched on: the board's and the bank's, as bestHand takes them; `bank` marks one that came from the bank.
+const fromBank = (state, i) => i >= BANK || state.cells[i].fromBank !== undefined;
 function onBonuses(state) {
-  const board = state.cells.map((c, i) => i).filter((i) => isBonus(state, i) && !state.off[i]).map((i) => ({ cell: i, kind: state.cells[i].kind }));
-  const bank = state.bank.map((b, k) => ({ cell: BANK + k, kind: b.kind, b })).filter(({ b }) => !b.off && waiting(b)).map(({ cell, kind }) => ({ cell, kind }));
+  const board = state.cells.map((c, i) => i).filter((i) => isBonus(state, i) && !state.off[i]).map((i) => ({ cell: i, kind: state.cells[i].kind, bank: fromBank(state, i) }));
+  const bank = state.bank.map((b, k) => ({ cell: BANK + k, kind: b.kind, b })).filter(({ b }) => !b.off && waiting(b)).map(({ cell, kind }) => ({ cell, kind, bank: true }));
   return [...board, ...bank].filter((b) => awake(state, b.kind));
 }
 export const diceCells = (state) => state.cells.map((c, i) => i).filter((i) => isDie(state, i));
@@ -237,7 +229,10 @@ export function playHand(state, drawDie) {
     points: best.points,
     formula: best.formula,
     multiplier: best.bonusMult,
+    pct: best.pct || 0,
     total: best.total,
+    things: best.things || [],
+    bank: best.bonusCells.filter((i) => fromBank(state, i)).length, // numbered cards from the bank: PATIENT BEADS's first one
     bonusAuto: false,
   };
   const burned = diceCells(state); // every die, held or not (owner, 03.11.2026)
@@ -273,8 +268,8 @@ export function playHand(state, drawDie) {
     faces[i] = f;
   }
   const phase = score >= state.level.target ? 'won' : handsLeft > 0 ? 'playing' : 'lost';
-  // a refund bonus in the hand gives rerolls back
-  hand.refund = used.reduce((n, i) => n + (BONUS_KINDS[bonusKind(state, i)].refund || 0), 0) * (hasCharm(state.level, 'echo_thimble') ? 2 : 1);
+  // a refund bonus in the hand gives rerolls back, more when a thing raises it
+  hand.refund = best.refund ?? used.reduce((n, i) => n + (BONUS_KINDS[bonusKind(state, i)].refund || 0), 0);
   const rerollsLeft = state.rerollsLeft + hand.refund;
   return {
     ok: true,

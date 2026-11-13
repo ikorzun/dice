@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CHARMS, CHARM_SLOTS, CARD_PRICE, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood, sensibleShopping } from '../src/engine/shop3.js';
+import { CARD_PRICE, THINGS_FROM, upPrice, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood, sensibleShopping } from '../src/engine/shop3.js';
+import { THINGS, THING_PRICE, helpsAgainst, CATALOGUE, STARTERS, shopPool } from '../src/engine/things3.js';
 import { upgradeOffer } from '../src/engine/upgrades3.js';
 import { bossOf, BOSSES, isBossLevel, FIRST_KEEPER } from '../src/engine/bosses3.js';
 import { generateRunLevel, runTarget } from '../src/engine/run3.js';
@@ -19,10 +20,10 @@ test('doors open after the second and fourth level of each act, the second namin
 });
 
 test('a cleared level pays for what was left unused and for a keeper, a golden one 5 more', () => {
-  const g = { score: 460, handsLeft: 1, rerollsLeft: 2, level: { target: 340, boss: null, charms: [] } };
-  assert.deepEqual(levelBells(g), { clear: 2, hand: 2, reroll: 2, boss: 0, charm: 0, total: 6 });
-  assert.equal(levelBells({ score: 340, handsLeft: 0, rerollsLeft: 0, level: { target: 340, boss: 'ghoul_old', charms: ['bellwether'] } }).total, 2 + 3 + 2);
-  assert.equal(levelBells({ score: 340, handsLeft: 0, rerollsLeft: 0, level: { target: 340, boss: 'robot_golden', charms: [] } }).boss, 8);
+  const g = { score: 460, handsLeft: 1, rerollsLeft: 2, level: { target: 340, boss: null, things: [] } };
+  assert.deepEqual(levelBells(g), { clear: 2, hand: 2, reroll: 2, boss: 0, things: [], total: 6 });
+  assert.equal(levelBells({ score: 340, handsLeft: 0, rerollsLeft: 0, level: { target: 340, boss: 'ghoul_old', things: [{ id: 'lucky_coin', stars: 1 }] } }).total, 2 + 3 + 2);
+  assert.equal(levelBells({ score: 340, handsLeft: 0, rerollsLeft: 0, level: { target: 340, boss: 'robot_golden', things: [] } }).boss, 8);
 });
 
 test('the fit weighs recent hands, the ones fallen short on most, and keeps a floor', () => {
@@ -53,28 +54,67 @@ test('the pick leans on the player, and the third offer stays open to anything',
   assert.ok(thirds < 300 * 0.2);
 });
 
-test('a shelf is one card, one +1 and one charm, seeded, with no charm the player holds', () => {
-  const run = { ups: {}, charms: ['spare_knuckle', 'bellwether'], bank: [], bells: 12 };
+test('a shelf is a thing and a +1, seeded; before level 5 the thing is a hero\'s card, then 3 times in 10; a thing carried comes as its next star', () => {
+  const run = { ups: {}, pocket: [{ id: 'sweet_scoop', stars: 3 }], bank: [], bells: 12 };
   const a = shopStock({ runSeed: 'x', levelIndex: 7, run });
-  assert.deepEqual(a.map((g) => g.type), ['card', 'up', 'charm']);
+  assert.ok(['thing', 'card'].includes(a[0].type) && a[1].type === 'up');
   assert.deepEqual(a, shopStock({ runSeed: 'x', levelIndex: 7, run }));
-  for (let r = 0; r < 60; r++) assert.ok(!run.charms.includes(shopStock({ runSeed: `y${r}`, levelIndex: 7, run })[2].id));
+  assert.deepEqual(shopStock({ runSeed: 'x', levelIndex: THINGS_FROM - 1, run }).map((g) => g.type), ['card', 'up']);
   for (const g of a) assert.ok(g.price > 0 && g.tag);
+  const seen = new Set();
+  let cards = 0;
+  for (let r = 0; r < 300; r++) {
+    const t = shopStock({ runSeed: `y${r}`, levelIndex: 7, run: { ...run, pocket: [{ id: 'sweet_scoop', stars: 3 }, { id: 'six_bite', stars: 1 }] } })[0];
+    if (t.type === 'card') { cards++; continue; }
+    assert.notEqual(t.id, 'sweet_scoop', 'three stars: out of the shop');
+    assert.ok(THINGS[t.id].from <= 7, `${t.id} opens on level ${THINGS[t.id].from}`);
+    assert.equal(t.price, THING_PRICE[THINGS[t.id].rarity]);
+    if (t.id === 'six_bite') assert.ok(t.star === 2 && t.tag === '+1 STAR');
+    seen.add(t.id);
+  }
+  assert.ok(seen.has('six_bite') && seen.size > 8, `${seen.size} things offered`);
+  assert.ok(cards > 60 && cards < 120, `${cards}/300 cards: the spec's card-things' share`);
 });
 
-test('the door before a keeper offers a charm against him, tagged', () => {
+test('the door before a keeper offers a thing against him, tagged, when a starter or a find of the device answers him', () => {
+  const all = CATALOGUE.map((t) => t.id);
+  let fresh = 0;
   for (let r = 0; r < 40; r++) {
     const runSeed = `z${r}`;
-    const stock = shopStock({ runSeed, levelIndex: 4, run: { ups: {}, charms: [] } });
-    const boss = BOSSES[bossOf(runSeed, 5)];
-    assert.ok(boss.counters.includes(stock[2].id), `${boss.name}: ${stock[2].id}`);
-    assert.equal(stock[2].tag, 'GOOD AGAINST KEEPER');
+    const keeper = bossOf(runSeed, 10);
+    const found = shopStock({ runSeed, levelIndex: 9, run: { ups: {}, pocket: [], gallery: all } });
+    assert.ok(helpsAgainst(found[0].id, keeper), `${keeper}: ${found[0].id}`);
+    assert.equal(found[0].tag, 'GOOD AGAINST KEEPER');
+    const stock = shopStock({ runSeed, levelIndex: 9, run: { ups: {}, pocket: [] } }); // a device that has found nothing
+    if (STARTERS.some((id) => THINGS[id] && helpsAgainst(id, keeper))) {
+      fresh += 1;
+      assert.ok(helpsAgainst(stock[0].id, keeper) && stock[0].tag === 'GOOD AGAINST KEEPER', `${keeper}: ${stock[0].id}`);
+    } else assert.notEqual(stock[0].tag, 'GOOD AGAINST KEEPER');
   }
+  assert.ok(fresh > 0);
 });
 
-test('buying: bells spent, a slot sold once, a full bank or rail names what it replaces', () => {
-  const run = { bells: 10, bank: ['refund', 'joker', 'x2_any'], ups: {}, charms: ['final_bow', 'bellwether', 'stone_ribbon'] };
-  const stock = [{ type: 'card', id: 'x3_pairs', price: 4 }, { type: 'up', id: 'pair', price: 6 }, { type: 'charm', id: 'crooked_pip', price: 9 }];
+test('the shop offers the starters and the things this device has found, from their levels', () => {
+  assert.deepEqual(shopPool(20, [], []).sort(), STARTERS.filter((id) => THINGS[id]).sort());
+  assert.ok(shopPool(20, [], ['cube_four', 'pair_chime']).includes('cube_four')); // a find; one not built yet is no good
+  assert.ok(!shopPool(20, [], ['cube_four', 'pair_chime']).includes('pair_chime'));
+  assert.ok(!shopPool(12, [], ['five_slices']).includes('five_slices')); // its level is 15
+  assert.ok(!shopPool(20, [{ id: 'six_bite', stars: 3 }], []).includes('six_bite'));
+  const seen = new Set();
+  for (let r = 0; r < 200; r++) {
+    for (const level of [7, 12, 17, 22]) {
+      const good = shopStock({ runSeed: `g${r}`, levelIndex: level, run: { ups: {}, pocket: [], gallery: ['callback'] } })[0];
+      if (good.type === 'thing') seen.add(good.id);
+    }
+  }
+  assert.ok(seen.has('callback'));
+  for (const id of seen) assert.ok(STARTERS.includes(id) || id === 'callback', id);
+});
+
+test('buying: bells spent, a slot sold once, a full bank or pocket names what it replaces, a +1 costs more each time', () => {
+  const pocket = [{ id: 'sweet_scoop', stars: 1 }, { id: 'lucky_coin', stars: 1 }, { id: 'full_head', stars: 1 }];
+  const run = { bells: 10, bank: ['refund', 'joker', 'x2_any'], ups: {}, pocket, levelIndex: 7 };
+  const stock = [{ type: 'card', id: 'x3_pairs', price: 4 }, { type: 'up', id: 'pair', price: 6 }, { type: 'thing', id: 'six_bite', price: 8 }];
   assert.equal(buyGood(run, stock, 0).code, 'BANK_FULL');
   const a = buyGood(run, stock, 0, { replace: 1 });
   assert.deepEqual(a.run.bank, ['refund', 'x3_pairs', 'x2_any']);
@@ -83,18 +123,20 @@ test('buying: bells spent, a slot sold once, a full bank or rail names what it r
   assert.equal(buyGood(a.run, a.stock, 2).code, 'BELLS');
   const b = buyGood(a.run, a.stock, 1);
   assert.deepEqual(b.run.ups, { pair: 1 });
+  assert.equal(b.run.upsBought, 1);
   assert.equal(b.run.bells, 0);
-  assert.equal(buyGood({ ...run, bells: 9 }, stock, 2).code, 'CHARMS_FULL');
-  assert.deepEqual(buyGood({ ...run, bells: 9 }, stock, 2, { replace: 0 }).run.charms, ['crooked_pip', 'bellwether', 'stone_ribbon']);
+  assert.deepEqual([0, 1, 2, 7, 9].map(upPrice), [10, 12, 14, 24, 24]);
+  assert.equal(buyGood({ ...run, bells: 9 }, stock, 2).code, 'POCKET_FULL');
+  assert.deepEqual(buyGood({ ...run, bells: 9 }, stock, 2, { replace: 0 }).run.pocket[0], { id: 'six_bite', stars: 1 });
+  assert.equal(buyGood({ ...run, bells: 9, levelIndex: 16 }, stock, 2).run.pocket.length, 4, 'a fourth place after level 15');
+  assert.deepEqual(buyGood({ ...run, bells: 9 }, [{ type: 'thing', id: 'lucky_coin', price: 8 }], 0).run.pocket[1], { id: 'lucky_coin', stars: 2 }, 'a repeat: a star in place');
   assert.equal(run.bells, 10, 'nothing changes in place');
-  assert.equal(sensibleShopping({ bells: 30, bank: [], ups: {}, charms: [] }, [stock[1], stock[0], stock[2]]).bells, 11);
+  assert.equal(sensibleShopping({ bells: 30, bank: [], ups: {}, pocket: [], levelIndex: 7 }, [stock[1], stock[0], stock[2]]).bells, 12);
 });
 
-test('charms in the count', () => {
+test('keepers in the count', () => {
   const dice = (...f) => f.map((face, cell) => ({ cell, face, held: false }));
   assert.equal(bestHand(dice(1, 1, 1)).total, 3 * 4);
-  assert.equal(bestHand(dice(1, 1, 1), [], { rules: { ones: 6 } }).total, 18 * 4);
-  assert.equal(bestHand([{ cell: 0, face: 3, held: true }, { cell: 1, face: 3, held: true }], [], { rules: { heldAdd: 1 } }).total, 8 * 2);
   assert.equal(bestHand(dice(3, 3), [], { rules: { sumAdd: 5 } }).total, 11 * 2);
   assert.equal(bestHand(dice(6, 6, 6), [], { rules: { sixes: 0 } }).total, 0);
   assert.equal(bestHand(dice(1, 2, 3, 4, 5), [], { rules: { half: ['straight'] } }).total, 15 * 4);
@@ -104,29 +146,17 @@ test('charms in the count', () => {
   assert.equal(bestHand(dice(5, 5, 6, 6, 6), [], { rules: { halfSum: true } }).total, 14 * 5); // half of 28 × FULL HOUSE ×5
 });
 
-test('FINAL BOW counts on the last hand only; SPARE KNUCKLE and ECHO THIMBLE change the rerolls', () => {
-  let g = createAutoGame(eight({ charms: ['final_bow', 'spare_knuckle'], target: 9999 }), {});
-  assert.equal(g.rerollsLeft, 4);
-  const plain = currentHand(g).total;
+test('through a level: FIRST SLICE and CALLBACK count on the first hand, LATE BLOOM and BOUNCE BACK on the last; no thing changes the rerolls', () => {
+  const things = [{ id: 'first_slice', stars: 1 }, { id: 'callback', stars: 1 }, { id: 'late_bloom', stars: 1 }, { id: 'bounce_back', stars: 1 }];
+  let g = createAutoGame(eight({ things, target: 9999 }), {});
+  assert.equal(g.rerollsLeft, 3);
+  assert.deepEqual(currentHand(g).things.sort(), ['callback', 'first_slice']);
   g = playHand(g, seq(1, 2, 3, 4, 5, 6)).state;
+  assert.deepEqual(currentHand(g).things, []);
   g = playHand(g, seq(1, 2, 3, 4, 5, 6)).state;
   assert.equal(g.handsLeft, 1);
-  assert.equal(currentHand(g).total, plain + 5 * currentHand(g).mult);
-  let e = createAutoGame({ ...eight({ charms: ['echo_thimble'], target: 9999 }), layout: [...Array(7).fill(0).map(() => ({ type: 'die' })), { type: 'bonus', kind: 'refund' }, { type: 'block' }], faces: [1, 2, 3, 4, 5, 6, 1, null, null] }, {});
-  e = toggleBonus(e, 7).state;
-  assert.equal(playHand(e, seq(1, 2, 3)).state.rerollsLeft, 3 + 2);
-});
-
-test('STONE RIBBON adds five to five-die hands only; QUICK POCKET starts the first kept card on the board', () => {
-  const rules = handRules(eight({ charms: ['stone_ribbon'] }), 3);
-  assert.equal(bestHand([1, 2, 3, 4, 5].map((face, cell) => ({ cell, face, held: false })), [], { rules }).total, (15 + 5) * 8); // a straight: +5
-  assert.equal(bestHand([4, 4].map((face, cell) => ({ cell, face, held: false })), [], { rules }).total, 8 * 2); // a pair: nothing
-  const q = createAutoGame(eight({ charms: ['quick_pocket'], bank: ['joker', 'refund'] }), {});
-  assert.deepEqual(q.cells[7], { type: 'bonus', kind: 'joker', fromBank: 0 });
-  assert.equal(q.faces[7], null);
-  assert.ok(q.off[7] && q.bank[0].placed && !q.bank[1].placed);
-  const six = { ...eight({ charms: ['quick_pocket'], bank: ['joker'] }), layout: [...Array(6).fill(0).map(() => ({ type: 'die' })), { type: 'block' }, { type: 'block' }, { type: 'block' }], faces: [1, 2, 3, 4, 5, 6, null, null, null] };
-  assert.equal(createAutoGame(six, {}).cells.filter((c) => c.type === 'die').length, MIN_DICE, 'six dice stay');
+  assert.deepEqual(currentHand(g).things.sort(), ['bounce_back', 'late_bloom']);
+  assert.equal(currentHand(g).pct, 15);
 });
 
 test('a keeper comes from the seed alone: THE EATER first, never one of the last two, each from his level; his rule stands on the level', () => {
@@ -147,7 +177,7 @@ test('a keeper comes from the seed alone: THE EATER first, never one of the last
   for (let r = 0; r < 200; r++) {
     const runSeed = `b${r}`;
     for (const L of [5, 10, 35]) {
-      const level = generateRunLevel({ runSeed, levelIndex: L, ups: { pair: 2 }, charms: ['bellwether'], bank: ['joker'] });
+      const level = generateRunLevel({ runSeed, levelIndex: L, ups: { pair: 2 }, things: [{ id: 'lucky_coin', stars: 2 }], bank: ['joker'] });
       const plain = generateRunLevel({ runSeed, levelIndex: L });
       assert.equal(level.target, runTarget(L), 'the boss keeps the ladder');
       assert.deepEqual(level.layout, plain.layout, 'the player never changes the board');
@@ -161,10 +191,10 @@ test('a keeper comes from the seed alone: THE EATER first, never one of the last
       level.layout.forEach((c, i) => assert.equal(c.type === 'die', level.faces[i] !== null));
     }
   }
-  const eater = { mode: 'auto', seed: 'm', levelIndex: 5, boss: 'fatman', charms: [] };
+  const eater = { mode: 'auto', seed: 'm', levelIndex: 5, boss: 'fatman', things: [] };
   assert.equal(handRules(eater, 3).sumAdd, -5); // his toll
-  assert.equal(handRules({ ...eater, charms: ['stone_ribbon'] }, 3).fiveAdd, 5); // the ribbon pays it back on five-die hands
-  assert.equal(handRules({ ...eater, boss: 'skeleton_golden', charms: ['crooked_pip'] }, 3).ones, 0); // the keeper's word comes last
+  assert.deepEqual(handRules({ ...eater, things: [{ id: 'full_head', stars: 1 }] }, 3).adds, [{ id: 'full_head', n: 3, when: 'five' }]); // FULL HEAD pays it back on five-die hands
+  assert.equal(handRules({ ...eater, boss: 'skeleton_golden', things: [{ id: 'magnified_one', stars: 3 }] }, 3).ones, 0); // the keeper's word comes last
 });
 
 test('RED EYE, OLD HORNS and THE GOLDEN BONES count through the game itself', () => {
@@ -201,9 +231,10 @@ test('LOOSE GRIP refuses a fourth hold; THE GOLDEN KNIGHT halves the first hand 
 
 test('the late heroes come on boards from their levels; the shop sells only opened kinds; every card has a price', () => {
   for (const k of BONUS_UNLOCKS) assert.ok(CARD_PRICE[k] > 0, k);
-  const run = { ups: {}, charms: [] };
+  const run = { ups: {}, pocket: [] };
   const sold = (levelIndex) => new Set(Array.from({ length: 300 }, (_, r) => shopStock({ runSeed: `u${r}`, levelIndex, run })[0].id));
-  for (const k of sold(9)) assert.ok(unlockedKinds(9).includes(k), k);
+  for (const k of sold(4)) assert.ok(unlockedKinds(4).includes(k), k);
+  for (const k of sold(27)) assert.ok(THINGS[k] || unlockedKinds(27).includes(k), `${k}: things, and opened heroes' cards 3 times in 10`);
   assert.ok(sold(27).has('x3_sixes'), 'SIXES ×3 is sold once it is open');
   const dice = (...f) => f.map((face, cell) => ({ cell, face, held: false }));
   assert.equal(bestHand(dice(4, 4, 4, 4), [{ cell: 9, kind: 'x3_kinds' }]).bonusMult, 3);

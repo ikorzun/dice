@@ -3,20 +3,20 @@
 // it; the target stays on the ladder. Each rule is data the engine reads (auto.js handRules, toggleHold; run3.js hands
 // and rerolls), never the keeper's name. Level 5 is always THE EATER; every later fifth level draws by the run seed among
 // the keepers open at that depth, never one of the last two. Three golden keepers come from level 35 and pay 5 more bells.
-// counters: the charms the shop before a keeper offers against him (until the pocket's things replace the charms).
+// The things that answer a keeper say so themselves (things3.js `helps`): the shop before him offers one.
 
 import { createRng } from './rng.js';
 
 export const BOSSES = Object.freeze({
-  fatman: Object.freeze({ name: 'THE EATER', rule: 'EVERY HAND SUMS FIVE LESS', from: 5, until: 25, sumAdd: -5, counters: Object.freeze(['stone_ribbon', 'final_bow']) }),
-  ghoul: Object.freeze({ name: 'RED EYE', rule: 'SIXES ADD ZERO', from: 10, sixes: 0, counters: Object.freeze(['crooked_pip']) }),
-  prisoner: Object.freeze({ name: 'THE CONVICT', rule: 'START WITH TWO REROLLS', from: 10, rerolls: 2, counters: Object.freeze(['spare_knuckle', 'echo_thimble']) }),
-  robot: Object.freeze({ name: 'IRON WARDEN', rule: 'START WITH TWO HANDS', from: 15, hands: 2, counters: Object.freeze(['final_bow', 'quick_pocket']) }),
-  ghoul_old: Object.freeze({ name: 'OLD HORNS', rule: 'STRAIGHTS SCORE HALF', from: 20, half: Object.freeze(['straight', 'small_straight']), counters: Object.freeze(['velvet_grip']) }),
-  zombie: Object.freeze({ name: 'LOOSE GRIP', rule: 'HOLD THREE DICE AT MOST', from: 30, holdCap: 3, counters: Object.freeze(['spare_knuckle']) }),
-  knight_golden: Object.freeze({ name: 'THE GOLDEN KNIGHT', rule: 'FIRST HAND SCORES HALF', from: 35, golden: true, firstHalf: true, counters: Object.freeze(['final_bow', 'spare_knuckle']) }),
-  robot_golden: Object.freeze({ name: 'THE GOLDEN MACHINE', rule: 'START WITH TWO HANDS AND TWO REROLLS', from: 45, golden: true, hands: 2, rerolls: 2, counters: Object.freeze(['spare_knuckle', 'final_bow']) }),
-  skeleton_golden: Object.freeze({ name: 'THE GOLDEN BONES', rule: 'ONES AND SIXES ADD ZERO', from: 55, golden: true, ones: 0, sixes: 0, counters: Object.freeze(['velvet_grip', 'stone_ribbon']) }),
+  fatman: Object.freeze({ name: 'THE EATER', rule: 'EVERY HAND SUMS FIVE LESS', from: 5, until: 25, sumAdd: -5 }),
+  ghoul: Object.freeze({ name: 'RED EYE', rule: 'SIXES ADD ZERO', from: 10, sixes: 0 }),
+  prisoner: Object.freeze({ name: 'THE CONVICT', rule: 'START WITH TWO REROLLS', from: 10, rerolls: 2 }),
+  robot: Object.freeze({ name: 'IRON WARDEN', rule: 'START WITH TWO HANDS', from: 15, hands: 2 }),
+  ghoul_old: Object.freeze({ name: 'OLD HORNS', rule: 'STRAIGHTS SCORE HALF', from: 20, half: Object.freeze(['straight', 'small_straight']) }),
+  zombie: Object.freeze({ name: 'LOOSE GRIP', rule: 'HOLD THREE DICE AT MOST', from: 30, holdCap: 3 }),
+  knight_golden: Object.freeze({ name: 'THE GOLDEN KNIGHT', rule: 'FIRST HAND SCORES HALF', from: 35, golden: true, firstHalf: true }),
+  robot_golden: Object.freeze({ name: 'THE GOLDEN MACHINE', rule: 'START WITH TWO HANDS AND TWO REROLLS', from: 45, golden: true, hands: 2, rerolls: 2 }),
+  skeleton_golden: Object.freeze({ name: 'THE GOLDEN BONES', rule: 'ONES AND SIXES ADD ZERO', from: 55, golden: true, ones: 0, sixes: 0 }),
 });
 
 export const FIRST_KEEPER = 'fatman';

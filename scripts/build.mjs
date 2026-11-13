@@ -20,13 +20,14 @@ const MODULES = [
   'src/engine/poker.js',
   'src/engine/hands.js',
   'src/engine/bosses3.js',
+  'src/engine/uplift3.js',
+  'src/engine/upgrades3.js',
+  'src/engine/things3.js',
   'src/engine/auto.js',
   'src/engine/levels.js',
   'src/engine/levels5.js',
   'src/engine/levels3.js',
   'src/engine/recipes3.js',
-  'src/engine/uplift3.js',
-  'src/engine/upgrades3.js',
   'src/engine/run3.js',
   'src/engine/shop3.js',
   'src/ui/dice-model.js',
@@ -103,14 +104,15 @@ const html = readFileSync('index.html', 'utf8');
 // The files the stylesheet points at (font, bonus art, icons) become data URIs, so the built pages
 // stand alone wherever they are opened.
 const MIME = { '.mp3': 'audio/mpeg', '.otf': 'font/otf', '.ttf': 'font/ttf', '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
-// The heroes' and keepers' acts (hero-acts.js) are too heavy to inline (14 MB): they stay files, loaded when needed.
-// dist/index.html takes them from the repository's assets (GitHub Pages serves both), the Playgama archive carries its
-// own copy, and the claude.ai fragment has none (its portraits stand still).
-const ACT_URL = /url\("\.\.\/\.\.\/assets\/ui\/acts\/([^"]+\.avif)"\)/g;
+// The heroes' and keepers' acts (hero-acts.js, 26 MB) and the portal's pictures (playPortal, 2.4 MB) are too heavy to
+// inline: they stay files, loaded when needed. dist/index.html takes them from the repository's assets (GitHub Pages
+// serves both), the Playgama archive carries its own copy, and the claude.ai fragment has none (its portraits stand
+// still, its portal shows the thing alone).
+const FILE_URL = /url\("\.\.\/\.\.\/assets\/ui\/(acts|portal)\/([^"]+\.(?:avif|webp))"\)/g;
 const cssSource = readFileSync('src/ui/styles.css', 'utf8');
-const ACTS = [...cssSource.matchAll(ACT_URL)].map((m) => m[1]);
+const FILES = [...cssSource.matchAll(FILE_URL)].map((m) => `${m[1]}/${m[2]}`);
 const css = cssSource
-  .replace(ACT_URL, (_, file) => `url("../assets/ui/acts/${file}")`)
+  .replace(FILE_URL, (_, dir, file) => `url("../assets/ui/${dir}/${file}")`)
   .replace(/url\("\.\.\/\.\.\/(assets\/[^"]+)"\)/g, (_, file) => `url("data:${MIME[extname(file)]};base64,${readFileSync(file).toString('base64')}")`);
 if (css.includes('url("../../')) throw new Error('styles.css points at a file the build does not inline');
 const cssTag = '<link rel="stylesheet" href="src/ui/styles.css">';
@@ -124,7 +126,7 @@ const title = html.match(/<title>[^<]*<\/title>/)[0];
 // The Google Fonts of the old looks: every glyph the game shows is in Basteleur, which is inlined, so no page loads them.
 const noFonts = (page) => page.replace(/\s*<link rel="(?:preconnect|stylesheet)" href="https:\/\/fonts\.googleapis\.com[^>]*>/g, '');
 const bodyInner = standalone.match(/<body>([\s\S]*)<\/body>/)[1].trim();
-const fragment = `${title}\n<meta name="claude:viewport-fit-sides" content="cover">\n<style>\n${css.replace(/url\("\.\.\/assets\/ui\/acts\/[^"]+"\)/g, 'none')}</style>\n${bodyInner}\n`;
+const fragment = `${title}\n<meta name="claude:viewport-fit-sides" content="cover">\n<style>\n${css.replace(/url\("\.\.\/assets\/ui\/(?:acts|portal)\/[^"]+"\)/g, 'none')}</style>\n${bodyInner}\n`;
 
 const BRIDGE = '<script src="https://bridge.playgama.com/v2/stable/playgama-bridge.js"></script>';
 const THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -132,13 +134,14 @@ const THREE_LOCAL = './vendor/three.module.min.js'; // vendor/three: three@0.160
 const page = noFonts(standalone);
 if (!page.includes(THREE_CDN)) throw new Error('dice3d.js no longer loads three@0.160.0: update the vendored copy');
 const playgama = page.replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n${BRIDGE}`).split(THREE_CDN).join(THREE_LOCAL)
-  .split('url("../assets/ui/acts/').join('url("acts/');
+  .split('url("../assets/ui/acts/').join('url("acts/').split('url("../assets/ui/portal/').join('url("portal/');
 if (!playgama.includes(BRIDGE)) throw new Error('index.html has no charset line to put the Bridge script after');
 if (/https:\/\/(?!bridge\.playgama\.com)[^"'\s)]*\.(?:js|css|woff2?|otf|ttf|png|webp|mp3|json)\b/.test(playgama.replace(/<!--[\s\S]*?-->/g, ''))) throw new Error('the Playgama page still loads something from outside its archive');
 
 mkdirSync('dist/playgama/vendor', { recursive: true });
 mkdirSync('dist/playgama/acts', { recursive: true });
-for (const file of ACTS) copyFileSync(`assets/ui/acts/${file}`, `dist/playgama/acts/${file}`);
+mkdirSync('dist/playgama/portal', { recursive: true });
+for (const file of FILES) copyFileSync(`assets/ui/${file}`, `dist/playgama/${file}`);
 writeFileSync('dist/index.html', page);
 writeFileSync('dist/artifact.html', fragment);
 writeFileSync('dist/playgama/index.html', playgama);

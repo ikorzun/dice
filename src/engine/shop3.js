@@ -1,7 +1,10 @@
-// The shop of the run (owner's order В2, GPT's design, art/ai/2026-11-06-shop-bosses). Clearing a level pays BELLS, more
-// for hands and rerolls left unused, so the price of a decision shows (digest rule 16). A door opens after the second
-// and the fourth level of each act, after the free upgrade pick: three goods, one card, one +1 and one charm, each sold
-// once. The last door before a boss names the boss and offers something against it (rule 24).
+// The shop of the run (owner's order В2, GPT's design, art/ai/2026-11-06-shop-bosses; the portals plan, step 2, MODE3-PLAN
+// §54). Clearing a level pays BELLS, more for hands and rerolls left unused, so the price of a decision shows (digest rule
+// 16). A door opens after the second and the fourth level of each act, after the free upgrade pick: two shelves, a THING
+// and a +1 TO A COMBINATION, each sold once. The last door before a keeper names him and offers a thing against him (rule
+// 24) when the starters or the device's earlier finds hold one. From level 5 the thing is one of the pocket's (things3.js); before it, until the card-things of step 4, a hero's
+// card, as the shop sold them. A thing the player carries comes as its next star. The things on the shelf are the twelve
+// starters and the ones this device found in earlier runs (things3.js shopPool, step 3b; run.gallery).
 // Offers fit the player (questionnaire В9): they weigh the hands played and fallen short on, recent ones most, and the
 // tag says so (rule 25: help in a score game must be visible). Targets and layouts never look at any of this.
 
@@ -12,40 +15,31 @@ import { CATEGORY5_LABELS } from './scoring5.js';
 import { UP_CATEGORIES, withUpgrade } from './upgrades3.js';
 import { unlockedKinds } from './levels3.js';
 import { bossOf, BOSSES } from './bosses3.js';
+import { THINGS, THING_PRICE, pocketPlaces, starsOf, helpsAgainst, takeThing, thingBells, shopPool } from './things3.js';
 
-export const CHARM_SLOTS = 3;
 const ALL = UP_CATEGORIES;
 
-// The names and pictures are the owner's things of the portals plan (owner, 12.11.2026: «Объекты я давал с героями»;
-// his pick: the pictures only, scripts/charms.py); the ids, rules and prices are the charms' own
-export const CHARMS = Object.freeze({
-  crooked_pip: Object.freeze({ name: 'SIX GRIP', rule: 'ONES COUNT AS SIX IN HAND SUMS', price: 9, serves: ['full_house', 'straight', 'two_pairs'] }),
-  velvet_grip: Object.freeze({ name: 'SOLID HOLD', rule: 'HELD DICE ADD ONE TO HAND SUM', price: 8, serves: ['pair', 'three_kind', 'five_kind'], habit: 'holds' }),
-  quick_pocket: Object.freeze({ name: 'FIRST FLIGHT', rule: 'FIRST BANK CARD STARTS ON BOARD', price: 8, serves: [], habit: 'cards' }),
-  stone_ribbon: Object.freeze({ name: 'FIVE SLICES', rule: 'FIVE-DIE HANDS ADD FIVE', price: 7, serves: ['full_house', 'straight', 'five_kind'] }),
-  echo_thimble: Object.freeze({ name: 'CALLBACK', rule: 'REFUND GIVES BACK TWO REROLLS', price: 7, serves: [], habit: 'rerolls' }),
-  bellwether: Object.freeze({ name: 'LUCKY COIN', rule: 'TWO MORE BELLS EACH CLEARED LEVEL', price: 9, serves: [] }),
-  final_bow: Object.freeze({ name: 'LATE BLOOM', rule: 'LAST HAND ADDS FIVE TO SUM', price: 8, serves: ALL }),
-  spare_knuckle: Object.freeze({ name: 'REWIND', rule: 'ONE MORE REROLL EACH LEVEL', price: 15, serves: [], habit: 'rerolls' }),
-});
-
 export const CARD_PRICE = Object.freeze({ x2_any: 4, x3_straight: 6, x3_pairs: 4, x3_trips: 5, joker: 6, refund: 4, x3_kinds: 5, x3_small: 4, x4_any: 9, x3_sixes: 5 });
-export const UP_PRICE = Object.freeze({ pair: 6, two_pairs: 7, small_straight: 7, three_kind: 7, full_house: 8, four_kind: 8, straight: 10, five_kind: 10 });
+export const THINGS_FROM = 5; // the first shop of the pocket's things is the one after level 7
+export const CARD_SHARE = 0.3; // from it, the thing shelf holds a card 3 times in 10 (the spec's card-things; heroes' until step 4)
+// +1 to a combination: 10 bells, 2 more for each one bought in a shop this run (the free picks are free), 24 at most
+export const upPrice = (bought = 0) => Math.min(24, 10 + 2 * bought);
 
 // The act's second and fourth levels: 2, 4, 7, 9, 12…
 export const doorAfter = (levelIndex) => (levelIndex - 1) % 5 === 1 || (levelIndex - 1) % 5 === 3;
 export const bossNext = (levelIndex) => levelIndex % 5 === 4; // the door before a boss
 
-// What a won level pays, each part named for its receipt.
+// What a won level pays, each part named for its receipt; `things`: what each thing in the pocket paid ([{ id, n }]).
 export function levelBells(game) {
   const parts = {
     clear: 2,
     hand: 2 * game.handsLeft,
     reroll: game.rerollsLeft,
     boss: game.level.boss ? (BOSSES[game.level.boss].golden ? 8 : 3) : 0, // a golden keeper pays 5 more
-    charm: (game.level.charms || []).includes('bellwether') ? 2 : 0,
   };
-  return { ...parts, total: Object.values(parts).reduce((a, b) => a + b, 0) };
+  const pay = Object.values(parts).reduce((a, b) => a + b, 0);
+  const things = thingBells(game.level.things, { handsLeft: game.handsLeft, rerollsLeft: game.rerollsLeft, keeper: !!game.level.boss, played: (game.hands || []).map((h) => h.category), pay });
+  return { ...parts, things, total: pay + things.reduce((a, t) => a + t.n, 0) };
 }
 
 // How much a player leans on each combination. plays: { category, cleared, level }, this run's and the hands that
@@ -80,37 +74,34 @@ function draw(rng, items, weightOf) {
 // The combinations a card raises, for its fit.
 const cardCats = (kind) => (kind === 'joker' || kind === 'refund' ? ALL : ALL.filter((c) => BONUS_KINDS[kind].fits(c)));
 
-// The shelf after `levelIndex`, seeded: the same run and the same choices bring the same goods. run: { ups, charms };
-// plays and habits ({ rerolls, holds, cards }, 0 to 1): how the player has played so far.
-export function shopStock({ runSeed, levelIndex, run, plays = [], habits = {} }) {
+// The shelf after `levelIndex`, seeded: the same run and the same choices bring the same goods. run: { ups, pocket,
+// upsBought, gallery }; plays: how the player has played so far (the fit).
+export function shopStock({ runSeed, levelIndex, run, plays = [] }) {
   const rng = createRng(`${runSeed}/A${levelIndex}/shop`);
   const fit = fitWeights({ plays, ups: run.ups }, levelIndex);
-  const sum = (cats) => cats.reduce((s, c) => s + fit[c].weight, 0) / Math.max(1, cats.length);
+  const avg = (cats) => cats.reduce((s, c) => s + fit[c].weight, 0) / Math.max(1, cats.length);
   const leaned = (cats) => cats.slice().sort((a, b) => fit[b].weight - fit[a].weight)[0];
-  const kind = draw(rng, unlockedKinds(levelIndex), (k) => sum(cardCats(k)));
   const category = draw(rng, ALL, (c) => fit[c].weight);
-  const free = Object.keys(CHARMS).filter((id) => !(run.charms || []).includes(id));
-  const charmWeight = (id) => 4 + (CHARMS[id].serves.length ? sum(CHARMS[id].serves) : 0) + 12 * (habits[CHARMS[id].habit] || 0);
-  const boss = bossNext(levelIndex) ? bossOf(runSeed, levelIndex + 1) : null;
-  const counters = boss ? BOSSES[boss].counters.filter((id) => free.includes(id)) : [];
-  const charm = free.length ? draw(rng, counters.length ? counters : free, charmWeight) : null;
-  const habitTag = (h) => ({ rerolls: 'YOU SPEND REROLLS', holds: 'YOU HOLD DICE', cards: 'YOU KEEP CARDS' })[h];
-  const charmTag = (id) => {
-    const c = CHARMS[id];
-    if (counters.includes(id)) return 'GOOD AGAINST KEEPER';
-    if (c.habit && (habits[c.habit] || 0) >= 0.4) return habitTag(c.habit);
-    return 'WILD OFFER'; // a charm names no hand, so a tag naming one would be a riddle over it (its weight still leans)
+  const up = { type: 'up', id: category, price: upPrice(run.upsBought), tag: fitTag(category, fit) };
+  const card = () => {
+    const kind = draw(rng, unlockedKinds(levelIndex), (k) => avg(cardCats(k)));
+    return [{ type: 'card', id: kind, price: CARD_PRICE[kind], tag: cardCats(kind).length < ALL.length ? fitTag(leaned(cardCats(kind)), fit) : 'WILD OFFER' }, up];
   };
-  const stock = [
-    { type: 'card', id: kind, price: CARD_PRICE[kind], tag: cardCats(kind).length < ALL.length ? fitTag(leaned(cardCats(kind)), fit) : 'WILD OFFER' },
-    { type: 'up', id: category, price: UP_PRICE[category], tag: fitTag(category, fit) },
-  ];
-  if (charm) stock.push({ type: 'charm', id: charm, price: CHARMS[charm].price, tag: charmTag(charm) });
-  return stock;
+  const pool = shopPool(levelIndex, run.pocket, run.gallery); // the starters and this device's finds (step 3b)
+  const keeper = bossNext(levelIndex) ? bossOf(runSeed, levelIndex + 1) : null;
+  const counters = keeper ? pool.filter((id) => helpsAgainst(id, keeper)) : [];
+  // the spec's card-thing 3 times in 10 is a hero's card until step 4 brings them; never before a keeper, whose door
+  // offers a thing against him
+  if (levelIndex < THINGS_FROM || !pool.length || (!counters.length && rng.next() < CARD_SHARE)) return card();
+  const id = draw(rng, counters.length ? counters : pool, (t) => 4 + avg(THINGS[t].serves));
+  const owned = starsOf(run.pocket, id);
+  const serves = THINGS[id].serves;
+  const tag = counters.includes(id) ? 'GOOD AGAINST KEEPER' : owned ? '+1 STAR' : serves.length < ALL.length ? fitTag(leaned(serves), fit) : 'WILD OFFER';
+  return [{ type: 'thing', id, star: owned + 1, price: THING_PRICE[THINGS[id].rarity], tag }, up];
 }
 
-// Buys one good. run: { bells, bank, ups, charms }. A full bank or charm rail names the place the good replaces (the old
-// one burns). Returns { ok, run, stock } or { ok: false, code, message }.
+// Buys one good. run: { bells, bank, ups, upsBought, pocket, levelIndex }. A full bank or pocket names the place the good
+// replaces (the old one is gone). Returns { ok, run, stock } or { ok: false, code, message }.
 export function buyGood(run, stock, slot, { replace = null } = {}) {
   const good = stock[slot];
   const reject = (code, message) => ({ ok: false, code, message });
@@ -123,16 +114,18 @@ export function buyGood(run, stock, slot, { replace = null } = {}) {
     next.bank = run.bank.length < BANK_SIZE ? [...run.bank, good.id] : run.bank.map((k, i) => (i === replace ? good.id : k));
   } else if (good.type === 'up') {
     next.ups = withUpgrade(run.ups, good.id);
+    next.upsBought = (run.upsBought || 0) + 1;
   } else {
-    if (run.charms.length >= CHARM_SLOTS && replace === null) return reject('CHARMS_FULL', 'Replace a charm');
-    next.charms = run.charms.length < CHARM_SLOTS ? [...run.charms, good.id] : run.charms.map((k, i) => (i === replace ? good.id : k));
+    const r = takeThing(run.pocket || [], good.id, pocketPlaces(run.levelIndex || 1), replace);
+    if (!r.ok) return reject(r.code, r.code === 'POCKET_FULL' ? 'Replace a thing' : 'Nothing to add');
+    next.pocket = r.pocket;
   }
   return { ok: true, run: next, stock: stock.map((g, i) => (i === slot ? { ...g, sold: true } : g)) };
 }
 
 // A shopper for the bots: buys in this order while the bells last and a place is free. A strong player goes for what
-// stays (the charm, the +1), a typical one takes the shelf as it comes.
-export function sensibleShopping(run, stock, order = ['charm', 'up', 'card']) {
+// stays (the thing, the +1), a typical one takes the shelf as it comes.
+export function sensibleShopping(run, stock, order = ['thing', 'up', 'card']) {
   let now = run;
   let shelf = stock;
   for (const type of order) {

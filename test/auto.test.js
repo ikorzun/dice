@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { classifyExact, bestHand } from '../src/engine/hands.js';
+import { classifyExact, bestHand, AUTO_MULT } from '../src/engine/hands.js';
 import {
   createAutoGame, toggleHold, toggleBonus, reroll, currentHand, boardHand, heldHand, playHand, hintFor, canReroll,
   rerollTargets, snapshotGame, restoreGame, diceCells, carryOver, awake, BANK,
@@ -432,18 +432,19 @@ test('×4 LAST HAND shows on the counter only on the last hand, and is not used 
   assert.equal(r.state.cells[8].type, 'die'); // used: a new die takes its cell
 });
 
-test('×4 LAST HAND under IRON WARDEN wakes on the second hand, the same hand as FINAL BOW', () => {
-  let g = createAutoGame(owlBoard({ hands: 2, boss: 'robot', charms: ['final_bow'] }));
+test('×4 LAST HAND under IRON WARDEN wakes on the second hand, the same hand as LATE BLOOM', () => {
+  let g = createAutoGame(owlBoard({ hands: 2, boss: 'robot', things: [{ id: 'late_bloom', stars: 1 }] }));
   g = toggleBonus(g, 8).state;
   const first = currentHand(g);
   assert.equal(first.bonusMult, 1);
-  const sum = (h) => h.faces.reduce((x, f) => x + f, 0);
-  assert.equal(first.base, sum(first)); // FINAL BOW sleeps too
+  assert.equal(first.mult, AUTO_MULT[first.category]); // LATE BLOOM sleeps too
+  assert.deepEqual(first.things, []);
   g = playHand(g, pairs).state;
   assert.equal(g.handsLeft, 1);
   const h = currentHand(g);
   assert.equal(h.bonusMult, 4);
-  assert.equal(h.base, sum(h) + 5); // both wake for the last hand
+  assert.equal(h.mult, AUTO_MULT[h.category] + 1); // both wake for the last hand
+  assert.deepEqual(h.things, ['late_bloom']);
   assert.equal(h.total, h.points * 4);
 });
 
