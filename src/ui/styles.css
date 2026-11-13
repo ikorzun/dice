@@ -1370,9 +1370,12 @@ body.wide .shop-leave { grid-column: 2; }
 .guide:not(.run) .guide-dots i:last-child { display: none; }
 /* each fact as the shop's note: its picture (the keeper's face, the bell, the charm's thing), a grey label, the name,
    what it does in the light cut; the bells' sum in yellow; on the black, as nothing here is tapped (owner, 12.11.2026) */
-/* THIS RUN with a full pocket: what a phone's height cannot hold scrolls inside the page, never under NEXT or the bar (in a
-   wide window the page is laid out by the guide's grid and this does nothing) */
-.guide-page[data-page="4"] { justify-content: safe center; overflow-y: auto; }
+/* THIS RUN with a full pocket: what a phone's height cannot hold scrolls inside the page, never under NEXT or the bar. The
+   middle comes from auto margins, which turn to 0 when the words overflow, so the head stays reachable in every engine
+   (`justify-content: safe center` needs Safari 17.6). A wide window lays the page out by the guide's grid (below). */
+.guide-page[data-page="4"] { justify-content: flex-start; overflow-y: auto; }
+.guide-page[data-page="4"] > :first-child { margin-top: auto; }
+.guide-page[data-page="4"] > :last-child { margin-bottom: auto; }
 .run-facts { --art: clamp(32px, 9vmin, 48px); width: 100%; margin: 0; padding: 0; list-style: none; display: grid; gap: clamp(8px, 2vh, 16px); font-family: var(--font-display); font-weight: 700; text-align: left; }
 .run-facts li { display: grid; grid-template-columns: var(--art) minmax(0, 1fr); align-items: center; column-gap: 20px; }
 .run-facts .fact-line { display: block; font-size: max(11px, clamp(11px, 3vmin, 13px)); line-height: 1.3; letter-spacing: .08em; color: var(--muted); text-align: center; }
@@ -1430,6 +1433,7 @@ body.wide #handStat .label { font-size: calc(13px * var(--k, 1)); } /* SMALL STR
   .bonus-list { --tile-size: min(22vmin, 15vh); row-gap: 4px; } /* the cards fit under the bar, whose CLOSE is 44 px now */
   .bonus-list small { font-size: 11px; }
   .run-facts { align-self: center; }
+  .guide-page[data-page="4"] > :first-child, .guide-page[data-page="4"] > :last-child { margin-top: 0; margin-bottom: 0; }
 }
 @media (orientation: portrait) and (max-height: 700px) {
   .guide.help .combos { gap: 3px; --gd: clamp(16px, 4.6vmin, 24px); }

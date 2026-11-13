@@ -493,9 +493,10 @@ function hydrateMode(id, saved) {
   st.gallery = cleanGallery(saved.gallery);
   st.runGallery = Array.isArray(saved.runGallery) ? cleanGallery(saved.runGallery) : [...st.gallery];
   st.upsBought = Number.isInteger(saved.upsBought) && saved.upsBought > 0 ? saved.upsBought : 0;
-  // a shop saved with a good the game no longer has (a charm, before the pocket) is drawn again
+  // a shop saved with a good the game no longer has (a charm, before the pocket) opens again with its shelf drawn anew: an
+  // open shop means the pick was made, so dropping it would offer the pick twice
   const known = (g) => g && ((g.type === 'card' && BONUS_KINDS[g.id]) || (g.type === 'up' && AUTO_MULT[g.id]) || (g.type === 'thing' && THINGS[g.id]));
-  st.shop = saved.shop && Array.isArray(saved.shop.stock) && saved.shop.stock.every(known) ? saved.shop : null;
+  st.shop = saved.shop && typeof saved.shop === 'object' ? (Array.isArray(saved.shop.stock) && saved.shop.stock.every(known) ? saved.shop : { level: saved.shop.level, stock: null }) : null;
   st.plays = Array.isArray(saved.plays) ? saved.plays : [];
   st.habit = saved.habit && Number.isFinite(saved.habit.levels) ? saved.habit : st.habit;
   st.runs = Array.isArray(saved.runs) ? saved.runs.filter((r) => r && Number.isInteger(r.level)) : [];
@@ -1312,7 +1313,7 @@ function openShop() {
   const st = S();
   const level = st.game.level.levelIndex;
   stopFx(); // the cleared screen's effects go with it
-  if (!st.shop) {
+  if (!st.shop || !st.shop.stock) {
     const h = st.habit;
     const habits = { rerolls: Math.min(1, h.rerolls / (3 * Math.max(1, h.levels))), holds: Math.min(1, h.holds / (6 * Math.max(1, h.levels))), cards: st.bank.length / BANK_SIZE };
     st.shop = { level, stock: shopStock({ runSeed: st.runSeed, levelIndex: level, run: runOf(st), plays: st.plays, habits }) };
