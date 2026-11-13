@@ -196,6 +196,7 @@
   --portal-thing-lucky_coin: none;
   --portal-thing-magnified_one: none;
   --portal-thing-matched_pair: none;
+  --portal-thing-pair_chime: none;
   --portal-thing-patient_beads: none;
   --portal-thing-peace_bonus: none;
   --portal-thing-pip_growth: none;
@@ -3236,7 +3237,7 @@ const __mod_things3 = (() => {
 // The pocket's things (portals plan, step 2; MODE3-PLAN §54; spec art/ai/2026-11-10-portals/spec.json). The owner's
 // objects (New img/Things) replace the charms: a thing in the pocket works by itself for the rest of the run. The pocket
 // holds 3 things, 4 once level 15 is cleared, 5 once level 35 is; it starts empty every run. The same thing again gives
-// it a star (3 at most): a star changes its number, never its rule. Step 2 brought twenty, step 3c the other sixteen
+// it a star (3 at most): a star changes its number, never its rule. Step 2 brought twenty, step 3c the other seventeen
 // that change only the count (§57): sums, faces, the centre die, jokers and cards, a combination's multiplier, a card's
 // own number, a hand's percent, bells and a keeper's level. Each is data the engine reads (auto.js handRules, run3.js
 // generateRunLevel, shop3.js levelBells), never its name.
@@ -3287,6 +3288,7 @@ const THINGS = Object.freeze({
   lucky_coin: thing('0001_goldcoin', 'LUCKY COIN', 'common', 5, { hook: 'bells', when: 'clear' }, [2, 3, 4], (n) => `EVERY CLEARED LEVEL PAYS ${n} MORE BELLS`),
   spare_hat: thing('0018_hat_fur', 'SPARE HAT', 'common', 10, { hook: 'bells', when: 'hands' }, [1, 2, 3], (n) => `A CLEARED LEVEL PAYS ${n} MORE BELL${n > 1 ? 'S' : ''} FOR EACH HAND LEFT`),
   peace_bonus: thing('0072_piece', 'PEACE BONUS', 'rare', 25, { hook: 'bells', when: 'hands' }, [2, 3, 4], (n) => `A CLEARED LEVEL PAYS ${n} MORE BELLS FOR EACH HAND LEFT`),
+  pair_chime: thing('0004_bell', 'PAIR CHIME', 'common', 5, { hook: 'bells', when: 'played', categories: Object.freeze(['pair']) }, [2, 3, 4], (n) => `A CLEARED LEVEL WITH ONE PAIR PLAYED PAYS ${n} MORE BELLS`, ['pair']), // the money bell is its picture (owner, 13.11.2026: «Оставляй колокол»)
   victory_honk: thing('0098_clack_sound', 'VICTORY HONK', 'common', 10, { hook: 'bells', when: 'reroll' }, [2, 3, 4], (n) => `A CLEARED LEVEL WITH A REROLL LEFT PAYS ${n} MORE BELLS`),
   chainmaker: thing('0035_satoshi', 'CHAINMAKER', 'uncommon', 15, { hook: 'bells', when: 'played', categories: Object.freeze(['straight', 'small_straight']) }, [3, 4, 5], (n) => `A CLEARED LEVEL WITH ANY STRAIGHT PLAYED PAYS ${n} MORE BELLS`, ['straight', 'small_straight']),
   royal_toll: thing('0014_crown_gold', 'ROYAL TOLL', 'uncommon', 10, { hook: 'bells', when: 'keeper' }, [5, 7, 9], (n) => `A BEATEN KEEPER PAYS ${n} MORE BELLS`),
@@ -3398,8 +3400,7 @@ function keeperHelp(things) {
 // Every thing of the spec, 53 for the pocket and 6 cards, in its order: id, the owner's picture, kind. A device keeps the
 // ids it has seen in a portal or bought (app.js st.gallery), for good; the gallery shows those, the others as a dark
 // shape. The things not built yet (THINGS has the built ones) come with their steps: the cards in step 4, the ones that
-// change the dice, the rerolls, the plays or the board in step 6. PAIR CHIME waits for the owner: its picture is the bell
-// that means money everywhere in the game (assets/ui/bell.webp).
+// change the dice, the rerolls, the plays or the board in step 6.
 const CATALOGUE = Object.freeze([
   ['brain_boost', '0000_brain', 'pocket'],
   ['lucky_coin', '0001_goldcoin', 'pocket'],

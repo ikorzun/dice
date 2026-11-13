@@ -20,8 +20,8 @@ const boardOf = (cells, faces, extra = {}) => {
   return { mode: 'auto', seed: 't', levelIndex: 12, target: 99999, layout: cells.map((c) => (c === 'd' ? { type: 'die' } : { type: 'bonus', kind: c })), faces: cells.map((c) => (c === 'd' ? faces[k++] : null)), ...extra };
 };
 
-test('thirty-six things, each with a picture, a rarity and price, three numbers and a rule that says its number', () => {
-  assert.equal(Object.keys(THINGS).length, 36);
+test('thirty-seven things, each with a picture, a rarity and price, three numbers and a rule that says its number', () => {
+  assert.equal(Object.keys(THINGS).length, 37);
   for (const [id, t] of Object.entries(THINGS)) {
     assert.ok(/^\d{4}_\w+$/.test(t.file), id);
     assert.ok(THING_PRICE[t.rarity] > 0, id);
@@ -32,7 +32,7 @@ test('thirty-six things, each with a picture, a rarity and price, three numbers 
     assert.ok(t.from >= 5 && t.from <= 35, id);
     for (const k of t.helps) assert.ok(k === '*' || BOSSES[k], `${id} helps ${k}`);
   }
-  assert.ok(!THINGS.pair_chime, 'PAIR CHIME waits for the owner: its picture is the money bell');
+  assert.equal(THINGS.pair_chime.file, '0004_bell', 'PAIR CHIME wears the money bell (owner: «Оставляй колокол»)');
 });
 
 test('the pocket: 3 places, a 4th after level 15, a 5th after 35; a repeat gains a star in place; a full pocket replaces', () => {
@@ -251,6 +251,8 @@ test('bells in a game: a reroll left, a straight played, each hand left, and KNO
   assert.deepEqual(plain.things, [{ id: 'victory_honk', n: 2 }, { id: 'chainmaker', n: 4 }, { id: 'peace_bonus', n: 2 }]);
   assert.equal(plain.total, sum(plain));
   assert.deepEqual(levelBells(game(null, [{ id: 'victory_honk', stars: 3 }, { id: 'chainmaker', stars: 1 }], { rerollsLeft: 0, hands: [{ category: 'pair' }] })).things, [], 'no reroll left, no straight played');
+  assert.deepEqual(levelBells(game(null, [{ id: 'pair_chime', stars: 2 }], { hands: [{ category: 'two_pairs' }, { category: 'pair' }] })).things, [{ id: 'pair_chime', n: 3 }], 'PAIR CHIME: one pair played');
+  assert.deepEqual(levelBells(game(null, [{ id: 'pair_chime', stars: 3 }], { hands: [{ category: 'two_pairs' }] })).things, [], 'two pairs are not one pair');
   const keeper = levelBells(game('ghoul', [{ id: 'knockout_pay', stars: 1 }, { id: 'lucky_coin', stars: 1 }, { id: 'chainmaker', stars: 1 }]));
   const pay = 2 + 2 + 2 + 3; // clear, a hand left, two rerolls left, the keeper
   assert.deepEqual(keeper.things, [{ id: 'lucky_coin', n: 2 }, { id: 'chainmaker', n: 3 }, { id: 'knockout_pay', n: pay + 5 }], 'the other things\' bells doubled too');

@@ -96,8 +96,8 @@ test('the door before a keeper offers a thing against him, tagged, when a starte
 
 test('the shop offers the starters and the things this device has found, from their levels', () => {
   assert.deepEqual(shopPool(20, [], []).sort(), STARTERS.filter((id) => THINGS[id]).sort());
-  assert.ok(shopPool(20, [], ['cube_four', 'pair_chime']).includes('cube_four')); // a find; one not built yet is no good
-  assert.ok(!shopPool(20, [], ['cube_four', 'pair_chime']).includes('pair_chime'));
+  assert.ok(shopPool(20, [], ['cube_four', 'rewind']).includes('cube_four')); // a find; one not built yet is no good
+  assert.ok(!shopPool(20, [], ['cube_four', 'rewind']).includes('rewind'));
   assert.ok(!shopPool(12, [], ['five_slices']).includes('five_slices')); // its level is 15
   assert.ok(!shopPool(20, [{ id: 'six_bite', stars: 3 }], []).includes('six_bite'));
   const seen = new Set();
