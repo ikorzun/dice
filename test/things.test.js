@@ -202,6 +202,15 @@ test('in a game: BRAIN BOOST counts the level\'s numbered cards, a joker spends 
   assert.equal(currentHand(t).bonusMult, 2, 'the third card counts as it is');
 });
 
+test('SECOND WIND has no number: it spends no BRAIN BOOST', () => {
+  let g = createAutoGame(boardOf(['d', 'd', 'second_wind', 'd', 'd', 'x2_any', 'd', 'd', 'd'], [5, 5, 1, 2, 3, 6, 4], { things: one('brain_boost') }), { hands: 3, rerolls: 3 });
+  g = toggleBonus(g, 2).state;
+  const h1 = playHand(g, seq(1, 2, 3, 4, 6, 5, 3));
+  assert.deepEqual([h1.hand.bonuses, h1.hand.things], [['second_wind'], []]);
+  g = toggleBonus(h1.state, 5).state;
+  assert.equal(currentHand(g).bonusMult, 3, 'the ×2 is still the level\'s first card with a number');
+});
+
 test('in a game: PATIENT BEADS raises the level\'s first card from the bank, on the board or still above it', () => {
   // nine dice: both banked cards come in on the first reroll, the first into a cell as fromBank 0
   let g = createAutoGame(boardOf(Array(9).fill('d'), [5, 5, 1, 2, 3, 4, 6, 2, 3], { things: one('patient_beads'), bank: ['x2_any', 'x2_any'] }), { hands: 3, rerolls: 3 });

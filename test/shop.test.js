@@ -1,12 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CARD_PRICE, THINGS_FROM, upPrice, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood, sensibleShopping } from '../src/engine/shop3.js';
-import { THINGS, THING_PRICE, helpsAgainst, CATALOGUE, STARTERS, shopPool } from '../src/engine/things3.js';
+import { THINGS_FROM, upPrice, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood, sensibleShopping } from '../src/engine/shop3.js';
+import { THINGS, THING_PRICE, CARD_THINGS, CARD_THING_PRICE, cardPool, helpsAgainst, CATALOGUE, STARTERS, shopPool } from '../src/engine/things3.js';
 import { upgradeOffer } from '../src/engine/upgrades3.js';
 import { bossOf, BOSSES, isBossLevel, FIRST_KEEPER } from '../src/engine/bosses3.js';
 import { generateRunLevel, runTarget } from '../src/engine/run3.js';
 import { handRules, createAutoGame, toggleBonus, playHand, currentHand, toggleHold, holdCap, MIN_DICE } from '../src/engine/auto.js';
-import { BONUS_UNLOCKS, unlockedKinds } from '../src/engine/levels3.js';
 import { bestHand } from '../src/engine/hands.js';
 import { createRng } from '../src/engine/rng.js';
 
@@ -54,7 +53,7 @@ test('the pick leans on the player, and the third offer stays open to anything',
   assert.ok(thirds < 300 * 0.2);
 });
 
-test('a shelf is a thing and a +1, seeded; before level 5 the thing is a hero\'s card, then 3 times in 10; a thing carried comes as its next star', () => {
+test('a shelf is a thing and a +1, seeded; before level 5 the thing is a card-thing, then 3 times in 10; a thing carried comes as its next star', () => {
   const run = { ups: {}, pocket: [{ id: 'sweet_scoop', stars: 3 }], bank: [], bells: 12 };
   const a = shopStock({ runSeed: 'x', levelIndex: 7, run });
   assert.ok(['thing', 'card'].includes(a[0].type) && a[1].type === 'up');
@@ -65,7 +64,7 @@ test('a shelf is a thing and a +1, seeded; before level 5 the thing is a hero\'s
   let cards = 0;
   for (let r = 0; r < 300; r++) {
     const t = shopStock({ runSeed: `y${r}`, levelIndex: 7, run: { ...run, pocket: [{ id: 'sweet_scoop', stars: 3 }, { id: 'six_bite', stars: 1 }] } })[0];
-    if (t.type === 'card') { cards++; continue; }
+    if (t.type === 'card') { assert.ok(CARD_THINGS[t.id], t.id); cards++; continue; }
     assert.notEqual(t.id, 'sweet_scoop', 'three stars: out of the shop');
     assert.ok(THINGS[t.id].from <= 7, `${t.id} opens on level ${THINGS[t.id].from}`);
     assert.equal(t.price, THING_PRICE[THINGS[t.id].rarity]);
@@ -229,13 +228,17 @@ test('LOOSE GRIP refuses a fourth hold; THE GOLDEN KNIGHT halves the first hand 
   assert.equal(currentHand(k).formula, '10 × 2'); // the second hand counts whole
 });
 
-test('the late heroes come on boards from their levels; the shop sells only opened kinds; every card has a price', () => {
-  for (const k of BONUS_UNLOCKS) assert.ok(CARD_PRICE[k] > 0, k);
+test('the shop sells the card-things from their levels at their prices, and no hero\'s card', () => {
   const run = { ups: {}, pocket: [] };
-  const sold = (levelIndex) => new Set(Array.from({ length: 300 }, (_, r) => shopStock({ runSeed: `u${r}`, levelIndex, run })[0].id));
-  for (const k of sold(4)) assert.ok(unlockedKinds(4).includes(k), k);
-  for (const k of sold(27)) assert.ok(THINGS[k] || unlockedKinds(27).includes(k), `${k}: things, and opened heroes' cards 3 times in 10`);
-  assert.ok(sold(27).has('x3_sixes'), 'SIXES ×3 is sold once it is open');
+  const goods = (levelIndex) => Array.from({ length: 300 }, (_, r) => shopStock({ runSeed: `u${r}`, levelIndex, run })[0]);
+  const sold = (levelIndex) => new Set(goods(levelIndex).map((g) => g.id));
+  assert.deepEqual([...sold(2)].sort(), ['even_floor', 'odd_punk', 'second_wind'], 'the first door: three card-things');
+  assert.deepEqual([...sold(4)].sort(), ['even_floor', 'hot_trips', 'odd_punk', 'second_wind'], 'HOT TRIPS from level 4');
+  for (const g of goods(4)) assert.equal(g.price, CARD_THING_PRICE[CARD_THINGS[g.id].rarity]);
+  assert.deepEqual(cardPool(11), ['second_wind', 'odd_punk', 'even_floor', 'hot_trips', 'power_paint', 'big_bang']);
+  for (const k of sold(27)) assert.ok(THINGS[k] || CARD_THINGS[k], `${k}: the pocket's things, and card-things 3 times in 10`);
+  assert.ok(sold(27).has('big_bang'), 'BIG BANG is sold once it is open');
+  assert.deepEqual([CARD_THING_PRICE.uncommon, CARD_THING_PRICE.rare], [5, 7]);
   const dice = (...f) => f.map((face, cell) => ({ cell, face, held: false }));
   assert.equal(bestHand(dice(4, 4, 4, 4), [{ cell: 9, kind: 'x3_kinds' }]).bonusMult, 3);
   assert.equal(bestHand(dice(1, 2, 3, 4), [{ cell: 9, kind: 'x3_small' }]).bonusMult, 3);

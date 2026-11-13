@@ -15,7 +15,7 @@
 // on. After that reroll a played card's cell takes the first banked card still waiting, else a new die. A
 // 'hole' remains only in games saved before. Pure state transitions, same action shape as poker.js.
 
-import { bestHand, BONUS_KINDS } from './hands.js';
+import { bestHand, BONUS_KINDS, numberedKind } from './hands.js';
 import { createRng } from './rng.js';
 import { BOSSES } from './bosses3.js';
 import { thingRules } from './things3.js';
@@ -39,7 +39,7 @@ const keeperOf = (level) => (level.boss && BOSSES[level.boss]) || null;
 // go by the hands played (`hands`, the level's so far) and left, so a hand's count can change as the level goes on, never
 // between the preview and PLAY.
 export function handRules(level, handsLeft, played = 0, hands = []) {
-  const numbered = (h) => (h.bonuses || []).filter((kind) => BONUS_KINDS[kind] && !BONUS_KINDS[kind].wild).length;
+  const numbered = (h) => (h.bonuses || []).filter(numberedKind).length;
   const r = thingRules(level.things, { first: played === 0, last: handsLeft === 1, cards: hands.reduce((n, h) => n + numbered(h), 0), bank: hands.some((h) => h.bank > 0) });
   const none = Object.values(r).every((list) => !list.length);
   const k = keeperOf(level);
@@ -232,12 +232,13 @@ export function playHand(state, drawDie) {
     pct: best.pct || 0,
     total: best.total,
     things: best.things || [],
-    bank: best.bonusCells.filter((i) => fromBank(state, i)).length, // numbered cards from the bank: PATIENT BEADS's first one
+    bank: best.bonusCells.filter((i) => fromBank(state, i) && numberedKind(bonusKind(state, i))).length, // PATIENT BEADS's first one
     bonusAuto: false,
   };
   const burned = diceCells(state); // every die, held or not (owner, 03.11.2026)
   const score = state.score + hand.total;
-  const handsLeft = state.handsLeft - 1;
+  hand.free = used.some((i) => BONUS_KINDS[bonusKind(state, i)].free); // SECOND WIND: this hand costs no PLAY
+  const handsLeft = state.handsLeft - (hand.free ? 0 : 1);
   const faces = state.faces.slice();
   const held = state.held.map(() => false); // nothing stays held after a hand
   const cells = state.cells.slice();

@@ -117,6 +117,14 @@
   --peek-x3_small: url("../../assets/ui/portraits/wizardgirl.webp");
   --peek-x4_any: url("../../assets/ui/portraits/skeleton.webp");
   --peek-x3_sixes: url("../../assets/ui/portraits/bigfoot.webp");
+  /* the card-things' objects (step 4, scripts/things.py), 512 px as the heroes' portraits */
+  --card-thing-big_bang: url("../../assets/ui/cards/thing-big_bang.webp");
+  --card-thing-hot_trips: url("../../assets/ui/cards/thing-hot_trips.webp");
+  --card-thing-odd_punk: url("../../assets/ui/cards/thing-odd_punk.webp");
+  --card-thing-even_floor: url("../../assets/ui/cards/thing-even_floor.webp");
+  --card-thing-second_wind: url("../../assets/ui/cards/thing-second_wind.webp");
+  --card-thing-power_paint: url("../../assets/ui/cards/thing-power_paint.webp");
+  --holo-twirl: url("../../assets/ui/holo-twirl.webp"); /* the cards' holographic stock (scripts/holo.py) */
   /* the heroes' and keepers' acts, animated AVIF (hero-acts.js): files beside the page, never inlined (scripts/build.mjs) */
   --act-knight: url("../../assets/ui/acts/knight.avif");
   --act-elf: url("../../assets/ui/acts/elf.avif");
@@ -527,6 +535,15 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 /* The face: the hero's whole portrait in a square box from 15 px above the card down to the arch's bottom (Figma
    1339:2155 IMG), a still picture; the multiplier in the top right corner (none for the joker) */
 .cell.bonus .art { display: block; left: 3.7%; top: -14.81%; width: 92.59%; height: 92.59%; background: var(--peek) center bottom / contain no-repeat; } /* 100 px at 5, -15 */
+/* The cards' holographic stock (app.js HOLO; owner, 13.11.2026, after a Balatro polychrome video): the rainbow twirl of
+   scripts/holo.py over the card's own colour and arch, under its hero and words, in the blend that keeps the card's light
+   and takes the twirl's hue, a third of the way (--holo, the one number to change). It turns on the card's moments
+   (--holo-turn, set by app.js) and rests still between them. Not on a bank's or the shop's small card, nor in the acting
+   look, which is the card's flat colour. */
+.cell .holo { position: absolute; display: none; pointer-events: none; }
+body.holo .cell.bonus .holo { display: block; left: 0; top: 0; width: 100%; height: 100%; border-radius: inherit; overflow: hidden; }
+body.holo .cell.bonus .holo::before { content: ""; position: absolute; inset: -42%; background: var(--holo-twirl) center / 100% 100% no-repeat; mix-blend-mode: color; opacity: var(--holo, .34); transform: rotate(var(--holo-turn, 0deg)); transition: transform 520ms cubic-bezier(.2, .7, .2, 1); }
+body.holo #bank .cell.bonus .holo, body.holo #shopBank .cell.bonus .holo, body.holo .bank.bank-fly .cell.bonus .holo, body.holo .cell.bonus.acting .holo { display: none; }
 /* While its hero acts (Figma 1339:2155 Card-animation; owner, 10.11.2026: «убираем весь текст и внутреннюю рамку,
    увеличиваем героя»): no name, no multiplier, no arch, no border, every corner 24, the hero's own colour over the whole
    card; the portrait's square 152 px, rising 42 px over the card's top, cut to 107 by 151 px with its bottom corners
@@ -552,6 +569,16 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.bonus.kind-x4_any { --peek: var(--peek-x4_any); --card: #e6e6e6; --card-ink: #413a3a; --mini-card: #e6e6e6; --mini-edge: rgba(255, 255, 255, .16); --card-arch: url("../../assets/ui/cards/arch-skeleton.svg"); --card-back: url("../../assets/ui/cards/back-skeleton.png"); --back-tile: 56px; }
 .cell.bonus.kind-refund { --peek: var(--peek-refund); --card: #ffd3d1; --card-ink: #474a77; --mini-card: #ffd9d7; --mini-edge: rgba(255, 255, 255, .32); --card-arch: url("../../assets/ui/cards/arch-dude.svg"); --card-back: url("../../assets/ui/cards/back-dude.png"); }
 .cell.bonus.kind-x3_sixes { --peek: var(--peek-x3_sixes); --card: #e8e0ca; --card-ink: #2e3144; --mini-card: #fff6dc; --mini-edge: rgba(255, 255, 255, .32); --card-arch: url("../../assets/ui/cards/arch-bigfoot.svg"); --card-back: url("../../assets/ui/cards/back-bigfoot.png"); }
+/* The card-things (portals step 4, MODE3-PLAN §58): the owner's object in the hero's place, each in its own colours as the
+   heroes are; their arch is the heroes' shape drawn in CSS, its gradient from the object's colour into the card's. They
+   come from the bank face up and never show a back. */
+.cell.bonus.kind-big_bang { --peek: var(--card-thing-big_bang); --card: #e3dcea; --card-ink: #2f2541; --mini-card: #ece6f1; --mini-edge: rgba(255, 255, 255, .16); --card-arch: radial-gradient(129.6% 85.9% at 50% 13.8%, #8d6fb3, #e3dcea); }
+.cell.bonus.kind-hot_trips { --peek: var(--card-thing-hot_trips); --card: #ffe0cc; --card-ink: #5c1a08; --mini-card: #ffe9db; --mini-edge: rgba(255, 255, 255, .32); --card-arch: radial-gradient(129.6% 85.9% at 50% 13.8%, #ec5a3c, #ffe0cc); }
+.cell.bonus.kind-odd_punk { --peek: var(--card-thing-odd_punk); --card: #fbe2cd; --card-ink: #4b2a19; --mini-card: #fdebdc; --mini-edge: rgba(255, 255, 255, .32); --card-arch: radial-gradient(129.6% 85.9% at 50% 13.8%, #f2c23a, #fbe2cd); }
+.cell.bonus.kind-even_floor { --peek: var(--card-thing-even_floor); --card: #e2e6ef; --card-ink: #2b3346; --mini-card: #ebeef5; --mini-edge: rgba(255, 255, 255, .16); --card-arch: radial-gradient(129.6% 85.9% at 50% 13.8%, #a9b4cc, #e2e6ef); }
+.cell.bonus.kind-second_wind { --peek: var(--card-thing-second_wind); --card: #f6cfcf; --card-ink: #6b1e25; --mini-card: #fadcdc; --mini-edge: rgba(255, 255, 255, .32); --card-arch: radial-gradient(129.6% 85.9% at 50% 13.8%, #d9555b, #f6cfcf); }
+.cell.bonus.kind-power_paint { --peek: var(--card-thing-power_paint); --card: #d8eef7; --card-ink: #1e4456; --mini-card: #e3f3fa; --mini-edge: rgba(255, 255, 255, .32); --card-arch: radial-gradient(129.6% 85.9% at 50% 13.8%, #8fd0f2, #d8eef7); }
+.cell.bonus.kind-big_bang .arch, .cell.bonus.kind-hot_trips .arch, .cell.bonus.kind-odd_punk .arch, .cell.bonus.kind-even_floor .arch, .cell.bonus.kind-second_wind .arch, .cell.bonus.kind-power_paint .arch { border-radius: 50% 50% 0 0 / 70.42% 70.42% 0 0; }
 
 /* Fire: the dice of a played four of a kind, five of a kind or straight burn (owner, 01.11.2026; never on
    the board before PLAY). A shader in a canvas over the board (fire.js); without WebGL the dice glow. */

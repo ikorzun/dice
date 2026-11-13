@@ -27,7 +27,20 @@ export const BONUS_KINDS = Object.freeze({
   x4_any: Object.freeze({ symbol: '×4', label: 'LAST HAND', mult: 4, fits: () => true, last: true }),
   // Bigfoot: a hand with two sixes or more, a joker standing in for a six counts; no straight ever holds two
   x3_sixes: Object.freeze({ symbol: '×3', label: 'TWO SIXES', mult: 3, fits: (c, faces) => c !== 'straight' && c !== 'small_straight' && (!faces || faces.filter((f) => f === 6).length >= 2) }),
+  // The card-things (portals spec, step 4; their shop data in things3.js CARD_THINGS): sold in the shop alone, kept in the
+  // bank, played once like a hero's card. BIG BANG and HOT TRIPS are the ×4 of the KINDS and TRIPS heroes' hands; ODD PUNK
+  // and EVEN FLOOR want a hand of one parity (a joker's face counts; no straight is one); SECOND WIND joins any hand, which
+  // then costs no PLAY (auto.js); POWER PAINT joins only a hand another card with a number joins, and raises it by one.
+  big_bang: Object.freeze({ symbol: '×4', label: 'KINDS', mult: 4, fits: (c) => c === 'four_kind' || c === 'five_kind', thing: true }),
+  hot_trips: Object.freeze({ symbol: '×4', label: 'TRIPS', mult: 4, fits: (c) => c === 'three_kind' || c === 'full_house', thing: true }),
+  odd_punk: Object.freeze({ symbol: '×3', label: 'ODD DICE', mult: 3, fits: (c, faces) => c !== 'straight' && c !== 'small_straight' && (!faces || faces.every((f) => f % 2 === 1)), thing: true }),
+  even_floor: Object.freeze({ symbol: '×3', label: 'EVEN DICE', mult: 3, fits: (c, faces) => c !== 'straight' && c !== 'small_straight' && (!faces || faces.every((f) => f % 2 === 0)), thing: true }),
+  second_wind: Object.freeze({ symbol: '', label: 'FREE PLAY', mult: 1, fits: () => true, free: true, thing: true }),
+  power_paint: Object.freeze({ symbol: '+1', label: 'OTHER CARDS', mult: 1, fits: () => true, paint: true, thing: true }),
 });
+
+// A card with a number that a thing or POWER PAINT can raise: a multiplier or REFUND, never a joker, SECOND WIND or a paint.
+export const numberedKind = (kind) => !!BONUS_KINDS[kind] && !BONUS_KINDS[kind].wild && !BONUS_KINDS[kind].free && !BONUS_KINDS[kind].paint;
 
 // Category of a set of dice that is itself a combination (every die counts), or null.
 export function classifyExact(faces) {
@@ -70,17 +83,19 @@ function sumOf(faces, r, used, { center = -1, jokers = 0, cards = 0 } = {}) {
   return Math.max(0, sum + (r.sumAdd || 0));
 }
 
-// What the things add to each card the hand uses (card_up): ALL SEEING every card, BRAIN BOOST the level's first cards,
-// PATIENT BEADS its first card from the bank; multipliers before REFUND, in board order. A joker has no number to raise
-// and is never among them. +4 at most on one card (the spec's limit).
+// What the things and POWER PAINT add to each card the hand uses (card_up): ALL SEEING every card, BRAIN BOOST the level's
+// first cards, PATIENT BEADS its first card from the bank, each POWER PAINT every other card; multipliers before REFUND,
+// in board order. Only a card with a number is raised (numberedKind). +4 at most on one card (the spec's limit).
 function raisesOf(applied, r, used) {
   const up = applied.map(() => 0);
-  const order = applied.map((b, k) => k).sort((a, b) => Number(!!BONUS_KINDS[applied[a].kind].refund) - Number(!!BONUS_KINDS[applied[b].kind].refund));
-  for (const u of r.raise || []) {
+  const order = applied.map((b, k) => k).filter((k) => numberedKind(applied[k].kind)).sort((a, b) => Number(!!BONUS_KINDS[applied[a].kind].refund) - Number(!!BONUS_KINDS[applied[b].kind].refund));
+  for (const u of (r && r.raise) || []) {
     const ks = u.which === 'all' ? order : u.which === 'first' ? order.slice(0, u.count) : order.filter((k) => applied[k].bank).slice(0, 1);
     for (const k of ks) up[k] += u.n;
     if (ks.length) used.add(u.id);
   }
+  const paints = applied.filter((b) => BONUS_KINDS[b.kind].paint).length;
+  for (const k of order) up[k] += paints;
   return up.map((n) => Math.min(4, n));
 }
 
@@ -128,8 +143,10 @@ export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, s
         const faces = [...picked.map((d) => d.face), ...jokerFaces];
         const category = classifyExact(faces);
         if (!category) continue;
-        const fitting = mults.filter((b) => BONUS_KINDS[b.kind].fits(category, faces));
-        const applied = stacking === 'single' && fitting.length > 1 ? [fitting.reduce(largest)] : fitting;
+        const fitting = mults.filter((b) => !BONUS_KINDS[b.kind].paint && BONUS_KINDS[b.kind].fits(category, faces));
+        const chosen = stacking === 'single' && fitting.length > 1 ? [fitting.reduce(largest)] : fitting;
+        // POWER PAINT joins only a hand that a card with a number joins; alone it stays on the board, not used up
+        const applied = chosen.some((b) => numberedKind(b.kind)) ? [...chosen, ...mults.filter((b) => BONUS_KINDS[b.kind].paint)] : chosen;
         const used = new Set();
         // THE EATER's toll can take a small hand's sum to nothing, never below
         const sum = rules
@@ -142,8 +159,8 @@ export function bestHand(dice, bonuses = [], { stacking = 'add', table = null, s
         const mult = rules && rules.half && rules.half.includes(category) ? Math.ceil(full / 2) : full; // OLD HORNS halves it, rounding up: never ×4.5 on the counter
         let pct = 0;
         for (const p of (rules && rules.pct) || []) { pct += p.n; used.add(p.id); }
-        // a card's number, raised by the things: a multiplier counts higher, REFUND gives more rerolls back (+1 AS +2)
-        const raise = rules ? raisesOf(applied, rules, used) : applied.map(() => 0);
+        // a card's number, raised by the things and POWER PAINT: a multiplier counts higher, REFUND gives more back (+1 AS +2)
+        const raise = raisesOf(applied, rules, used);
         const own = (b, k) => (BONUS_KINDS[b.kind].refund ? 1 : BONUS_KINDS[b.kind].mult + raise[k]);
         const bonusMult = stacking === 'add'
           ? applied.reduce((m, b, k) => m + own(b, k) - 1, 1)

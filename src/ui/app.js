@@ -33,7 +33,7 @@ import { generatePokerLevel, GENERATOR5_VERSION } from '../engine/levels5.js';
 import { generateRunLevel, RUN3_VERSION } from '../engine/run3.js';
 import { upgradeOffer, withUpgrade } from '../engine/upgrades3.js';
 import { doorAfter, bossNext, levelBells, fitWeights, shopStock, buyGood } from '../engine/shop3.js';
-import { THINGS, MAX_STARS, pocketPlaces, ruleOf, starsOf, takeThing, cleanPocket, helpsAgainst, portalOf, CATALOGUE, cleanGallery } from '../engine/things3.js';
+import { THINGS, CARD_THINGS, MAX_STARS, pocketPlaces, ruleOf, starsOf, takeThing, cleanPocket, helpsAgainst, portalOf, CATALOGUE, cleanGallery } from '../engine/things3.js';
 import { BOSSES, bossOf } from '../engine/bosses3.js';
 import { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } from './dice3d.js';
 import { createFire } from './fire.js';
@@ -1034,7 +1034,7 @@ function buildBoard() {
     cell.dataset.index = String(i);
     cell.setAttribute('role', 'button');
     cell.tabIndex = 0;
-    cell.innerHTML = `<span class="arch"></span><span class="art"></span><span class="face">${'<i></i>'.repeat(9)}</span><span class="x2">×2</span><span class="tag"></span><span class="order"></span><span class="back"></span>`;
+    cell.innerHTML = `<span class="arch"></span><span class="holo"></span><span class="art"></span><span class="face">${'<i></i>'.repeat(9)}</span><span class="x2">×2</span><span class="tag"></span><span class="order"></span><span class="back"></span>`;
     board.appendChild(cell);
     els.cells.push(cell);
   }
@@ -1347,7 +1347,7 @@ function goodHtml(st, good, i) {
     : good.type === 'thing' ? sigil(good.id)
       : comboDice(good.id);
   const m = good.type === 'up' ? AUTO_MULT[good.id] + (st.ups[good.id] || 0) : 0;
-  const name = sentence(good.type === 'card' ? `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}` : good.type === 'thing' ? THINGS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`) + (good.type === 'thing' && good.star > 1 ? ` ${'★'.repeat(good.star)}` : '');
+  const name = sentence(good.type === 'card' ? (CARD_THINGS[good.id] ? CARD_THINGS[good.id].name : `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}`) : good.type === 'thing' ? THINGS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`) + (good.type === 'thing' && good.star > 1 ? ` ${'★'.repeat(good.star)}` : '');
   const rule = good.type === 'card' ? BONUS_WHAT[good.id].toUpperCase().replace('.', '') : good.type === 'thing' ? ruleOf(good.id, good.star) : `×${m} → ×${m + 1} FOR THIS RUN`;
   const price = good.sold ? '' : ready ? `BUY • ${good.price}` : `<i class="bell"></i>${good.price}`;
   // what it is and what it does; why it is offered is said no more (owner, 12.11.2026: «Зачеркнутое убери»)
@@ -1411,7 +1411,7 @@ function buy(slot) {
   const r = buyGood(runOf(st), st.shop.stock, slot, { replace: app.shopPick.replace });
   if (!r.ok) { toast(r.message, 'bad'); return; }
   logEvent('shop_buy', { good: st.shop.stock[slot], bells: r.run.bells });
-  if (st.shop.stock[slot].type === 'thing') st.gallery = foundIn(st.gallery, st.shop.stock[slot].id);
+  if (st.shop.stock[slot].type === 'thing' || CARD_THINGS[st.shop.stock[slot].id]) st.gallery = foundIn(st.gallery, st.shop.stock[slot].id); // a card-thing bought is a find too
   Object.assign(st, { bells: r.run.bells, bank: r.run.bank, ups: r.run.ups, upsBought: r.run.upsBought || 0, pocket: r.run.pocket || [] });
   st.shop = { ...st.shop, stock: r.stock };
   st.tips.firstBuy = true;
@@ -1714,13 +1714,13 @@ function renderGallery() {
   const pick = app.galleryPick;
   $('galleryCount').textContent = `${CATALOGUE.filter((t) => found.has(t.id)).length} / ${CATALOGUE.length}`;
   $('galleryGrid').innerHTML = CATALOGUE.map((t, k) => {
-    const known = found.has(t.id) && THINGS[t.id];
-    return `<button type="button" class="${known ? 'found' : 'unfound'}${pick === k ? ' on' : ''}" data-k="${k}" aria-label="${known ? sentence(THINGS[t.id].name) : 'Not found yet'}">${sigil(t.id)}</button>`;
+    const known = found.has(t.id) && (THINGS[t.id] || CARD_THINGS[t.id]);
+    return `<button type="button" class="${known ? 'found' : 'unfound'}${pick === k ? ' on' : ''}" data-k="${k}" aria-label="${known ? sentence(known.name) : 'Not found yet'}">${sigil(t.id)}</button>`;
   }).join('');
   const t = pick === null ? null : CATALOGUE[pick];
-  const known = t && found.has(t.id) && THINGS[t.id];
+  const known = t && found.has(t.id) && (THINGS[t.id] || CARD_THINGS[t.id]);
   $('galleryLine').innerHTML = !t ? '<small>THINGS SEEN IN PORTALS AND SHOPS</small>'
-    : known ? `<b>${sentence(THINGS[t.id].name)}</b><em>${ruleOf(t.id, 1)}</em>` : '<small>NOT FOUND YET</small>';
+    : known ? `<b>${sentence(known.name)}</b><em>${THINGS[t.id] ? ruleOf(t.id, 1) : BONUS_WHAT[t.id].replace(/\.$/, '')}</em>` : '<small>NOT FOUND YET</small>';
 }
 
 function galleryTap(e) {
@@ -2175,6 +2175,7 @@ function showReveal(hand, { remaining = Infinity } = {}) {
   const staged = auto && hand.multiplier > 1 && !reduceMotion;
   const rung = ringHand(hand);
   pulseThings(hand.things); // the things that changed its count light up where they lie
+  for (const i of [...(hand.bonusCells || []), ...(hand.jokerCells || [])]) if (i < BANK) holoTurn(els.cells[i], 120); // played: the stock flares
   if (!reduceMotion) rung.forEach((i, k) => els.cells[i].animate([{ transform: 'none' }, { transform: 'scale(1.06)', offset: 0.35 }, { transform: 'none' }], { duration: 160, delay: k * RING_STEP * 1000, composite: 'add' })); // each die answers its note
   if (hand.multiplier > 1 && !staged) sfx('mult'); // a staged bonus sounds when it hits
   const fire = auto && remaining > 0 && hand.total >= remaining;
@@ -2232,6 +2233,7 @@ function armBonus(source, cell) {
   if (M().id === 'auto') { // switched on, its hero acts once; switched off, it stops (owner, 11.11.2026)
     const card = cell >= BANK ? st.game.bank[cell - BANK] : st.game.cells[cell];
     const off = cell >= BANK ? card.off : st.game.off[cell];
+    if (cell < BANK) holoTurn(els.cells[cell], off ? -50 : 60);
     if (off) stopAct(cardArt(cell));
     else if (actingKind(cardArt(cell)) !== card.kind) heroAct(cell, card.kind, { wait: 1000 });
   }
@@ -2247,12 +2249,37 @@ const cardArt = (i) => (i < BANK ? els.cells[i] : document.querySelector(`#bank 
 const heroAct = (i, kind, opts) => playAct(cardArt(i), kind, opts);
 const cardLabel = (kind) => BONUS_KINDS[kind].label; // the name alone: the multiplier is on the sticker
 // The sticker's sign smaller than its number, as on the mockup (×3, +1); the joker has none.
-const cardSticker = (kind) => (kind === 'joker' ? '' : `<small>${BONUS_KINDS[kind].symbol[0]}</small>${BONUS_KINDS[kind].symbol.slice(1)}`);
+const cardSticker = (kind) => (kind === 'joker' || !BONUS_KINDS[kind].symbol ? '' : `<small>${BONUS_KINDS[kind].symbol[0]}</small>${BONUS_KINDS[kind].symbol.slice(1)}`); // SECOND WIND has no number
 const DEAL_FIRST_MS = 250;  // the first card of a deal turns over this long after it lands
 const DEAL_NEXT_MS = 2000;  // each next card this long after the one before (owner, 02.11.2026)
 
 // Turns a card over (after `delay` ms): it shrinks to an edge on its back and opens on its face.
+// The cards' holographic stock (owner, 13.11.2026: a Balatro polychrome video, «Изучи, сделай такой эффект на картах»):
+// the video's shader twirls the card's UV and shifts the hue by it, and ties the twirl's turn to the card's tilt. Ours is
+// a rainbow twirl (scripts/holo.py) laid over the card's own colour under its hero and words (styles.css .holo), turned
+// on a card's moments (dealt, switched, played) and by a desktop's pointer over it, still in between: no motion of its
+// own (owner, 03.11.2026: constant motion distracts), none under «reduce motion». HOLO: false takes it all away.
+const HOLO = true;
+const finePointer = typeof window.matchMedia === 'function' && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+function holoTurn(cell, deg) {
+  if (!HOLO || reduceMotion || !cell) return;
+  cell.holoBase = (cell.holoBase || 0) + deg;
+  cell.style.setProperty('--holo-turn', `${cell.holoBase}deg`);
+}
+// a desktop's pointer leans the twirl of the card under it, as the video's tilt does, and lets it go when it leaves
+function holoLean(e) {
+  if (!HOLO || reduceMotion || !finePointer) return;
+  const card = e.type === 'pointermove' ? e.target.closest('#board .cell.bonus') : null;
+  if (app.holoCard && app.holoCard !== card) app.holoCard.style.setProperty('--holo-turn', `${app.holoCard.holoBase || 0}deg`);
+  app.holoCard = card;
+  if (!card) return;
+  const r = card.getBoundingClientRect();
+  const lean = ((e.clientX - r.left) / r.width - 0.5) * 60 + ((e.clientY - r.top) / r.height - 0.5) * 30;
+  card.style.setProperty('--holo-turn', `${(card.holoBase || 0) + lean}deg`);
+}
+
 function flipCard(cell, delay = 0) {
+  holoTurn(cell, 90); // turned over, its stock catches the light
   if (reduceMotion) return;
   cell.style.setProperty('--flip-delay', `${delay}ms`);
   cell.classList.remove('flip');
@@ -2334,6 +2361,13 @@ const BONUS_WHAT = {
   x3_sixes: 'Triples a hand with two sixes or more.',
   joker: 'Becomes the face your hand needs most.',
   refund: 'Play it and get one reroll back.',
+  // the card-things (step 4): the spec's words
+  big_bang: 'One use: multiplies four or five of a kind by four.',
+  hot_trips: 'One use: multiplies three of a kind or a full house by four.',
+  odd_punk: 'One use: triples a hand of odd dice only.',
+  even_floor: 'One use: triples a hand of even dice only.',
+  second_wind: 'One use: the hand it joins costs no play.',
+  power_paint: 'One use: every other card in its hand counts one higher.',
 };
 
 // A card's popup with its hero, its name and what it does (owner, 01.11.2026; Figma 1340:923, 11.11.2026: the hero's card
@@ -2344,7 +2378,7 @@ function showBonusSheet(kind) {
   app.sheetAt = performance.now(); // the finger that opened it lifts over the backdrop: that is not a close
   $('bonusSheetTile').innerHTML = guideTile(kind, false);
   $('bonusSheetTile').firstElementChild.classList.add('acting'); // the hero acts on the board once the popup closes
-  const { label } = BONUS_KINDS[kind];
+  const label = CARD_THINGS[kind] ? CARD_THINGS[kind].name : BONUS_KINDS[kind].label; // a card-thing by its name
   const what = BONUS_WHAT[kind];
   $('bonusSheetName').textContent = label[0] + label.slice(1).toLowerCase();
   $('bonusSheetWhat').textContent = what[0].toLowerCase() + what.slice(1).replace(/\.$/, '');
@@ -3242,7 +3276,7 @@ const sentence = (s) => s.toLowerCase().replace(/\p{L}/u, (c) => c.toUpperCase()
 const titled = (s) => s.toLowerCase().replace(/(^|\s)(\p{L})/gu, (m, a, c) => a + c.toUpperCase());
 // a combination's dice for a tile (the shop's upgrade, the pick's row): their count lets four stand two by two
 const comboDice = (cat) => { const dice = (GUIDE_COMBOS.find(([c]) => c === cat) || [cat, []])[1]; return `<span class="gdice n${dice.length}">${dice.map((v) => guideDie(v)).join('')}</span>`; };
-const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="arch"></span><span class="art" data-kind="${kind}"></span><span class="tag">${cardLabel(kind)}</span><span class="x2">${cardSticker(kind)}</span></span>`; // a card face up
+const guideTile = (kind, on) => `<span class="cell bonus kind-${kind} ${on ? 'on' : 'off'}"><span class="arch"></span><span class="holo"></span><span class="art" data-kind="${kind}"></span><span class="tag">${cardLabel(kind)}</span><span class="x2">${cardSticker(kind)}</span></span>`; // a card face up
 
 // The guide is How alone since the first visit lost its title and pages (owner, 11.11.2026): the rules, the run's
 // multipliers with upgrades in yellow, every card.
@@ -3439,6 +3473,9 @@ function bind() {
   const board = els.board;
   board.addEventListener('pointerdown', onPointerDown);
   board.addEventListener('pointermove', onPointerMove);
+  board.addEventListener('pointermove', holoLean);
+  board.addEventListener('pointerleave', holoLean);
+  document.body.classList.toggle('holo', HOLO);
   board.addEventListener('pointerup', onPointerUp);
   board.addEventListener('pointercancel', onPointerCancel);
   board.addEventListener('lostpointercapture', (e) => { if (app.gesture && app.gesture.id === e.pointerId) onPointerCancel(e); });

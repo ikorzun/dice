@@ -2,9 +2,10 @@
 // §54). Clearing a level pays BELLS, more for hands and rerolls left unused, so the price of a decision shows (digest rule
 // 16). A door opens after the second and the fourth level of each act, after the free upgrade pick: two shelves, a THING
 // and a +1 TO A COMBINATION, each sold once. The last door before a keeper names him and offers a thing against him (rule
-// 24) when the starters or the device's earlier finds hold one. From level 5 the thing is one of the pocket's (things3.js); before it, until the card-things of step 4, a hero's
-// card, as the shop sold them. A thing the player carries comes as its next star. The things on the shelf are the twelve
-// starters and the ones this device found in earlier runs (things3.js shopPool, step 3b; run.gallery).
+// 24) when the starters or the device's earlier finds hold one. Before level 5 the thing is a card-thing (things3.js
+// CARD_THINGS, step 4: one-use cards for the bank); from level 5 one of the pocket's things, a card-thing 3 times in 10. Hero
+// cards are no longer sold. A thing the player carries comes as its next star. The pocket's things on the shelf are the
+// twelve starters and the ones this device found in earlier runs (things3.js shopPool, step 3b; run.gallery).
 // Offers fit the player (questionnaire В9): they weigh the hands played and fallen short on, recent ones most, and the
 // tag says so (rule 25: help in a score game must be visible). Targets and layouts never look at any of this.
 
@@ -13,15 +14,13 @@ import { BANK_SIZE } from './auto.js';
 import { createRng } from './rng.js';
 import { CATEGORY5_LABELS } from './scoring5.js';
 import { UP_CATEGORIES, withUpgrade } from './upgrades3.js';
-import { unlockedKinds } from './levels3.js';
 import { bossOf, BOSSES } from './bosses3.js';
-import { THINGS, THING_PRICE, pocketPlaces, starsOf, helpsAgainst, takeThing, thingBells, shopPool } from './things3.js';
+import { THINGS, THING_PRICE, CARD_THINGS, CARD_THING_PRICE, cardPool, pocketPlaces, starsOf, helpsAgainst, takeThing, thingBells, shopPool } from './things3.js';
 
 const ALL = UP_CATEGORIES;
 
-export const CARD_PRICE = Object.freeze({ x2_any: 4, x3_straight: 6, x3_pairs: 4, x3_trips: 5, joker: 6, refund: 4, x3_kinds: 5, x3_small: 4, x4_any: 9, x3_sixes: 5 });
 export const THINGS_FROM = 5; // the first shop of the pocket's things is the one after level 7
-export const CARD_SHARE = 0.3; // from it, the thing shelf holds a card 3 times in 10 (the spec's card-things; heroes' until step 4)
+export const CARD_SHARE = 0.3; // from it, the thing shelf holds a card-thing 3 times in 10
 // +1 to a combination: 10 bells, 2 more for each one bought in a shop this run (the free picks are free), 24 at most
 export const upPrice = (bought = 0) => Math.min(24, 10 + 2 * bought);
 
@@ -84,14 +83,13 @@ export function shopStock({ runSeed, levelIndex, run, plays = [] }) {
   const category = draw(rng, ALL, (c) => fit[c].weight);
   const up = { type: 'up', id: category, price: upPrice(run.upsBought), tag: fitTag(category, fit) };
   const card = () => {
-    const kind = draw(rng, unlockedKinds(levelIndex), (k) => avg(cardCats(k)));
-    return [{ type: 'card', id: kind, price: CARD_PRICE[kind], tag: cardCats(kind).length < ALL.length ? fitTag(leaned(cardCats(kind)), fit) : 'WILD OFFER' }, up];
+    const kind = draw(rng, cardPool(levelIndex), (k) => avg(cardCats(k)));
+    return [{ type: 'card', id: kind, price: CARD_THING_PRICE[CARD_THINGS[kind].rarity], tag: cardCats(kind).length < ALL.length ? fitTag(leaned(cardCats(kind)), fit) : 'WILD OFFER' }, up];
   };
   const pool = shopPool(levelIndex, run.pocket, run.gallery); // the starters and this device's finds (step 3b)
   const keeper = bossNext(levelIndex) ? bossOf(runSeed, levelIndex + 1) : null;
   const counters = keeper ? pool.filter((id) => helpsAgainst(id, keeper)) : [];
-  // the spec's card-thing 3 times in 10 is a hero's card until step 4 brings them; never before a keeper, whose door
-  // offers a thing against him
+  // a card-thing before level 5, then 3 times in 10; never before a keeper whose door has a thing against him
   if (levelIndex < THINGS_FROM || !pool.length || (!counters.length && rng.next() < CARD_SHARE)) return card();
   const id = draw(rng, counters.length ? counters : pool, (t) => 4 + avg(THINGS[t].serves));
   const owned = starsOf(run.pocket, id);

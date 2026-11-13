@@ -465,3 +465,65 @@ test('×4 LAST HAND from the bank waits like the board card; a reroll switches i
   assert.equal(currentHand(g).bonusMult, 1);
 });
 function setHolds2(g, cells) { for (const i of cells) g = toggleHold(g, i).state; return g; }
+
+// ---------- the card-things (portals step 4, MODE3-PLAN §58) ----------
+test('the card-things fit their hands and no other, and add up with the heroes\' cards', () => {
+  const mult = (faces, kinds) => bestHand(dice(faces), kinds.map((kind, k) => ({ cell: 9 + k, kind }))).bonusMult;
+  assert.equal(mult([4, 4, 4, 4], ['big_bang']), 4);
+  assert.equal(mult([4, 4, 4, 4, 4], ['big_bang']), 4);
+  assert.equal(mult([4, 4, 4], ['big_bang']), 1);
+  assert.equal(mult([5, 5, 5], ['hot_trips']), 4);
+  assert.equal(mult([5, 5, 5, 2, 2], ['hot_trips']), 4, 'a full house holds its trips, as the TRIPS hero\'s card says');
+  assert.equal(mult([5, 5], ['hot_trips']), 1);
+  assert.equal(mult([3, 3], ['odd_punk']), 3);
+  assert.equal(mult([3, 3, 5, 5], ['odd_punk']), 3);
+  assert.equal(mult([2, 2], ['odd_punk']), 1);
+  assert.equal(mult([1, 2, 3, 4, 5], ['odd_punk']), 1, 'no straight is of one parity');
+  assert.equal(mult([4, 4], ['even_floor']), 3);
+  assert.equal(mult([6, 6, 2, 2], ['even_floor']), 3);
+  assert.equal(mult([3, 3], ['even_floor']), 1);
+  assert.equal(mult([3, 3], ['odd_punk', 'x2_any']), 4, 'cards add up: ×3 and ×2 make ×4');
+  const j = bestHand(dice([5, 5, 2]), [{ cell: 9, kind: 'odd_punk' }, { cell: 10, kind: 'joker' }]);
+  assert.ok(j.jokerFaces.every((f) => f % 2 === 1) && j.bonusMult === 3, 'a joker\'s face counts as a die\'s for the parity');
+});
+
+test('POWER PAINT joins only a hand a card with a number joins, raises each by one, and alone stays unspent', () => {
+  const at = (faces, kinds) => bestHand(dice(faces), kinds.map((kind, k) => ({ cell: 9 + k, kind })));
+  assert.deepEqual(at([5, 5], ['power_paint']).bonusCells, [], 'alone it is not in the hand');
+  const two = at([5, 5], ['power_paint', 'x2_any']);
+  assert.deepEqual([two.bonusMult, [...two.bonusCells].sort((x, y) => x - y)], [3, [9, 10]], '×2 AS ×3');
+  const both = at([5, 5], ['power_paint', 'x2_any', 'odd_punk']);
+  assert.equal(both.bonusMult, 6, 'every other card: ×3 and ×4 make ×6');
+  const back = at([5, 5], ['power_paint', 'refund']);
+  assert.deepEqual([back.bonusMult, back.refund], [1, 2], 'REFUND +1 AS +2');
+  assert.deepEqual(at([5, 5], ['power_paint', 'second_wind']).bonusCells, [10], 'SECOND WIND has no number to raise');
+  // on the board: played alone it stays where it lies; with a ×2 it is used up with it
+  const lay = [D, D, D, D, D, D, D, B('power_paint'), D];
+  let g = createAutoGame(level(lay, [5, 5, 1, 2, 3, 6, 4, null, 4], 9999));
+  g = toggleBonus(g, 7).state;
+  const r = playHand(g, seq([2]));
+  assert.ok(r.state.cells[7].type === 'bonus' && r.state.cells[7].kind === 'power_paint' && !r.hand.bonuses.length);
+  let h = createAutoGame(level([D, D, D, D, D, D, B('x2_any'), B('power_paint'), D], [5, 5, 1, 2, 3, 6, null, null, 4], 9999));
+  h = toggleBonus(toggleBonus(h, 6).state, 7).state;
+  const p = playHand(h, seq([2]));
+  assert.deepEqual([p.hand.multiplier, [...p.hand.bonuses].sort(), p.state.cells[7].type], [3, ['power_paint', 'x2_any'], 'die']);
+});
+
+test('SECOND WIND: the hand it joins costs no PLAY, and the card is gone after it', () => {
+  let g = createAutoGame(level([D, D, D, D, D, D, D, B('second_wind'), D], [5, 5, 1, 2, 3, 6, 4, null, 4], 9999));
+  g = toggleBonus(g, 7).state;
+  assert.equal(currentHand(g).bonusMult, 1, 'it multiplies nothing');
+  const r = playHand(g, seq([2, 3]));
+  assert.deepEqual([r.hand.free, r.state.handsLeft, r.state.cells[7].type, r.state.hands.length], [true, 3, 'die', 1]);
+  const next = playHand(r.state, seq([1]));
+  assert.deepEqual([next.hand.free, next.state.handsLeft], [false, 2]);
+});
+
+test('a card-thing bought waits in the bank, comes in on the first reroll, and goes back to the bank unplayed', () => {
+  let g = createAutoGame(level([D, D, D, D, D, D, D, D, D], [5, 5, 1, 2, 3, 6, 4, 2, 3], 9999, { bank: ['odd_punk'] }));
+  const r = reroll(g, seq([3]));
+  assert.deepEqual(r.placed, [{ cell: 0, from: 0 }]);
+  assert.deepEqual(r.state.cells[0], { type: 'bonus', kind: 'odd_punk', fromBank: 0 });
+  assert.deepEqual(carryOver(r.state), ['odd_punk'], 'unplayed, it waits for the next level');
+});
+

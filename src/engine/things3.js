@@ -62,6 +62,22 @@ export const THINGS = Object.freeze({
 });
 
 export const THING_PRICE = Object.freeze({ common: 8, uncommon: 12, rare: 18, legendary: 26 });
+
+// The six card-things (portals spec, step 4): one-use cards the shop alone sells, never a portal (a keeper's reward should
+// last). Bought, one goes to the bank, comes in on the level's first reroll and is played like a hero's card (hands.js
+// BONUS_KINDS holds their rules under the same ids, the catalogue's). No stars: a second copy is a second card. From: the
+// first door that may offer it; before level 5 the shop's thing shelf holds one of them.
+export const CARD_THINGS = Object.freeze({
+  second_wind: Object.freeze({ file: '0021_heart', name: 'SECOND WIND', rarity: 'rare', from: 2 }),
+  odd_punk: Object.freeze({ file: '0047_punkhead', name: 'ODD PUNK', rarity: 'uncommon', from: 2 }),
+  even_floor: Object.freeze({ file: '0069_disco_ball', name: 'EVEN FLOOR', rarity: 'uncommon', from: 2 }),
+  hot_trips: Object.freeze({ file: '0103_spray_hot', name: 'HOT TRIPS', rarity: 'uncommon', from: 4 }),
+  power_paint: Object.freeze({ file: '0065_spray_color', name: 'POWER PAINT', rarity: 'uncommon', from: 7 }),
+  big_bang: Object.freeze({ file: '0016_bomb', name: 'BIG BANG', rarity: 'rare', from: 11 }),
+});
+export const CARD_THING_PRICE = Object.freeze({ uncommon: 5, rare: 7 });
+// The card-things a door after `levelIndex` may offer.
+export const cardPool = (levelIndex) => Object.keys(CARD_THINGS).filter((id) => CARD_THINGS[id].from <= levelIndex);
 export const MAX_STARS = 3;
 
 // The pocket's places for a level: 3, a 4th once level 15 is cleared, a 5th once level 35 is.
