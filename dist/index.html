@@ -229,6 +229,7 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 /* The hand's points as the sum of its dice × its combination's multiplier (owner, 02.11.2026); the multiplier
    is what upgrades raise, so it is the yellow, smaller half: 20 px by the 28 px sum, its × 19 px (Figma 1285:1300) */
 #bones small { font-size: .714em; color: var(--accent); }
+.level-text small { font-size: .714em; color: var(--muted); } /* out of the next keeper's level, as the hand's ×N is out of its sum */
 #bones small i { font-style: normal; font-size: .95em; }
 #handTotal, .hand-row { display: none; } /* the desktop's: the hand's total, and its dice with the multiplier */
 .hand-row .gdice { display: flex; gap: calc(4px * var(--k, 1)); }
@@ -272,7 +273,7 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 #bank .cell.bonus, .bank.bank-fly .cell.bonus, #shopBank .cell.bonus { --card: var(--mini-card); --card-ink: #000; border-color: var(--mini-edge); border-radius: 25%; box-shadow: inset 0 0 calc(4.655px * var(--k, 1)) rgba(255, 255, 255, .25); }
 .bank .cell.bonus .arch, #shopBank .cell.bonus .arch, #shopBank .cell.bonus .x2 { display: none; }
 .bank .cell.bonus .art, #shopBank .cell.bonus .art { left: -1.61%; top: -24.19%; width: 103.23%; height: 103.23%; } /* 64 px at 0, -14 */
-.bank .cell.bonus .tag { bottom: 2.37%; font-size: calc(6px * var(--k, 1)); }
+.bank .cell.bonus .tag { bottom: 4.4%; font-size: calc(6px * var(--k, 1)); } /* its capitals in the middle of the band under the portrait */
 .bank .slot { background: url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiB2aWV3Qm94PSIwIDAgNjQgNjQiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJDYXJkIiBmaWx0ZXI9InVybCgjZmlsdGVyMF9pXzBfOSkiPgo8cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNiIgZmlsbD0iYmxhY2siIGZpbGwtb3BhY2l0eT0iMC4yIi8+CjxwYXRoIGlkPSIrIiBkPSJNMzIuMDU3MSA0MEMzMC43NzE0IDQwIDI5LjkxNDMgMzkuNDI4NiAyOS45MTQzIDM4QzI5LjkxNDMgMzYuNDg1NyAzMC4zNDI5IDM1LjYgMzAuNDg1NyAzMy41NDI5QzI4LjM3MTQgMzMuNjg1NyAyNy41MTQzIDM0LjA4NTcgMjYgMzQuMDg1N0MyNC41NzE0IDM0LjA4NTcgMjQgMzMuMjI4NiAyNCAzMS45NzE0QzI0IDMwLjc0MjkgMjQuNTcxNCAyOS45MTQzIDI2IDI5LjkxNDNDMjcuNTE0MyAyOS45MTQzIDI4LjM3MTQgMzAuMzQyOSAzMC40NTcxIDMwLjQ4NTdDMzAuMzE0MyAyOC4zNzE0IDI5LjkxNDMgMjcuNTE0MyAyOS45MTQzIDI2QzI5LjkxNDMgMjQuNTcxNCAzMC43NzE0IDI0IDMyLjAyODYgMjRDMzMuMjU3MSAyNCAzNC4wODU3IDI0LjU3MTQgMzQuMDg1NyAyNkMzNC4wODU3IDI3LjUxNDMgMzMuNjg1NyAyOC4zNzE0IDMzLjU0MjkgMzAuNDU3MUMzNS41NzE0IDMwLjI4NTcgMzYuNDg1NyAyOS45MTQzIDM4IDI5LjkxNDNDMzkuNDI4NiAyOS45MTQzIDQwIDMwLjcxNDMgNDAgMzEuOTQyOUM0MCAzMy4yMjg2IDM5LjQyODYgMzQuMDg1NyAzOCAzNC4wODU3QzM2LjQ4NTcgMzQuMDg1NyAzNS41NzE0IDMzLjY4NTcgMzMuNTQyOSAzMy41NDI5QzMzLjY1NzEgMzUuNiAzNC4wODU3IDM2LjQ4NTcgMzQuMDg1NyAzOEMzNC4wODU3IDM5LjQyODYgMzMuMjg1NyA0MCAzMi4wNTcxIDQwWiIgZmlsbD0id2hpdGUiIGZpbGwtb3BhY2l0eT0iMC4xMiIvPgo8L2c+CjxkZWZzPgo8ZmlsdGVyIGlkPSJmaWx0ZXIwX2lfMF85IiB4PSIwIiB5PSIwIiB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIGZpbHRlclVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgY29sb3ItaW50ZXJwb2xhdGlvbi1maWx0ZXJzPSJzUkdCIj4KPGZlRmxvb2QgZmxvb2Qtb3BhY2l0eT0iMCIgcmVzdWx0PSJCYWNrZ3JvdW5kSW1hZ2VGaXgiLz4KPGZlQmxlbmQgbW9kZT0ibm9ybWFsIiBpbj0iU291cmNlR3JhcGhpYyIgaW4yPSJCYWNrZ3JvdW5kSW1hZ2VGaXgiIHJlc3VsdD0ic2hhcGUiLz4KPGZlQ29sb3JNYXRyaXggaW49IlNvdXJjZUFscGhhIiB0eXBlPSJtYXRyaXgiIHZhbHVlcz0iMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMTI3IDAiIHJlc3VsdD0iaGFyZEFscGhhIi8+CjxmZU9mZnNldC8+CjxmZUdhdXNzaWFuQmx1ciBzdGREZXZpYXRpb249IjQuODMyMDQiLz4KPGZlQ29tcG9zaXRlIGluMj0iaGFyZEFscGhhIiBvcGVyYXRvcj0iYXJpdGhtZXRpYyIgazI9Ii0xIiBrMz0iMSIvPgo8ZmVDb2xvck1hdHJpeCB0eXBlPSJtYXRyaXgiIHZhbHVlcz0iMCAwIDAgMCAwLjUzMjQ3MSAwIDAgMCAwIDAuNTMyNDcxIDAgMCAwIDAgMC41MzI0NzEgMCAwIDAgMC40IDAiLz4KPGZlQmxlbmQgbW9kZT0ibm9ybWFsIiBpbjI9InNoYXBlIiByZXN1bHQ9ImVmZmVjdDFfaW5uZXJTaGFkb3dfMF85Ii8+CjwvZmlsdGVyPgo8L2RlZnM+Cjwvc3ZnPgo=") center / 100% 100% no-repeat; }
 .bank .cell.new { animation: bankIn 520ms cubic-bezier(.2, .8, .3, 1.3) both; }
 @keyframes bankIn { from { transform: translateY(40%) scale(.4); opacity: 0; } }
@@ -471,7 +472,7 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .face[data-value="5"] i:nth-child(1), .face[data-value="5"] i:nth-child(3), .face[data-value="5"] i:nth-child(5), .face[data-value="5"] i:nth-child(7), .face[data-value="5"] i:nth-child(9),
 .face[data-value="6"] i:nth-child(1), .face[data-value="6"] i:nth-child(3), .face[data-value="6"] i:nth-child(4), .face[data-value="6"] i:nth-child(6), .face[data-value="6"] i:nth-child(7), .face[data-value="6"] i:nth-child(9) { opacity: 1; }
 .cell .tag { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); font: 700 calc(11px * var(--kb, 1))/1 var(--font-display); letter-spacing: .16em; padding: calc(3px * var(--kb, 1)) calc(6px * var(--kb, 1)); border-radius: 4px; display: none; white-space: nowrap; }
-.cell.bonus .tag { display: block; bottom: 3.7%; padding: 0; color: var(--card-ink); font-size: calc(11px * var(--kb, 1)); letter-spacing: -.03em; text-transform: uppercase; } /* the name alone: 11 px, 5 px over the bottom */
+.cell.bonus .tag { display: block; bottom: 5.5%; padding: 0; color: var(--card-ink); font-size: calc(11px * var(--kb, 1)); letter-spacing: -.03em; text-transform: uppercase; } /* the name alone, 11 px; its capitals in the middle between the portrait's bottom edge and the card's (owner, 12.11.2026: «Текст должен быть визуально по центру между нижней гранью портрета и нижней гранью карточки»; measured by art/check-card-name.mjs) */
 .cell.bonus .tag:empty { display: none; }
 .cell.bonus.used .tag { color: var(--muted); }
 .cell .x2 { display: none; font: 700 calc(40px * var(--kb, 1))/1 var(--font-display); letter-spacing: -.02em; }
@@ -618,6 +619,9 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 body.wide #levelEnd.won { align-items: center; padding-top: 16px; }
 body.wide #levelEnd.won .panel { width: calc(1134px * var(--k, 1)); height: calc(546px * var(--k, 1)); display: grid; grid-template-columns: calc(546px * var(--k, 1)) calc(546px * var(--k, 1)); column-gap: calc(42px * var(--k, 1)); align-content: start; }
 body.wide #levelEnd.won .panel > * { grid-column: 1; }
+/* sideways the play screen fills the height between the app's paddings: the won screen takes the same, so its columns
+   stand where the board and the panel are */
+body.wide.side #levelEnd.won { padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)); }
 /* the celebration's column at the board's 1.5 (title 42, score 72), the pick's column at the shop's sizes; both columns
    start on the panel's top edge */
 body.wide #levelEnd.won .end-title { font-size: calc(42px * var(--k, 1)); line-height: calc(48px * var(--k, 1)); }
@@ -632,10 +636,9 @@ body.wide #levelEnd.won .upgrades { grid-column: 2; grid-row: 1 / span 9; margin
 .win-over { position: fixed; z-index: 21; padding: 0 calc(8px * var(--k, 1)); border-radius: calc(12px * var(--k, 1)); background: var(--gold); color: #000; font: 700 calc(12px * var(--k, 1))/calc(22px * var(--k, 1)) var(--font-display); white-space: nowrap; pointer-events: none; }
 .shards-layer { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 22; pointer-events: none; }
 /* pixelfx's effects (pixel-fx.js; owner's picks, 12.11.2026): crisp pixels over the screen they belong to, never a
-   target; the keeper's sigil lies in his card's box, under the card; the record's fireworks under the cleared screen's
-   words (#levelEnd lies over the whole window, so its box is the window's) */
+   target; the record's fireworks under the cleared screen's words (#levelEnd lies over the whole window, so its box is the
+   window's) */
 .pixel-fx { position: fixed; z-index: 23; pointer-events: none; image-rendering: pixelated; }
-.boss-card .pixel-fx { position: absolute; z-index: auto; }
 #levelEnd .pixel-fx { position: absolute; z-index: -1; }
 .reveal.win { animation: revealWin 180ms cubic-bezier(.2, 1.4, .3, 1) forwards; }
 @keyframes revealWin { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.88); } 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
@@ -753,6 +756,12 @@ body.wide .app {
   row-gap: 0;
   justify-content: center;
 }
+/* A phone held sideways (body.side, fitBoard; owner, 12.11.2026: «игра должна занимать максимум места или 95% площади, не
+   мешать системному интерфейсу»; then «тянуть правую часть на всю ширину не нужно. Части пропорциональны и фиксируются по
+   центру вьюхи. А вот по вертикали нужно занять свободное пространство»): no mockup frame round the game. The board and
+   the panel keep the mockup's proportions, centred, as tall as the room between the system's insets (Safari's bar, the
+   home indicator's 21); 16 from the edge where there is no inset. */
+body.wide.side .app { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 body.wide .board-wrap { grid-area: board; --board: calc(546px * var(--k, 1)); }
 body.wide .board { gap: calc(12px * var(--k, 1)); }
 /* The tutorial on the desktop and a sideways phone (Figma 1392:2866, 1392:3100, 1392:3183; owner, 12.11.2026): the
@@ -764,6 +773,15 @@ body.wide .coach { grid-area: hud; inset: 0; height: auto; padding: calc(30px * 
 body.wide .app[data-tutorial] #levelStat { opacity: 0; }
 body.wide .app[data-tutorial] .hand-row { display: none; }
 body.wide .toast { grid-area: hud; inset: 0; height: auto; border-radius: calc(40px * var(--k, 1)) calc(40px * var(--k, 1)) 0 0; background: var(--tile); }
+/* the keeper's notification takes the panel tile's header row, where the desktop's notices come; his bust stands on the
+   line under it. Words that need more room (a low window's 13 px floor, a golden keeper's three lines) raise its top
+   edge over the window's margin above the tile, never over the counter under it */
+body.wide .boss-card { grid-area: hud; inset: auto 0 0; min-height: 100%; gap: calc(20px * var(--k, 1)); padding: 0 calc(32px * var(--k, 1)) 0 calc(24px * var(--k, 1)); border-radius: calc(40px * var(--k, 1)) calc(40px * var(--k, 1)) 0 0; }
+body.wide .boss-card .boss-face { width: calc(100px * var(--k, 1)); height: calc(100px * var(--k, 1)); }
+body.wide .boss-card span { gap: calc(4px * var(--k, 1)); padding-block: calc(16px * var(--k, 1)); }
+body.wide.side .boss-card span { padding-block: calc(6px * var(--k, 1)); } /* sideways only 16 lie above the tile: a golden keeper's three lines rise by less */
+body.wide .boss-card b { font-size: max(16px, calc(28px * var(--k, 1))); }
+body.wide .boss-card em { font-size: max(13px, calc(20px * var(--k, 1))); }
 body.wide .hud { grid-area: hud; height: auto; align-items: center; justify-content: space-between; padding: calc(30px * var(--k, 1)) calc(32px * var(--k, 1)) calc(24px * var(--k, 1)); background: var(--tile); border-radius: calc(40px * var(--k, 1)) calc(40px * var(--k, 1)) 0 0; }
 body.wide .bank { gap: calc(8px * var(--k, 1)); }
 body.wide .book { flex: none; height: auto; font-size: calc(28px * var(--k, 1)); }
@@ -1001,23 +1019,32 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
 /* The bells and the charms' marks, for the receipts and the shop */
 .bell { display: inline-block; width: 1.25em; height: 1.25em; margin-right: .2em; vertical-align: -.25em; background: var(--bell) center / contain no-repeat; }
 .sigil { display: block; flex: none; width: calc(18px * var(--k, 1)); height: calc(18px * var(--k, 1)); border: 0; padding: 0; background: var(--sig) center / contain no-repeat; }
-/* A boss's level opens with his card over the dice: LEVEL and THRESHOLD stay in view under it, the whole screen waits */
+/* A boss's level opens with his notification (owner, 12.11.2026, on his iPhone: «Героя в нотифайке нужно ставить по нижнему
+   краю без зазора. Ширину нотифайки увеличить. Стиль и практика как у apple. Количество текста сократить до заголовка и
+   описания (один стиль шрифта, два размера)»; MODE3-PLAN §48). A banner like iOS's: at the top over the header, 8 from the
+   column's sides, rounded 24, in the tiles' grey (opaque: through a translucent material How showed under it, unblurred
+   in WebKit), 80 high and so 8 clear of the board (the header strip is 88: the longest words, a golden keeper's three
+   lines, leave 4). His bust stands on its bottom edge with no gap, where a communication notification shows its sender
+   (HIG). His name and his rule are in Basteleur Bold at two sizes. It holds nothing: the board stays in play under it.
+   It slides down, stands while he acts (2 s at least) and slides up; a tap on it or a toast sends it away (showBossCard,
+   bossLeaves). */
 .boss-face { display: block; flex: none; background: var(--boss) center / contain no-repeat; }
-.boss-card { position: absolute; inset: 0; z-index: 15; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; color: #fff; }
-.boss-card::before { content: ''; position: fixed; inset: 0; }
-.boss-card > div { position: relative; display: flex; align-items: center; gap: calc(20px * var(--k, 1)); width: calc(300px * var(--k, 1)); padding: calc(16px * var(--k, 1)); border-radius: calc(16px * var(--k, 1)); background: #262626; } /* no frame: a card over the dice, not a button (owner, 12.11.2026) */
+.boss-card { position: absolute; z-index: 15; top: calc(max(16px, env(safe-area-inset-top, 0px)) - 8px * var(--k, 1)); left: calc(env(safe-area-inset-left, 0px) + 8px * var(--k, 1)); right: calc(env(safe-area-inset-right, 0px) + 8px * var(--k, 1)); display: flex; align-items: flex-end; gap: calc(12px * var(--k, 1)); min-height: calc(80px * var(--k, 1)); padding: 0 calc(16px * var(--k, 1)) 0 calc(12px * var(--k, 1)); border-radius: calc(24px * var(--k, 1)); background: var(--tile); overflow: hidden; color: #fff; font-family: var(--font-display); font-weight: 700; cursor: pointer; }
 .boss-card[hidden] { display: none; }
-/* it comes in, stands while its keeper acts (at least 2 s), and goes (showBossCard, leaveBossCard) */
-.boss-card.show > div { animation: bossIn 160ms cubic-bezier(.2, .8, .2, 1) both; }
-.boss-card.leaving > div { animation: bossOut 240ms cubic-bezier(.2, .8, .2, 1) both; }
-.boss-card .boss-face { position: relative; width: calc(84px * var(--k, 1)); height: calc(84px * var(--k, 1)); }
-.boss-card span { display: flex; flex-direction: column; gap: calc(4px * var(--k, 1)); min-width: 0; }
-.boss-card b { font-size: max(13px, calc(16px * var(--k, 1))); line-height: 1.1; font-weight: inherit; }
-.boss-card em { font: 300 max(13px, calc(15px * var(--k, 1)))/1.15 var(--font-light); color: rgba(255, 255, 255, .8); text-transform: lowercase; }
-.boss-card small { font-size: max(11px, calc(11px * var(--k, 1))); letter-spacing: .08em; color: var(--muted); }
+.boss-card .boss-face { position: relative; width: calc(80px * var(--k, 1)); height: calc(80px * var(--k, 1)); }
+.boss-card span { align-self: center; display: flex; flex-direction: column; gap: calc(2px * var(--k, 1)); min-width: 0; padding-block: calc(6px * var(--k, 1)); }
+.boss-card b { font-size: max(16px, calc(18px * var(--k, 1))); line-height: 1.1; font-weight: inherit; }
+.boss-card em { font-style: normal; font-size: max(13px, calc(14px * var(--k, 1))); line-height: 1.2; }
+/* the bank's heroes rise 14 over their cards, to the window's top, over the banner's top edge: the bank fades while the
+   banner stands and comes back as it slides up (the banner comes before the header for this rule) */
+#bank { transition: opacity 200ms ease; }
+.boss-card:not([hidden]):not(.leaving) ~ .hud #bank { opacity: 0; }
+.boss-card.show { animation: bannerIn 280ms cubic-bezier(.2, .8, .2, 1) both; }
+.boss-card.leaving { animation: bannerOut 240ms cubic-bezier(.4, 0, 1, 1) both; }
+@keyframes bannerIn { from { opacity: 0; transform: translateY(-110%); } }
+@keyframes bannerOut { to { opacity: 0; transform: translateY(-110%); } }
 @keyframes bossIn { from { opacity: 0; transform: translateY(calc(12px * var(--k, 1))); } }
-@keyframes bossOut { to { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .boss-card.show > div, .boss-card.leaving > div, .popup-card { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .boss-card.show, .boss-card.leaving, .popup-card { animation: none; } }
 /* A cleared level's pay, as the shop's wallet shows bells: the sum in yellow beside its bell, BELLS and the reasons
    in grey capitals, a card it opened in white (HIG, 12.11.2026) */
 .end-bells { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: calc(4px * var(--k, 1)) calc(12px * var(--k, 1)); margin: calc(16px * var(--k, 1)) 0 0; font: 700 max(11px, calc(11px * var(--k, 1)))/1.3 var(--font-display); letter-spacing: .08em; color: var(--muted); }
@@ -1051,7 +1078,7 @@ body:not([data-look="modern"]) .cell .order { font-size: 12px; }
 /* a bank card is the board's mini card (Figma 1339:2155 Card-mini; owner, 12.11.2026: «Карта должна быть типа mini из
    фигмы и не обрезаться. Такой же принцип, как на игровом поле»): whole, its hero's head over the place */
 #shopBank .shop-place { overflow: visible; }
-#shopBank .cell.bonus .tag { bottom: 2.37%; font-size: calc(6px * .8125 * var(--k, 1)); } /* the mini's 6 of 64, at 52 */
+#shopBank .cell.bonus .tag { bottom: 4.4%; font-size: calc(6px * .8125 * var(--k, 1)); } /* the mini's 6 of 64, at 52, in the middle of the band under the portrait */
 .shop-place .sigil { width: 72%; height: 72%; }
 .shop-place.swap { box-shadow: 0 0 0 2px var(--fg); cursor: pointer; } /* a full bank or belt: tap the one to replace (outside: a card fills its place) */
 .shop-place.swap:active { transform: scale(.96); }
@@ -1207,9 +1234,6 @@ body.wide #handStat .label { font-size: calc(13px * var(--k, 1)); } /* SMALL STR
   .guide.help .guide-page { gap: 8px; }
 }
 
-.boss-card .answer { margin-top: calc(4px * var(--k, 1)); color: var(--fg); } /* a charm held against him */
-.boss-card > div { width: min(100%, max(230px, calc(300px * var(--k, 1)))); } /* on a phone held sideways the floors of its text need the room */
-
 /* The splash (owner, 11.11.2026: «нам не нужен экран загрузки и все же я хочу показывать подобный экран 3 секунды при
    первом входе или следующей сессии»; Figma 1333:1876 «Dice-loading»): over everything from the first paint, 3 s at every
    start, then it fades. The mockup's 393 px phone in units of --u, its block from the hands' top to the logo's foot set a
@@ -1256,6 +1280,7 @@ body.wide #handStat .label { font-size: calc(13px * var(--k, 1)); } /* SMALL STR
     <button class="tab" type="button" data-mode="poker5" id="tabPoker5">POKER 5</button>
     <button class="tab" type="button" data-mode="auto" id="tabAuto">AUTO HAND</button>
   </nav>
+  <div class="boss-card" id="bossCard" role="status" hidden></div>
   <header class="hud">
     <div class="stat" id="levelHud"><span class="label">LEVEL</span><span class="value level-text">1</span></div>
     <div class="bank" id="bank" aria-label="Bonus bank: bonuses kept from earlier levels"></div>
@@ -1269,7 +1294,6 @@ body.wide #handStat .label { font-size: calc(13px * var(--k, 1)); } /* SMALL STR
   </div>
   <section class="board-wrap">
     <div class="board rendered" id="board" aria-label="3 by 3 dice board"></div>
-    <div class="boss-card" id="bossCard" hidden></div>
   </section>
   <section class="counter" aria-live="polite">
     <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span></div>
@@ -7234,367 +7258,6 @@ function coin3d(L, p, x, y, r, th, theta, C, { a = 1, white = false } = {}) {
 
 return { fit, Layer, shadow, twinkle, bob, pillow, heartSdf, blobShadow, glint, pool, coin, gemlet, brilliant, prism, drawGem, coin3d };
 })();
-// ---- vendor/pixelfx/pfx-shadow-lib.js ----
-const __mod_pfx_shadow_lib = (() => {
-// pixelfx src/fx/shadow/_lib.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
-// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
-// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
-// The flame puff (after sim.js's FIRE) and the swirling pull (attract) are adapted from Sprite Fusion's
-// open-source black-hole (https://www.spritefusion.com/pixel-art-vfx/black-hole),
-// MIT License, Copyright (c) 2026 Hugo Duprez.
-//
-// Shared bits for the shadow effects (files starting with _ are helpers, not effects): the void palette,
-// light that black shapes cut, smoke lit from one side, violet flame, obsidian slivers, ink drops.
-
-const { hex, mix, ramp, WHITE } = __mod_pfx_color;
-const { clamp, noise } = __mod_pfx_math;
-const { GRAVITY } = __mod_pfx_sim;
-
-/** Dark magic, dark to bright: void black, deep violet, a white-lilac edge. */
-const VOID = ["#06040b", "#150c26", "#2a1150", "#461a84", "#6f2cc0", "#9d5cec", "#cfa6ff", "#f6eaff"];
-
-/**
- * Take the light back off every pixel in a local box where dark(x, y) is true, keeping a share keep (0..1):
- * call it last, so black shapes stay black under every glow, spark and ring drawn before.
- */
-function unlight(p, x0, y0, x1, y1, dark, keep = 0) {
-  const L = p.L, w = p.w, ox = p.ox, oy = p.oy;
-  p.each(x0, y0, x1, y1, (x, y, sx, sy) => {
-    if (!dark(x, y)) return;
-    const i = (sy - oy) * w + (sx - ox), d = L[i];
-    if (!d) return;
-    if (keep <= 0) L[i] = 0;
-    else L[i] = (255 << 24) | ((((d >>> 16) & 255) * keep) << 16) | ((((d >>> 8) & 255) * keep) << 8) | ((d & 255) * keep);
-  });
-}
-
-// the pixel cells of the annulus r0 <= d < r1 round (x, y), row by row, jumping the hole: fn(cx, cy, d)
-function annulus(x, y, r0, r1, fn) {
-  const r02 = r0 > 0 ? r0 * r0 : -1, r12 = r1 * r1;
-  for (let py = Math.floor(y - r1); py <= Math.ceil(y + r1); py++) {
-    const cy = py + 0.5, dy = cy - y, dy2 = dy * dy;
-    if (dy2 >= r12) continue;
-    const xo = Math.sqrt(r12 - dy2), xi = dy2 < r02 ? Math.sqrt(r02 - dy2) : 0;
-    for (let px = Math.floor(x - xo), x1 = Math.ceil(x + xo); px <= x1; px++) {
-      const cx = px + 0.5, dx = cx - x;
-      if (xi > 0 && dx > -xi && dx < xi) {
-        px = Math.max(px, Math.floor(x + xi) - 1);
-        continue;
-      }
-      const d2 = dx * dx + dy2;
-      if (d2 < r12 && d2 >= r02) fn(cx, cy, Math.sqrt(d2));
-    }
-  }
-}
-
-/**
- * A ring from radius r - w out to r round (x, y), like p.ring (c and a may be functions of v: 0 inner to 1
- * outer, and angle) but visiting only the band's own pixels, so a big thin shock ring stays cheap.
- */
-function ringFast(p, x, y, r, w, c, a = 1) {
-  if (r <= 0) return;
-  const r0 = Math.max(0, r - w), fc = typeof c === "function", fa = typeof a === "function";
-  annulus(x, y, r0, r, (cx, cy, d) => {
-    const v = (d - r0) / (r - r0 || 1), ang = fc || fa ? Math.atan2(cy - y, cx - x) : 0;
-    p.dot(cx, cy, fc ? c(v, ang) : c, fa ? a(v, ang) : a);
-  });
-}
-
-/** Light hugging a circle of radius R at (x, y), falling off over w either side, only where keep(x, y). */
-function ringLight(p, x, y, R, w, c, k, keep = null) {
-  if (w < 1 || k <= 0.004) return;
-  const col = hex(c);
-  annulus(x, y, Math.max(0, R - w), R + w, (cx, cy, d) => {
-    if (keep && !keep(cx, cy)) return;
-    const f = 1 - Math.abs(d - R) / w;
-    p.light(cx, cy, col, f * f * k);
-  });
-}
-
-/** A ring of light hugging a black disc: k at radius r0, falling to nothing at r1, and none inside r0. */
-function halo(p, x, y, r0, r1, c, k) {
-  if (r1 <= r0 || k <= 0.004) return;
-  const col = hex(c), w = r1 - r0;
-  annulus(x, y, Math.max(0, r0), r1, (cx, cy, d) => {
-    const f = 1 - (d - r0) / w;
-    p.light(cx, cy, col, f * f * k);
-  });
-}
-
-/**
- * A black star rasterized once: four long arms (L) and four short ones, turned rot, at (0, cy), its cells
- * in a grid. { at(x, y) } says if a local point is black; draw(p, c, rim, skip) fills it and burns a rim on
- * the cells just outside it (except where skip(x, y)). The arms keep a 1 px black spine to their tips.
- */
-function blackStar(cy, L, rot, short = 0.46, q = 0.32) {
-  const R0 = Math.ceil(L) + 2, n = R0 * 2 + 1, data = new Uint8Array(n * n);
-  for (let j = 0; j < n; j++)
-    for (let i = 0; i < n; i++) {
-      const x = i - R0 + 0.5, y = cy + j - R0 + 0.5;
-      if (inStar(x, y, 0, cy, L, rot, q) || inStar(x, y, 0, cy, L * short, rot + Math.PI / 4, q)) data[j * n + i] = 1;
-    }
-  for (let a = 0; a < 4; a++)
-    for (let d = 0, ca = Math.cos(rot + (a * Math.PI) / 2), sa = Math.sin(rot + (a * Math.PI) / 2); d < L - 1; d += 0.5) {
-      const i = Math.floor(ca * d) + R0, j = Math.floor(sa * d) + R0;
-      data[j * n + i] = 1;
-    }
-  const at = (x, y) => {
-    const i = Math.floor(x) + R0, j = Math.floor(y - cy) + R0;
-    return i >= 0 && j >= 0 && i < n && j < n && data[j * n + i] === 1;
-  };
-  return {
-    R0,
-    at,
-    /** take the light off its black cells (call last, like unlight) */
-    unlight(p) {
-      const Lb = p.L, w = p.w, h = p.h, ox = p.ox, oy = p.oy;
-      for (let j = 0; j < n; j++)
-        for (let i = 0; i < n; i++) {
-          if (!data[j * n + i]) continue;
-          const x = i - R0 + 0.5, y = cy + j - R0 + 0.5, sx = p.cellX(x, y) - ox, sy = p.cellY(x, y) - oy;
-          if (sx >= 0 && sy >= 0 && sx < w && sy < h) Lb[sy * w + sx] = 0;
-        }
-    },
-    draw(p, c, rim, skip) {
-      for (let j = 0; j < n; j++)
-        for (let i = 0; i < n; i++) {
-          const x = i - R0 + 0.5, y = cy + j - R0 + 0.5;
-          if (data[j * n + i]) p.px(x, y, c);
-          else if (rim && !skip(x, y) && (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1))) p.px(x, y, rim);
-        }
-    },
-  };
-}
-
-/** Is (x, y) inside a four-point star at (cx, cy), arms L long, turned rot? q < 1 hollows the sides into thin spikes. */
-function inStar(x, y, cx, cy, L, rot, q = 0.42) {
-  if (L <= 0) return false;
-  const c = Math.cos(rot), s = Math.sin(rot), dx = x - cx, dy = y - cy;
-  const u = Math.abs(dx * c + dy * s) / L, v = Math.abs(-dx * s + dy * c) / L;
-  // inside needs the smaller of u, v under 0.5^(1/q): most points fail that before any pow
-  return u < 1 && v < 1 && Math.min(u, v) <= Math.pow(0.5, 1 / q) && Math.pow(u, q) + Math.pow(v, q) <= 1;
-}
-
-/**
- * Pull particles (anything with x, y, vx, vy) toward (x, y): gravity softened at r0, a swirl round it, drag
- * that grows inside reach. Those that reach r0 are eaten (removed); returns how many. w(q) weighs each one
- * (0 leaves it alone).
- */
-function attract(list, x, y, G, reach, swirl, r0, dt, w = () => 1, vmax = Infinity) {
-  let eaten = 0;
-  for (let i = list.length - 1; i >= 0; i--) {
-    const q = list[i], wt = w(q);
-    if (!wt || q.delay > 0) continue;
-    const dx = x - q.x, dy = y - q.y, d2 = dx * dx + dy * dy;
-    if (d2 > reach * reach) continue;
-    const d = Math.sqrt(d2) || 1;
-    if (d < r0) {
-      list.splice(i, 1);
-      eaten++;
-      continue;
-    }
-    const a = (G / (d2 + r0 * r0)) * Math.min(1, (reach - d) / (reach * 0.25)) * wt * dt, ux = dx / d, uy = dy / d;
-    q.vx += (ux - uy * swirl) * a;
-    q.vy += (uy + ux * swirl) * a;
-    const drag = Math.min(0.2, (1 - d / reach) * 1.6 * dt);
-    q.vx -= q.vx * drag;
-    q.vy -= q.vy * drag;
-    const v = Math.hypot(q.vx, q.vy);
-    if (v > vmax) (q.vx *= vmax / v), (q.vy *= vmax / v);
-  }
-  return eaten;
-}
-
-/** Puff kinds: FLAME (a ball of flame cooling down a ramp), SOOT (dark smoke lit on the side facing a light). */
-const PK = { FLAME: 0, SOOT: 1 };
-
-/**
- * Violet flame and dark smoke. opts: { rng, flame: ramp white-hot to burnt out, soot: [fresh, old] smoke
- * colours, cap: the soot's dim lit top, rim: [hot, warm, dim] colours of its lit side, floor: (x) => y }.
- * spawn(kind, x, y, vx, vy, life, size, delay, smokes): smokes turns a dying flame into soot.
- * draw(p, kind, light): light = { x, y, k, reach } is what the soot's rims face (k 0 leaves them dark).
- */
-class Puffs {
-  constructor(o) {
-    this.R = o.rng;
-    this.list = [];
-    this.t = 0;
-    this.F = ramp(o.flame);
-    this.soot = ramp(o.soot);
-    this.cap = hex(o.cap);
-    this.rim = ramp(o.rim);
-    this.floor = o.floor ?? null;
-  }
-  spawn(k, x, y, vx, vy, life, size, delay = 0, smokes = false) {
-    this.list.push({ k, x, y, vx, vy, life, max: life, size, delay, smokes, seed: this.R.next() * 100 });
-  }
-  get count() {
-    return this.list.length;
-  }
-  update(dt) {
-    this.t += dt;
-    const t = this.t;
-    for (let i = this.list.length - 1; i >= 0; i--) {
-      const q = this.list[i];
-      if (q.delay > 0) {
-        q.delay -= dt;
-        continue;
-      }
-      if ((q.life -= dt) <= 0) {
-        if (q.k === PK.FLAME && q.smokes) this.spawn(PK.SOOT, q.x, q.y - 1, q.vx * 0.5, q.vy * 0.5 - 6, this.R.range(0.9, 1.6), q.size * 1.25);
-        this.list.splice(i, 1);
-        continue;
-      }
-      if (q.k === PK.FLAME) {
-        q.vy -= 95 * dt;
-        q.vx += Math.sin(t * 17 + q.seed) * 30 * dt;
-        q.vx -= q.vx * 5 * dt;
-        q.vy -= q.vy * 3.2 * dt;
-      } else {
-        q.vy -= 18 * dt;
-        q.vx += Math.sin(t * 1.3 + q.seed) * 8 * dt;
-        q.vx -= q.vx * 1.6 * dt;
-        q.vy -= q.vy * 1.3 * dt;
-      }
-      q.x += q.vx * dt;
-      q.y += q.vy * dt;
-      // smoke rolls along the floor rather than through it
-      if (this.floor && q.k === PK.SOOT) {
-        const f = this.floor(q.x) - q.size * 0.6;
-        if (q.y > f) (q.y = f), (q.vy = Math.min(0, q.vy)), (q.vx *= 1 - 2 * dt);
-      }
-    }
-  }
-  draw(p, kind, light = null) {
-    const F = this.F, n = F.length;
-    for (const q of this.list) {
-      if (q.delay > 0 || q.k !== kind) continue;
-      const k = q.life / q.max, age = 1 - k, x = q.x, y = q.y;
-      if (q.k === PK.FLAME) {
-        // a ball of flame: a darker rim, a lit core up and left, a tongue on top, a hot heart while young
-        const heat = Math.min(0.999, Math.pow(age, 0.62) + (q.seed % 1) * 0.1), idx = Math.min(n - 2, Math.floor(heat * (n - 1)));
-        const r = q.size * (0.55 + 0.45 * Math.min(1, age * 7)) * (1 - age * 0.55), c = F[idx];
-        if (idx >= n - 3) p.disc(x, y, r, c, Math.min(1, k * 3) * 0.8);
-        else {
-          p.circle(x, y, r, F[Math.min(n - 1, idx + 2)]);
-          p.circle(x - r * 0.16, y - r * 0.22, r * 0.78, c);
-          if (r > 1.6) p.circle(x, y - r * 0.9, r * 0.42, c);
-          if (idx <= 3 && r > 1.8) p.circle(x - r * 0.28, y - r * 0.34, r * 0.36, F[Math.max(0, idx - 1)]);
-          if (idx < 6) p.glow(x, y, r * 2.4 + 2, c, 0.2 * k);
-        }
-        continue;
-      }
-      // soot: a soft body and a denser core, a dim cap on top, and lit from the side facing the light by two
-      // discs pushed toward it (a soft wash over the near half, a brighter lip at its edge)
-      const r = q.size * (0.65 + Math.min(1, age * 2.5) * 0.45 + age * 0.45);
-      const a = Math.min(1, age * 10) * Math.min(1, k * 2.2) * 0.72, body = mix(this.soot[0], this.soot[1], age);
-      // one pass for the body: thinner at the edge, denser in the core (two layers' worth)
-      const edge = a * 0.5, core = 1 - (1 - a * 0.5) * (1 - a * 0.62);
-      p.disc(x, y + r * 0.06, r, body, (d) => (d < 0.72 ? core : edge));
-      const lk = light ? light.k : 0;
-      if (lk < 0.5) p.disc(x - r * 0.2, y - r * 0.32, r * 0.48, this.cap, a * 0.32 * (1 - age * 0.7) * (1 - lk * 2));
-      if (lk <= 0.02) continue;
-      const lx = light.x - x, ly = light.y - y, dl = Math.sqrt(lx * lx + ly * ly) || 1, ux = lx / dl, uy = ly / dl;
-      const lit = Math.min(1, light.k * clamp(1.3 - dl / light.reach)) * a;
-      if (lit <= 0.02) continue;
-      const [hot, warm, dim] = this.rim;
-      p.disc(x + ux * r * 0.26, y + uy * r * 0.26, r * 0.72, dim, lit * 0.55);
-      p.disc(x + ux * r * 0.5, y + uy * r * 0.5, r * 0.46, warm, lit * 0.5);
-      if (r > 3) p.disc(x + ux * r * 0.68, y + uy * r * 0.68, r * 0.24, hot, lit * 0.4);
-    }
-  }
-}
-
-/**
- * An obsidian shard from core Bits ({ x, y, a, s, life }): a thin triangle pointing along its spin angle, a
- * dark violet body, the long edge facing the light at (lx, ly) lit (brighter with lk), the other in shadow,
- * a white glint at the tip while the light is strong. C is an 8-step palette.
- */
-function shard(p, b, C, lx, ly, lk) {
-  const fa = Math.min(1, b.life / 0.4), ca = Math.cos(b.a), sa = Math.sin(b.a), L = Math.max(2, b.s), W = Math.max(2, L * 0.55);
-  const side = -sa * (lx - b.x) + ca * (ly - b.y) > 0 ? 1 : -1;
-  const rim = lk > 0.6 ? C[6] : lk > 0.3 ? C[5] : lk > 0.08 ? C[4] : C[3], E = L / 2 + 1.5;
-  p.shade(b.x - E, b.y - E, b.x + E, b.y + E, (x, y, out) => {
-    const dx = x - b.x, dy = y - b.y, u = dx * ca + dy * sa, v = (-dx * sa + dy * ca) * side;
-    if (u < -L / 2 - 0.4 || u > L / 2 + 0.4) return;
-    const half = ((W / 2) * (L / 2 - u)) / L + 0.4;
-    if (Math.abs(v) > half) return;
-    out.a = fa;
-    if (u > L / 2 - 1.3 && lk > 0.3) return WHITE;
-    if (v > half - 1) return u > -L / 4 ? rim : C[Math.max(3, C.indexOf(rim) - 1)];
-    return v < -half + 1 ? C[1] : C[2];
-  });
-  if (lk > 0.04) p.glow(b.x, b.y, 3 + L * 0.6, C[5], 0.2 * lk * fa);
-}
-
-/**
- * Ink drops: fly under gravity, land on the floor (y = floor(x)) and call onLand(x, y, speed).
- * add(x, y, vx, vy, size); update(dt); draw(p, body, shine) draws a dark drop with a lit top.
- */
-class Drops {
-  constructor(o = {}) {
-    this.list = [];
-    this.floor = o.floor ?? (() => 0);
-    this.onLand = o.onLand ?? null;
-    this.g = o.g ?? 0.8;
-  }
-  add(x, y, vx, vy, size = 1) {
-    this.list.push({ x, y, vx, vy, size });
-  }
-  update(dt) {
-    for (let i = this.list.length - 1; i >= 0; i--) {
-      const d = this.list[i];
-      d.vy += GRAVITY * this.g * dt;
-      d.vx -= d.vx * 0.4 * dt;
-      d.x += d.vx * dt;
-      d.y += d.vy * dt;
-      const f = this.floor(d.x);
-      if (d.vy > 0 && d.y >= f) {
-        this.onLand?.(d.x, f, d.vy, d.size);
-        this.list.splice(i, 1);
-      }
-    }
-  }
-  draw(p, body, shine) {
-    for (const d of this.list) {
-      const up = d.vy < 0;
-      p.px(d.x, d.y, body);
-      if (d.size > 1.4) p.px(d.x, d.y + (up ? 1 : -1), body);
-      p.px(d.x, d.y - (d.size > 1.4 && !up ? 1 : 0), shine);
-    }
-  }
-}
-
-/**
- * A dark pool opened in the floor, seen at a slant (radius rx, centred on the floor at x = 0): the far lip lit,
- * the near lip dark, ripples ({ x, t0, life, w }) running out across it, a sheen along the far side, a wet fringe.
- */
-function floorPool(p, C, rx, t, ripples) {
-  if (rx < 1) return;
-  const ry = rx * 0.17 + 0.6;
-  p.shade(-rx - 3, -ry - 2, rx + 3, ry + 2, (x, y) => {
-    const dx = x / rx, dy = (y - 0.5) / ry, d = Math.sqrt(dx * dx + dy * dy);
-    if (d > 1.18) return;
-    if (d > 1) {
-      if (dy < 0 && d < 1.09) return Math.abs(dx) < 0.55 ? C[6] : Math.abs(dx) < 0.85 ? C[5] : C[4];
-      if (dy >= 0 && d < 1.09) return C[2];
-      return y > -0.5 && noise(x * 0.7, 9) > 0.15 ? C[1] : undefined;
-    }
-    // ripples: ellipses on the slanted surface, kept about a pixel thick all the way round
-    for (const r of ripples) {
-      const age = t - r.t0, rr = age * 46 * r.w + 1, ex = x - r.x, ey = (y - 0.5) / 0.17, e = Math.sqrt(ex * ex + ey * ey) || 1;
-      const g = Math.sqrt(ex * ex + (ey / 0.17) ** 2) / e;
-      if (Math.abs(e - rr) < 0.55 * g && age < r.life) return age < r.life * 0.5 ? C[4] : C[3];
-    }
-    if (dy < -0.55 && dy > -0.85 && noise(x * 0.25 + t * 1.3, 4) > 0.2) return noise(x * 0.6 - t * 2, 6) > 0.55 ? C[5] : C[2];
-    // the far inner wall catches the glow from below: violet just under the lip, falling to black
-    if (dy < -0.35 && d > 0.72) return d > 0.9 ? C[3] : C[2];
-    return d > 0.86 ? C[1] : C[0];
-  });
-}
-
-return { VOID, unlight, ringFast, ringLight, halo, blackStar, inStar, attract, PK, Puffs, shard, Drops, floorPool };
-})();
 // ---- vendor/pixelfx/pfx-collect-burst.js ----
 const __mod_pfx_collect_burst = (() => {
 // pixelfx src/fx/pickups/collect-burst.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
@@ -7851,195 +7514,24 @@ function flareRays(p, x, y, L, ang, C, K) {
 
 return { meta, create };
 })();
-// ---- vendor/pixelfx/pfx-hex-sigil.js ----
-const __mod_pfx_hex_sigil = (() => {
-// pixelfx src/fx/shadow/hex-sigil.js (https://github.com/patch-gg/pixelfx at 5294518). MIT License, Copyright (c) 2026 Patch;
-// parts adapted from Hugo Duprez's MIT effects (Copyright (c) 2026 Hugo Duprez): LICENSE and NOTICE.md here.
-// Vendored by scripts/pixelfx.py: only the import lines differ from upstream.
-const { Particles, Bits, P, B, sparkle } = __mod_pfx_sim;
-const { Rng, rng, clamp, smooth, ease, TAU } = __mod_pfx_math;
-const { fit, WHITE, mix } = __mod_pfx_color;
-const { VOID, Puffs, PK, ringFast } = __mod_pfx_shadow_lib;
-
-const meta = {
-  name: "Hex sigil",
-  desc: "A burning pen traces a cursed sigil in the air, its glyphs pop in one by one, then it flares white and crumbles into falling embers.",
-  tags: ["shadow", "hex", "sigil", "rune", "curse", "magic", "circle", "one-shot"],
-  size: [168, 128],
-  origin: [84, 112],
-  duration: 4.2,
-  loop: false,
-  fps: 30,
-  bg: "ground",
-  options: { palette: VOID, seed: 7 },
-};
-
-// the sigil's centre and radii; the beats: traced, glyphs pop, holds, flares, crumbles
-const CY = -50, RO = 28, RI = 22, RC = 6, GLYPH = 1.62, FLARE = 2.6, BREAK = 2.74;
-
-// the strokes, in the order the pen draws them, as points with the moment the pen passes each
-function strokes(seed) {
-  const paths = [], circle = (r, a0, n = 0) => Array.from({ length: (n || Math.ceil(r * TAU)) + 1 }, (_, i) => [Math.cos(a0 + (i / (n || Math.ceil(r * TAU))) * TAU) * r, CY + Math.sin(a0 + (i / (n || Math.ceil(r * TAU))) * TAU) * r]);
-  paths.push(circle(RO, -Math.PI / 2));
-  // a seven-pointed star, drawn in one stroke, three points round each time
-  const star = [];
-  for (let i = 0; i <= 7; i++) {
-    const a = -Math.PI / 2 + ((i * 3) % 7) * (TAU / 7);
-    star.push([Math.cos(a) * RI, CY + Math.sin(a) * RI]);
-  }
-  paths.push(star);
-  paths.push(circle(RI, -Math.PI / 2));
-  paths.push(circle(RC, Math.PI / 2));
-  paths.push([[0, CY - 3.5], [2, CY], [0, CY + 3.5], [-2, CY], [0, CY - 3.5]]);
-  // sample every half pixel, timing the pen along it: the outer circle fast, the star with more weight
-  const pts = [], speeds = [420, 700, 550, 380, 300];
-  let t = 0.12;
-  paths.forEach((path, k) => {
-    for (let i = 1; i < path.length; i++) {
-      const [x0, y0] = path[i - 1], [x1, y1] = path[i], L = Math.hypot(x1 - x0, y1 - y0);
-      for (let d = 0; d < L; d += 0.5) pts.push({ x: x0 + ((x1 - x0) * d) / L, y: y0 + ((y1 - y0) * d) / L, t: t + d / speeds[k] });
-      t += L / speeds[k];
-    }
-    t += 0.04;
-  });
-  return { pts, end: t };
-}
-
-// seven small glyphs of our own: a spine and two or three branches on a 3x3 grid of nodes
-function glyphs(seed) {
-  return Array.from({ length: 7 }, (_, i) => {
-    const r = rng(seed, i, 31), segs = [[[1, 0], [1, 2]]];
-    for (let k = 0; k < 2 + (r.next() < 0.5 ? 1 : 0); k++) {
-      const a = [r.int(0, 2), r.int(0, 2)], b = [Math.max(0, Math.min(2, a[0] + r.int(-1, 1))), Math.max(0, Math.min(2, a[1] + r.int(-1, 1)))];
-      if (a[0] !== b[0] || a[1] !== b[1]) segs.push([a, b]);
-    }
-    const ang = -Math.PI / 2 + (i * TAU) / 7 + Math.PI / 7, rr = (RO + RI) / 2;
-    return { x: Math.cos(ang) * rr, y: CY + Math.sin(ang) * rr, segs, t: GLYPH + i * 0.07 };
-  });
-}
-
-function create(o) {
-  const C = fit(o.palette, 8), R = new Rng(o.seed), floor = () => 0, S = strokes(o.seed), G = glyphs(o.seed);
-  const ps = new Particles({ rng: R, ground: floor, sparks: [WHITE, C[7], C[6], C[5]] });
-  const embers = new Particles({ rng: R, ground: floor, sparks: [C[7], C[6], C[5], C[4]] });
-  const puffs = new Puffs({ rng: R, flame: [WHITE, C[7], C[6], C[5], C[4], C[3], C[2], C[1], C[0]], soot: [mix(C[3], C[2], 0.5), mix(C[2], C[1], 0.5)], cap: mix(C[4], C[2], 0.5), rim: [C[6], C[5], C[4]], floor });
-  const bits = new Bits({ ground: floor }), lights = [];
-  let t = 0, pi = 0, flared = false, broke = false;
-  const pen = () => S.pts[Math.min(S.pts.length - 1, pi)];
-  return {
-    update(dt) {
-      t += dt;
-      // the pen: it spits sparks and drips burning embers as it writes
-      while (pi < S.pts.length - 1 && S.pts[pi + 1].t <= t) pi++;
-      if (t > 0.12 && t < S.end) {
-        const q = pen();
-        if (R.chance(dt * 70)) ps.spawn(P.SPARK, q.x, q.y, R.range(-70, 70), R.range(-100, 20), R.range(0.12, 0.35));
-        if (R.chance(dt * 10)) embers.spawn(P.EMBER, q.x, q.y, R.range(-12, 12), R.range(5, 25), R.range(0.5, 0.9));
-      }
-      // power drawn into the sigil while it's written and held: streaks racing in to its heart
-      if (t > 0.2 && t < FLARE - 0.05 && R.chance(dt * (8 + 14 * smooth(0.2, FLARE, t)))) {
-        const a = R.range(0, TAU), D0 = R.range(40, 60), T = R.range(0.22, 0.32), v = (D0 * 3) / (Math.exp(3 * T) - 1);
-        ps.spawn(P.STREAK, Math.cos(a) * D0, CY + Math.sin(a) * D0, -Math.cos(a) * v, -Math.sin(a) * v, T, R.chance(0.5) ? C[7] : C[6]);
-      }
-      for (const g of G)
-        if (!g.popped && t >= g.t) {
-          g.popped = true;
-          lights.push({ x: g.x, y: g.y, r: 14, k: 0.7, life: 0.2, max: 0.2 });
-          for (let i = 0; i < 4; i++) ps.spawn(P.SPARK, g.x, g.y, R.range(-60, 60), R.range(-70, 20), R.range(0.1, 0.25));
-        }
-      if (t >= FLARE && !flared) {
-        flared = true;
-        lights.push({ x: 0, y: CY, r: 96, k: 1.4, life: 0.45, max: 0.45 }, { x: 0, y: CY, r: 44, k: 1, life: 0.14, max: 0.14 });
-        for (let i = 0; i < 24; i++) {
-          const a = R.range(0, TAU), sp = R.range(60, 130);
-          ps.spawn(P.SPARK, Math.cos(a) * 13, CY + Math.sin(a) * 13, Math.cos(a) * sp, Math.sin(a) * sp - 30, R.range(0.2, 0.45));
-        }
-      }
-      if (t >= BREAK && !broke) {
-        // it crumbles: every stroke breaks into burning fragments that tumble down and bounce
-        broke = true;
-        // pieces drop nearly straight at first, so the sigil's shape lingers as it falls apart
-        for (let i = 0; i < S.pts.length - 1; i += 7) {
-          const q = S.pts[i], n = S.pts[i + 1], a = Math.atan2(n.y - q.y, n.x - q.x);
-          bits.add({ kind: B.SHARD, x: q.x, y: q.y, vx: R.range(-8, 8), vy: R.range(-12, 6), g: R.range(0.22, 0.45), drag: 0.6, bounce: 0.25, life: R.range(0.8, 1.2), a, va: R.range(-3, 3), s: R.range(2.5, 3.5), c: R.pick([C[7], C[6], C[6], C[5]]) });
-          if (i % 27 === 0) embers.spawn(P.EMBER, q.x, q.y, R.range(-10, 10), -R.range(10, 40), R.range(0.6, 1.1));
-        }
-        for (const g of G) puffs.spawn(PK.SOOT, g.x, g.y, R.range(-6, 6), -R.range(8, 18), R.range(0.7, 1.1), R.range(3, 5));
-        for (let i = 0; i < 8; i++) puffs.spawn(PK.SOOT, R.range(-20, 20), CY + R.range(-20, 20), R.range(-8, 8), -R.range(6, 16), R.range(0.8, 1.2), R.range(3, 6), R.range(0, 0.15));
-      }
-      for (let i = lights.length - 1; i >= 0; i--) if ((lights[i].life -= dt) <= 0) lights.splice(i, 1);
-      bits.update(dt);
-      ps.update(dt);
-      embers.update(dt);
-      puffs.update(dt);
-    },
-    drawBack(p) {
-      puffs.draw(p, PK.SOOT, { x: 0, y: CY, k: broke ? 0.3 : 0, reach: 50 });
-      const k = t < BREAK ? smooth(0.1, 0.6, t) : 1 - smooth(BREAK, BREAK + 0.6, t);
-      if (k > 0) p.glow(0, CY, 52, C[4], 0.3 * k);
-    },
-    draw(p) {
-      if (!broke) {
-        // the traced lines: white where the pen just passed, cooling to violet; pulsing as it holds; white in the flare
-        const hold = t > S.end ? 0.5 + 0.5 * Math.sin((t - S.end) * 9) : 0, white = t >= FLARE;
-        for (const q of S.pts) {
-          if (q.t > t) break;
-          const age = t - q.t;
-          p.px(q.x, q.y, white ? WHITE : age < 0.05 ? WHITE : age < 0.15 ? C[7] : age < 0.35 ? C[6] : hold > 0.75 ? C[6] : C[5]);
-        }
-        if (white) for (const q of S.pts) if (((q.x * 2) | 0) % 3 === 0) p.light(q.x, q.y, C[6], 0.5);
-        // glyphs: each pops in white and settles
-        for (const g of G) {
-          if (t < g.t) continue;
-          const age = t - g.t, col = white || age < 0.06 ? WHITE : age < 0.2 ? C[7] : hold > 0.75 ? C[7] : C[6];
-          for (const [a, b] of g.segs) p.line(g.x - 2 + a[0] * 2, g.y - 2 + a[1] * 2, g.x - 2 + b[0] * 2, g.y - 2 + b[1] * 2, col);
-          if (age < 0.18) ringFast(p, g.x, g.y, 2 + 4 * (age / 0.18), 1, age < 0.09 ? C[7] : C[5]);
-          p.glow(g.x, g.y, 6, C[5], 0.25);
-        }
-        // the pen: a white-hot point with a little cross of light
-        if (t > 0.12 && t < S.end + 0.05) {
-          const q = pen();
-          sparkle(p, q.x, q.y, 3 + Math.sin(t * 60), C[7], C[6], 0.6);
-          p.glow(q.x, q.y, 16, C[6], 0.55);
-        }
-      }
-      // the flare: a burst ring as it goes white
-      const fu = (t - FLARE) / 0.35, bu = (t - FLARE) / 0.22;
-      if (bu > 0 && bu < 1) sparkle(p, 0, CY, 18 * (1 - bu), C[7], C[5], 0.9 * (1 - bu));
-      if (fu > 0 && fu < 1) ringFast(p, 0, CY, RO + 3 + 12 * ease.outCubic(fu), Math.max(1, 3 * (1 - fu)), fu < 0.4 ? WHITE : fu < 0.7 ? C[6] : C[4]);
-      bits.draw(p);
-      puffs.draw(p, PK.FLAME);
-      ps.draw(p);
-      embers.draw(p);
-      for (const l of lights) {
-        const q = l.life / l.max;
-        p.glow(l.x, l.y, l.r * (0.6 + 0.4 * q), l.k > 1 ? C[5] : C[6], l.k * q * q);
-      }
-    },
-  };
-}
-
-return { meta, create };
-})();
 // ---- src/ui/pixel-fx.js ----
 const __mod_pixel_fx = (() => {
 // Pixel effects on the game's moments (owner, 12.11.2026: «Прекрасные эффекты… Добавь подходящие в игру»; his picks):
 // pixelfx's own code (vendor/pixelfx, MIT, scripts/pixelfx.py) draws each into a small canvas laid over the screen, one
 // effect pixel 2 px on the phone and growing with the board like every size, and takes it away when it ends. Each plays
 // once, for a real result (digest §8: an effect is a function of merit): a passed record's fireworks, a purchase's and
-// an upgrade's burst in the bells' yellow and the board's lime, the keeper's sigil. None under «reduce motion».
+// an upgrade's burst in the bells' yellow and the board's lime. None under «reduce motion». (The keeper's Hex sigil went
+// when his card became a notification at the top: MODE3-PLAN §48.)
 // Off unless the page's address has ?fx (12.11.2026, MODE3-PLAN §47): asked to look at them critically, I found their
 // pixel look foreign to the game, whose effects are drawn like its pictures (the fire: flat bands, an ink outline, no
 // glow), so players do not see them while the owner tests them.
 const { createFrame, clearFrame, createFx, composite } = __mod_pfx_fx;
 const { meta: burstMeta, create: burstCreate } = __mod_pfx_collect_burst;
 const { meta: fireworkMeta, create: fireworkCreate } = __mod_pfx_firework_burst;
-const { meta: sigilMeta, create: sigilCreate } = __mod_pfx_hex_sigil;
 
 const EFFECTS = {
   burst: { meta: burstMeta, create: burstCreate }, // Collect burst: its burst stands 30 effect pixels over its origin
   firework: { meta: fireworkMeta, create: fireworkCreate }, // Firework burst: it bursts at its origin
-  sigil: { meta: sigilMeta, create: sigilCreate }, // Hex sigil: its origin is the floor its embers fall on
 };
 const BURST_RISE = 30;
 
@@ -9139,17 +8631,31 @@ function buildBoard() {
 // the mockup's 84 px around it. The layout that gives the bigger board wins; k is then as large as
 // the window allows, and every size in styles.css is a multiple of it, so the rows keep the
 // mockup's proportions at any size. Nothing takes height from them: the tutorial's line lies over the header row.
+// A phone held sideways (a window lower than SIDE_HEIGHT; owner, 12.11.2026, on his iPhone: «В таком формате игра должна
+// занимать максимум места или 95% площади, не мешать системному интерфейсу. Сейчас отступы по краям слишком большие»)
+// has no mockup frame round the game (body.side): the board and the panel keep the mockup's proportions, centred, as
+// tall as the room between the system's insets (owner, then: «тянуть правую часть на всю ширину не нужно. Части
+// пропорциональны и фиксируются по центру вьюхи. А вот по вертикали нужно занять свободное пространство»).
 const MOCKUP = Object.freeze({ width: 393, rows: 597, board: 360 }); // Figma 1285:1244: 64 + 16 + 360 + 16 + 45 + 16 + 80
 const DESKTOP = Object.freeze({ width: 1134 + 2 * 73, height: 546 + 2 * 73, board: 546 }); // Figma 1287:1641: 546 + 42 + 546, 73 px round
+const SIDE_HEIGHT = 500; // the tallest phone held sideways, its toolbar gone, is 440
 function fitBoard() {
+  const view = document.documentElement;
   const col = getComputedStyle(els.app);
-  const width = document.documentElement.clientWidth - parseFloat(col.paddingLeft) - parseFloat(col.paddingRight);
-  const height = document.documentElement.clientHeight - parseFloat(col.paddingTop) - parseFloat(col.paddingBottom);
+  const width = view.clientWidth - parseFloat(col.paddingLeft) - parseFloat(col.paddingRight);
+  const height = view.clientHeight - parseFloat(col.paddingTop) - parseFloat(col.paddingBottom);
   const phone = Math.min(width / MOCKUP.width, height / MOCKUP.rows);
   const desk = Math.min(width / DESKTOP.width, height / DESKTOP.height);
   const wide = DESKTOP.board * desk > MOCKUP.board * phone;
   document.body.classList.toggle('wide', wide);
-  const k = wide ? desk : phone;
+  const side = wide && view.clientHeight < SIDE_HEIGHT;
+  document.body.classList.toggle('side', side);
+  let k = wide ? desk : phone;
+  if (side) { // the board as tall as the room between the insets, unless the board, the gap and a panel as wide are wider
+    const pad = getComputedStyle(els.app); // its sideways padding, with .side on
+    const w = view.clientWidth - parseFloat(pad.paddingLeft) - parseFloat(pad.paddingRight);
+    k = Math.min(height / DESKTOP.board, w / (DESKTOP.width - 2 * 73));
+  }
   els.app.style.setProperty('--k', Math.max(0.4, k).toFixed(4));
   document.documentElement.style.setProperty('--k', Math.max(0.4, k).toFixed(4)); // the overlays scale with it too
   app.cellRects = null;
@@ -9295,30 +8801,37 @@ function renderHud() {
   const g = st.game;
   // THRESHOLD shows what the level still needs (owner, 02.11.2026): it counts down as hands score
   if (!app.scoreAnim) $('target').textContent = String(remaining(g.score, g));
-  for (const el of document.querySelectorAll('.level-text')) el.textContent = String(g.level.levelIndex); // no last level (owner, 03.11.2026)
+  // no last level (owner, 03.11.2026), but the level out of the next keeper's (owner, 12.11.2026: «Давай тут писать из
+  // скольки. Например, сколько до следующего чего-то. 1/5 или 5/25, это нужно решить из лора игры»): every fifth
+  // threshold is held by a keeper (LORE.md §2.2, isBossLevel), so 3/5, then 5/5 is his, then 6/10
+  const n = g.level.levelIndex;
+  const keeperAt = M().id === 'auto' ? Math.ceil(n / 5) * 5 : 0;
+  for (const el of document.querySelectorAll('.level-text')) el.innerHTML = keeperAt ? `${n}<small>/${keeperAt}</small>` : String(n);
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
 }
 
-// A keeper's level opens with his card, which stands over the dice: until it goes, or a tap sends it away, nothing plays
-// by accident under it, and the cards wait for it (dealCard). Afterwards the rule is in the numbers, and in How.
-// The keeper acts on it, and it stands until he has finished, BOSS_CARD_MS at least (owner, 11.11.2026).
+// A keeper's level opens with his notification at the top (MODE3-PLAN §48): the board plays under it and the cards wait
+// for it (dealCard); it goes by itself, at a tap on it, or when a toast comes (the newest word is the one seen).
+// Afterwards the rule is in the numbers, and in How. The keeper acts on it, and it stands until he has finished,
+// BOSS_CARD_MS at least (owner, 11.11.2026).
 const BOSS_CARD_MS = 2000;
-const BOSS_OUT_MS = 240; // its fade (styles.css: bossOut)
+const BOSS_OUT_MS = 240; // its slide up (styles.css: bannerOut)
+// The keeper's notification (owner, 12.11.2026: «Стиль и практика как у apple»; MODE3-PLAN §48): a title and a
+// description, as Apple's notifications have them (HIG: a brief title in title case, a body of whole sentences): his name,
+// his rule, and the player's charms that answer him in one more sentence, so THE CONVICT's two rerolls beside REROLL•3 is
+// no contradiction
 function showBossCard(level) {
   const card = $('bossCard');
   const boss = BOSSES[level.boss];
-  // the player's charms that answer him are named, so THE CONVICT's TWO REROLLS beside REROLL•3 is no contradiction
-  const helps = (S().charms || []).filter((id) => boss.counters.includes(id)).map((id) => CHARMS[id].name);
-  const answers = helps.length ? `<small class="answer">HELPED BY ${helps.join(', ')}</small>` : '';
-  card.innerHTML = `<div><i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><small>${boss.golden ? 'GOLDEN KEEPER' : 'KEEPER'}</small><b>${titled(boss.name)}</b><em>${boss.rule}</em>${answers}</span></div>`;
+  const helps = (S().charms || []).filter((id) => boss.counters.includes(id)).map((id) => sentence(CHARMS[id].name));
+  const answer = helps.length ? ` ${helps.join(' and ')} help${helps.length > 1 ? '' : 's'}.` : '';
+  card.innerHTML = `<i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><b>${titled(boss.name)}</b><em>${sentence(boss.rule)}.${answer}</em></span>`;
   card.dataset.boss = level.boss;
   card.hidden = false;
   card.classList.remove('show', 'leaving');
   void card.offsetWidth; // the animation starts over
   card.classList.add('show');
   clearTimeout(app.bossTimer);
-  if (app.bossFx) app.bossFx.stop();
-  app.bossFx = null; // the new card's sigil comes as it stands (bossStands)
   if (!app.hostPaused) bossStands(); // under an ad it waits (holdGame)
 }
 
@@ -9328,28 +8841,23 @@ function bossStands() {
   const face = card.querySelector('.boss-face');
   const since = performance.now();
   clearTimeout(app.bossTimer);
-  // his rule is laid: pixelfx's Hex sigil burns over his card and crumbles onto it, its floor the card's top edge (owner's
-  // pick, 12.11.2026), once a card, when it stands (not under an ad); twice as fast, so its break (2.74 s) lands at 1.37 s,
-  // before the card begins to go at 1.76 s, and its embers fall on the card
-  if (!app.bossFx) {
-    const tile = card.querySelector(':scope > div');
-    const floor = () => [tile.offsetLeft + tile.offsetWidth / 2, tile.offsetTop]; // the card's top edge, as its words settle
-    app.bossFx = playFx('sigil', ...floor(), { parent: card, speed: 2, anchor: floor });
-  }
   playAct(face, card.dataset.boss, { wait: 2500 }).then(() => {
     if (card.hidden || !face.isConnected || !card.classList.contains('show') || app.hostPaused) return;
-    app.bossTimer = setTimeout(() => {
-      card.classList.add('leaving');
-      if (app.bossFx) app.bossFx.stop(); // the sigil fades with the card
-      app.bossTimer = setTimeout(hideBossCard, BOSS_OUT_MS);
-    }, Math.max(0, BOSS_CARD_MS - BOSS_OUT_MS - (performance.now() - since)));
+    app.bossTimer = setTimeout(bossLeaves, Math.max(0, BOSS_CARD_MS - BOSS_OUT_MS - (performance.now() - since)));
   });
+}
+
+// It slides up and goes: in its own time, at a tap on it, or for a toast
+function bossLeaves() {
+  const card = $('bossCard');
+  if (card.hidden || card.classList.contains('leaving')) return;
+  clearTimeout(app.bossTimer);
+  card.classList.add('leaving'); // over .show (styles.css); .show stays, so after an ad he comes back and stands again (holdGame)
+  app.bossTimer = setTimeout(hideBossCard, BOSS_OUT_MS);
 }
 
 function hideBossCard() {
   clearTimeout(app.bossTimer);
-  if (app.bossFx) app.bossFx.stop();
-  app.bossFx = null;
   stopAct($('bossCard').querySelector('.boss-face'));
   $('bossCard').hidden = true;
   $('bossCard').classList.remove('show', 'leaving');
@@ -9760,6 +9268,7 @@ function haptic(pattern) {
 }
 
 function toast(message, mood = '', ms = 1700) {
+  bossLeaves(); // a keeper's notification makes way, as a newer notification does
   const t = els.toast;
   t.textContent = message;
   t.className = `toast ${mood}`;
@@ -10204,7 +9713,10 @@ async function attemptBank(path, source) {
   popped.forEach((i) => els.cells[i].classList.add('bank-pop'));
   faded.forEach((i) => els.cells[i].classList.add('burn'));
   if (!throw3d) sfx('burn');
-  await wait(last ? Math.max(T.bank, T.reveal) : T.bank); // the last hand's count finishes first
+  // the last hand's count finishes first; once a played card's hero has finished, the dice fly at once and a new die
+  // takes the card's cell in the throw (owner, 12.11.2026: «Переброс костей делай сразу же, как анимация карты закончена,
+  // если карта была разыграна. Сейчас медленно»); a hand with no act keeps the pop's 560 ms
+  await wait(last ? Math.max(T.bank, T.reveal) : throw3d && actors.length ? 0 : T.bank);
   if (burning.length) app.fire.out(); // the dice have burnt away: before they come back for the refill
   if (last) [...r.burned, ...spent].forEach((i) => els.cells[i].classList.add('gone')); // they stay away under the summary
   popped.forEach((i) => els.cells[i].classList.remove('bank-pop'));
@@ -11028,7 +10540,6 @@ function bind() {
   board.addEventListener('lostpointercapture', (e) => { if (app.gesture && app.gesture.id === e.pointerId) onPointerCancel(e); });
   board.addEventListener('contextmenu', (e) => e.preventDefault());
   board.addEventListener('keydown', (e) => {
-    if (!$('bossCard').hidden) return;
     const cell = e.target.closest && e.target.closest('.cell');
     if (!cell) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(Number(cell.dataset.index)); }
@@ -11065,9 +10576,9 @@ function bind() {
   $('shop').addEventListener('click', shopTap);
   $('shopLeave').addEventListener('click', (e) => { e.stopPropagation(); leaveShop(); });
   // a press holds the card up and its click sends it away: gone sooner, the click would land on the button under it
-  $('bossCard').addEventListener('click', hideBossCard);
-  $('bossCard').addEventListener('pointerdown', () => { clearTimeout(app.bossTimer); $('bossCard').classList.remove('show', 'leaving'); }); // nor does it fade under the finger
-  for (const type of ['pointerup', 'pointercancel']) $('bossCard').addEventListener(type, () => { app.bossTimer = setTimeout(hideBossCard, 300); });
+  $('bossCard').addEventListener('click', bossLeaves);
+  $('bossCard').addEventListener('pointerdown', () => { clearTimeout(app.bossTimer); $('bossCard').classList.remove('show', 'leaving'); }); // nor does it go under the finger
+  for (const type of ['pointerup', 'pointercancel']) $('bossCard').addEventListener(type, () => { app.bossTimer = setTimeout(bossLeaves, 300); });
   $('runsBtn').addEventListener('click', openRuns);
   $('runsClose').addEventListener('click', () => { $('runsSheet').hidden = true; });
   $('bank').addEventListener('click', (e) => {
@@ -11104,7 +10615,6 @@ function bind() {
   });
   $('tutorialBtn').addEventListener('click', () => { if (app.busy) return; $('help').hidden = true; coachStart('help'); });
   window.addEventListener('keydown', (e) => {
-    if (!$('bossCard').hidden) { if (e.key === 'Enter' || e.key === ' ') e.preventDefault(); return; }
     if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
     if (M().id !== 'auto') { // the old modes' keys: Auto Hand never marks its hand (owner, 01.11.2026), and its REROLL is the button
       if (e.key === 'r' || e.key === 'R') doReroll('key');

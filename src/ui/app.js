@@ -1038,17 +1038,31 @@ function buildBoard() {
 // the mockup's 84 px around it. The layout that gives the bigger board wins; k is then as large as
 // the window allows, and every size in styles.css is a multiple of it, so the rows keep the
 // mockup's proportions at any size. Nothing takes height from them: the tutorial's line lies over the header row.
+// A phone held sideways (a window lower than SIDE_HEIGHT; owner, 12.11.2026, on his iPhone: «В таком формате игра должна
+// занимать максимум места или 95% площади, не мешать системному интерфейсу. Сейчас отступы по краям слишком большие»)
+// has no mockup frame round the game (body.side): the board and the panel keep the mockup's proportions, centred, as
+// tall as the room between the system's insets (owner, then: «тянуть правую часть на всю ширину не нужно. Части
+// пропорциональны и фиксируются по центру вьюхи. А вот по вертикали нужно занять свободное пространство»).
 const MOCKUP = Object.freeze({ width: 393, rows: 597, board: 360 }); // Figma 1285:1244: 64 + 16 + 360 + 16 + 45 + 16 + 80
 const DESKTOP = Object.freeze({ width: 1134 + 2 * 73, height: 546 + 2 * 73, board: 546 }); // Figma 1287:1641: 546 + 42 + 546, 73 px round
+const SIDE_HEIGHT = 500; // the tallest phone held sideways, its toolbar gone, is 440
 function fitBoard() {
+  const view = document.documentElement;
   const col = getComputedStyle(els.app);
-  const width = document.documentElement.clientWidth - parseFloat(col.paddingLeft) - parseFloat(col.paddingRight);
-  const height = document.documentElement.clientHeight - parseFloat(col.paddingTop) - parseFloat(col.paddingBottom);
+  const width = view.clientWidth - parseFloat(col.paddingLeft) - parseFloat(col.paddingRight);
+  const height = view.clientHeight - parseFloat(col.paddingTop) - parseFloat(col.paddingBottom);
   const phone = Math.min(width / MOCKUP.width, height / MOCKUP.rows);
   const desk = Math.min(width / DESKTOP.width, height / DESKTOP.height);
   const wide = DESKTOP.board * desk > MOCKUP.board * phone;
   document.body.classList.toggle('wide', wide);
-  const k = wide ? desk : phone;
+  const side = wide && view.clientHeight < SIDE_HEIGHT;
+  document.body.classList.toggle('side', side);
+  let k = wide ? desk : phone;
+  if (side) { // the board as tall as the room between the insets, unless the board, the gap and a panel as wide are wider
+    const pad = getComputedStyle(els.app); // its sideways padding, with .side on
+    const w = view.clientWidth - parseFloat(pad.paddingLeft) - parseFloat(pad.paddingRight);
+    k = Math.min(height / DESKTOP.board, w / (DESKTOP.width - 2 * 73));
+  }
   els.app.style.setProperty('--k', Math.max(0.4, k).toFixed(4));
   document.documentElement.style.setProperty('--k', Math.max(0.4, k).toFixed(4)); // the overlays scale with it too
   app.cellRects = null;
@@ -1194,30 +1208,37 @@ function renderHud() {
   const g = st.game;
   // THRESHOLD shows what the level still needs (owner, 02.11.2026): it counts down as hands score
   if (!app.scoreAnim) $('target').textContent = String(remaining(g.score, g));
-  for (const el of document.querySelectorAll('.level-text')) el.textContent = String(g.level.levelIndex); // no last level (owner, 03.11.2026)
+  // no last level (owner, 03.11.2026), but the level out of the next keeper's (owner, 12.11.2026: «Давай тут писать из
+  // скольки. Например, сколько до следующего чего-то. 1/5 или 5/25, это нужно решить из лора игры»): every fifth
+  // threshold is held by a keeper (LORE.md §2.2, isBossLevel), so 3/5, then 5/5 is his, then 6/10
+  const n = g.level.levelIndex;
+  const keeperAt = M().id === 'auto' ? Math.ceil(n / 5) * 5 : 0;
+  for (const el of document.querySelectorAll('.level-text')) el.innerHTML = keeperAt ? `${n}<small>/${keeperAt}</small>` : String(n);
   for (const btn of els.tabs) btn.classList.toggle('on', btn.dataset.mode === app.modeId);
 }
 
-// A keeper's level opens with his card, which stands over the dice: until it goes, or a tap sends it away, nothing plays
-// by accident under it, and the cards wait for it (dealCard). Afterwards the rule is in the numbers, and in How.
-// The keeper acts on it, and it stands until he has finished, BOSS_CARD_MS at least (owner, 11.11.2026).
+// A keeper's level opens with his notification at the top (MODE3-PLAN §48): the board plays under it and the cards wait
+// for it (dealCard); it goes by itself, at a tap on it, or when a toast comes (the newest word is the one seen).
+// Afterwards the rule is in the numbers, and in How. The keeper acts on it, and it stands until he has finished,
+// BOSS_CARD_MS at least (owner, 11.11.2026).
 const BOSS_CARD_MS = 2000;
-const BOSS_OUT_MS = 240; // its fade (styles.css: bossOut)
+const BOSS_OUT_MS = 240; // its slide up (styles.css: bannerOut)
+// The keeper's notification (owner, 12.11.2026: «Стиль и практика как у apple»; MODE3-PLAN §48): a title and a
+// description, as Apple's notifications have them (HIG: a brief title in title case, a body of whole sentences): his name,
+// his rule, and the player's charms that answer him in one more sentence, so THE CONVICT's two rerolls beside REROLL•3 is
+// no contradiction
 function showBossCard(level) {
   const card = $('bossCard');
   const boss = BOSSES[level.boss];
-  // the player's charms that answer him are named, so THE CONVICT's TWO REROLLS beside REROLL•3 is no contradiction
-  const helps = (S().charms || []).filter((id) => boss.counters.includes(id)).map((id) => CHARMS[id].name);
-  const answers = helps.length ? `<small class="answer">HELPED BY ${helps.join(', ')}</small>` : '';
-  card.innerHTML = `<div><i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><small>${boss.golden ? 'GOLDEN KEEPER' : 'KEEPER'}</small><b>${titled(boss.name)}</b><em>${boss.rule}</em>${answers}</span></div>`;
+  const helps = (S().charms || []).filter((id) => boss.counters.includes(id)).map((id) => sentence(CHARMS[id].name));
+  const answer = helps.length ? ` ${helps.join(' and ')} help${helps.length > 1 ? '' : 's'}.` : '';
+  card.innerHTML = `<i class="boss-face" style="--boss: var(--boss-${level.boss})"></i><span><b>${titled(boss.name)}</b><em>${sentence(boss.rule)}.${answer}</em></span>`;
   card.dataset.boss = level.boss;
   card.hidden = false;
   card.classList.remove('show', 'leaving');
   void card.offsetWidth; // the animation starts over
   card.classList.add('show');
   clearTimeout(app.bossTimer);
-  if (app.bossFx) app.bossFx.stop();
-  app.bossFx = null; // the new card's sigil comes as it stands (bossStands)
   if (!app.hostPaused) bossStands(); // under an ad it waits (holdGame)
 }
 
@@ -1227,28 +1248,23 @@ function bossStands() {
   const face = card.querySelector('.boss-face');
   const since = performance.now();
   clearTimeout(app.bossTimer);
-  // his rule is laid: pixelfx's Hex sigil burns over his card and crumbles onto it, its floor the card's top edge (owner's
-  // pick, 12.11.2026), once a card, when it stands (not under an ad); twice as fast, so its break (2.74 s) lands at 1.37 s,
-  // before the card begins to go at 1.76 s, and its embers fall on the card
-  if (!app.bossFx) {
-    const tile = card.querySelector(':scope > div');
-    const floor = () => [tile.offsetLeft + tile.offsetWidth / 2, tile.offsetTop]; // the card's top edge, as its words settle
-    app.bossFx = playFx('sigil', ...floor(), { parent: card, speed: 2, anchor: floor });
-  }
   playAct(face, card.dataset.boss, { wait: 2500 }).then(() => {
     if (card.hidden || !face.isConnected || !card.classList.contains('show') || app.hostPaused) return;
-    app.bossTimer = setTimeout(() => {
-      card.classList.add('leaving');
-      if (app.bossFx) app.bossFx.stop(); // the sigil fades with the card
-      app.bossTimer = setTimeout(hideBossCard, BOSS_OUT_MS);
-    }, Math.max(0, BOSS_CARD_MS - BOSS_OUT_MS - (performance.now() - since)));
+    app.bossTimer = setTimeout(bossLeaves, Math.max(0, BOSS_CARD_MS - BOSS_OUT_MS - (performance.now() - since)));
   });
+}
+
+// It slides up and goes: in its own time, at a tap on it, or for a toast
+function bossLeaves() {
+  const card = $('bossCard');
+  if (card.hidden || card.classList.contains('leaving')) return;
+  clearTimeout(app.bossTimer);
+  card.classList.add('leaving'); // over .show (styles.css); .show stays, so after an ad he comes back and stands again (holdGame)
+  app.bossTimer = setTimeout(hideBossCard, BOSS_OUT_MS);
 }
 
 function hideBossCard() {
   clearTimeout(app.bossTimer);
-  if (app.bossFx) app.bossFx.stop();
-  app.bossFx = null;
   stopAct($('bossCard').querySelector('.boss-face'));
   $('bossCard').hidden = true;
   $('bossCard').classList.remove('show', 'leaving');
@@ -1659,6 +1675,7 @@ function haptic(pattern) {
 }
 
 function toast(message, mood = '', ms = 1700) {
+  bossLeaves(); // a keeper's notification makes way, as a newer notification does
   const t = els.toast;
   t.textContent = message;
   t.className = `toast ${mood}`;
@@ -2103,7 +2120,10 @@ async function attemptBank(path, source) {
   popped.forEach((i) => els.cells[i].classList.add('bank-pop'));
   faded.forEach((i) => els.cells[i].classList.add('burn'));
   if (!throw3d) sfx('burn');
-  await wait(last ? Math.max(T.bank, T.reveal) : T.bank); // the last hand's count finishes first
+  // the last hand's count finishes first; once a played card's hero has finished, the dice fly at once and a new die
+  // takes the card's cell in the throw (owner, 12.11.2026: «Переброс костей делай сразу же, как анимация карты закончена,
+  // если карта была разыграна. Сейчас медленно»); a hand with no act keeps the pop's 560 ms
+  await wait(last ? Math.max(T.bank, T.reveal) : throw3d && actors.length ? 0 : T.bank);
   if (burning.length) app.fire.out(); // the dice have burnt away: before they come back for the refill
   if (last) [...r.burned, ...spent].forEach((i) => els.cells[i].classList.add('gone')); // they stay away under the summary
   popped.forEach((i) => els.cells[i].classList.remove('bank-pop'));
@@ -2927,7 +2947,6 @@ function bind() {
   board.addEventListener('lostpointercapture', (e) => { if (app.gesture && app.gesture.id === e.pointerId) onPointerCancel(e); });
   board.addEventListener('contextmenu', (e) => e.preventDefault());
   board.addEventListener('keydown', (e) => {
-    if (!$('bossCard').hidden) return;
     const cell = e.target.closest && e.target.closest('.cell');
     if (!cell) return;
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(Number(cell.dataset.index)); }
@@ -2964,9 +2983,9 @@ function bind() {
   $('shop').addEventListener('click', shopTap);
   $('shopLeave').addEventListener('click', (e) => { e.stopPropagation(); leaveShop(); });
   // a press holds the card up and its click sends it away: gone sooner, the click would land on the button under it
-  $('bossCard').addEventListener('click', hideBossCard);
-  $('bossCard').addEventListener('pointerdown', () => { clearTimeout(app.bossTimer); $('bossCard').classList.remove('show', 'leaving'); }); // nor does it fade under the finger
-  for (const type of ['pointerup', 'pointercancel']) $('bossCard').addEventListener(type, () => { app.bossTimer = setTimeout(hideBossCard, 300); });
+  $('bossCard').addEventListener('click', bossLeaves);
+  $('bossCard').addEventListener('pointerdown', () => { clearTimeout(app.bossTimer); $('bossCard').classList.remove('show', 'leaving'); }); // nor does it go under the finger
+  for (const type of ['pointerup', 'pointercancel']) $('bossCard').addEventListener(type, () => { app.bossTimer = setTimeout(bossLeaves, 300); });
   $('runsBtn').addEventListener('click', openRuns);
   $('runsClose').addEventListener('click', () => { $('runsSheet').hidden = true; });
   $('bank').addEventListener('click', (e) => {
@@ -3003,7 +3022,6 @@ function bind() {
   });
   $('tutorialBtn').addEventListener('click', () => { if (app.busy) return; $('help').hidden = true; coachStart('help'); });
   window.addEventListener('keydown', (e) => {
-    if (!$('bossCard').hidden) { if (e.key === 'Enter' || e.key === ' ') e.preventDefault(); return; }
     if (e.target && /input|select|textarea/i.test(e.target.tagName)) return;
     if (M().id !== 'auto') { // the old modes' keys: Auto Hand never marks its hand (owner, 01.11.2026), and its REROLL is the button
       if (e.key === 'r' || e.key === 'R') doReroll('key');

@@ -48,10 +48,8 @@ const MODULES = [
   'vendor/pixelfx/pfx-fx.js',
   'vendor/pixelfx/pfx-sim.js',
   'vendor/pixelfx/pfx-pickups-lib.js',
-  'vendor/pixelfx/pfx-shadow-lib.js',
   'vendor/pixelfx/pfx-collect-burst.js',
   'vendor/pixelfx/pfx-firework-burst.js',
-  'vendor/pixelfx/pfx-hex-sigil.js',
   'src/ui/pixel-fx.js',
   'src/ui/app.js',
 ];

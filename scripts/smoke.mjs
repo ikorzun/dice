@@ -156,7 +156,7 @@ for (const vp of viewports) {
   if (!layout.wide && (Math.abs(layout.play.width - layout.reroll.width) > 0.5 || Math.abs(layout.play.top - layout.reroll.top) > 0.5)) note(vp, 'PLAY and REROLL are not side by side');
   if (layout.wide && (Math.abs(layout.panelTop - layout.boardTop) > 1 || Math.abs(layout.controlsBottom - layout.boardBottom) > 1.5 || Math.abs(layout.play.top - layout.reroll.top) > 0.5 || layout.play.right > layout.reroll.left)) note(vp, 'desktop panel not level with the board, or PLAY not beside REROLL');
   console.log(`${vp.w}x${vp.h}: board ${layout.board.toFixed(0)}px, cell ${layout.cell.toFixed(0)}px, buttons bottom ${layout.controlsBottom.toFixed(0)}`);
-  if ((await text('#levelText')) !== '1') note(vp, `level text: ${await text('#levelText')}`);
+  if ((await text('#levelText')) !== '1/5') note(vp, `level text: ${await text('#levelText')}`); // the level out of the first keeper's
   if (Number(await text('#target')) !== a.target) note(vp, 'THRESHOLD is not the target');
   if ((await text('#playBtn')) !== 'PLAY•3' || (await text('#rerollBtn')) !== 'REROLL•3') note(vp, `button labels: ${await text('#playBtn')} / ${await text('#rerollBtn')}`);
   if ((await text('#bones')) !== `${a.hand.hand.base}×${a.hand.hand.mult}`) note(vp, `the hand's value ${await text('#bones')} is not its sum × multiplier (${a.hand.hand.base}×${a.hand.hand.mult})`);
@@ -333,7 +333,7 @@ for (const vp of viewports) {
     await page.waitForTimeout(200);
   }
   a = await auto();
-  if ((await text('#levelText')) !== (firstWon ? '2' : '1')) note(vp, `level text after level 1: ${await text('#levelText')}`);
+  if ((await text('#levelText')) !== (firstWon ? '2/5' : '1/5')) note(vp, `level text after level 1: ${await text('#levelText')}`);
   if (a.cells.filter((t) => t === 'die').length < 6) note(vp, `level 2 has ${a.cells.filter((t) => t === 'die').length} dice`);
   // level 2: its cards are dealt face down and turn over one by one, 2 s apart; each new kind's sheet follows
   const dealt = await page.$$eval('#board .cell.bonus', (els) => els.map((e) => e.classList.contains('face-down')));
@@ -429,7 +429,7 @@ for (const vp of viewports) {
   await page.click('#nextBtn');
   await page.waitForTimeout(300);
   const fresh = await page.evaluate(() => { const st = window.__diceSnake.state(); return { level: st.game.level.levelIndex, phase: st.game.phase, runScore: st.runScore, ups: st.ups, bank: st.bank, best: st.best }; });
-  if (fresh.level !== 1 || fresh.phase !== 'playing' || fresh.runScore !== 0 || Object.keys(fresh.ups).length || fresh.bank.length || (await text('#levelText')) !== '1') note(vp, `new run: ${JSON.stringify(fresh)}`);
+  if (fresh.level !== 1 || fresh.phase !== 'playing' || fresh.runScore !== 0 || Object.keys(fresh.ups).length || fresh.bank.length || (await text('#levelText')) !== '1/5') note(vp, `new run: ${JSON.stringify(fresh)}`);
   await page.reload();
   await page.waitForSelector('#board .cell');
   await unsplash(page);
@@ -573,30 +573,42 @@ for (const vp of viewports) {
   if (swapped.bank.length !== 3 || swapped.bank[1] !== swapped.kind || !swapped.sold) note(vp, `the replaced card: ${JSON.stringify(swapped)}`);
   await page.click('#shopLeave');
   await page.waitForTimeout(250);
+  // the keeper's notification (MODE3-PLAN §48) holds nothing: on the phone it stands at the top clear of the board, on the
+  // desktop on the panel tile's header row, and the board under it takes taps
   const boss = await page.evaluate(() => {
     const $ = (id) => document.getElementById(id);
     const st = window.__diceSnake.state();
-    const card = $('bossCard').querySelector(':scope > div').getBoundingClientRect(); // the card (its sigil's canvas lies before it)
-    const counter = document.querySelector('.counter').getBoundingClientRect();
-    return { level: st.game.level.levelIndex, id: st.game.level.boss, card: !$('bossCard').hidden, words: $('bossCard').textContent, shop: !$('shop').hidden, cover: !document.body.classList.contains('wide') && card.bottom > counter.top + 0.5, top: document.elementFromPoint(innerWidth / 2, innerHeight - 8)?.closest('#bossCard') != null };
+    const card = $('bossCard').getBoundingClientRect();
+    const board = Math.min(...[...document.querySelectorAll('#board .cell')].map((c) => c.getBoundingClientRect().top));
+    const hud = document.querySelector('.hud').getBoundingClientRect();
+    const clear = document.body.classList.contains('wide') ? Math.abs(card.bottom - hud.bottom) <= 1 : card.bottom <= board + 0.5;
+    // the full bank's heroes rise to the window's top: they fade while it stands, or they would show over its top edge
+    const bank = Number(getComputedStyle($('bank')).opacity);
+    return { level: st.game.level.levelIndex, id: st.game.level.boss, card: !$('bossCard').hidden, words: $('bossCard').textContent, shop: !$('shop').hidden, clear, bank, free: document.elementFromPoint(innerWidth / 2, innerHeight - 8)?.closest('#bossCard') == null };
   });
-  if (boss.level !== 5 || !boss.id || !boss.card || boss.shop || boss.cover || !boss.top || /THRESHOLD/.test(boss.words)) note(vp, `the boss's level: ${JSON.stringify(boss)}`);
+  if (boss.level !== 5 || !boss.id || !boss.card || boss.shop || !boss.clear || !boss.free || boss.bank > 0.05 || /THRESHOLD/.test(boss.words)) note(vp, `the boss's level: ${JSON.stringify(boss)}`);
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-14-boss.png` });
-  // under the card no key moves a die, and a held finger keeps it in full view past its two seconds
+  // under it a key holds a die as on any board, and a finger held on it keeps it in full view past its two seconds
   const dice = () => page.evaluate(() => JSON.stringify(window.__diceSnake.state().game.held));
   const heldBefore = await dice();
   await page.focus('#board .cell.die');
   await page.keyboard.press('Enter');
-  if ((await dice()) !== heldBefore) note(vp, 'a key held a die under the boss card');
-  await page.mouse.move(vp.w / 2, vp.h / 2);
+  if ((await dice()) === heldBefore) note(vp, 'a key did not hold a die under the keeper\'s notification');
+  await page.keyboard.press('Enter');
+  const [px, py] = await page.$eval('#bossCard', (e) => { const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+  await page.mouse.move(px, py);
   await page.mouse.down();
   await page.waitForTimeout(2200);
-  const pressed = await page.$eval('#bossCard', (e) => ({ up: !e.hidden, opacity: Number(getComputedStyle(e.querySelector(':scope > div')).opacity) }));
+  const pressed = await page.$eval('#bossCard', (e) => ({ up: !e.hidden, opacity: Number(getComputedStyle(e).opacity) }));
   if (!pressed.up || pressed.opacity < 1) note(vp, `the boss card under a finger: ${JSON.stringify(pressed)}`);
   await page.mouse.up();
   await page.waitForFunction(() => document.getElementById('bossCard').hidden, null, { timeout: 3000 }).catch(() => note(vp, 'the boss card did not go'));
   await sheetAway();
   if ((await extras(page)).length) note(vp, `more than the base on a boss's level: ${await extras(page)}`);
+  // the cards dealt after his notification turn over 2 s apart and a new kind's sheet comes a second later: How opens on a
+  // board whose deal has ended (a sheet would come over How's pages)
+  await page.waitForFunction(() => ![...document.querySelectorAll('#board .cell')].some((c) => c.waiting), null, { timeout: 10000 }).catch(() => note(vp, 'the deal after the keeper did not end'));
+  for (let n = 0; n < 3; n++) { await page.waitForTimeout(1100); await sheetAway(); }
   // what left the play screen is one tap away: How opens on it, and no page scrolls
   await idle(page);
   await page.click('#helpBtn');

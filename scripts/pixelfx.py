@@ -20,10 +20,8 @@ FILES = {  # upstream path -> vendored name
     'src/core/fx.js': 'pfx-fx.js',
     'src/core/sim.js': 'pfx-sim.js',
     'src/fx/pickups/_lib.js': 'pfx-pickups-lib.js',
-    'src/fx/shadow/_lib.js': 'pfx-shadow-lib.js',
     'src/fx/pickups/collect-burst.js': 'pfx-collect-burst.js',
     'src/fx/explosions/firework-burst.js': 'pfx-firework-burst.js',
-    'src/fx/shadow/hex-sigil.js': 'pfx-hex-sigil.js',
 }
 CORE = ['math', 'color', 'font', 'painter', 'actor', 'fx', 'sim']
 

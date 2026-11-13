@@ -24,6 +24,7 @@
     <button class="tab" type="button" data-mode="poker5" id="tabPoker5">POKER 5</button>
     <button class="tab" type="button" data-mode="auto" id="tabAuto">AUTO HAND</button>
   </nav>
+  <div class="boss-card" id="bossCard" role="status" hidden></div>
   <header class="hud">
     <div class="stat" id="levelHud"><span class="label">LEVEL</span><span class="value level-text">1</span></div>
     <div class="bank" id="bank" aria-label="Bonus bank: bonuses kept from earlier levels"></div>
@@ -37,7 +38,6 @@
   </div>
   <section class="board-wrap">
     <div class="board rendered" id="board" aria-label="3 by 3 dice board"></div>
-    <div class="boss-card" id="bossCard" hidden></div>
   </section>
   <section class="counter" aria-live="polite">
     <div class="stat" id="levelStat"><span class="label">LEVEL</span><span class="value level-text" id="levelText">1</span></div>

@@ -2,19 +2,18 @@
 // pixelfx's own code (vendor/pixelfx, MIT, scripts/pixelfx.py) draws each into a small canvas laid over the screen, one
 // effect pixel 2 px on the phone and growing with the board like every size, and takes it away when it ends. Each plays
 // once, for a real result (digest §8: an effect is a function of merit): a passed record's fireworks, a purchase's and
-// an upgrade's burst in the bells' yellow and the board's lime, the keeper's sigil. None under «reduce motion».
+// an upgrade's burst in the bells' yellow and the board's lime. None under «reduce motion». (The keeper's Hex sigil went
+// when his card became a notification at the top: MODE3-PLAN §48.)
 // Off unless the page's address has ?fx (12.11.2026, MODE3-PLAN §47): asked to look at them critically, I found their
 // pixel look foreign to the game, whose effects are drawn like its pictures (the fire: flat bands, an ink outline, no
 // glow), so players do not see them while the owner tests them.
 import { createFrame, clearFrame, createFx, composite } from '../../vendor/pixelfx/pfx-fx.js';
 import { meta as burstMeta, create as burstCreate } from '../../vendor/pixelfx/pfx-collect-burst.js';
 import { meta as fireworkMeta, create as fireworkCreate } from '../../vendor/pixelfx/pfx-firework-burst.js';
-import { meta as sigilMeta, create as sigilCreate } from '../../vendor/pixelfx/pfx-hex-sigil.js';
 
 const EFFECTS = {
   burst: { meta: burstMeta, create: burstCreate }, // Collect burst: its burst stands 30 effect pixels over its origin
   firework: { meta: fireworkMeta, create: fireworkCreate }, // Firework burst: it bursts at its origin
-  sigil: { meta: sigilMeta, create: sigilCreate }, // Hex sigil: its origin is the floor its embers fall on
 };
 export const BURST_RISE = 30;
 
