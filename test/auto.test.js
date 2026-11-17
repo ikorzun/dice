@@ -186,7 +186,6 @@ test('playing burns every die, held or not (owner, 03.11.2026), and nothing stay
   assert.equal(r.hand.total, 320);
   assert.deepEqual(r.burned, [0, 1, 2, 3, 4, 5, 6, 7]); // every die on the board
   assert.deepEqual(r.spent, [8]);
-  assert.deepEqual(r.placed, []); // nothing waits in the bank: a new die
   assert.deepEqual(r.refilled, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
   const s = r.state;
   assert.equal(s.faces[7], 2); // thrown anew
@@ -308,28 +307,28 @@ test('the player picks the hand by holding its dice (owner, 02.11.2026); a held 
   assert.ok(playHand(one, seq([2])).burned.includes(7));
 });
 
-test('the bank (owner, 02.11.2026): a banked bonus comes in on the first reroll; one left above switches on by tap, joins a hand it fits and is gone once played', () => {
+test('the bank (owner, 02.11.2026; «На поле одна», 17.11.2026): a kept card plays from the row while the board holds no card, one at a time, joins a hand it fits, is gone once played and never comes onto the board', () => {
   let g = createAutoGame(level(L1, F, 10000, { bank: ['x3_trips', 'x2_any'] }));
-  const plain = currentHand(g).total; // the straight 2-6 = 20 × 8
   assert.ok(g.bank.every((b) => b.off && !b.used && !b.placed)); // above the board, off
-  assert.equal(toggleBonus(g, BANK + 1).code, 'NOT_YET'); // not in play before the level's first reroll (owner, 03.11.2026)
-  for (const i of [0, 1, 3, 4, 5, 6, 7]) g = toggleHold(g, i).state; // only the 1 at cell 2 is rerolled
-  const first = reroll(g, seq([1]));
-  assert.deepEqual(first.placed, [{ cell: 2, from: 0 }]); // the ×3 TRIPS comes in on that die's cell
-  assert.deepEqual(first.rolled, []);
+  assert.equal(toggleBonus(g, BANK + 1).code, 'NOT_YET'); // the board's ×2 lies there: the bank waits
+  const rolled = reroll(g, seq([1]));
+  assert.deepEqual(rolled.state.cells, g.cells); // a reroll brings no card onto the board
+  assert.equal(toggleBonus(rolled.state, BANK + 1).code, 'NOT_YET');
+  const first = playHand(on(g, 8), seq([2])); // the board's ×2 is played: a new die takes its cell, and the bank opens
+  assert.deepEqual([first.spent, first.state.cells[8].type], [[8], 'die']);
   g = first.state;
-  assert.deepEqual(g.cells[2], { type: 'bonus', kind: 'x3_trips', fromBank: 0 });
-  assert.deepEqual([g.faces[2], g.off[2]], [null, true]); // it lands off like every card
-  assert.deepEqual(g.bank.map((b) => b.placed), [true, false]); // the ×2 found no die: it waits above
-  assert.equal(currentHand(g).total, plain);
-  g = toggleBonus(g, BANK + 1).state; // from now on it switches on
+  const plain = currentHand(g).total; // nine 2s: five of a kind, 10 × 8
+  g = on(g, BANK + 1); // the kept ×2 switches on from the row
   assert.equal(currentHand(g).total, plain * 2);
   assert.deepEqual(currentHand(g).bonusCells, [BANK + 1]);
+  g = on(g, BANK); // one at a time: the ×3 TRIPS takes the ×2's place
+  assert.deepEqual(g.bank.map((b) => b.off), [false, true]);
+  g = on(g, BANK + 1);
+  assert.deepEqual(g.bank.map((b) => b.off), [true, false]);
   assert.equal(toggleBonus(g, BANK + 5).ok, false); // no such place
-  assert.equal(toggleBonus(g, BANK).ok, false); // the one on the board switches there, not in the bank
-  const again = reroll(g, seq([1])); // a reroll switches the bank off as well; only the first brings cards in
+  const again = reroll(g, seq([1])); // a reroll switches the bank off as well
   assert.ok(again.state.bank.every((b) => b.off));
-  assert.deepEqual(again.placed, []);
+  assert.deepEqual(again.state.cells, g.cells);
   const r = playHand(g, seq([2]));
   assert.deepEqual(r.hand.bonuses, ['x2_any']);
   assert.deepEqual(r.spent, []); // a card played from the bank frees no cell on the board
@@ -345,49 +344,25 @@ test('a won level carries the unplayed bonuses: the bank still waiting first, th
   g = toggleBonus(g, 8).state; // the ×2 joins the four of a kind and is used, before any reroll
   const r = playHand(g, seq([3]));
   assert.equal(r.state.phase, 'won');
-  assert.deepEqual(r.placed, []); // before the first reroll the bank is not in play: a new die takes the ×2's cell
+  assert.equal(r.state.cells[8].type, 'die'); // a new die takes the ×2's cell
   assert.deepEqual(carryOver(r.state), ['x3_trips', 'refund', 'x3_pairs']); // the joker is fourth: it burns
 });
 
-test('kept cards come in on the first reroll (owner, 03.11.2026): in place of rerolled dice, in order, while six dice stay; the rest wait above, and a played card makes way for the next', () => {
-  const lv = level([D, D, D, D, D, D, D, D, B('x2_any')], [6, 6, 1, 6, 1, 2, 4, 3, null], 10000, { bank: ['x3_pairs', 'joker', 'x3_trips'] });
-  let g = createAutoGame(lv);
-  assert.deepEqual(g.bank.map((b) => b.placed), [false, false, false]); // the first round is the level's own board
-  for (const i of [0, 1, 3, 7]) g = toggleHold(g, i).state; // the dice at 2, 4, 5 and 6 are rerolled
-  const first = reroll(g, seq([5]));
-  // eight dice, six must stay: two cards come in, on the first rerolled cells; the ×3 TRIPS waits above
-  assert.deepEqual(first.placed, [{ cell: 2, from: 0 }, { cell: 4, from: 1 }]);
-  assert.deepEqual(first.rolled, [5, 6]);
-  g = first.state;
-  assert.deepEqual(g.cells[2], { type: 'bonus', kind: 'x3_pairs', fromBank: 0 });
-  assert.deepEqual(g.cells[4], { type: 'bonus', kind: 'joker', fromBank: 1 });
-  assert.equal(diceCells(g).length, 6);
-  assert.deepEqual(g.bank.map((b) => b.placed), [true, true, false]);
-  assert.equal(g.off[2] && g.off[4], true); // they land off like every card
-  assert.equal(toggleBonus(g, BANK + 2).ok, true); // the one above switches on from now on
-  assert.deepEqual(restoreGame(snapshotGame(g)).cells, g.cells);
-  // the ×2 is played: the waiting ×3 TRIPS takes its cell; the next card played gets a new die
-  g = toggleBonus(g, 8).state;
-  const r = playHand(g, seq([4]));
-  assert.deepEqual(r.spent, [8]);
-  assert.deepEqual(r.placed, [{ cell: 8, from: 2 }]);
-  assert.deepEqual(r.state.cells[8], { type: 'bonus', kind: 'x3_trips', fromBank: 2 });
-  assert.deepEqual([r.state.off[8], r.state.faces[8]], [true, null]);
-  const s = toggleBonus(r.state, 2).state; // the ×3 PAIRS joins a pair of 4s
-  const r2 = playHand(s, seq([4]));
-  if (r2.hand.bonuses.includes('x3_pairs')) {
-    assert.deepEqual(r2.placed, []);
-    assert.equal(r2.state.cells[2].type, 'die');
-    assert.ok(r2.refilled.includes(2));
-  }
-  assert.ok([r.state, r2.state].every((st) => st.cells.every((c) => c.type !== 'hole'))); // never a hole
-  // six dice and two locks: the board keeps its dice, the locks stay, every kept card waits above, usable now
-  let six = createAutoGame(level([D, D, X, D, D, D, X, D, B('x2_any')], [6, 6, null, 6, 1, 2, null, 3, null], 10000, { bank: ['x3_pairs', 'joker'] }));
-  const none = reroll(six, seq([5]));
-  assert.deepEqual(none.placed, []);
-  six = none.state;
-  assert.deepEqual([six.cells[2], six.cells[6], diceCells(six).length], [X, X, 6]);
-  assert.equal(toggleBonus(six, BANK).ok, true);
+test('a game saved before «На поле одна» keeps the card that came in on its first reroll: it plays on the board, the bank waits while it lies there, and none counts twice', () => {
+  const lv = level([D, D, D, D, D, D, D, D, B('x2_any')], [5, 5, 1, 1, 2, 3, 6, 4, null], 10000, { bank: ['x3_pairs', 'joker'] });
+  let g = restoreGame({
+    ...snapshotGame(createAutoGame(lv)),
+    cells: [D, D, { type: 'bonus', kind: 'x3_pairs', fromBank: 0 }, D, D, D, D, D, B('x2_any')],
+    faces: [5, 5, null, 1, 1, 2, 3, 6, null],
+    off: [false, false, true, false, false, false, false, false, true],
+    bank: [{ kind: 'x3_pairs', off: true, used: false, placed: true }, { kind: 'joker', off: true, used: false, placed: false }],
+    stats: { rerollsUsed: 1, holdToggles: 0, rejectedPaths: 0, hintsUsed: 0, bonusToggles: 0 },
+  });
+  assert.equal(toggleBonus(g, BANK + 1).code, 'NOT_YET'); // cards lie on the board: the joker waits
+  assert.deepEqual(carryOver(g), ['joker', 'x3_pairs', 'x2_any']); // the ×3 PAIRS once, from the board
+  const r = playHand(on(g, 2), seq([4])); // two pairs, 5s and 1s, ×3
+  assert.deepEqual([r.hand.bonuses, r.state.cells[2].type], [['x3_pairs'], 'die']);
+  assert.ok(r.state.cells.every((c) => c.type !== 'hole'));
 });
 
 test('an upgrade raises its combination\'s multiplier by one (owner, 02.11.2026)', () => {
@@ -450,21 +425,16 @@ test('×4 LAST HAND under IRON WARDEN wakes on the second hand, the same hand as
 
 test('×4 LAST HAND from the bank waits like the board card; a reroll switches it off as any card', () => {
   let g = createAutoGame(level([D, D, D, D, D, D, D, D, D], [2, 2, 3, 5, 6, 1, 4, 1, 6], 10000, { bank: ['x4_any'] }));
-  g = setHolds2(g, [0, 1]);
-  g = reroll(g, seq([5])).state; // the owl comes in, in place of the first rerolled die
-  const at = g.cells.findIndex((c) => c.type === 'bonus');
-  assert.equal(g.cells[at].kind, 'x4_any');
-  g = toggleBonus(g, at).state;
+  g = toggleBonus(g, BANK).state; // nine dice and no card on the board: the owl switches on from the row
   assert.equal(currentHand(g).bonusMult, 1);
   g = playHand(g, pairs).state;
   g = playHand(g, pairs).state;
-  assert.equal(g.off[at], false);
+  assert.equal(g.bank[0].off, false);
   assert.equal(currentHand(g).bonusMult, 4);
   g = reroll(g, seq([3])).state;
-  assert.equal(g.off[at], true); // a reroll clears it like every card: the player switches it on again
+  assert.equal(g.bank[0].off, true); // a reroll clears it like every card: the player switches it on again
   assert.equal(currentHand(g).bonusMult, 1);
 });
-function setHolds2(g, cells) { for (const i of cells) g = toggleHold(g, i).state; return g; }
 
 // ---------- the card-things (portals step 4, MODE3-PLAN §58) ----------
 test('the card-things fit their hands and no other, and add up with the heroes\' cards', () => {
@@ -519,11 +489,12 @@ test('SECOND WIND: the hand it joins costs no PLAY, and the card is gone after i
   assert.deepEqual([next.hand.free, next.state.handsLeft], [false, 2]);
 });
 
-test('a card-thing bought waits in the bank, comes in on the first reroll, and goes back to the bank unplayed', () => {
-  let g = createAutoGame(level([D, D, D, D, D, D, D, D, D], [5, 5, 1, 2, 3, 6, 4, 2, 3], 9999, { bank: ['odd_punk'] }));
+test('a card-thing bought waits in the bank, plays from its row, and goes back to the bank unplayed', () => {
+  const g = createAutoGame(level([D, D, D, D, D, D, D, D, D], [5, 5, 1, 2, 3, 6, 4, 2, 3], 9999, { bank: ['odd_punk'] }));
   const r = reroll(g, seq([3]));
-  assert.deepEqual(r.placed, [{ cell: 0, from: 0 }]);
-  assert.deepEqual(r.state.cells[0], { type: 'bonus', kind: 'odd_punk', fromBank: 0 });
-  assert.deepEqual(carryOver(r.state), ['odd_punk'], 'unplayed, it waits for the next level');
+  assert.deepEqual(r.state.cells, g.cells, 'it never comes onto the board');
+  const s = toggleBonus(r.state, BANK).state; // nine 3s, all odd: it joins
+  assert.deepEqual([currentHand(s).bonusMult, currentHand(s).bonusCells], [3, [BANK]]);
+  assert.deepEqual(carryOver(s), ['odd_punk'], 'unplayed, it waits for the next level');
 });
 

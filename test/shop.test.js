@@ -235,7 +235,7 @@ test('the shop sells the card-things from their levels at their prices, and no h
   assert.deepEqual([...sold(2)].sort(), ['even_floor', 'odd_punk', 'second_wind'], 'the first door: three card-things');
   assert.deepEqual([...sold(4)].sort(), ['even_floor', 'hot_trips', 'odd_punk', 'second_wind'], 'HOT TRIPS from level 4');
   for (const g of goods(4)) assert.equal(g.price, CARD_THING_PRICE[CARD_THINGS[g.id].rarity]);
-  assert.deepEqual(cardPool(11), ['second_wind', 'odd_punk', 'even_floor', 'hot_trips', 'power_paint', 'big_bang']);
+  assert.deepEqual(cardPool(99), ['second_wind', 'odd_punk', 'even_floor', 'hot_trips', 'big_bang'], 'no POWER PAINT: a hand holds one card (17.11.2026)');
   for (const k of sold(27)) assert.ok(THINGS[k] || CARD_THINGS[k], `${k}: the pocket's things, and card-things 3 times in 10`);
   assert.ok(sold(27).has('big_bang'), 'BIG BANG is sold once it is open');
   assert.deepEqual([CARD_THING_PRICE.uncommon, CARD_THING_PRICE.rare], [5, 7]);

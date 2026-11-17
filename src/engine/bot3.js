@@ -15,11 +15,14 @@ export function setHolds(game, keep) {
   return game;
 }
 
-// The bonuses to switch: the board's and, from the level's first reroll, the kept ones still waiting above it.
-const bonusCells = (game) => [
-  ...game.cells.map((c, i) => i).filter((i) => isBonus(game, i)),
-  ...(bankOpen(game) ? game.bank.map((b, k) => (b.used || b.placed ? -1 : BANK + k)).filter((i) => i >= 0) : []),
-];
+const must = (r, what) => {
+  if (!r.ok) throw new Error(`bot produced an illegal ${what}: ${r.code}`);
+  return r.state;
+};
+// The kept cards still waiting above the board.
+const waitingCards = (game) => game.bank.map((b, k) => (b.used || b.placed ? -1 : BANK + k)).filter((i) => i >= 0);
+// The bonuses to switch: the board's and, while the board holds no card, the kept ones still waiting above it.
+const bonusCells = (game) => [...game.cells.map((c, i) => i).filter((i) => isBonus(game, i)), ...(bankOpen(game) ? waitingCards(game) : [])];
 const isOff = (game, i) => (i >= BANK ? game.bank[i - BANK].off : game.off[i]);
 // Only the any-hand multipliers are saved for a later hand: ×2 ANY, and the owl's ×4, which counts on the last hand only
 // (10.11.2026). The joker is played as soon as it helps: it adds a face and does not multiply, so waiting gains nothing,
@@ -27,16 +30,21 @@ const isOff = (game, i) => (i >= BANK ? game.bank[i - BANK].off : game.off[i]);
 // board scored below nine plain dice).
 const unconditional = (kind) => kind === 'x2_any' || kind === 'x4_any';
 
-function setBonuses(game, wantOn) {
-  for (const i of bonusCells(game)) {
-    if (isOff(game, i) === wantOn(bonusKind(game, i))) {
-      const r = toggleBonus(game, i);
-      if (!r.ok) throw new Error(`bot produced an illegal bonus switch: ${r.code}`);
-      game = r.state;
-    }
+// Every way to switch the cards (owner, 17.11.2026, «На поле одна»: one card on the board for a hand, the bank's playing
+// from the row while the board holds none, one at a time): the board's as `wantOn(kind, cell)` says, and of the bank's that
+// it wants, each alone, or none when it wants none.
+function cardChoices(game, wantOn) {
+  for (const i of game.cells.map((c, k) => k).filter((k) => isBonus(game, k))) {
+    if (game.off[i] === wantOn(game.cells[i].kind, i)) game = must(toggleBonus(game, i), 'bonus switch');
   }
-  return game;
+  if (!bankOpen(game)) return [game];
+  for (const i of waitingCards(game)) if (!isOff(game, i)) game = must(toggleBonus(game, i), 'bonus switch');
+  const wanted = waitingCards(game).filter((i) => wantOn(bonusKind(game, i), i));
+  return wanted.length ? wanted.map((i) => must(toggleBonus(game, i), 'bonus switch')) : [game];
 }
+const handTotal = (game) => (currentHand(game) || { total: 0 }).total;
+// The switch that makes the best hand now (the run's script lets its lazy player switch the same way).
+export const setBonuses = (game, wantOn) => cardChoices(game, wantOn).reduce((a, b) => (handTotal(b) > handTotal(a) ? b : a));
 
 function play(game, rng) {
   // a hand of five that counts more held (SOLID HOLD) is held before PLAY, as a player reading the counter would
@@ -46,9 +54,7 @@ function play(game, rng) {
     const held = now && now.cells.length === 5 ? setHolds(game, new Set(now.cells)) : game;
     if (held !== game && currentHand(held).total > now.total) game = held;
   }
-  const r = playHand(game, () => rng.die());
-  if (!r.ok) throw new Error(`bot produced an illegal play: ${r.code}`);
-  return r.state;
+  return must(playHand(game, () => rng.die()), 'play');
 }
 
 const result = (game) => ({ score: game.score, won: game.phase === 'won', rerollsUsed: game.stats.rerollsUsed, state: game });
@@ -146,40 +152,50 @@ const unplaced = (opts) => (opts && opts.rules && (opts.rules.cells || []).lengt
 // last hand, or earlier when the hand without them already totals `strong`. A missed target ends the run (owner,
 // 03.11.2026), so it plays for the target the way a strong player would: a hand that reaches what the level still
 // needs, with every bonus on, is played at once, and a hand on pace keeps its dice through a reroll.
+// One card a hand (17.11.2026): of the kept cards it may switch on, it takes the one whose best hold promises most, and a
+// card on the board that would keep the bank shut (an any-hand one saved for later) goes on while kept cards wait.
 const finishes = (game) => currentHand(setBonuses(game, () => true)).total >= game.level.target - game.score;
+
+// The best hold for one reroll with the cards that are on: { mask, est, cells }, mask -1 when the standing hand is better.
+function lookahead(game, hand, margin) {
+  const ctx = contextFor(onKinds(game), unplaced(handOptionsOf(game)) ?? hand); // the run's upgrades, things and boss too
+  const cells = diceCells(game);
+  const now = currentHand(game);
+  const standing = now.total;
+  // on pace for the target (a hand worth its share of what is left), it keeps the hand's dice and only adds to them
+  const onPace = standing >= (game.level.target - game.score) / game.handsLeft;
+  const cap = holdCap(game); // LOOSE GRIP: a hand larger than the cap cannot be kept whole
+  const keep = onPace && now.cells.length <= cap ? cells.reduce((mask, c, k) => (now.cells.includes(c) ? mask | (1 << k) : mask), 0) : 0;
+  let mask = -1;
+  let est = standing + margin;
+  for (let m = 0; m < (1 << cells.length) - 1; m++) {
+    if ((m & keep) !== keep) continue;
+    let key = 0;
+    let held = 0;
+    for (let k = 0; k < cells.length; k++) if ((m >> k) & 1) { key += FACE_KEY[game.faces[cells[k]]]; held++; }
+    if (held > cap) continue;
+    const e = ctx.expected(key, cells.length - held);
+    if (e > est) { est = e; mask = m; }
+  }
+  return { mask, est, cells };
+}
 
 export function playGreedyBot3(level, { rng, config = {}, hand = null, margin = 20, strong = 150 } = {}) {
   let game = createAutoGame(level, hand ? { ...config, handOptions: hand } : config);
   while (game.phase === 'playing') {
     const last = game.handsLeft === 1;
-    const policy = (kind) => last || !unconditional(kind);
+    const policy = (kind, i) => last || !unconditional(kind) || (i < BANK && waitingCards(game).length > 0);
     while (game.rerollsLeft > 0) {
-      game = setBonuses(game, policy);
       if (finishes(game)) break;
-      const ctx = contextFor(onKinds(game), unplaced(handOptionsOf(game)) ?? hand); // the run's upgrades, things and boss too
-      const cells = diceCells(game);
-      const now = currentHand(game);
-      const standing = now.total;
-      // on pace for the target (a hand worth its share of what is left), it keeps the hand's dice and only adds to them
-      const onPace = standing >= (game.level.target - game.score) / game.handsLeft;
-      const cap = holdCap(game); // LOOSE GRIP: a hand larger than the cap cannot be kept whole
-      const keep = onPace && now.cells.length <= cap ? cells.reduce((mask, c, k) => (now.cells.includes(c) ? mask | (1 << k) : mask), 0) : 0;
-      let bestMask = -1;
-      let bestEst = standing + margin;
-      for (let m = 0; m < (1 << cells.length) - 1; m++) {
-        if ((m & keep) !== keep) continue;
-        let key = 0;
-        let held = 0;
-        for (let k = 0; k < cells.length; k++) if ((m >> k) & 1) { key += FACE_KEY[game.faces[cells[k]]]; held++; }
-        if (held > cap) continue;
-        const est = ctx.expected(key, cells.length - held);
-        if (est > bestEst) { bestEst = est; bestMask = m; }
+      let pick = null;
+      for (const g of cardChoices(game, policy)) {
+        const plan = lookahead(g, hand, margin);
+        if (!pick || plan.est > pick.plan.est) pick = { g, plan };
       }
-      if (bestMask < 0) break;
-      game = setHolds(game, new Set(cells.filter((c, k) => (bestMask >> k) & 1)));
-      const r = reroll(game, () => rng.die());
-      if (!r.ok) throw new Error(`bot produced an illegal reroll: ${r.code}`);
-      game = r.state;
+      game = pick.g;
+      if (pick.plan.mask < 0) break;
+      game = setHolds(game, new Set(pick.plan.cells.filter((c, k) => (pick.plan.mask >> k) & 1)));
+      game = must(reroll(game, () => rng.die()), 'reroll');
     }
     game = setBonuses(game, policy);
     // nothing to hold before playing: every die burns (owner, 03.11.2026), and with no holds the best plays

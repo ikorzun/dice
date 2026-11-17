@@ -3,8 +3,8 @@
 // A recipe is (dice, blocks, bonus kinds): positions do not matter, so it fixes the score
 // distribution of a level up to the dice. Writes the generated module src/engine/recipes3.js.
 // Every cell is a die or a card since the owner's word of 09.11.2026 («больше не должно быть пустых или заблокированных
-// ячеек на поле»): blocks are always 0, so a recipe is nine cells of dice and up to two cards of different kinds (the
-// run never deals two of one kind): 1 + 10 + 45 recipes for the ten heroes.
+// ячеек на поле»): blocks are always 0, so a recipe is nine cells of dice and at most one card since the owner's «На поле
+// одна» (17.11.2026; two cards of different kinds before): 1 + 10 recipes for the ten heroes.
 // Usage: node scripts/recipes3.mjs [--levels=250] [--seed=recipes-1]
 import { writeFileSync } from 'node:fs';
 import { createRng } from '../src/engine/rng.js';
@@ -24,7 +24,7 @@ function kindSets(k, from = 0) {
   return out;
 }
 
-const MAX_CARDS = 2; // RUN3.maxBonuses
+const MAX_CARDS = 1; // RUN3.maxBonuses
 const recipes = [];
 for (let bonuses = 0; bonuses <= MAX_CARDS; bonuses++) {
   const dice = 9 - bonuses;

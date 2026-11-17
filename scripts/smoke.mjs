@@ -565,10 +565,11 @@ for (const vp of viewports) {
     return { kind: c.className.match(/kind-(\S+)/)?.[1], ground: getComputedStyle(c).backgroundColor, own, ink: getComputedStyle(c.querySelector('.tag')).color, cut: getComputedStyle(art).clipPath, arch: getComputedStyle(c.querySelector('.arch')).display, hero: [a.left - r.left, a.top - r.top, a.width].map((v) => Math.round(v * s)) };
   }));
   for (const m of minis) if (m.ground !== m.own || m.ink !== 'rgb(0, 0, 0)' || m.cut !== 'none' || m.arch !== 'none' || String(m.hero) !== '0,-14,64') note(vp, `a bank card: ${JSON.stringify(m)}`);
-  // a tap on a kept card before the first reroll: the rule, in gold, over the header row and not over the dice
+  // a tap on a kept card while level 4's new hero lies on the board (one card on the board, 17.11.2026): the rule, in
+  // gold, over the header row and not over the dice
   await page.click('#bank .cell[data-k="0"]');
   const told = await page.evaluate(() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect(); const t = box('#toast'); const h = box('.hud'); return { text: document.getElementById('toast').textContent, cls: document.getElementById('toast').className, top: t.top, bottom: t.bottom, hud: [h.top, h.bottom] }; });
-  if (told.text !== 'COMES IN ON THE FIRST REROLL' || !/hint/.test(told.cls) || told.top < told.hud[0] - 12 || told.bottom > told.hud[1] + 12) note(vp, `the kept card's rule: ${JSON.stringify(told)}`);
+  if (told.text !== 'PLAYS WHEN THE BOARD HAS NO CARD' || !/hint/.test(told.cls) || told.top < told.hud[0] - 12 || told.bottom > told.hud[1] + 12) note(vp, `the kept card's rule: ${JSON.stringify(told)}`);
   await page.click('#playBtn');
   await page.waitForFunction(() => document.querySelector('#upList .up') && !document.getElementById('levelEnd').hidden && !document.getElementById('levelEnd').classList.contains('waiting'), null, { timeout: 6000 });
   await page.waitForTimeout(2200);

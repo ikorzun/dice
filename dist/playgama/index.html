@@ -393,14 +393,14 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .up > em { grid-area: value; font-style: normal; font-size: max(13px, calc(20px * var(--k, 1))); line-height: 1; white-space: nowrap; }
 /* The bonus bank (owner, 02.11.2026): the bonuses kept from won levels, three places, as small cards of 64 px
    with their name and no sticker; an empty place shows a + (Figma 1308:3047) */
-.bank { flex: none; display: flex; align-items: center; gap: calc(5px * var(--k, 1)); }
+.bank { flex: none; display: flex; align-items: center; gap: calc(5px * var(--k, 1)); -webkit-touch-callout: none; }
 .bank .cell, .bank .slot { width: calc(64px * var(--k, 1)); height: calc(64px * var(--k, 1)); }
 .bank .cell { --kb: calc(.582 * var(--k, 1)); cursor: pointer; }
 .bank .cell.bonus .x2 { display: none; }
 /* The bank's cards are the small card (Figma 1339:2155 Card-mini, 11.11.2026): the hero's own lighter colour, rounded 16
-   of 64, no arch, the hero's portrait 64 px from 14 px over the top, the name 6 px in black. #bank and the card on its
-   way to the board: over the big card's colours. */
-#bank .cell.bonus, .bank.bank-fly .cell.bonus, #shopBank .cell.bonus { --card: var(--mini-card); --card-ink: #000; border-color: var(--mini-edge); border-radius: 25%; box-shadow: inset 0 0 calc(4.655px * var(--k, 1)) rgba(255, 255, 255, .25); }
+   of 64, no arch, the hero's portrait 64 px from 14 px over the top, the name 6 px in black. #bank and the shop's bank:
+   over the big card's colours. */
+#bank .cell.bonus, #shopBank .cell.bonus { --card: var(--mini-card); --card-ink: #000; border-color: var(--mini-edge); border-radius: 25%; box-shadow: inset 0 0 calc(4.655px * var(--k, 1)) rgba(255, 255, 255, .25); }
 .bank .cell.bonus .arch, #shopBank .cell.bonus .arch, #shopBank .cell.bonus .x2 { display: none; }
 .bank .cell.bonus .art, #shopBank .cell.bonus .art { left: -1.61%; top: -24.19%; width: 103.23%; height: 103.23%; } /* 64 px at 0, -14 */
 .bank .cell.bonus .tag { bottom: 4.4%; font-size: calc(6px * var(--k, 1)); } /* its capitals in the middle of the band under the portrait */
@@ -558,7 +558,7 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell .holo { position: absolute; display: none; pointer-events: none; }
 body.holo .cell.bonus .holo { display: block; left: 0; top: 0; width: 100%; height: 100%; border-radius: inherit; overflow: hidden; }
 body.holo .cell.bonus .holo::before { content: ""; position: absolute; inset: -42%; background: var(--holo-twirl) center / 100% 100% no-repeat; mix-blend-mode: color; opacity: var(--holo, .34); transform: rotate(var(--holo-turn, 0deg)); transition: transform 520ms cubic-bezier(.2, .7, .2, 1); }
-body.holo #bank .cell.bonus .holo, body.holo #shopBank .cell.bonus .holo, body.holo .bank.bank-fly .cell.bonus .holo, body.holo .cell.bonus.acting .holo { display: none; }
+body.holo #bank .cell.bonus .holo, body.holo #shopBank .cell.bonus .holo, body.holo .cell.bonus.acting .holo { display: none; }
 /* While its hero acts (Figma 1339:2155 Card-animation; owner, 10.11.2026: «убираем весь текст и внутреннюю рамку,
    увеличиваем героя»): no name, no multiplier, no arch, no border, every corner 24, the hero's own colour over the whole
    card; the portrait's square 152 px, rising 42 px over the card's top, cut to 107 by 151 px with its bottom corners
@@ -607,14 +607,7 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .bend-copy { position: absolute; display: grid; will-change: transform; }
 .bend *, .bend *::before, .bend *::after { animation: none !important; transition: none !important; }
 .cell.block { background: url("data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjExMC40MDUiIGhlaWdodD0iMTEwLjQwNSIgdmlld0JveD0iMCAwIDExMC40MDUgMTEwLjQwNSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGcgaWQ9IkRpY2UiIGZpbHRlcj0idXJsKCNmaWx0ZXIwX2lfMF80OCkiPgo8cmVjdCB3aWR0aD0iMTEwLjQwNSIgaGVpZ2h0PSIxMTAuNDA1IiByeD0iMjYiIGZpbGw9ImJsYWNrIiBmaWxsLW9wYWNpdHk9IjAuMiIvPgo8cGF0aCBpZD0iUHJpbWFyeSIgZD0iTTU1LjIwMjQgMzcuMDQyOEM1OC41MTE4IDM3LjA0MjggNjEuMjAyNCAzOS43MzM0IDYxLjIwMjQgNDMuMDQyOFY0OS4wNDI4SDQ5LjIwMjRWNDMuMDQyOEM0OS4yMDI0IDM5LjczMzQgNTEuODkzIDM3LjA0MjggNTUuMjAyNCAzNy4wNDI4Wk00My4yMDI0IDQzLjA0MjhWNDkuMDQyOEMzNy44OTMgNDkuMDQyOCAzNy4yMDI0IDU2Ljg0MjggMzcuMjAyNCA2MC4xNTIyQzM3LjIwMjQgODUuNDA5IDczLjIwMjQgODYuMTE5MSA3My4yMDI0IDYwLjE1MjJDNzMuMjAyNCA1Ni44NDI4IDcyLjUxMTggNDkuMDQyOCA2Ny4yMDI0IDQ5LjA0MjhWNDMuMDQyOEM2Ny4yMDI0IDM2LjQxNDcgNjEuODMwNSAzMS4wNDI4IDU1LjIwMjQgMzEuMDQyOEM0OC41NzQzIDMxLjA0MjggNDMuMjAyNCAzNi40MTQ3IDQzLjIwMjQgNDMuMDQyOFpNNTcuNDUyNCA2MS43OTI4VjY1LjI5MjhDNTcuNDUyNCA2Ni41Mzk3IDU2LjQ0OTMgNjcuNTQyOCA1NS4yMDI0IDY3LjU0MjhDNTMuOTU1NSA2Ny41NDI4IDUyLjk1MjQgNjYuNTM5NyA1Mi45NTI0IDY1LjI5MjhWNjEuNzkyOEM1Mi45NTI0IDYwLjU0NTkgNTMuOTU1NSA1OS41NDI4IDU1LjIwMjQgNTkuNTQyOEM1Ni40NDkzIDU5LjU0MjggNTcuNDUyNCA2MC41NDU5IDU3LjQ1MjQgNjEuNzkyOFoiIGZpbGw9IndoaXRlIiBmaWxsLW9wYWNpdHk9IjAuMDgiLz4KPC9nPgo8ZGVmcz4KPGZpbHRlciBpZD0iZmlsdGVyMF9pXzBfNDgiIHg9IjAiIHk9IjAiIHdpZHRoPSIxMTAuNDA1IiBoZWlnaHQ9IjExMC40MDUiIGZpbHRlclVuaXRzPSJ1c2VyU3BhY2VPblVzZSIgY29sb3ItaW50ZXJwb2xhdGlvbi1maWx0ZXJzPSJzUkdCIj4KPGZlRmxvb2QgZmxvb2Qtb3BhY2l0eT0iMCIgcmVzdWx0PSJCYWNrZ3JvdW5kSW1hZ2VGaXgiLz4KPGZlQmxlbmQgbW9kZT0ibm9ybWFsIiBpbj0iU291cmNlR3JhcGhpYyIgaW4yPSJCYWNrZ3JvdW5kSW1hZ2VGaXgiIHJlc3VsdD0ic2hhcGUiLz4KPGZlQ29sb3JNYXRyaXggaW49IlNvdXJjZUFscGhhIiB0eXBlPSJtYXRyaXgiIHZhbHVlcz0iMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMTI3IDAiIHJlc3VsdD0iaGFyZEFscGhhIi8+CjxmZU9mZnNldC8+CjxmZUdhdXNzaWFuQmx1ciBzdGREZXZpYXRpb249IjQuODMyMDQiLz4KPGZlQ29tcG9zaXRlIGluMj0iaGFyZEFscGhhIiBvcGVyYXRvcj0iYXJpdGhtZXRpYyIgazI9Ii0xIiBrMz0iMSIvPgo8ZmVDb2xvck1hdHJpeCB0eXBlPSJtYXRyaXgiIHZhbHVlcz0iMCAwIDAgMCAwLjQwNzQ5NSAwIDAgMCAwIDAuNjEwNDg3IDAgMCAwIDAgMC43MjgwMDkgMCAwIDAgMC40IDAiLz4KPGZlQmxlbmQgbW9kZT0ibm9ybWFsIiBpbjI9InNoYXBlIiByZXN1bHQ9ImVmZmVjdDFfaW5uZXJTaGFkb3dfMF80OCIvPgo8L2ZpbHRlcj4KPC9kZWZzPgo8L3N2Zz4K") center / 100% 100% no-repeat; }
-/* A card from the bank on its way (owner, 03.11.2026): on the first reroll into a die's cell, or into the cell of a
-   card just played; the cell stays bare, then the card lands face up with a pop */
-.cell.bonus.arriving { background: rgba(255, 255, 255, .08); border-color: transparent; box-shadow: none; filter: none; animation: none; }
-.cell.bonus.arriving > * { visibility: hidden; }
-.cell.bonus.landed { animation: cardLand 420ms cubic-bezier(.2, .8, .3, 1.3); }
-@keyframes cardLand { 0% { transform: scale(1.16); } 55% { transform: scale(.94); } 100% { transform: scale(1); } }
-.bank-fly { position: fixed; z-index: 30; margin: 0; pointer-events: none; }
-/* Auto Hand play: unheld dice outside the hand fade out; a used card makes way for a new die or a banked card */
+/* Auto Hand play: unheld dice outside the hand fade out; a used card makes way for a new die */
 .cell.burn { animation: burn 420ms ease-in forwards; }
 .cell.gone { visibility: hidden; } /* burnt on the level's last hand: no new die comes */
 @keyframes burn { 0% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(10%) scale(.82); } }
@@ -3358,15 +3351,17 @@ const THINGS = Object.freeze({
 const THING_PRICE = Object.freeze({ common: 8, uncommon: 12, rare: 18, legendary: 26 });
 
 // The six card-things (portals spec, step 4): one-use cards the shop alone sells, never a portal (a keeper's reward should
-// last). Bought, one goes to the bank, comes in on the level's first reroll and is played like a hero's card (hands.js
-// BONUS_KINDS holds their rules under the same ids, the catalogue's). No stars: a second copy is a second card. From: the
-// first door that may offer it; before level 5 the shop's thing shelf holds one of them.
+// last). Bought, one goes to the bank and plays from its row like a hero's card (hands.js BONUS_KINDS holds their rules
+// under the same ids, the catalogue's). No stars: a second copy is a second card. From: the first door that may offer it;
+// before level 5 the shop's thing shelf holds one of them. POWER PAINT raises the other cards of its hand, and a hand holds
+// one card since 17.11.2026 («На поле одна»): no door offers it until it has a rule of its own (one bought before waits
+// in its bank, joining no hand, until the shop puts a card in its place).
 const CARD_THINGS = Object.freeze({
   second_wind: Object.freeze({ file: '0021_heart', name: 'SECOND WIND', rarity: 'rare', from: 2 }),
   odd_punk: Object.freeze({ file: '0047_punkhead', name: 'ODD PUNK', rarity: 'uncommon', from: 2 }),
   even_floor: Object.freeze({ file: '0069_disco_ball', name: 'EVEN FLOOR', rarity: 'uncommon', from: 2 }),
   hot_trips: Object.freeze({ file: '0103_spray_hot', name: 'HOT TRIPS', rarity: 'uncommon', from: 4 }),
-  power_paint: Object.freeze({ file: '0065_spray_color', name: 'POWER PAINT', rarity: 'uncommon', from: 7 }),
+  power_paint: Object.freeze({ file: '0065_spray_color', name: 'POWER PAINT', rarity: 'uncommon', from: Infinity }), // was 7
   big_bang: Object.freeze({ file: '0016_bomb', name: 'BIG BANG', rarity: 'rare', from: 11 }),
 });
 const CARD_THING_PRICE = Object.freeze({ uncommon: 5, rare: 7 });
@@ -3621,12 +3616,11 @@ const __mod_auto = (() => {
 // A level ends as soon as the score reaches the target (owner, 01.11.2026), otherwise after its
 // three hands. The bank (owner, 02.11.2026): bonuses not played on a won level wait in a bank of three
 // for the next levels (`level.bank`, kinds); a banked bonus is cell BANK + k, switched on and used like a
-// card on the board, and gone once played. The banked cards come in on the level's first reroll (owner,
-// 03.11.2026: «a kept card takes part only after the first reroll; the first round always has every cell
-// filled»): each takes the cell of a die being rerolled, in bank and board order (cell `fromBank: k`, the
-// entry `placed`), while the board keeps MIN_DICE dice; the rest wait above the board, usable from then
-// on. After that reroll a played card's cell takes the first banked card still waiting, else a new die. A
-// 'hole' remains only in games saved before. Pure state transitions, same action shape as poker.js.
+// card on the board, and gone once played. One card lies on the board for a hand (owner, 17.11.2026: «На поле одна»),
+// so a banked card never comes onto the board: it plays from the row above it while the board holds no card (his
+// option of 12.11.2026), one at a time, from the level's first hand. A played card's cell takes a new die. Games saved
+// before keep the cards that came in on a first reroll (cells `fromBank: k`, entries `placed`), and a 'hole' (a used
+// card's empty cell) remains only in games saved before 03.11.2026. Pure state transitions, same action shape as poker.js.
 
 const { bestHand, BONUS_KINDS, numberedKind } = __mod_hands;
 const { createRng } = __mod_rng;
@@ -3642,9 +3636,10 @@ const AUTO_DEFAULT_CONFIG = Object.freeze({
 const reject = (code, message) => ({ ok: false, code, message });
 const BANK = 100;    // the first banked bonus's cell number (the board's are 0–8)
 const BANK_SIZE = 3; // places in the bank (owner, 02.11.2026); the rest burn
-const MIN_DICE = 6; // every layout keeps this many dice (levels3.js), and so does a kept card coming in
+const MIN_DICE = 6; // every layout keeps this many dice (levels3.js)
 const waiting = (b) => !b.used && !b.placed; // a banked card still above the board
-const bankOpen = (state) => !!state.stats.rerollsUsed;
+// The bank's cards play while the board holds no card (owner, 17.11.2026: «На поле одна»).
+const bankOpen = (state) => !state.cells.some((c) => c.type === 'bonus');
 const keeperOf = (level) => (level.boss && BOSSES[level.boss]) || null;
 
 // What the pocket's things (`level.things`, things3.js) and the level's keeper change in a hand's count (bestHand's
@@ -3750,13 +3745,14 @@ function toggleHold(state, i) {
   return { ok: true, held: held[i], state: { ...state, held, stats: bump(state, 'holdToggles') } };
 }
 
-// Switches a bonus die on (it joins the hand when it fits) or back off (kept for a later hand).
+// Switches a bonus die on (it joins the hand when it fits) or back off (kept for a later hand). A banked card switches
+// on while the board holds no card, and one at a time: switching one on switches the bank's other cards off.
 function toggleBonus(state, i) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   const b = Number.isInteger(i) ? banked(state, i) : null;
   if (b && waiting(b)) {
-    if (!state.stats.rerollsUsed) return reject('NOT_YET', 'COMES IN ON THE FIRST REROLL');
-    const bank = state.bank.map((x, k) => (k === i - BANK ? { ...x, off: !x.off } : x));
+    if (!bankOpen(state)) return reject('NOT_YET', 'PLAYS WHEN THE BOARD HAS NO CARD');
+    const bank = state.bank.map((x, k) => (k === i - BANK ? { ...x, off: !x.off } : waiting(x) ? { ...x, off: true } : x));
     return { ok: true, off: bank[i - BANK].off, state: { ...state, bank, stats: bump(state, 'bonusToggles') } };
   }
   if (!Number.isInteger(i) || i >= BANK || !isBonus(state, i)) return reject('NOT_BONUS', 'Tap a bonus die to switch it');
@@ -3766,39 +3762,22 @@ function toggleBonus(state, i) {
 }
 
 // Rerolls every unheld die, then clears every hold and switches every bonus off again (owner,
-// 01.11.2026): a hold and a switched-on bonus count for one throw. On the level's first reroll the banked
-// cards come in, each in place of a die being rerolled, in board order, landing switched off (owner,
-// 03.11.2026), as long as the board keeps MIN_DICE dice; those left over wait above the board.
+// 01.11.2026): a hold and a switched-on bonus count for one throw.
 function reroll(state, rollDie) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   if (state.rerollsLeft <= 0) return reject('NO_REROLLS', 'No rerolls left');
-  const targets = rerollTargets(state);
-  if (targets.length === 0) return reject('NOTHING_TO_REROLL', 'Every die is held - release one to reroll');
-  const cells = state.cells.slice();
+  const rolled = rerollTargets(state);
+  if (rolled.length === 0) return reject('NOTHING_TO_REROLL', 'Every die is held - release one to reroll');
   const faces = state.faces.slice();
-  const bank = state.bank.map((b) => ({ ...b, off: true }));
-  const placed = [];
-  const rolled = targets.slice();
-  if (!state.stats.rerollsUsed) {
-    let spare = diceCells(state).length - MIN_DICE; // dice the kept cards may take
-    bank.forEach((b, k) => {
-      if (!waiting(b) || !rolled.length || spare <= 0) return;
-      spare -= 1;
-      const i = rolled.shift();
-      cells[i] = { type: 'bonus', kind: b.kind, fromBank: k };
-      faces[i] = null;
-      b.placed = true;
-      placed.push({ cell: i, from: k });
-    });
-  }
   for (const i of rolled) {
     const f = rollDie();
     if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`rollDie returned ${f}`);
     faces[i] = f;
   }
   const held = state.held.map(() => false);
-  const off = cells.map((c, i) => (c.type === 'bonus' ? true : state.off[i]));
-  return { ok: true, rolled, placed, state: { ...state, cells, faces, held, off, bank, rerollsLeft: state.rerollsLeft - 1, stats: bump(state, 'rerollsUsed') } };
+  const off = state.cells.map((c, i) => (c.type === 'bonus' ? true : state.off[i]));
+  const bank = state.bank.map((b) => ({ ...b, off: true }));
+  return { ok: true, rolled, state: { ...state, faces, held, off, bank, rerollsLeft: state.rerollsLeft - 1, stats: bump(state, 'rerollsUsed') } };
 }
 
 // The best hand on the board with every bonus that is on, or null.
@@ -3857,25 +3836,13 @@ function playHand(state, drawDie) {
   const cells = state.cells.slice();
   const off = state.off.slice();
   const bank = state.bank.map((b, k) => (used.includes(BANK + k) ? { ...b, off: false, used: true } : b)); // a played one is gone
-  // a played card's cell takes the first banked card still waiting, else a new die (owner, 03.11.2026); before
-  // the level's first reroll the banked cards are not in play yet
+  // a played card's cell takes a new die (owner, 03.11.2026); a banked card never comes onto the board (17.11.2026)
   const spent = used.filter((i) => i < BANK);
-  const placed = [];
-  const fresh = [];
   for (const i of spent) {
-    const k = bankOpen(state) ? bank.findIndex(waiting) : -1;
-    if (k >= 0) {
-      bank[k] = { ...bank[k], placed: true };
-      cells[i] = { type: 'bonus', kind: bank[k].kind, fromBank: k };
-      off[i] = true;
-      placed.push({ cell: i, from: k });
-    } else {
-      cells[i] = { type: 'die' };
-      off[i] = false;
-      fresh.push(i);
-    }
+    cells[i] = { type: 'die' };
+    off[i] = false;
   }
-  const refilled = [...burned, ...fresh];
+  const refilled = [...burned, ...spent];
   for (const i of refilled) {
     const f = drawDie();
     if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`drawDie returned ${f}`);
@@ -3891,7 +3858,6 @@ function playHand(state, drawDie) {
     burned,
     refilled,
     spent,
-    placed,
     state: { ...state, cells, faces, held, off, bank, hands: [...state.hands, hand], score, handsLeft, rerollsLeft, phase },
   };
 }
@@ -4249,51 +4215,6 @@ const RECIPES3 = Object.freeze([
   Object.freeze({ id: '8d0x:x3_small', dice: 8, blocks: 0, kinds: Object.freeze(['x3_small']), greedy: Object.freeze([372, 392, 426, 446, 461, 482, 482, 501, 522, 562, 562]), naive: Object.freeze([307, 328, 361, 382, 406, 422, 442, 452, 466, 502, 522]) }),
   Object.freeze({ id: '8d0x:x4_any', dice: 8, blocks: 0, kinds: Object.freeze(['x4_any']), greedy: Object.freeze([512, 568, 672, 770, 824, 880, 910, 940, 960, 1040, 1200]), naive: Object.freeze([465, 558, 625, 688, 730, 775, 815, 841, 880, 928, 1000]) }),
   Object.freeze({ id: '8d0x:x3_sixes', dice: 8, blocks: 0, kinds: Object.freeze(['x3_sixes']), greedy: Object.freeze([455, 550, 609, 640, 669, 700, 725, 845, 960, 1020, 1040]), naive: Object.freeze([328, 375, 436, 498, 565, 615, 647, 680, 700, 752, 920]) }),
-  Object.freeze({ id: '7d0x:x2_any+x3_straight', dice: 7, blocks: 0, kinds: Object.freeze(['x2_any','x3_straight']), greedy: Object.freeze([216, 358, 815, 870, 905, 934, 944, 960, 960, 1010, 1040]), naive: Object.freeze([322, 365, 415, 480, 635, 730, 780, 840, 880, 944, 960]) }),
-  Object.freeze({ id: '7d0x:x2_any+x3_pairs', dice: 7, blocks: 0, kinds: Object.freeze(['x2_any','x3_pairs']), greedy: Object.freeze([486, 512, 538, 564, 584, 598, 618, 640, 660, 704, 740]), naive: Object.freeze([387, 417, 448, 488, 508, 532, 552, 578, 602, 644, 678]) }),
-  Object.freeze({ id: '7d0x:x2_any+x3_trips', dice: 7, blocks: 0, kinds: Object.freeze(['x2_any','x3_trips']), greedy: Object.freeze([560, 636, 680, 720, 750, 780, 800, 824, 850, 880, 920]), naive: Object.freeze([440, 500, 562, 601, 637, 665, 700, 744, 784, 840, 880]) }),
-  Object.freeze({ id: '7d0x:x2_any+joker', dice: 7, blocks: 0, kinds: Object.freeze(['x2_any','joker']), greedy: Object.freeze([570, 600, 624, 640, 640, 680, 704, 720, 725, 800, 800]), naive: Object.freeze([460, 504, 544, 570, 600, 610, 640, 640, 640, 720, 760]) }),
-  Object.freeze({ id: '7d0x:x2_any+refund', dice: 7, blocks: 0, kinds: Object.freeze(['x2_any','refund']), greedy: Object.freeze([445, 506, 560, 590, 615, 640, 655, 680, 720, 752, 800]), naive: Object.freeze([345, 378, 415, 440, 465, 490, 520, 544, 568, 610, 640]) }),
-  Object.freeze({ id: '7d0x:x2_any+x3_kinds', dice: 7, blocks: 0, kinds: Object.freeze(['x2_any','x3_kinds']), greedy: Object.freeze([322, 487, 588, 684, 768, 830, 896, 1010, 1120, 1215, 1260]), naive: Object.freeze([354, 396, 450, 497, 531, 580, 656, 720, 797, 902, 1000]) }),
-  Object.freeze({ id: '7d0x:x2_any+x3_small', dice: 7, blocks: 0, kinds: Object.freeze(['x2_any','x3_small']), greedy: Object.freeze([392, 444, 511, 536, 565, 590, 606, 626, 646, 722, 757]), naive: Object.freeze([345, 378, 412, 442, 476, 506, 535, 562, 585, 626, 645]) }),
-  Object.freeze({ id: '7d0x:x2_any+x4_any', dice: 7, blocks: 0, kinds: Object.freeze(['x2_any','x4_any']), greedy: Object.freeze([445, 520, 711, 812, 905, 960, 1025, 1060, 1095, 1160, 1280]), naive: Object.freeze([564, 628, 686, 750, 780, 846, 888, 948, 990, 1065, 1120]) }),
-  Object.freeze({ id: '7d0x:x2_any+x3_sixes', dice: 7, blocks: 0, kinds: Object.freeze(['x2_any','x3_sixes']), greedy: Object.freeze([459, 560, 720, 758, 790, 810, 845, 860, 920, 1215, 1264]), naive: Object.freeze([330, 408, 500, 564, 624, 690, 740, 774, 820, 864, 920]) }),
-  Object.freeze({ id: '7d0x:x3_straight+x3_pairs', dice: 7, blocks: 0, kinds: Object.freeze(['x3_straight','x3_pairs']), greedy: Object.freeze([321, 484, 691, 730, 766, 786, 802, 818, 838, 842, 878]), naive: Object.freeze([313, 348, 391, 442, 630, 682, 716, 748, 780, 818, 838]) }),
-  Object.freeze({ id: '7d0x:x3_straight+x3_trips', dice: 7, blocks: 0, kinds: Object.freeze(['x3_straight','x3_trips']), greedy: Object.freeze([570, 675, 850, 905, 935, 960, 985, 1005, 1030, 1045, 1060]), naive: Object.freeze([393, 444, 505, 580, 684, 768, 825, 895, 940, 1000, 1030]) }),
-  Object.freeze({ id: '7d0x:x3_straight+joker', dice: 7, blocks: 0, kinds: Object.freeze(['x3_straight','joker']), greedy: Object.freeze([699, 735, 764, 784, 800, 800, 800, 840, 855, 880, 880]), naive: Object.freeze([400, 575, 695, 730, 750, 764, 795, 800, 800, 840, 880]) }),
-  Object.freeze({ id: '7d0x:x3_straight+refund', dice: 7, blocks: 0, kinds: Object.freeze(['x3_straight','refund']), greedy: Object.freeze([551, 640, 685, 735, 775, 800, 800, 810, 840, 880, 880]), naive: Object.freeze([255, 275, 325, 384, 585, 648, 681, 710, 744, 780, 800]) }),
-  Object.freeze({ id: '7d0x:x3_straight+x3_kinds', dice: 7, blocks: 0, kinds: Object.freeze(['x3_straight','x3_kinds']), greedy: Object.freeze([310, 535, 641, 700, 786, 888, 975, 1047, 1175, 1305, 1360]), naive: Object.freeze([247, 270, 359, 508, 597, 656, 715, 761, 880, 970, 1052]) }),
-  Object.freeze({ id: '7d0x:x3_straight+x3_small', dice: 7, blocks: 0, kinds: Object.freeze(['x3_straight','x3_small']), greedy: Object.freeze([280, 495, 642, 690, 730, 757, 772, 786, 802, 824, 846]), naive: Object.freeze([245, 275, 318, 362, 482, 620, 675, 700, 742, 770, 802]) }),
-  Object.freeze({ id: '7d0x:x3_straight+x4_any', dice: 7, blocks: 0, kinds: Object.freeze(['x3_straight','x4_any']), greedy: Object.freeze([374, 593, 815, 920, 1010, 1100, 1170, 1235, 1260, 1280, 1360]), naive: Object.freeze([389, 450, 555, 652, 744, 852, 980, 1080, 1126, 1210, 1264]) }),
-  Object.freeze({ id: '7d0x:x3_straight+x3_sixes', dice: 7, blocks: 0, kinds: Object.freeze(['x3_straight','x3_sixes']), greedy: Object.freeze([541, 595, 720, 840, 924, 970, 1005, 1035, 1060, 1305, 1360]), naive: Object.freeze([280, 393, 521, 585, 635, 695, 775, 882, 952, 1030, 1072]) }),
-  Object.freeze({ id: '7d0x:x3_pairs+x3_trips', dice: 7, blocks: 0, kinds: Object.freeze(['x3_pairs','x3_trips']), greedy: Object.freeze([536, 567, 615, 645, 664, 682, 700, 718, 742, 763, 790]), naive: Object.freeze([394, 435, 492, 532, 563, 592, 618, 647, 673, 705, 730]) }),
-  Object.freeze({ id: '7d0x:x3_pairs+joker', dice: 7, blocks: 0, kinds: Object.freeze(['x3_pairs','joker']), greedy: Object.freeze([452, 475, 493, 500, 518, 518, 540, 558, 580, 598, 638]), naive: Object.freeze([397, 413, 436, 462, 480, 498, 502, 518, 518, 562, 582]) }),
-  Object.freeze({ id: '7d0x:x3_pairs+refund', dice: 7, blocks: 0, kinds: Object.freeze(['x3_pairs','refund']), greedy: Object.freeze([430, 446, 482, 482, 500, 518, 522, 558, 562, 598, 602]), naive: Object.freeze([328, 348, 376, 401, 416, 442, 456, 470, 482, 518, 542]) }),
-  Object.freeze({ id: '7d0x:x3_pairs+x3_kinds', dice: 7, blocks: 0, kinds: Object.freeze(['x3_pairs','x3_kinds']), greedy: Object.freeze([318, 354, 442, 574, 642, 682, 726, 802, 882, 988, 1060]), naive: Object.freeze([336, 362, 396, 432, 476, 526, 582, 646, 718, 820, 938]) }),
-  Object.freeze({ id: '7d0x:x3_pairs+x3_small', dice: 7, blocks: 0, kinds: Object.freeze(['x3_pairs','x3_small']), greedy: Object.freeze([406, 432, 459, 477, 484, 502, 504, 520, 542, 564, 600]), naive: Object.freeze([324, 355, 385, 408, 426, 444, 452, 474, 486, 520, 528]) }),
-  Object.freeze({ id: '7d0x:x3_pairs+x4_any', dice: 7, blocks: 0, kinds: Object.freeze(['x3_pairs','x4_any']), greedy: Object.freeze([564, 652, 780, 824, 880, 922, 944, 962, 998, 1084, 1260]), naive: Object.freeze([493, 546, 632, 686, 738, 774, 824, 868, 913, 962, 1014]) }),
-  Object.freeze({ id: '7d0x:x3_pairs+x3_sixes', dice: 7, blocks: 0, kinds: Object.freeze(['x3_pairs','x3_sixes']), greedy: Object.freeze([432, 530, 610, 648, 684, 709, 727, 754, 778, 966, 1038]), naive: Object.freeze([309, 366, 450, 519, 578, 612, 645, 678, 709, 763, 807]) }),
-  Object.freeze({ id: '7d0x:x3_trips+joker', dice: 7, blocks: 0, kinds: Object.freeze(['x3_trips','joker']), greedy: Object.freeze([600, 635, 665, 685, 710, 720, 740, 740, 775, 820, 820]), naive: Object.freeze([485, 524, 575, 605, 625, 645, 665, 680, 710, 740, 765]) }),
-  Object.freeze({ id: '7d0x:x3_trips+refund', dice: 7, blocks: 0, kinds: Object.freeze(['x3_trips','refund']), greedy: Object.freeze([514, 565, 605, 635, 659, 679, 700, 715, 740, 765, 790]), naive: Object.freeze([384, 424, 465, 502, 535, 561, 590, 619, 654, 694, 720]) }),
-  Object.freeze({ id: '7d0x:x3_trips+x3_kinds', dice: 7, blocks: 0, kinds: Object.freeze(['x3_trips','x3_kinds']), greedy: Object.freeze([502, 565, 640, 720, 807, 868, 940, 1000, 1100, 1185, 1225]), naive: Object.freeze([386, 440, 530, 574, 610, 670, 710, 778, 840, 952, 1080]) }),
-  Object.freeze({ id: '7d0x:x3_trips+x3_small', dice: 7, blocks: 0, kinds: Object.freeze(['x3_trips','x3_small']), greedy: Object.freeze([482, 532, 565, 597, 617, 637, 657, 682, 710, 732, 762]), naive: Object.freeze([386, 425, 465, 496, 532, 569, 592, 625, 652, 691, 727]) }),
-  Object.freeze({ id: '7d0x:x3_trips+x4_any', dice: 7, blocks: 0, kinds: Object.freeze(['x3_trips','x4_any']), greedy: Object.freeze([650, 715, 795, 880, 950, 1005, 1055, 1115, 1160, 1205, 1325]), naive: Object.freeze([586, 650, 754, 805, 855, 901, 951, 1010, 1055, 1115, 1190]) }),
-  Object.freeze({ id: '7d0x:x3_trips+x3_sixes', dice: 7, blocks: 0, kinds: Object.freeze(['x3_trips','x3_sixes']), greedy: Object.freeze([482, 593, 786, 850, 880, 920, 945, 980, 1010, 1075, 1130]), naive: Object.freeze([400, 459, 520, 600, 655, 715, 775, 830, 887, 939, 984]) }),
-  Object.freeze({ id: '7d0x:joker+refund', dice: 7, blocks: 0, kinds: Object.freeze(['joker','refund']), greedy: Object.freeze([435, 455, 480, 480, 480, 520, 535, 560, 560, 600, 640]), naive: Object.freeze([360, 375, 400, 425, 440, 455, 480, 480, 480, 520, 560]) }),
-  Object.freeze({ id: '7d0x:joker+x3_kinds', dice: 7, blocks: 0, kinds: Object.freeze(['joker','x3_kinds']), greedy: Object.freeze([516, 592, 680, 760, 810, 880, 920, 970, 1015, 1040, 1080]), naive: Object.freeze([390, 424, 480, 536, 585, 640, 680, 732, 800, 960, 1040]) }),
-  Object.freeze({ id: '7d0x:joker+x3_small', dice: 7, blocks: 0, kinds: Object.freeze(['joker','x3_small']), greedy: Object.freeze([402, 432, 457, 482, 482, 482, 506, 522, 562, 562, 562]), naive: Object.freeze([372, 392, 416, 434, 452, 472, 482, 482, 482, 522, 562]) }),
-  Object.freeze({ id: '7d0x:joker+x4_any', dice: 7, blocks: 0, kinds: Object.freeze(['joker','x4_any']), greedy: Object.freeze([559, 620, 755, 820, 880, 920, 960, 960, 1000, 1120, 1280]), naive: Object.freeze([540, 584, 655, 704, 780, 840, 880, 920, 960, 960, 1040]) }),
-  Object.freeze({ id: '7d0x:joker+x3_sixes', dice: 7, blocks: 0, kinds: Object.freeze(['joker','x3_sixes']), greedy: Object.freeze([565, 605, 647, 682, 712, 752, 885, 965, 1015, 1040, 1080]), naive: Object.freeze([426, 466, 555, 595, 625, 654, 680, 700, 736, 812, 984]) }),
-  Object.freeze({ id: '7d0x:refund+x3_kinds', dice: 7, blocks: 0, kinds: Object.freeze(['refund','x3_kinds']), greedy: Object.freeze([316, 451, 558, 637, 680, 750, 800, 880, 930, 1024, 1040]), naive: Object.freeze([310, 332, 385, 434, 481, 540, 588, 635, 688, 760, 904]) }),
-  Object.freeze({ id: '7d0x:refund+x3_small', dice: 7, blocks: 0, kinds: Object.freeze(['refund','x3_small']), greedy: Object.freeze([382, 406, 442, 457, 466, 482, 492, 522, 562, 562, 602]), naive: Object.freeze([292, 305, 346, 365, 385, 402, 416, 436, 450, 482, 522]) }),
-  Object.freeze({ id: '7d0x:refund+x4_any', dice: 7, blocks: 0, kinds: Object.freeze(['refund','x4_any']), greedy: Object.freeze([519, 640, 775, 840, 876, 900, 920, 940, 975, 1080, 1240]), naive: Object.freeze([453, 494, 565, 645, 700, 744, 790, 830, 866, 920, 990]) }),
-  Object.freeze({ id: '7d0x:refund+x3_sixes', dice: 7, blocks: 0, kinds: Object.freeze(['refund','x3_sixes']), greedy: Object.freeze([455, 539, 635, 670, 697, 720, 740, 765, 820, 1000, 1040]), naive: Object.freeze([290, 331, 394, 480, 535, 580, 613, 650, 685, 727, 792]) }),
-  Object.freeze({ id: '7d0x:x3_kinds+x3_small', dice: 7, blocks: 0, kinds: Object.freeze(['x3_kinds','x3_small']), greedy: Object.freeze([292, 344, 453, 557, 612, 682, 734, 810, 922, 1000, 1042]), naive: Object.freeze([289, 317, 355, 392, 432, 464, 532, 585, 642, 729, 834]) }),
-  Object.freeze({ id: '7d0x:x3_kinds+x4_any', dice: 7, blocks: 0, kinds: Object.freeze(['x3_kinds','x4_any']), greedy: Object.freeze([412, 505, 706, 812, 900, 980, 1060, 1160, 1280, 1416, 1500]), naive: Object.freeze([425, 466, 586, 672, 727, 802, 860, 920, 1042, 1192, 1320]) }),
-  Object.freeze({ id: '7d0x:x3_kinds+x3_sixes', dice: 7, blocks: 0, kinds: Object.freeze(['x3_kinds','x3_sixes']), greedy: Object.freeze([410, 498, 585, 670, 781, 901, 960, 1040, 1285, 1480, 1504]), naive: Object.freeze([285, 344, 440, 516, 571, 627, 685, 763, 900, 1024, 1165]) }),
-  Object.freeze({ id: '7d0x:x3_small+x4_any', dice: 7, blocks: 0, kinds: Object.freeze(['x3_small','x4_any']), greedy: Object.freeze([474, 525, 650, 757, 830, 882, 922, 942, 962, 1122, 1257]), naive: Object.freeze([446, 509, 585, 645, 702, 742, 782, 832, 873, 922, 1010]) }),
-  Object.freeze({ id: '7d0x:x3_small+x3_sixes', dice: 7, blocks: 0, kinds: Object.freeze(['x3_small','x3_sixes']), greedy: Object.freeze([395, 492, 582, 625, 647, 672, 691, 718, 741, 929, 1008]), naive: Object.freeze([290, 316, 400, 456, 524, 585, 620, 653, 689, 734, 881]) }),
-  Object.freeze({ id: '7d0x:x4_any+x3_sixes', dice: 7, blocks: 0, kinds: Object.freeze(['x4_any','x3_sixes']), greedy: Object.freeze([481, 622, 750, 864, 940, 1017, 1100, 1160, 1204, 1365, 1496]), naive: Object.freeze([465, 545, 650, 736, 825, 886, 960, 1015, 1075, 1160, 1260]) }),
 ]);
 
 return { RECIPES3_VERSION, RECIPE_QUANTILES, RECIPES3 };
@@ -4320,17 +4241,19 @@ const { keeperHelp } = __mod_things3;
 const RUN3_VERSION = `run-3/${RECIPES3_VERSION}`;
 const RUN3 = Object.freeze({
   // levels 1–60: the spec's anchors (1: 240, 5: 350, 10: 560 … 30: 2050, 40: 3400, 50: 5200, 60: 7600), filled at an even
-  // ratio; no step up on the fifth levels, the keeper is the step
-  targets: Object.freeze([240, 260, 290, 320, 350, 380, 420, 460, 510, 560, 600, 650, 700, 760, 820, 880, 940, 1000, 1070, 1150,
-    1220, 1300, 1380, 1460, 1550, 1640, 1730, 1830, 1940, 2050, 2160, 2270, 2390, 2510, 2640, 2780, 2920, 3070, 3230, 3400,
-    3550, 3700, 3860, 4030, 4200, 4390, 4580, 4780, 4980, 5200, 5400, 5610, 5830, 6050, 6290, 6530, 6780, 7040, 7320, 7600]),
+  // ratio; no step up on the fifth levels, the keeper is the step. × 0.85 since one card lies on the board for a hand
+  // (17.11.2026, MODE3-PLAN §60): that brings the bots' curve back to where it was with two (run3-sim, run-1 and run-2)
+  targets: Object.freeze([200, 220, 250, 270, 300, 320, 360, 390, 430, 480, 510, 550, 600, 650, 700, 750, 800, 850, 910, 980,
+    1040, 1110, 1170, 1240, 1320, 1390, 1470, 1560, 1650, 1740, 1840, 1930, 2030, 2130, 2240, 2360, 2480, 2610, 2750, 2890,
+    3020, 3150, 3280, 3430, 3570, 3730, 3890, 4060, 4230, 4420, 4590, 4770, 4960, 5140, 5350, 5550, 5760, 5980, 6220, 6460]),
   past: 1.038,    // each level past the table, rounded to 10
   aimFirst: 0.99, // a typical player's pass chance the layout aims at on levels 1–2 (the tutorial runs on level 1)
   aimStart: 0.99, // on level 3, then falling towards aimFloor, by e every aimFade levels
   aimFade: 60,    // the spec's first values: boards a typical player passes at 97–99% for twenty-five levels, about 95% at 60
   aimFloor: 0.93,
-  near: 0.25,     // layouts whose modelled failure is within e^near of the best fit's are drawn at random, for variety
-  maxBonuses: 2,  // three hero cards on one hand reach ×7 and swamp the layout table; a third card comes from the bank
+  near: 1,        // layouts whose modelled failure is within e^near of the best fit's are drawn at random, for variety (0.25
+                  // with two cards; with one, 0.25 dealt the Witch's TRIPS on 4 levels in 10 up to level 20, 1 on 1 in 4)
+  maxBonuses: 1,  // one card on the board for a hand (owner, 17.11.2026: «На поле одна»); the bank's play when it holds none
   firstRecipe: '8d0x:x2_any',
 });
 
@@ -4368,14 +4291,13 @@ function percentileOf(q, score) {
 // The modelled pass chance of a typical player on the recipe at that level.
 const typicalChance = (recipe, levelIndex, curve = RUN3) => 1 - percentileOf(recipe.naive, runTarget(levelIndex, curve) / runLift(levelIndex));
 
-// Recipes a level may use: at most two hero cards of different kinds, all opened. A level that opens a hero deals it beside
-// the Knight's ×2 ANY HAND (spec: a conditional hero dealt alone leaked runs on the first levels). Letting the aim pick the
-// partner instead measured worse (run3-sim, 10.11.2026: the typical bot's median 20 against 23–24; the model ranks
-// conditional pairs badly, trips beside SMALL passed 82% at level 16 against 89% for the Knight). Every recipe is nine
-// cells of dice and cards (no locks since 09.11.2026).
+// Recipes a level may use: at most one card on the board (owner, 17.11.2026: «На поле одна»), of a hero already opened. A
+// level that opens a hero deals it alone (it came beside the Knight's ×2 ANY HAND until then, since a conditional hero
+// dealt alone leaked runs on the first levels: the targets of those levels answer for it now). Every recipe is nine cells
+// of dice and cards (no locks since 09.11.2026).
 function candidates(levelIndex) {
   const fresh = newKind(levelIndex);
-  if (fresh) return [recipeById(`7d0x:x2_any+${fresh}`)];
+  if (fresh) return [recipeById(`8d0x:${fresh}`)];
   const open = unlockedKinds(levelIndex);
   return RECIPES3.filter((r) => r.kinds.length <= RUN3.maxBonuses && new Set(r.kinds).size === r.kinds.length && r.kinds.every((k) => open.includes(k)));
 }
@@ -8307,7 +8229,7 @@ const { BONUS_KINDS, AUTO_MULT } = __mod_hands;
 const { areAdjacent, rowOf, colOf, orderedPathsOf } = __mod_geometry;
 const { createGame, toggleHold: snakeToggleHold, reroll: snakeReroll, toggleBonus: snakeToggleBonus, previewPath: snakePreviewPath, bankPath: snakeBankPath, hintFor: snakeHintFor, markHintUsed: snakeMarkHintUsed, remainingCells: snakeRemainingCells, canReroll: snakeCanReroll, snapshotGame: snakeSnapshot, restoreGame: snakeRestore, isOrdinary: snakeIsOrdinary, isBanked: snakeIsBanked, heldCount: snakeHeldCount, rerollTargets: snakeRerollTargets } = __mod_game;
 const { createPokerGame, toggleHold: pokerToggleHold, reroll: pokerReroll, toggleBonus: pokerToggleBonus, previewPath: pokerPreviewPath, bankPath: pokerBankPath, hintFor: pokerHintFor, markHintUsed: pokerMarkHintUsed, remainingCells: pokerRemainingCells, canReroll: pokerCanReroll, snapshotGame: pokerSnapshot, restoreGame: pokerRestore, isBanked: pokerIsBanked, isSealed: pokerIsSealed, heldCount: pokerHeldCount, isOrdinary: pokerIsOrdinary, rerollTargets: pokerRerollTargets } = __mod_poker;
-const { createAutoGame, toggleHold: autoToggleHold, reroll: autoReroll, toggleBonus: autoToggleBonus, playHand: autoPlayHand, currentHand: autoCurrentHand, hintFor: autoHintFor, markHintUsed: autoMarkHintUsed, diceCells: autoDiceCells, canReroll: autoCanReroll, snapshotGame: autoSnapshot, restoreGame: autoRestore, isDie: autoIsDie, heldCount: autoHeldCount, rerollTargets: autoRerollTargets, heldHand: autoHeldHand, carryOver: autoCarryOver, awake: autoAwake, BANK, BANK_SIZE } = __mod_auto;
+const { createAutoGame, toggleHold: autoToggleHold, reroll: autoReroll, toggleBonus: autoToggleBonus, playHand: autoPlayHand, currentHand: autoCurrentHand, hintFor: autoHintFor, markHintUsed: autoMarkHintUsed, diceCells: autoDiceCells, canReroll: autoCanReroll, snapshotGame: autoSnapshot, restoreGame: autoRestore, isDie: autoIsDie, heldCount: autoHeldCount, rerollTargets: autoRerollTargets, heldHand: autoHeldHand, carryOver: autoCarryOver, awake: autoAwake, bankOpen, BANK, BANK_SIZE } = __mod_auto;
 const { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } = __mod_levels;
 const { generatePokerLevel, GENERATOR5_VERSION } = __mod_levels5;
 const { generateRunLevel, RUN3_VERSION } = __mod_run3;
@@ -8550,7 +8472,7 @@ const MODES = {
     gameConfig: (st) => ({ hands: st.hands, rerolls: st.rerolls }),
     // one curve for everyone (questionnaire В1 A, 04.11.2026): the level depends on the run seed and its number only
     generate: ({ runSeed, levelIndex, settings, bank, ups, things }) => generateRunLevel({ runSeed, levelIndex, bank, ups, things, config: MODES.auto.gameConfig(settings) }),
-    scoringHtml: '<strong>Matching dice score their sum × a multiplier that grows with rarity.</strong> Pair × 2, two pairs × 3, three of a kind × 4, full house × 5, four of a kind × 6, straight × 8, five of a kind × 8. Bonus dice add up: ×2 and ×3 together make ×4.',
+    scoringHtml: '<strong>Matching dice score their sum × a multiplier that grows with rarity.</strong> Pair × 2, two pairs × 3, three of a kind × 4, full house × 5, four of a kind × 6, straight × 8, five of a kind × 8. One bonus die a hand.',
     difficultyText: 'One curve for everyone: each level asks for more than the one before, and its board is drawn to fit the level, never the player. A missed target ends the run.',
     summary: (g) => ({ recipe: g.level.recipe, chance: g.level.chance }),
     idleCopy: (g) => `Hand ${g.hands.length + 1}/${g.hands.length + g.handsLeft} · hold to keep · reroll or play`,
@@ -8561,11 +8483,11 @@ const MODES = {
         'Dice, bonus dice and blocks on a 3×3 board. Positions do not matter: PLAY scores the best poker hand among all the dice, or the one you pick: when the dice you hold make a combination, the best of them plays. The counter shows the hand and its points; the board does not mark its dice.',
         'PLAY HAND scores it. Then every die burns and is thrown anew, held or not.',
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
-        'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back); deeper in the run ×3 KINDS, ×3 SMALL, ×4 LAST HAND and ×3 TWO SIXES. They start switched off: tap one to switch it on (tap again to keep it for later). Every bonus that is on and fits joins the hand; bonuses add up (×2 and ×3 together make ×4). A used bonus makes way for a new die, or for a bonus waiting above the board.',
+        'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back); deeper in the run ×3 KINDS, ×3 SMALL, ×4 LAST HAND and ×3 TWO SIXES. They start switched off: tap one to switch it on (tap again to keep it for later). A level deals one at most, and one bonus that is on and fits joins the hand. A used bonus makes way for a new die.',
         'Reach the target and the level ends at once; a level has three hands at most. Miss it and the run is over. There is no last level: each asks for more.',
         'A cleared level pays bells: 2, plus 2 for each hand and 1 for each reroll left unused. A shop opens after the second and fourth level of each act: one thing and one +1. Things work by themselves for the run, three at most, four after level 15, five after 35; the same thing again gains a star.',
         'Every fifth level is a keeper with one rule, named in the shop before it. Beat him for 3 more bells, a golden one for 8.',
-        'Bonuses you did not play on a won level are kept for the next level of the run (three at most, the rest burn). They come in on its first reroll, each in place of a die being rerolled while six dice stay on the board; the rest wait above the board from then on: tap one there to switch it on like a card on the board.',
+        'Bonuses you did not play on a won level are kept for the next level of the run (three at most, the rest burn). They wait above the board and play from there while the board holds no bonus die, one a hand: tap one to switch it on.',
       ],
       scoreTitle: 'SCORING · THE HAND IS THE DICE OF THE COMBINATION',
       scoreRows: () => {
@@ -8624,7 +8546,6 @@ const app = {
   sheetAt: 0, // when the bonus sheet opened (its opening finger, or a tap meant for PLAY as it came, must not close it)
   sheetQueue: [], // kinds whose sheet waits for the open one to close
   afterGuide: [], // card deals waiting for the guide to uncover the board
-  launching: new Set(), // bank places whose card is about to fly to the board (flyFromBank)
   sheetActs: new Map(), // kind -> the act its new card plays once its sheet is closed (turnCard)
   busy: false,
   path: [],
@@ -8813,11 +8734,7 @@ function startGame(level, attempt) {
   st.firstHandAt = null;
   st.pendingTier = null;
   st.allHeldToastShown = false;
-  for (const c of els.cells) {
-    c.classList.remove('bank-pop', 'burn', 'gone', 'rolling', 'refill', 'pressed', 'shake', 'safe-hint', 'stays', 'arriving', 'landed');
-    c.flight = null; // a card still on its way to the last level's board
-  }
-  app.launching = new Set(); // the cards kept from the last level wait above until the first reroll (owner, 03.11.2026)
+  for (const c of els.cells) c.classList.remove('bank-pop', 'burn', 'gone', 'rolling', 'refill', 'pressed', 'shake', 'safe-hint', 'stays');
   app.path = [];
   app.tapPath = [];
   clearTimeout(app.hintTimer);
@@ -9418,7 +9335,7 @@ function renderCell(i) {
   const order = cell.querySelector('.order');
   // Effect classes that are still mid-animation survive a re-render; 'bank-pop' is not among
   // them because it fills forwards (opacity 0) and must be dropped by the render after the bank.
-  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'arriving', 'landed', 'on-fire', 'flip', 'hidden3d', 'gone', 'acting'].filter((c) => cell.classList.contains(c));
+  const transient = ['shake', 'safe-hint', 'pressed', 'rolling', 'refill', 'stays', 'on-fire', 'flip', 'hidden3d', 'gone', 'acting'].filter((c) => cell.classList.contains(c));
   cell.className = ['cell', ...transient].join(' ');
   cell.querySelector('.x2').textContent = '×2';
   const special = M().id === 'auto' && g.cells && g.cells[i];
@@ -10254,9 +10171,9 @@ function giveThing() {
 }
 
 // The bonus bank above the board (owner, 02.11.2026): the bonuses this level started with from earlier
-// won levels that wait above the board. They come in on the first reroll (owner, 03.11.2026); from then on a
-// tap switches one still waiting on or off like a card on the board. Place k holds card k until it is played
-// or flies to the board, then a + (Figma 1308:3047). Cards new to the row slide in.
+// won levels that wait above the board. While the board holds no card (owner, 17.11.2026: «На поле одна») a tap
+// switches one on or off like a card on the board, one at a time. Place k holds card k until it is played, then
+// a + (Figma 1308:3047). Cards new to the row slide in.
 function renderBank() {
   const box = $('bank');
   const g = S().game;
@@ -10267,8 +10184,8 @@ function renderBank() {
     const b = bank[k];
     const old = box.children[k];
     let el = old;
-    if (b && !b.used && (!b.placed || app.launching.has(k))) {
-      warmAct(b.kind); // a kept card's hero acts when it is switched on, played, or lands on the board
+    if (b && !b.used && !b.placed) {
+      warmAct(b.kind); // a kept card's hero acts when it is switched on or played
       if (!el || el.dataset.kind !== b.kind) {
         el = document.createElement('template');
         el.innerHTML = guideTile(b.kind, false).replace('<span class="cell ', `<span role="button" tabindex="0" data-k="${k}" data-kind="${b.kind}" class="new cell `);
@@ -10277,7 +10194,7 @@ function renderBank() {
       el.classList.toggle('on', !b.off);
       el.classList.toggle('off', b.off);
       el.classList.toggle('armed', !!h && h.bonusCells.includes(BANK + k));
-      el.setAttribute('aria-label', `${BONUS_KINDS[b.kind].symbol} ${BONUS_KINDS[b.kind].label} from the bank, ${!g.stats.rerollsUsed ? 'comes in on the first reroll' : b.off ? 'off, tap to switch on' : 'on'}`);
+      el.setAttribute('aria-label', `${BONUS_KINDS[b.kind].symbol} ${BONUS_KINDS[b.kind].label} from the bank, ${!bankOpen(g) ? 'plays when the board has no card' : b.off ? 'off, tap to switch on' : 'on'}`);
     } else if (!el || !el.classList.contains('slot')) {
       el = document.createElement('span');
       el.className = 'slot';
@@ -10288,58 +10205,6 @@ function renderBank() {
     else box.append(el);
   }
   while (box.children.length > places) box.lastElementChild.remove();
-}
-
-// A card from the bank flies to the board (owner, 03.11.2026): on the level's first reroll into the cell of a die
-// being rerolled, or into the cell of a card just played. The cell shows nothing until the card lands face up.
-function flyFromBank(i, k, { delay = 0 } = {}) {
-  const cell = els.cells[i];
-  const flight = {};
-  cell.flight = flight;
-  cell.classList.add('arriving');
-  const land = () => {
-    if (cell.flight !== flight) return; // a new level came first
-    cell.flight = null;
-    app.launching.delete(k);
-    cell.classList.remove('arriving');
-    renderBank();
-    if (reduceMotion) return;
-    cell.classList.remove('landed');
-    void cell.offsetWidth;
-    cell.classList.add('landed');
-    setTimeout(() => cell.classList.remove('landed'), 480);
-    sfx('flip');
-    const c = S().game.cells[i];
-    if (c && c.type === 'bonus') heroAct(i, c.kind, { wait: 5000 }); // come from the bank, it appears on the board: its hero acts
-  };
-  if (reduceMotion) { land(); return; }
-  setTimeout(() => {
-    if (cell.flight !== flight) return;
-    const from = $('bank').children[k];
-    if (!from || !from.classList.contains('cell')) { land(); return; }
-    const a = from.getBoundingClientRect();
-    const b = cell.getBoundingClientRect();
-    const fly = document.createElement('div');
-    fly.className = 'bank bank-fly';
-    fly.setAttribute('aria-hidden', 'true');
-    fly.innerHTML = guideTile(from.dataset.kind, false);
-    Object.assign(fly.style, { left: `${a.left}px`, top: `${a.top}px` });
-    els.app.append(fly); // inside the app, for its scale (--k)
-    app.launching.delete(k);
-    renderBank(); // its place empties as it takes off
-    const dx = b.left + b.width / 2 - (a.left + a.width / 2);
-    const dy = b.top + b.height / 2 - (a.top + a.height / 2);
-    const s = b.width / a.width;
-    const up = Math.min(120, 0.35 * Math.hypot(dx, dy)); // an arc, higher for a longer flight
-    fly.animate([
-      { transform: 'translate(0, 0) scale(1) rotate(0)' },
-      { transform: `translate(${dx * 0.5}px, ${dy * 0.5 - up}px) scale(${(1 + s) * 0.62}) rotate(-7deg)`, offset: 0.5 },
-      { transform: `translate(${dx}px, ${dy}px) scale(${s}) rotate(0)` },
-    ], { duration: 520, easing: 'cubic-bezier(.4, 0, .3, 1)' }).onfinish = () => {
-      fly.remove();
-      land();
-    };
-  }, delay);
 }
 
 // A strong hand burns as soon as the player holds it (owner, 01.11.2026): the held dice of a four of a
@@ -10514,6 +10379,7 @@ function armBonus(source, cell) {
     const card = cell >= BANK ? st.game.bank[cell - BANK] : st.game.cells[cell];
     const off = cell >= BANK ? card.off : st.game.off[cell];
     if (cell < BANK) holoTurn(els.cells[cell], off ? -50 : 60);
+    else st.game.bank.forEach((b, k) => { if (b.off && BANK + k !== cell) stopAct(cardArt(BANK + k)); }); // one at a time: the one it took over from rests
     if (off) stopAct(cardArt(cell));
     else if (actingKind(cardArt(cell)) !== card.kind) heroAct(cell, card.kind, { wait: 1000 });
   }
@@ -10728,9 +10594,6 @@ async function doReroll(source) {
   haptic(8);
   sfx('roll');
   if (g.level.boss && BOSSES[g.level.boss].rerolls) sfx('bellows'); // a keeper who took a reroll: the bellows breathe out
-  // the kept cards come in on the level's first reroll, each in place of a die (owner, 03.11.2026)
-  for (const { cell, from } of r.placed || []) { app.launching.add(from); els.cells[cell].classList.add('arriving'); renderCell(cell); }
-  (r.placed || []).forEach(({ cell, from }, n) => flyFromBank(cell, from, { delay: 120 * n }));
   let rolled3d = false;
   if (app.dice3d && !reduceMotion && dice3dStatus() === 'ready') {
     r.rolled.forEach((i) => els.cells[i].classList.add('hidden3d'));
@@ -10826,7 +10689,7 @@ async function attemptBank(path, source) {
   // level's summary opens (owner, 02.11.2026)
   const last = mode.id === 'auto' && st.game.phase !== 'playing';
   const throw3d = !last && mode.id === 'auto' && mode.refill && r.refilled && r.refilled.length > 0 && app.dice3d && !reduceMotion && dice3dStatus() === 'ready';
-  const spent = r.spent || []; // the cards the hand used: a new die or a card from the bank takes each cell
+  const spent = r.spent || []; // the board's cards the hand used: a new die takes each cell
   const popped = throw3d ? spent : [...hand.cells, ...spent];
   const faded = throw3d ? [] : r.burned ? r.burned.filter((i) => !hand.cells.includes(i)) : [];
   renderHud();
@@ -10852,14 +10715,12 @@ async function attemptBank(path, source) {
   if (burning.length) app.fire.out(); // the dice have burnt away: before they come back for the refill
   if (last) [...r.burned, ...spent].forEach((i) => els.cells[i].classList.add('gone')); // they stay away under the summary
   popped.forEach((i) => els.cells[i].classList.remove('bank-pop'));
-  actors.forEach(restCard); // gone with the pop, a die or a bank card comes in its place
+  actors.forEach(restCard); // gone with the pop, a new die comes in its place
   faded.forEach((i) => els.cells[i].classList.remove('burn'));
   if (!stillCurrent(st, modeId)) { app.busy = false; return; }
   if (throw3d) {
     r.refilled.forEach((i) => els.cells[i].classList.add('hidden3d'));
-    for (const { cell, from } of r.placed) { app.launching.add(from); els.cells[cell].classList.add('arriving'); }
     render(); // the new board under the throw, drawn from the old faces until each die turns
-    r.placed.forEach(({ cell, from }) => flyFromBank(cell, from));
     sfx('roll');
     await rollDice3D({
       board: els.board,
@@ -10874,10 +10735,8 @@ async function attemptBank(path, source) {
       const stays = E().remainingCells(st.game).filter((i) => !r.refilled.includes(i));
       flashCells(stays, 'stays', 700);
     }
-  } else if (!last && mode.refill && r.refilled && (r.refilled.length || (r.placed && r.placed.length))) {
-    for (const { cell, from } of r.placed || []) { app.launching.add(from); els.cells[cell].classList.add('arriving'); }
+  } else if (!last && mode.refill && r.refilled && r.refilled.length) {
     render();
-    (r.placed || []).forEach(({ cell, from }) => flyFromBank(cell, from));
     r.refilled.forEach((i, k) => {
       const c = els.cells[i];
       c.style.setProperty('--delay', `${k * 60}ms`);
@@ -11567,7 +11426,7 @@ function openGuide() {
   $('combos').innerHTML = GUIDE_COMBOS.map(([cat, dice]) => `<li><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${sentence(CATEGORY5_LABELS[cat])}</b><em>${ups[cat] ? `×${AUTO_MULT[cat]} → ` : ''}×${AUTO_MULT[cat] + (ups[cat] || 0)}</em></li>`).join('');
   $('holdPic').innerHTML = `<span class="grp"><span>${[6, 6, 6].map((v) => guideDie(v, true)).join('')}</span><small>TAP = HOLD</small></span><span class="grp roll"><span>${[2, 4].map((v) => guideDie(v)).join('')}</span><small>REROLL</small></span>`;
   $('bonusPic').innerHTML = `<ul class="bonus-list">${Object.keys(GUIDE_BONUSES).map((k) => `<li>${guideTile(k, false)}<small>${GUIDE_BONUSES[k]}</small></li>`).join('')}</ul>`;
-  $('bonusNote').textContent = 'THEY ADD UP'; // no «tap to switch on» in any popup (owner, 11.11.2026)
+  $('bonusNote').textContent = 'ONE CARD A HAND'; // owner, 17.11.2026: «На поле одна»; no «tap to switch on» in any popup (11.11.2026)
   // How says the one rule no screen shows in words since the card's sheet lost its line (audit, 09.11.2026)
   $('holdNote').innerHTML = 'PLAY THROWS EVERY DIE ANEW<br>A REROLL CLEARS HOLDS AND SWITCHES CARDS OFF';
   // How opens on what the run holds, once it holds anything; the rules follow it
@@ -11809,9 +11668,20 @@ function bind() {
   }
   $('runsBtn').addEventListener('click', openRuns);
   $('runsClose').addEventListener('click', () => { $('runsSheet').hidden = true; });
-  $('bank').addEventListener('click', (e) => {
+  // a long press on a kept card shows its popup, as on the board: since «На поле одна» (17.11.2026) it never comes there
+  let bankPress = null;
+  $('bank').addEventListener('pointerdown', (e) => {
     const card = e.target.closest('.cell[data-k]');
-    if (card) armBonus('bank', BANK + Number(card.dataset.k));
+    clearTimeout(bankPress);
+    bankPress = card && !app.busy ? setTimeout(() => { bankPress = 'shown'; haptic(12); showBonusSheet(card.dataset.kind); }, LONG_PRESS_MS) : null;
+  });
+  for (const type of ['pointerleave', 'pointercancel']) $('bank').addEventListener(type, () => { if (bankPress !== 'shown') { clearTimeout(bankPress); bankPress = null; } });
+  $('bank').addEventListener('click', (e) => {
+    const shown = bankPress === 'shown'; // the popup took the press: its release switches nothing
+    clearTimeout(bankPress);
+    bankPress = null;
+    const card = e.target.closest('.cell[data-k]');
+    if (card && !shown) armBonus('bank', BANK + Number(card.dataset.k));
   });
   $('optSound').addEventListener('change', () => {
     setSound($('optSound').checked);

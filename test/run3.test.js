@@ -20,13 +20,14 @@ test('the run never ends: every level asks for more than the one before, faster 
   }
 });
 
-test('the targets are the spec\'s table of sixty levels, then 3.8% a level', () => {
+test('the targets are the spec\'s table of sixty levels × 0.85 (one card on the board, 17.11.2026), then 3.8% a level', () => {
   assert.equal(RUN3.targets.length, 60);
   for (let n = 1; n <= 60; n++) assert.equal(runTarget(n), RUN3.targets[n - 1]);
   const anchors = { 1: 240, 5: 350, 10: 560, 15: 820, 20: 1150, 25: 1550, 30: 2050, 40: 3400, 50: 5200, 60: 7600 };
-  for (const [n, t] of Object.entries(anchors)) assert.equal(runTarget(Number(n)), t, `level ${n}`);
-  assert.equal(runTarget(61), 7890);
-  assert.equal(runTarget(0), 240);
+  for (const [n, t] of Object.entries(anchors)) assert.equal(runTarget(Number(n)), Math.round((t * 0.85) / 10) * 10, `level ${n}`);
+  assert.ok(RUN3.targets.every((t, k) => !k || t > RUN3.targets[k - 1]), 'each level asks for more than the one before');
+  assert.equal(runTarget(61), 6710);
+  assert.equal(runTarget(0), 200);
 });
 
 test('the lift a level is grown with assumes an upgrade after every level before it, past the table too', () => {
@@ -84,15 +85,15 @@ test('the ten heroes open at their levels, and only there is a new one dealt', (
   assert.deepEqual([1, 2, 5, 8, 11, 26, 27].map(newKind), [null, 'x3_straight', null, null, 'x3_kinds', 'x3_sixes', null]);
 });
 
-test('every level keeps six dice and at most two cards of different opened kinds; a level that opens a hero deals it beside the Knight', () => {
+test('every level keeps six dice and deals one card at most, of an opened kind (owner, 17.11.2026: «На поле одна»); a level that opens a hero deals it alone', () => {
   for (let s = 0; s < 40; s++) {
-    for (let n = 2; n <= 30; n++) {
+    for (let n = 1; n <= 80; n++) {
       const level = generateRunLevel({ runSeed: `kinds${s}`, levelIndex: n });
       const kinds = level.layout.filter((c) => c.type === 'bonus').map((c) => c.kind);
       assert.ok(level.layout.filter((c) => c.type === 'die').length >= MIN_DICE);
-      assert.ok(kinds.length <= RUN3.maxBonuses && new Set(kinds).size === kinds.length);
+      assert.ok(kinds.length <= 1, `level ${n}: ${kinds}`);
       assert.ok(kinds.every((k) => unlockedKinds(n).includes(k)));
-      if (newKind(n)) assert.deepEqual(kinds.slice().sort(), ['x2_any', newKind(n)].sort(), `level ${n}`);
+      if (newKind(n)) assert.deepEqual(kinds, [newKind(n)], `level ${n}`);
       assert.deepEqual(recipeById(level.recipe).kinds.slice().sort(), kinds.slice().sort());
     }
   }

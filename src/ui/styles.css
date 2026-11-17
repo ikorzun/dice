@@ -378,14 +378,14 @@ button:focus-visible, .cell:focus-visible { outline: 2px solid var(--hold); outl
 .up > em { grid-area: value; font-style: normal; font-size: max(13px, calc(20px * var(--k, 1))); line-height: 1; white-space: nowrap; }
 /* The bonus bank (owner, 02.11.2026): the bonuses kept from won levels, three places, as small cards of 64 px
    with their name and no sticker; an empty place shows a + (Figma 1308:3047) */
-.bank { flex: none; display: flex; align-items: center; gap: calc(5px * var(--k, 1)); }
+.bank { flex: none; display: flex; align-items: center; gap: calc(5px * var(--k, 1)); -webkit-touch-callout: none; }
 .bank .cell, .bank .slot { width: calc(64px * var(--k, 1)); height: calc(64px * var(--k, 1)); }
 .bank .cell { --kb: calc(.582 * var(--k, 1)); cursor: pointer; }
 .bank .cell.bonus .x2 { display: none; }
 /* The bank's cards are the small card (Figma 1339:2155 Card-mini, 11.11.2026): the hero's own lighter colour, rounded 16
-   of 64, no arch, the hero's portrait 64 px from 14 px over the top, the name 6 px in black. #bank and the card on its
-   way to the board: over the big card's colours. */
-#bank .cell.bonus, .bank.bank-fly .cell.bonus, #shopBank .cell.bonus { --card: var(--mini-card); --card-ink: #000; border-color: var(--mini-edge); border-radius: 25%; box-shadow: inset 0 0 calc(4.655px * var(--k, 1)) rgba(255, 255, 255, .25); }
+   of 64, no arch, the hero's portrait 64 px from 14 px over the top, the name 6 px in black. #bank and the shop's bank:
+   over the big card's colours. */
+#bank .cell.bonus, #shopBank .cell.bonus { --card: var(--mini-card); --card-ink: #000; border-color: var(--mini-edge); border-radius: 25%; box-shadow: inset 0 0 calc(4.655px * var(--k, 1)) rgba(255, 255, 255, .25); }
 .bank .cell.bonus .arch, #shopBank .cell.bonus .arch, #shopBank .cell.bonus .x2 { display: none; }
 .bank .cell.bonus .art, #shopBank .cell.bonus .art { left: -1.61%; top: -24.19%; width: 103.23%; height: 103.23%; } /* 64 px at 0, -14 */
 .bank .cell.bonus .tag { bottom: 4.4%; font-size: calc(6px * var(--k, 1)); } /* its capitals in the middle of the band under the portrait */
@@ -543,7 +543,7 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell .holo { position: absolute; display: none; pointer-events: none; }
 body.holo .cell.bonus .holo { display: block; left: 0; top: 0; width: 100%; height: 100%; border-radius: inherit; overflow: hidden; }
 body.holo .cell.bonus .holo::before { content: ""; position: absolute; inset: -42%; background: var(--holo-twirl) center / 100% 100% no-repeat; mix-blend-mode: color; opacity: var(--holo, .34); transform: rotate(var(--holo-turn, 0deg)); transition: transform 520ms cubic-bezier(.2, .7, .2, 1); }
-body.holo #bank .cell.bonus .holo, body.holo #shopBank .cell.bonus .holo, body.holo .bank.bank-fly .cell.bonus .holo, body.holo .cell.bonus.acting .holo { display: none; }
+body.holo #bank .cell.bonus .holo, body.holo #shopBank .cell.bonus .holo, body.holo .cell.bonus.acting .holo { display: none; }
 /* While its hero acts (Figma 1339:2155 Card-animation; owner, 10.11.2026: «убираем весь текст и внутреннюю рамку,
    увеличиваем героя»): no name, no multiplier, no arch, no border, every corner 24, the hero's own colour over the whole
    card; the portrait's square 152 px, rising 42 px over the card's top, cut to 107 by 151 px with its bottom corners
@@ -592,14 +592,7 @@ body.fire-fallback .board .cell.on-fire { box-shadow: 0 0 calc(22px * var(--kb, 
 .bend-copy { position: absolute; display: grid; will-change: transform; }
 .bend *, .bend *::before, .bend *::after { animation: none !important; transition: none !important; }
 .cell.block { background: url("../../assets/ui/lock.svg") center / 100% 100% no-repeat; }
-/* A card from the bank on its way (owner, 03.11.2026): on the first reroll into a die's cell, or into the cell of a
-   card just played; the cell stays bare, then the card lands face up with a pop */
-.cell.bonus.arriving { background: rgba(255, 255, 255, .08); border-color: transparent; box-shadow: none; filter: none; animation: none; }
-.cell.bonus.arriving > * { visibility: hidden; }
-.cell.bonus.landed { animation: cardLand 420ms cubic-bezier(.2, .8, .3, 1.3); }
-@keyframes cardLand { 0% { transform: scale(1.16); } 55% { transform: scale(.94); } 100% { transform: scale(1); } }
-.bank-fly { position: fixed; z-index: 30; margin: 0; pointer-events: none; }
-/* Auto Hand play: unheld dice outside the hand fade out; a used card makes way for a new die or a banked card */
+/* Auto Hand play: unheld dice outside the hand fade out; a used card makes way for a new die */
 .cell.burn { animation: burn 420ms ease-in forwards; }
 .cell.gone { visibility: hidden; } /* burnt on the level's last hand: no new die comes */
 @keyframes burn { 0% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(10%) scale(.82); } }

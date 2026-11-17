@@ -211,23 +211,16 @@ test('SECOND WIND has no number: it spends no BRAIN BOOST', () => {
   assert.equal(currentHand(g).bonusMult, 3, 'the ×2 is still the level\'s first card with a number');
 });
 
-test('in a game: PATIENT BEADS raises the level\'s first card from the bank, on the board or still above it', () => {
-  // nine dice: both banked cards come in on the first reroll, the first into a cell as fromBank 0
+test('in a game: PATIENT BEADS raises the level\'s first card from the bank, played from its row', () => {
+  // nine dice and no card on the board: the banked cards switch on from the row, one a hand
   let g = createAutoGame(boardOf(Array(9).fill('d'), [5, 5, 1, 2, 3, 4, 6, 2, 3], { things: one('patient_beads'), bank: ['x2_any', 'x2_any'] }), { hands: 3, rerolls: 3 });
-  const r = reroll(g, seq(5, 5, 5, 5, 5, 5, 5));
-  assert.deepEqual(r.placed.map((p) => p.from), [0, 1]);
-  g = toggleBonus(r.state, r.placed[0].cell).state;
-  assert.equal(g.cells[r.placed[0].cell].fromBank, 0);
+  g = toggleBonus(g, BANK).state;
   assert.equal(currentHand(g).bonusMult, 4, '×2 AS ×4');
   const h1 = playHand(g, seq(1, 2, 3, 4, 6, 2, 3, 4, 6));
   assert.equal(h1.hand.bank, 1);
-  g = toggleBonus(h1.state, r.placed[1].cell).state;
+  g = toggleBonus(h1.state, BANK + 1).state;
   assert.equal(currentHand(g).bonusMult, 2, 'the second bank card counts as it is');
-  // six dice and three cards: the banked card waits above the board, BANK + 0, and counts higher there
-  let w = createAutoGame(boardOf(['d', 'd', 'joker', 'd', 'd', 'joker', 'd', 'refund', 'd'], [5, 5, 1, 2, 3, 6], { things: one('patient_beads', 3), bank: ['x2_any'] }), { hands: 3, rerolls: 3 });
-  w = reroll(w, seq(4)).state;
-  assert.equal(w.bank[0].placed, false);
-  w = toggleBonus(w, BANK).state;
+  const w = toggleBonus(createAutoGame(boardOf(Array(9).fill('d'), [5, 5, 1, 2, 3, 6, 4, 2, 3], { things: one('patient_beads', 3), bank: ['x2_any'] }), { hands: 3, rerolls: 3 }), BANK).state;
   const above = currentHand(w);
   assert.equal(above.bonusMult, 6, '×2 AS ×6 at three stars');
   assert.ok(above.things.includes('patient_beads'));
@@ -306,13 +299,19 @@ test('the counter\'s number is the scored number, each thing at 1 and 3 stars', 
       }
     }
   }
-  // a joker, REFUND and a card from the bank on the board too, every card on, after the level's first reroll
-  const deck = boardOf(['d', 'd', 'joker', 'd', 'd', 'd', 'd', 'refund', 'd'], [1, 2, 4, 5, 6, 6, 3], { bank: ['x3_pairs'] });
-  for (const id of Object.keys(THINGS)) {
+  // with cards, every card on after a reroll: a joker and REFUND on one board (a game saved before «На поле одна»), and on
+  // nine dice the bank's first card still waiting, from its row
+  const decks = [boardOf(['d', 'd', 'joker', 'd', 'd', 'd', 'd', 'refund', 'd'], [1, 2, 4, 5, 6, 6, 3]), boardOf(Array(9).fill('d'), [1, 2, 4, 5, 6, 6, 3, 2, 5], { bank: ['x3_pairs', 'refund'] })];
+  const allOn = (g) => {
+    for (const i of g.cells.map((c, k) => k).filter((k) => g.cells[k].type === 'bonus' && g.off[k])) g = toggleBonus(g, i).state;
+    const k = g.bank.findIndex((b) => !b.used);
+    return k >= 0 && g.bank[k].off && g.cells.every((c) => c.type !== 'bonus') ? toggleBonus(g, BANK + k).state : g;
+  };
+  for (const deck of decks) for (const id of Object.keys(THINGS)) {
     for (const stars of [1, 3]) {
       let g = reroll(createAutoGame({ ...deck, things: [{ id, stars }] }, { hands: 3, rerolls: 3 }), seq(3, 5, 6, 2, 2, 4)).state;
       for (let h = 0; h < 3; h++) {
-        for (const i of g.cells.map((c, k) => k).filter((k) => g.cells[k].type === 'bonus' && g.off[k])) g = toggleBonus(g, i).state;
+        g = allOn(g);
         const shown = currentHand(g);
         assert.equal(shown.total, Math.floor((Math.floor(shown.base * shown.mult) * shown.bonusMult * (100 + shown.pct)) / 100), `${id} ★${stars} with cards`);
         const r = playHand(g, seq(2, 3, 3, 5, 6, 1, 4));

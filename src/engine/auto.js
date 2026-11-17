@@ -8,12 +8,11 @@
 // A level ends as soon as the score reaches the target (owner, 01.11.2026), otherwise after its
 // three hands. The bank (owner, 02.11.2026): bonuses not played on a won level wait in a bank of three
 // for the next levels (`level.bank`, kinds); a banked bonus is cell BANK + k, switched on and used like a
-// card on the board, and gone once played. The banked cards come in on the level's first reroll (owner,
-// 03.11.2026: «a kept card takes part only after the first reroll; the first round always has every cell
-// filled»): each takes the cell of a die being rerolled, in bank and board order (cell `fromBank: k`, the
-// entry `placed`), while the board keeps MIN_DICE dice; the rest wait above the board, usable from then
-// on. After that reroll a played card's cell takes the first banked card still waiting, else a new die. A
-// 'hole' remains only in games saved before. Pure state transitions, same action shape as poker.js.
+// card on the board, and gone once played. One card lies on the board for a hand (owner, 17.11.2026: «На поле одна»),
+// so a banked card never comes onto the board: it plays from the row above it while the board holds no card (his
+// option of 12.11.2026), one at a time, from the level's first hand. A played card's cell takes a new die. Games saved
+// before keep the cards that came in on a first reroll (cells `fromBank: k`, entries `placed`), and a 'hole' (a used
+// card's empty cell) remains only in games saved before 03.11.2026. Pure state transitions, same action shape as poker.js.
 
 import { bestHand, BONUS_KINDS, numberedKind } from './hands.js';
 import { createRng } from './rng.js';
@@ -29,9 +28,10 @@ export const AUTO_DEFAULT_CONFIG = Object.freeze({
 const reject = (code, message) => ({ ok: false, code, message });
 export const BANK = 100;    // the first banked bonus's cell number (the board's are 0–8)
 export const BANK_SIZE = 3; // places in the bank (owner, 02.11.2026); the rest burn
-export const MIN_DICE = 6; // every layout keeps this many dice (levels3.js), and so does a kept card coming in
+export const MIN_DICE = 6; // every layout keeps this many dice (levels3.js)
 const waiting = (b) => !b.used && !b.placed; // a banked card still above the board
-export const bankOpen = (state) => !!state.stats.rerollsUsed;
+// The bank's cards play while the board holds no card (owner, 17.11.2026: «На поле одна»).
+export const bankOpen = (state) => !state.cells.some((c) => c.type === 'bonus');
 const keeperOf = (level) => (level.boss && BOSSES[level.boss]) || null;
 
 // What the pocket's things (`level.things`, things3.js) and the level's keeper change in a hand's count (bestHand's
@@ -137,13 +137,14 @@ export function toggleHold(state, i) {
   return { ok: true, held: held[i], state: { ...state, held, stats: bump(state, 'holdToggles') } };
 }
 
-// Switches a bonus die on (it joins the hand when it fits) or back off (kept for a later hand).
+// Switches a bonus die on (it joins the hand when it fits) or back off (kept for a later hand). A banked card switches
+// on while the board holds no card, and one at a time: switching one on switches the bank's other cards off.
 export function toggleBonus(state, i) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   const b = Number.isInteger(i) ? banked(state, i) : null;
   if (b && waiting(b)) {
-    if (!state.stats.rerollsUsed) return reject('NOT_YET', 'COMES IN ON THE FIRST REROLL');
-    const bank = state.bank.map((x, k) => (k === i - BANK ? { ...x, off: !x.off } : x));
+    if (!bankOpen(state)) return reject('NOT_YET', 'PLAYS WHEN THE BOARD HAS NO CARD');
+    const bank = state.bank.map((x, k) => (k === i - BANK ? { ...x, off: !x.off } : waiting(x) ? { ...x, off: true } : x));
     return { ok: true, off: bank[i - BANK].off, state: { ...state, bank, stats: bump(state, 'bonusToggles') } };
   }
   if (!Number.isInteger(i) || i >= BANK || !isBonus(state, i)) return reject('NOT_BONUS', 'Tap a bonus die to switch it');
@@ -153,39 +154,22 @@ export function toggleBonus(state, i) {
 }
 
 // Rerolls every unheld die, then clears every hold and switches every bonus off again (owner,
-// 01.11.2026): a hold and a switched-on bonus count for one throw. On the level's first reroll the banked
-// cards come in, each in place of a die being rerolled, in board order, landing switched off (owner,
-// 03.11.2026), as long as the board keeps MIN_DICE dice; those left over wait above the board.
+// 01.11.2026): a hold and a switched-on bonus count for one throw.
 export function reroll(state, rollDie) {
   if (state.phase !== 'playing') return reject('PHASE', 'The level is over');
   if (state.rerollsLeft <= 0) return reject('NO_REROLLS', 'No rerolls left');
-  const targets = rerollTargets(state);
-  if (targets.length === 0) return reject('NOTHING_TO_REROLL', 'Every die is held - release one to reroll');
-  const cells = state.cells.slice();
+  const rolled = rerollTargets(state);
+  if (rolled.length === 0) return reject('NOTHING_TO_REROLL', 'Every die is held - release one to reroll');
   const faces = state.faces.slice();
-  const bank = state.bank.map((b) => ({ ...b, off: true }));
-  const placed = [];
-  const rolled = targets.slice();
-  if (!state.stats.rerollsUsed) {
-    let spare = diceCells(state).length - MIN_DICE; // dice the kept cards may take
-    bank.forEach((b, k) => {
-      if (!waiting(b) || !rolled.length || spare <= 0) return;
-      spare -= 1;
-      const i = rolled.shift();
-      cells[i] = { type: 'bonus', kind: b.kind, fromBank: k };
-      faces[i] = null;
-      b.placed = true;
-      placed.push({ cell: i, from: k });
-    });
-  }
   for (const i of rolled) {
     const f = rollDie();
     if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`rollDie returned ${f}`);
     faces[i] = f;
   }
   const held = state.held.map(() => false);
-  const off = cells.map((c, i) => (c.type === 'bonus' ? true : state.off[i]));
-  return { ok: true, rolled, placed, state: { ...state, cells, faces, held, off, bank, rerollsLeft: state.rerollsLeft - 1, stats: bump(state, 'rerollsUsed') } };
+  const off = state.cells.map((c, i) => (c.type === 'bonus' ? true : state.off[i]));
+  const bank = state.bank.map((b) => ({ ...b, off: true }));
+  return { ok: true, rolled, state: { ...state, faces, held, off, bank, rerollsLeft: state.rerollsLeft - 1, stats: bump(state, 'rerollsUsed') } };
 }
 
 // The best hand on the board with every bonus that is on, or null.
@@ -244,25 +228,13 @@ export function playHand(state, drawDie) {
   const cells = state.cells.slice();
   const off = state.off.slice();
   const bank = state.bank.map((b, k) => (used.includes(BANK + k) ? { ...b, off: false, used: true } : b)); // a played one is gone
-  // a played card's cell takes the first banked card still waiting, else a new die (owner, 03.11.2026); before
-  // the level's first reroll the banked cards are not in play yet
+  // a played card's cell takes a new die (owner, 03.11.2026); a banked card never comes onto the board (17.11.2026)
   const spent = used.filter((i) => i < BANK);
-  const placed = [];
-  const fresh = [];
   for (const i of spent) {
-    const k = bankOpen(state) ? bank.findIndex(waiting) : -1;
-    if (k >= 0) {
-      bank[k] = { ...bank[k], placed: true };
-      cells[i] = { type: 'bonus', kind: bank[k].kind, fromBank: k };
-      off[i] = true;
-      placed.push({ cell: i, from: k });
-    } else {
-      cells[i] = { type: 'die' };
-      off[i] = false;
-      fresh.push(i);
-    }
+    cells[i] = { type: 'die' };
+    off[i] = false;
   }
-  const refilled = [...burned, ...fresh];
+  const refilled = [...burned, ...spent];
   for (const i of refilled) {
     const f = drawDie();
     if (!Number.isInteger(f) || f < 1 || f > 6) throw new Error(`drawDie returned ${f}`);
@@ -278,7 +250,6 @@ export function playHand(state, drawDie) {
     burned,
     refilled,
     spent,
-    placed,
     state: { ...state, cells, faces, held, off, bank, hands: [...state.hands, hand], score, handsLeft, rerollsLeft, phase },
   };
 }

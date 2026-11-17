@@ -18,17 +18,19 @@ import { keeperHelp } from './things3.js';
 export const RUN3_VERSION = `run-3/${RECIPES3_VERSION}`;
 export const RUN3 = Object.freeze({
   // levels 1–60: the spec's anchors (1: 240, 5: 350, 10: 560 … 30: 2050, 40: 3400, 50: 5200, 60: 7600), filled at an even
-  // ratio; no step up on the fifth levels, the keeper is the step
-  targets: Object.freeze([240, 260, 290, 320, 350, 380, 420, 460, 510, 560, 600, 650, 700, 760, 820, 880, 940, 1000, 1070, 1150,
-    1220, 1300, 1380, 1460, 1550, 1640, 1730, 1830, 1940, 2050, 2160, 2270, 2390, 2510, 2640, 2780, 2920, 3070, 3230, 3400,
-    3550, 3700, 3860, 4030, 4200, 4390, 4580, 4780, 4980, 5200, 5400, 5610, 5830, 6050, 6290, 6530, 6780, 7040, 7320, 7600]),
+  // ratio; no step up on the fifth levels, the keeper is the step. × 0.85 since one card lies on the board for a hand
+  // (17.11.2026, MODE3-PLAN §60): that brings the bots' curve back to where it was with two (run3-sim, run-1 and run-2)
+  targets: Object.freeze([200, 220, 250, 270, 300, 320, 360, 390, 430, 480, 510, 550, 600, 650, 700, 750, 800, 850, 910, 980,
+    1040, 1110, 1170, 1240, 1320, 1390, 1470, 1560, 1650, 1740, 1840, 1930, 2030, 2130, 2240, 2360, 2480, 2610, 2750, 2890,
+    3020, 3150, 3280, 3430, 3570, 3730, 3890, 4060, 4230, 4420, 4590, 4770, 4960, 5140, 5350, 5550, 5760, 5980, 6220, 6460]),
   past: 1.038,    // each level past the table, rounded to 10
   aimFirst: 0.99, // a typical player's pass chance the layout aims at on levels 1–2 (the tutorial runs on level 1)
   aimStart: 0.99, // on level 3, then falling towards aimFloor, by e every aimFade levels
   aimFade: 60,    // the spec's first values: boards a typical player passes at 97–99% for twenty-five levels, about 95% at 60
   aimFloor: 0.93,
-  near: 0.25,     // layouts whose modelled failure is within e^near of the best fit's are drawn at random, for variety
-  maxBonuses: 2,  // three hero cards on one hand reach ×7 and swamp the layout table; a third card comes from the bank
+  near: 1,        // layouts whose modelled failure is within e^near of the best fit's are drawn at random, for variety (0.25
+                  // with two cards; with one, 0.25 dealt the Witch's TRIPS on 4 levels in 10 up to level 20, 1 on 1 in 4)
+  maxBonuses: 1,  // one card on the board for a hand (owner, 17.11.2026: «На поле одна»); the bank's play when it holds none
   firstRecipe: '8d0x:x2_any',
 });
 
@@ -66,14 +68,13 @@ export function percentileOf(q, score) {
 // The modelled pass chance of a typical player on the recipe at that level.
 export const typicalChance = (recipe, levelIndex, curve = RUN3) => 1 - percentileOf(recipe.naive, runTarget(levelIndex, curve) / runLift(levelIndex));
 
-// Recipes a level may use: at most two hero cards of different kinds, all opened. A level that opens a hero deals it beside
-// the Knight's ×2 ANY HAND (spec: a conditional hero dealt alone leaked runs on the first levels). Letting the aim pick the
-// partner instead measured worse (run3-sim, 10.11.2026: the typical bot's median 20 against 23–24; the model ranks
-// conditional pairs badly, trips beside SMALL passed 82% at level 16 against 89% for the Knight). Every recipe is nine
-// cells of dice and cards (no locks since 09.11.2026).
+// Recipes a level may use: at most one card on the board (owner, 17.11.2026: «На поле одна»), of a hero already opened. A
+// level that opens a hero deals it alone (it came beside the Knight's ×2 ANY HAND until then, since a conditional hero
+// dealt alone leaked runs on the first levels: the targets of those levels answer for it now). Every recipe is nine cells
+// of dice and cards (no locks since 09.11.2026).
 export function candidates(levelIndex) {
   const fresh = newKind(levelIndex);
-  if (fresh) return [recipeById(`7d0x:x2_any+${fresh}`)];
+  if (fresh) return [recipeById(`8d0x:${fresh}`)];
   const open = unlockedKinds(levelIndex);
   return RECIPES3.filter((r) => r.kinds.length <= RUN3.maxBonuses && new Set(r.kinds).size === r.kinds.length && r.kinds.every((k) => open.includes(k)));
 }
