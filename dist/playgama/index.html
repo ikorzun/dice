@@ -4286,10 +4286,12 @@ const __mod_run3 = (() => {
 // about 60), and 3.8% a level past it. Its layout is drawn from the recipes whose pass chance for a typical player is
 // near the level's aim. That player is modelled as the naive bot's score quantiles (recipes3.js) times the lift of a
 // player who took an upgrade after every level before it (UP_LIFT). Both depend only on the run seed and the level
-// number: never on how the player did, their bank or their upgrades. The chance model only ranks the layouts; how
-// far players get is measured by scripts/run3-sim.mjs.
+// number: never on how the player did or their upgrades. The bank decides one thing alone: while it holds a card, the
+// level's card is a die (owner, 18.11.2026, MODE3-PLAN §64). The chance model only ranks the layouts; how far players
+// get is measured by scripts/run3-sim.mjs.
 
 const { createRng } = __mod_rng;
+const { BONUS_KINDS } = __mod_hands;
 const { RECIPES3, RECIPE_QUANTILES, RECIPES3_VERSION } = __mod_recipes3;
 const { unlockedKinds, newKind, firstLayout, shuffledCells, placeLayout } = __mod_levels3;
 const { createAutoGame, currentHand } = __mod_auto;
@@ -4379,17 +4381,29 @@ function chooseRecipe(levelIndex, rng, curve = RUN3) {
   return near[rng.int(near.length)].recipe;
 }
 
-// `bank`, `ups` and `things` (the pocket, [{ id, stars }]) only travel with the level into the game: the layout and the
-// table's target never look at them. On a keeper's level the things that answer him work before it starts, in plain
-// sight: CALM START's points scored, DISTRACTION's cut of the threshold (`help` names them for the screen).
+// `bank`, `ups` and `things` (the pocket, [{ id, stars }]) travel with the level into the game: the table's target never
+// looks at them, and the layout looks at the bank alone, for its card (below). On a keeper's level the things that answer
+// him work before it starts, in plain sight: CALM START's points scored, DISTRACTION's cut of the threshold (`help` names
+// them for the screen).
+// A level deals its card only while the bank holds none (owner, 18.11.2026: «Давай давать карту на поле только если у
+// игрока нет карт в банке и всего 1 раз за уровень. Иначе сложность с картами падает»). A kept POWER PAINT does not
+// count: it joins no hand while a hand holds one card (MODE3-PLAN §60). Still once a level, at its start: a reroll or a
+// played card never brings one.
+const bankHoldsCard = (bank) => bank.some((kind) => BONUS_KINDS[kind] && !BONUS_KINDS[kind].paint);
+
 function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], ups = {}, things = [], curve = RUN3 }) {
   const seed = `${runSeed}/A${levelIndex}/run`;
   const rng = createRng(seed);
   const boss = bossOf(runSeed, levelIndex);
   const rule = boss ? BOSSES[boss] : {};
   const recipe = chooseRecipe(levelIndex, rng, curve);
-  const layout = levelIndex <= 1 ? firstLayout() : placeLayout(shuffledCells(rng), recipe.kinds, recipe.blocks);
-  const faces = layout.map((c) => (c.type === 'die' ? rng.die() : null));
+  const dealt = levelIndex <= 1 ? firstLayout() : placeLayout(shuffledCells(rng), recipe.kinds, recipe.blocks);
+  const drawn = dealt.map((c) => (c.type === 'die' ? rng.die() : null));
+  // while the bank holds a card, the card's cell is a die, thrown from its own draw so the other dice stay as dealt
+  const withheld = bankHoldsCard(bank) ? dealt.filter((c) => c.type === 'bonus').map((c) => c.kind) : [];
+  const spare = createRng(`${seed}/held`);
+  const layout = withheld.length ? dealt.map((c) => (c.type === 'bonus' ? { type: 'die' } : c)) : dealt;
+  const faces = withheld.length ? drawn.map((f, i) => (dealt[i].type === 'bonus' ? spare.die() : f)) : drawn;
   const help = boss ? keeperHelp(things) : { points: 0, cut: 0, by: [] };
   const target = runTarget(levelIndex, curve);
   const level = {
@@ -4408,6 +4422,7 @@ function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], ups = {
     rerolls: rule.rerolls ?? config.rerolls,
     boss,
     recipe: recipe.id,
+    withheld, // the card the layout dealt and the bank held back (kinds), for the log
     chance: typicalChance(recipe, levelIndex, curve), // the model's, for the log; never shown
     bank: bank.slice(), // the bonuses carried over, kinds
     ups: { ...ups }, // the run's upgrades of the combinations
@@ -4420,7 +4435,7 @@ function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], ups = {
   return level;
 }
 
-return { RUN3_VERSION, RUN3, runLift, runTarget, runAim, recipeById, percentileOf, typicalChance, candidates, chooseRecipe, generateRunLevel };
+return { RUN3_VERSION, RUN3, runLift, runTarget, runAim, recipeById, percentileOf, typicalChance, candidates, chooseRecipe, bankHoldsCard, generateRunLevel };
 })();
 // ---- src/engine/shop3.js ----
 const __mod_shop3 = (() => {
@@ -8568,11 +8583,11 @@ const MODES = {
         'Dice, bonus dice and blocks on a 3×3 board. Positions do not matter: PLAY scores the best poker hand among all the dice, or the one you pick: when the dice you hold make a combination, the best of them plays. The counter shows the hand and its points; the board does not mark its dice.',
         'PLAY HAND scores it. Then every die burns and is thrown anew, held or not.',
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
-        'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back); deeper in the run ×3 KINDS, ×3 SMALL, ×4 LAST HAND and ×3 TWO SIXES. They start switched off: tap one to switch it on (tap again to keep it for later). A level deals one at most, and one bonus that is on and fits joins the hand. A used bonus makes way for a new die.',
+        'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back); deeper in the run ×3 KINDS, ×3 SMALL, ×4 LAST HAND and ×3 TWO SIXES. They start switched off: tap one to switch it on (tap again to keep it for later). A level deals one at most, and only while your bank holds none; one bonus that is on and fits joins the hand. A used bonus makes way for a new die.',
         'Reach the target and the level ends at once; a level has three hands at most. Miss it and the run is over. There is no last level: each asks for more.',
         'A cleared level pays bells: 2, plus 2 for each hand and 1 for each reroll left unused. A shop opens after the second and fourth level of each act: one thing and one +1. Things work by themselves for the run, three at most, four after level 15, five after 35; the same thing again gains a star.',
         'Every fifth level is a keeper with one rule, named in the shop before it. Beat him for 3 more bells, a golden one for 8.',
-        'Bonuses you did not play on a won level are kept for the next level of the run, three at most: past three you choose which to keep, and the one you let go sells for half its price. They wait above the board and play from there while the board holds no bonus die, one a hand: tap one to switch it on.',
+        'Bonuses you did not play on a won level are kept for the next level of the run, three at most: past three you choose which to keep, and the one you let go sells for half its price. They wait above the board and play from there while the board holds no bonus die, one a hand: tap one to switch it on. While the bank holds one, a level deals no new bonus.',
       ],
       scoreTitle: 'SCORING · THE HAND IS THE DICE OF THE COMBINATION',
       scoreRows: () => {
@@ -11637,7 +11652,10 @@ function openGuide() {
   $('combos').innerHTML = GUIDE_COMBOS.map(([cat, dice]) => `<li><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${sentence(CATEGORY5_LABELS[cat])}</b><em>${ups[cat] ? `×${AUTO_MULT[cat]} → ` : ''}×${AUTO_MULT[cat] + (ups[cat] || 0)}</em></li>`).join('');
   $('holdPic').innerHTML = `<span class="grp"><span>${[6, 6, 6].map((v) => guideDie(v, true)).join('')}</span><small>TAP = HOLD</small></span><span class="grp roll"><span>${[2, 4].map((v) => guideDie(v)).join('')}</span><small>REROLL</small></span>`;
   $('bonusPic').innerHTML = `<ul class="bonus-list">${Object.keys(GUIDE_BONUSES).map((k) => `<li>${guideTile(k, false)}<small>${GUIDE_BONUSES[k]}</small></li>`).join('')}</ul>`;
-  $('bonusNote').textContent = 'ONE CARD A HAND'; // owner, 17.11.2026: «На поле одна»; no «tap to switch on» in any popup (11.11.2026)
+  // owner, 17.11.2026: «На поле одна»; a level deals its card only to an empty bank (owner, 18.11.2026; the price of keeping a
+  // card is said where the cards are, digest rule 16, as what an empty bank gains: one line on a 360 px phone); no «tap to
+  // switch on» in any popup (11.11.2026)
+  $('bonusNote').innerHTML = 'ONE CARD A HAND<br>EMPTY BANK BRINGS A NEW CARD';
   // How says the one rule no screen shows in words since the card's sheet lost its line (audit, 09.11.2026)
   $('holdNote').innerHTML = 'PLAY THROWS EVERY DIE ANEW<br>A REROLL CLEARS HOLDS AND SWITCHES CARDS OFF';
   // How opens on what the run holds, once it holds anything; the rules follow it

@@ -281,11 +281,11 @@ const MODES = {
         'Dice, bonus dice and blocks on a 3×3 board. Positions do not matter: PLAY scores the best poker hand among all the dice, or the one you pick: when the dice you hold make a combination, the best of them plays. The counter shows the hand and its points; the board does not mark its dice.',
         'PLAY HAND scores it. Then every die burns and is thrown anew, held or not.',
         'Tap a die to hold it. REROLL changes every unheld die. Three rerolls per level, shared by all hands.',
-        'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back); deeper in the run ×3 KINDS, ×3 SMALL, ×4 LAST HAND and ×3 TWO SIXES. They start switched off: tap one to switch it on (tap again to keep it for later). A level deals one at most, and one bonus that is on and fits joins the hand. A used bonus makes way for a new die.',
+        'Bonus dice: ×2 ANY HAND, ×3 STRAIGHT, ×3 PAIRS (pair, two pairs), ×3 TRIPS (three of a kind, full house), ★ JOKER (stands in for any face), +1 REFUND (the hand gives a reroll back); deeper in the run ×3 KINDS, ×3 SMALL, ×4 LAST HAND and ×3 TWO SIXES. They start switched off: tap one to switch it on (tap again to keep it for later). A level deals one at most, and only while your bank holds none; one bonus that is on and fits joins the hand. A used bonus makes way for a new die.',
         'Reach the target and the level ends at once; a level has three hands at most. Miss it and the run is over. There is no last level: each asks for more.',
         'A cleared level pays bells: 2, plus 2 for each hand and 1 for each reroll left unused. A shop opens after the second and fourth level of each act: one thing and one +1. Things work by themselves for the run, three at most, four after level 15, five after 35; the same thing again gains a star.',
         'Every fifth level is a keeper with one rule, named in the shop before it. Beat him for 3 more bells, a golden one for 8.',
-        'Bonuses you did not play on a won level are kept for the next level of the run, three at most: past three you choose which to keep, and the one you let go sells for half its price. They wait above the board and play from there while the board holds no bonus die, one a hand: tap one to switch it on.',
+        'Bonuses you did not play on a won level are kept for the next level of the run, three at most: past three you choose which to keep, and the one you let go sells for half its price. They wait above the board and play from there while the board holds no bonus die, one a hand: tap one to switch it on. While the bank holds one, a level deals no new bonus.',
       ],
       scoreTitle: 'SCORING · THE HAND IS THE DICE OF THE COMBINATION',
       scoreRows: () => {
@@ -3350,7 +3350,10 @@ function openGuide() {
   $('combos').innerHTML = GUIDE_COMBOS.map(([cat, dice]) => `<li><span class="gdice">${dice.map((v) => guideDie(v)).join('')}</span><b>${sentence(CATEGORY5_LABELS[cat])}</b><em>${ups[cat] ? `×${AUTO_MULT[cat]} → ` : ''}×${AUTO_MULT[cat] + (ups[cat] || 0)}</em></li>`).join('');
   $('holdPic').innerHTML = `<span class="grp"><span>${[6, 6, 6].map((v) => guideDie(v, true)).join('')}</span><small>TAP = HOLD</small></span><span class="grp roll"><span>${[2, 4].map((v) => guideDie(v)).join('')}</span><small>REROLL</small></span>`;
   $('bonusPic').innerHTML = `<ul class="bonus-list">${Object.keys(GUIDE_BONUSES).map((k) => `<li>${guideTile(k, false)}<small>${GUIDE_BONUSES[k]}</small></li>`).join('')}</ul>`;
-  $('bonusNote').textContent = 'ONE CARD A HAND'; // owner, 17.11.2026: «На поле одна»; no «tap to switch on» in any popup (11.11.2026)
+  // owner, 17.11.2026: «На поле одна»; a level deals its card only to an empty bank (owner, 18.11.2026; the price of keeping a
+  // card is said where the cards are, digest rule 16, as what an empty bank gains: one line on a 360 px phone); no «tap to
+  // switch on» in any popup (11.11.2026)
+  $('bonusNote').innerHTML = 'ONE CARD A HAND<br>EMPTY BANK BRINGS A NEW CARD';
   // How says the one rule no screen shows in words since the card's sheet lost its line (audit, 09.11.2026)
   $('holdNote').innerHTML = 'PLAY THROWS EVERY DIE ANEW<br>A REROLL CLEARS HOLDS AND SWITCHES CARDS OFF';
   // How opens on what the run holds, once it holds anything; the rules follow it

@@ -57,15 +57,40 @@ test('percentiles: the quantiles themselves, monotone between and beyond them', 
   }
 });
 
-test('a level depends on the run seed and its number only: never on the bank or upgrades it carries', () => {
+test('a level depends on the run seed and its number: upgrades never change it, and a bank holding a card only turns its card into a die', () => {
   for (const n of [1, 2, 4, 6, 9, 17]) {
     const plain = generateRunLevel({ runSeed: 'same', levelIndex: n });
-    const carried = generateRunLevel({ runSeed: 'same', levelIndex: n, bank: ['joker', 'x2_any'], ups: { straight: 3, pair: 1 } });
-    for (const key of ['layout', 'faces', 'target', 'recipe', 'seed']) assert.deepEqual(carried[key], plain[key], `level ${n}: ${key}`);
+    const upped = generateRunLevel({ runSeed: 'same', levelIndex: n, ups: { straight: 3, pair: 1 } });
+    for (const key of ['layout', 'faces', 'target', 'recipe', 'seed']) assert.deepEqual(upped[key], plain[key], `level ${n}: ${key}`);
+    assert.deepEqual(upped.ups, { straight: 3, pair: 1 });
+    const carried = generateRunLevel({ runSeed: 'same', levelIndex: n, bank: ['joker', 'x2_any'] });
+    for (const key of ['target', 'recipe', 'seed']) assert.deepEqual(carried[key], plain[key], `level ${n}: ${key}`);
+    plain.layout.forEach((c, i) => {
+      if (c.type === 'bonus') assert.ok(carried.layout[i].type === 'die' && carried.faces[i] >= 1 && carried.faces[i] <= 6, `level ${n}: the card's cell`);
+      else assert.ok(carried.layout[i].type === c.type && carried.faces[i] === plain.faces[i], `level ${n}: cell ${i} stays`);
+    });
+    assert.deepEqual(carried.withheld, plain.layout.filter((c) => c.type === 'bonus').map((c) => c.kind));
     assert.deepEqual(carried.bank, ['joker', 'x2_any']);
-    assert.deepEqual(carried.ups, { straight: 3, pair: 1 });
     assert.deepEqual(generateRunLevel({ runSeed: 'same', levelIndex: n }), plain);
   }
+});
+
+test('a level deals its card only while the bank holds none, and a kept POWER PAINT holds nothing back (owner, 18.11.2026)', () => {
+  let dealt = 0;
+  for (let s = 0; s < 20; s++) {
+    for (let n = 1; n <= 60; n++) {
+      const plain = generateRunLevel({ runSeed: `held${s}`, levelIndex: n });
+      dealt += plain.layout.filter((c) => c.type === 'bonus').length;
+      for (const bank of [['refund'], ['x3_sixes', 'second_wind'], ['power_paint', 'joker']]) {
+        const level = generateRunLevel({ runSeed: `held${s}`, levelIndex: n, bank });
+        assert.ok(level.layout.every((c) => c.type === 'die') && level.faces.every((f) => f >= 1 && f <= 6), `held${s} level ${n}, bank ${bank}`);
+      }
+      const paint = generateRunLevel({ runSeed: `held${s}`, levelIndex: n, bank: ['power_paint'] });
+      assert.deepEqual(paint.layout, plain.layout, 'POWER PAINT joins no hand: the card comes');
+      assert.deepEqual(paint.withheld, []);
+    }
+  }
+  assert.ok(dealt > 1000, `an empty bank still gets its cards (${dealt} on 1200 levels)`);
 });
 
 test('level 1 is the first board: eight dice and the ×2 in the corner', () => {

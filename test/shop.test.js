@@ -179,7 +179,7 @@ test('a keeper comes from the seed alone: THE EATER first, never one of the last
       const level = generateRunLevel({ runSeed, levelIndex: L, ups: { pair: 2 }, things: [{ id: 'lucky_coin', stars: 2 }], bank: ['joker'] });
       const plain = generateRunLevel({ runSeed, levelIndex: L });
       assert.equal(level.target, runTarget(L), 'the boss keeps the ladder');
-      assert.deepEqual(level.layout, plain.layout, 'the player never changes the board');
+      assert.deepEqual(level.layout, plain.layout.map((c) => (c.type === 'bonus' ? { type: 'die' } : c)), 'the player changes the board only by holding a card: its card is a die then');
       const b = BOSSES[level.boss];
       assert.ok(b, level.boss);
       if (b.hands) assert.equal(createAutoGame(level, { hands: 3, rerolls: 3 }).handsLeft, 2);

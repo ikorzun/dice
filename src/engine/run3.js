@@ -4,10 +4,12 @@
 // about 60), and 3.8% a level past it. Its layout is drawn from the recipes whose pass chance for a typical player is
 // near the level's aim. That player is modelled as the naive bot's score quantiles (recipes3.js) times the lift of a
 // player who took an upgrade after every level before it (UP_LIFT). Both depend only on the run seed and the level
-// number: never on how the player did, their bank or their upgrades. The chance model only ranks the layouts; how
-// far players get is measured by scripts/run3-sim.mjs.
+// number: never on how the player did or their upgrades. The bank decides one thing alone: while it holds a card, the
+// level's card is a die (owner, 18.11.2026, MODE3-PLAN §64). The chance model only ranks the layouts; how far players
+// get is measured by scripts/run3-sim.mjs.
 
 import { createRng } from './rng.js';
+import { BONUS_KINDS } from './hands.js';
 import { RECIPES3, RECIPE_QUANTILES, RECIPES3_VERSION } from './recipes3.js';
 import { unlockedKinds, newKind, firstLayout, shuffledCells, placeLayout } from './levels3.js';
 import { createAutoGame, currentHand } from './auto.js';
@@ -97,17 +99,29 @@ export function chooseRecipe(levelIndex, rng, curve = RUN3) {
   return near[rng.int(near.length)].recipe;
 }
 
-// `bank`, `ups` and `things` (the pocket, [{ id, stars }]) only travel with the level into the game: the layout and the
-// table's target never look at them. On a keeper's level the things that answer him work before it starts, in plain
-// sight: CALM START's points scored, DISTRACTION's cut of the threshold (`help` names them for the screen).
+// `bank`, `ups` and `things` (the pocket, [{ id, stars }]) travel with the level into the game: the table's target never
+// looks at them, and the layout looks at the bank alone, for its card (below). On a keeper's level the things that answer
+// him work before it starts, in plain sight: CALM START's points scored, DISTRACTION's cut of the threshold (`help` names
+// them for the screen).
+// A level deals its card only while the bank holds none (owner, 18.11.2026: «Давай давать карту на поле только если у
+// игрока нет карт в банке и всего 1 раз за уровень. Иначе сложность с картами падает»). A kept POWER PAINT does not
+// count: it joins no hand while a hand holds one card (MODE3-PLAN §60). Still once a level, at its start: a reroll or a
+// played card never brings one.
+export const bankHoldsCard = (bank) => bank.some((kind) => BONUS_KINDS[kind] && !BONUS_KINDS[kind].paint);
+
 export function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], ups = {}, things = [], curve = RUN3 }) {
   const seed = `${runSeed}/A${levelIndex}/run`;
   const rng = createRng(seed);
   const boss = bossOf(runSeed, levelIndex);
   const rule = boss ? BOSSES[boss] : {};
   const recipe = chooseRecipe(levelIndex, rng, curve);
-  const layout = levelIndex <= 1 ? firstLayout() : placeLayout(shuffledCells(rng), recipe.kinds, recipe.blocks);
-  const faces = layout.map((c) => (c.type === 'die' ? rng.die() : null));
+  const dealt = levelIndex <= 1 ? firstLayout() : placeLayout(shuffledCells(rng), recipe.kinds, recipe.blocks);
+  const drawn = dealt.map((c) => (c.type === 'die' ? rng.die() : null));
+  // while the bank holds a card, the card's cell is a die, thrown from its own draw so the other dice stay as dealt
+  const withheld = bankHoldsCard(bank) ? dealt.filter((c) => c.type === 'bonus').map((c) => c.kind) : [];
+  const spare = createRng(`${seed}/held`);
+  const layout = withheld.length ? dealt.map((c) => (c.type === 'bonus' ? { type: 'die' } : c)) : dealt;
+  const faces = withheld.length ? drawn.map((f, i) => (dealt[i].type === 'bonus' ? spare.die() : f)) : drawn;
   const help = boss ? keeperHelp(things) : { points: 0, cut: 0, by: [] };
   const target = runTarget(levelIndex, curve);
   const level = {
@@ -126,6 +140,7 @@ export function generateRunLevel({ runSeed, levelIndex, config = {}, bank = [], 
     rerolls: rule.rerolls ?? config.rerolls,
     boss,
     recipe: recipe.id,
+    withheld, // the card the layout dealt and the bank held back (kinds), for the log
     chance: typicalChance(recipe, levelIndex, curve), // the model's, for the log; never shown
     bank: bank.slice(), // the bonuses carried over, kinds
     ups: { ...ups }, // the run's upgrades of the combinations

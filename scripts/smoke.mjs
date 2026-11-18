@@ -54,6 +54,20 @@ const state = (page) => page.evaluate(() => {
 });
 // A 3D throw (when the CDN is reachable) outlasts the CSS tumble: wait until the game is free again.
 const idle = (page) => page.waitForFunction(() => !window.__diceSnake.app.busy, null, { timeout: 10000 });
+// A card on the board beside kept ones, as a save from before 18.11.2026 has it: since then a level deals no card while the
+// bank holds one (MODE3-PLAN §64), so a board card beside the bank, and the bank's overflow, come only from such a save.
+// The level's own card, held back, lies in the middle as that save would have it.
+const oldSaveCard = (page) => page.evaluate(() => {
+  const d = window.__diceSnake;
+  const g = d.state().game;
+  const kind = g.level.withheld[0];
+  if (!kind) return null;
+  g.cells = g.cells.map((c, k) => (k === 4 ? { type: 'bonus', kind } : c));
+  g.faces = g.faces.map((f, k) => (k === 4 ? null : f));
+  g.off = g.cells.map((c, k) => (c.type === 'bonus' ? true : g.off[k]));
+  d.switchMode('auto', { silent: true });
+  return kind;
+});
 const gotIt = async (page) => { await page.waitForTimeout(550); await page.click('#bonusSheetOk'); }; // a sheet answers half a second after it comes
 // the splash covers every start for 3 s (checked once, on the first page); elsewhere it goes at once
 const unsplash = async (page) => { await page.evaluate(() => window.__diceSnake.endSplash()); await page.waitForTimeout(350); };
@@ -553,6 +567,12 @@ for (const vp of viewports) {
     st.game.level.target = 1;
   });
   await idle(page);
+  // a bank holding cards keeps the level's card back: nine dice (owner, 18.11.2026: «давать карту на поле только если у
+  // игрока нет карт в банке»); the rest of this step is a save from before that, with the card on the board
+  const heldBack = await page.evaluate(() => ({ cards: document.querySelectorAll('#board > .cell.bonus').length, withheld: window.__diceSnake.state().game.level.withheld }));
+  if (heldBack.cards || heldBack.withheld.length !== 1) note(vp, `a full bank and the level's card: ${JSON.stringify(heldBack)}`);
+  await oldSaveCard(page);
+  await idle(page);
   if ((await extras(page)).length) note(vp, `more than the base with bells, a thing and a bank: ${await extras(page)}`);
   // the bank's cards are the small card (Figma 1339:2155 Card-mini, 11.11.2026): the hero's own lighter colour, the name
   // black, no arch, the hero's whole portrait 64 px from 14 px over the top, never cut
@@ -760,6 +780,8 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   }, { o, KINDS });
   await setState({ level: 4 });
   await page.waitForTimeout(900);
+  await oldSaveCard(page); // a full bank and a board card: a save from before 18.11.2026 (MODE3-PLAN §64)
+  await page.waitForTimeout(400);
   await page.evaluate(() => { const st = window.__diceSnake.state(); st.game = { ...st.game, level: { ...st.game.level, target: 1 } }; document.getElementById('playBtn').click(); });
   // a full bank (MODE3-PLAN §62): three kept cards and the level's own card unplayed ask before the pick, in the card's
   // popup with the bank's places, KEEP and SELL; the smoke lets the card go
