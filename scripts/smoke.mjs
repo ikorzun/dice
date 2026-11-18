@@ -902,6 +902,65 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   await ctx.close();
 }
 
+// The Poki build against a stand-in SDK (developers.poki.com/guide/sdk-html5 and /requirements-quality): init first,
+// gameLoadingFinished once the first screen is up, gameplayStart on the first input and never twice in a row, gameplayStop at
+// a level's end, a commercialBreak at the tap that leaves the receipt (silent under the ad, no event during it), nothing
+// in localStorage but the game's own saves, no request outside the folder.
+{
+  const vp = { w: 402, h: 874 };
+  const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h } });
+  const outside = [];
+  await ctx.route('https://**/*', (r) => { outside.push(r.request().url()); return r.abort(); });
+  await ctx.addInitScript(() => {
+    const calls = [];
+    window.__pk = calls;
+    window.__pkBreak = null;
+    window.PokiSDK = {
+      init: () => { calls.push('init'); return Promise.resolve(); },
+      gameLoadingFinished: () => calls.push('loaded'),
+      gameplayStart: () => calls.push('start'),
+      gameplayStop: () => calls.push('stop'),
+      commercialBreak: (before) => { calls.push('break'); return new Promise((r) => { window.__pkBreak = () => { if (before) before(); calls.push('adshown'); }; window.__pkOver = () => { calls.push('adover'); r(); }; }); },
+    };
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const sus = AC.prototype.suspend;
+    AC.prototype.suspend = function () { calls.push('audio off'); return sus.call(this); };
+  });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => note(vp, `poki pageerror ${e.message}`));
+  await page.goto(pathToFileURL(resolve('dist/poki/index.html')).href);
+  await page.waitForFunction(() => window.__diceSnake, null, { timeout: 10000 });
+  await unsplash(page);
+  const calls = () => page.evaluate(() => window.__pk.splice(0));
+  const start = await calls();
+  if (start[0] !== 'init' || !start.includes('loaded') || start.includes('start')) note(vp, `poki start: ${start.join(', ')}`);
+  await page.waitForFunction(() => !document.getElementById('bonusSheet').hidden, null, { timeout: 6000 });
+  await gotIt(page);
+  await page.click('#rerollBtn');
+  await idle(page);
+  const play = await calls();
+  if (play.filter((c) => c === 'start').length !== 1 || play.includes('stop')) note(vp, `poki first input: ${play.join(', ')}`);
+  await page.evaluate(() => { const st = window.__diceSnake.state(); st.game = { ...st.game, level: { ...st.game.level, target: 1 } }; document.getElementById('playBtn').click(); });
+  await page.waitForFunction(() => document.querySelector('#upList .up') && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
+  const end = await calls();
+  if (!end.includes('stop') || end.includes('break')) note(vp, `poki level end: ${end.join(', ')}`);
+  await page.evaluate(() => document.querySelector('#upList .up').click());
+  await page.waitForFunction(() => document.getElementById('levelEnd').hidden, null, { timeout: 3000 });
+  await page.waitForTimeout(300);
+  const next = await calls();
+  if (!next.includes('break') || next.includes('start')) note(vp, `poki level change (the ad holds gameplayStart): ${next.join(', ')}`);
+  await page.evaluate(() => window.__pkBreak());
+  await page.waitForTimeout(100);
+  const underAd = await calls();
+  if (!underAd.includes('adshown') || !underAd.includes('audio off')) note(vp, `poki ad did not silence the game: ${underAd.join(', ')}`);
+  await page.evaluate(() => window.__pkOver());
+  await page.waitForTimeout(200);
+  const after = await calls();
+  if (!after.includes('start') || after.indexOf('start') < after.indexOf('adover')) note(vp, `poki gameplayStart did not follow the ad: ${after.join(', ')}`);
+  await ctx.close();
+  if (outside.some((u) => !u.includes('game-cdn.poki.com'))) note(vp, `poki build asked outside: ${outside.join(', ')}`);
+}
+
 // The heroes are still pictures (portals redesign, 10.11.2026): a card shows its portrait inside the card, the longest tag
 // (TWO SIXES) fits it, and every card the winning hand used stays as it lies in its acting state; the moment still ends in the pick.
 for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) {

@@ -2,6 +2,8 @@
 // Builds two self-contained files from the ES module sources without a bundler dependency:
 //   dist/index.html    – standalone page (open from disk or any static host)
 //   dist/artifact.html – the same page as a claude.ai artifact fragment (title/meta/style/body)
+//   dist/poki/         – the page for Poki: its SDK script first in <head> (the only thing loaded from outside the folder, and
+//                        Poki's own host serves it), three.js, the acts and the portal's pictures beside the page.
 //   dist/playgama/     – the page for Playgama: the Bridge script first in <head> and its config next to it. Only this
 //                        build waits for the Bridge CDN; the others never load it. Nothing else comes from outside:
 //                        three.js ships in vendor/ next to the page (Playgama 1.2.5).
@@ -137,6 +139,23 @@ const playgama = page.replace('<meta charset="utf-8">', () => `<meta charset="ut
   .split('url("../assets/ui/acts/').join('url("acts/').split('url("../assets/ui/portal/').join('url("portal/');
 if (!playgama.includes(BRIDGE)) throw new Error('index.html has no charset line to put the Bridge script after');
 if (/https:\/\/(?!bridge\.playgama\.com)[^"'\s)]*\.(?:js|css|woff2?|otf|ttf|png|webp|mp3|json)\b/.test(playgama.replace(/<!--[\s\S]*?-->/g, ''))) throw new Error('the Playgama page still loads something from outside its archive');
+
+const POKI_SDK = '<script src="https://game-cdn.poki.com/scripts/v2/poki-sdk.js"></script>';
+// Poki: "Remove splash screens" (requirements-quality): without its element runSplash does nothing, the board opens at once.
+const SPLASH_EL = /<div class="splash" id="splash"[\s\S]*?<\/div>\s*<\/div>\n/;
+if (!SPLASH_EL.test(page)) throw new Error('index.html has no splash element for the Poki build to drop');
+const poki = page.replace(SPLASH_EL, '').replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n${POKI_SDK}`).split(THREE_CDN).join(THREE_LOCAL)
+  .split('url("../assets/ui/acts/').join('url("acts/').split('url("../assets/ui/portal/').join('url("portal/');
+if (!poki.includes(POKI_SDK)) throw new Error('index.html has no charset line to put the Poki SDK after');
+// Poki blocks every external request but its own SDK: nothing else may point outside the folder.
+if (/https:\/\/(?!game-cdn\.poki\.com|www\.w3\.org)[^"'\s)]*\.(?:js|css|woff2?|otf|ttf|png|webp|mp3|json)\b/.test(poki.replace(/<!--[\s\S]*?-->/g, ''))) throw new Error('the Poki page still loads something from outside its folder');
+
+mkdirSync('dist/poki/vendor', { recursive: true });
+mkdirSync('dist/poki/acts', { recursive: true });
+mkdirSync('dist/poki/portal', { recursive: true });
+for (const file of FILES) copyFileSync(`assets/ui/${file}`, `dist/poki/${file}`);
+writeFileSync('dist/poki/index.html', poki);
+copyFileSync('vendor/three/three.module.min.js', 'dist/poki/vendor/three.module.min.js');
 
 mkdirSync('dist/playgama/vendor', { recursive: true });
 mkdirSync('dist/playgama/acts', { recursive: true });

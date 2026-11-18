@@ -5816,6 +5816,7 @@ const __mod_platform = (() => {
 // saves in localStorage at once, as before, and the calls below do nothing.
 
 let bridge = null;
+let poki = null; // Poki's SDK (the build whose page loads poki-sdk.js): its saves stay in localStorage, it only brings ads and play states
 let hosted = false; // the page loaded the Bridge: never fall back to the browser's storage (Playgama 3.2.1)
 let readOnly = false; // the saves could not be read: writing now would put a fresh game over the player's run
 let platformLang = null; // the language the platform reports (ISO 639-1), read once after initialize()
@@ -5827,6 +5828,7 @@ const within = (promise, ms) => Promise.race([promise, new Promise((_, no) => { 
 // Waits for the Bridge and the saves when the page has it; a page without it, or a Bridge that does not answer in
 // time, plays on with the browser's storage (the game never waits on a platform for long).
 async function setupPlatform(keys) {
+  if (window.PokiSDK && !window.bridge) return setupPoki();
   const b = window.bridge;
   if (!b) return false;
   hosted = true;
@@ -5856,7 +5858,33 @@ async function setupPlatform(keys) {
   return true;
 }
 
-const onPlatform = () => !!bridge;
+// Poki (https://developers.poki.com/guide/sdk-html5): init once, and play on whatever it answers. The game's saves stay in
+// localStorage (every call is already in try/catch for incognito); no external link or ad of its own is ever shown.
+async function setupPoki() {
+  try { await within(window.PokiSDK.init(), 10000); } catch { /* "load your game anyway" */ }
+  poki = window.PokiSDK;
+  document.documentElement.lang = 'en';
+  window.addEventListener('pointerdown', () => { pk.input = true; pokiStart(); }, { capture: true });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pokiStop(); else pokiStart(); });
+  return true;
+}
+
+// Poki's rules: gameplayStart on the player's input (not on load), gameplayStop at any interruption, never twice in a row,
+// none during an ad, and commercialBreak only when going back to play.
+const pk = { input: false, wanted: false, playing: false, ad: false, apply: null };
+function pokiCall(name, ...args) { try { return poki[name](...args); } catch { return undefined; } }
+function pokiStart() {
+  if (!poki || !pk.input || !pk.wanted || pk.playing || pk.ad || document.hidden) return;
+  pk.playing = true;
+  pokiCall('gameplayStart');
+}
+function pokiStop() {
+  if (!poki || !pk.playing) return;
+  pk.playing = false;
+  pokiCall('gameplayStop');
+}
+
+const onPlatform = () => !!bridge || !!poki;
 const platformBridge = () => bridge;
 const platformLanguage = () => platformLang;
 
@@ -5889,6 +5917,7 @@ function flushSaves() {
 // `apply(silent, paused)`: silent while the platform mutes the game or pauses it; paused while an ad, another tab or a
 // minimised window has the screen (the game's own timers wait then).
 function followHostAudio(apply) {
+  pk.apply = apply;
   if (!bridge) return;
   let audio = bridge.platform.isAudioEnabled !== false;
   let paused = false;
@@ -5901,11 +5930,15 @@ function followHostAudio(apply) {
 }
 
 function gameReady() {
+  if (poki) pokiCall('gameLoadingFinished');
   if (bridge) Promise.resolve(bridge.platform.sendMessage('game_ready')).catch(() => {});
 }
 
 // level_started, level_completed, level_failed: the platforms that relay them use them for analytics.
 function tellLevel(message, level) {
+  if (poki) {
+    if (message === 'level_started') { pk.wanted = true; pokiStart(); } else { pk.wanted = false; pokiStop(); }
+  }
   if (bridge) { try { Promise.resolve(bridge.platform.sendMessage(message, { level: String(level) })).catch(() => {}); } catch { /* not relayed here */ } }
 }
 
@@ -5921,6 +5954,16 @@ function tell(message) {
 
 // A natural pause between levels: the Bridge decides whether an ad shows now (its own delay between ads).
 function interstitial() {
+  if (poki) {
+    // the break comes with the tap that leaves the receipt: gameplayStop already went at the level's end, gameplayStart waits for it
+    if (pk.ad) return;
+    pk.ad = true;
+    const done = () => { pk.ad = false; if (pk.apply) pk.apply(false, false); pokiStart(); };
+    let ask;
+    try { ask = poki.commercialBreak(() => { if (pk.apply) pk.apply(true, true); }); } catch { done(); return; }
+    Promise.resolve(ask).then(done, done);
+    return;
+  }
   if (bridge && bridge.advertisement && bridge.advertisement.isInterstitialSupported) {
     try { bridge.advertisement.showInterstitial(); } catch { /* the game goes on without it */ }
   }
