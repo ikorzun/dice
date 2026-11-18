@@ -12107,7 +12107,9 @@ function cssUrl(prop) {
 
 // The pictures the build keeps as files beside the page (things, cards, portraits: scripts/build.mjs), fetched one after
 // another once the splash is over, so the shop, the portal or a card never waits for one. What the board shows already
-// loads by itself; the acts and the portal's own pictures have their own warming (warmAct, warmPortal).
+// loads by itself; the acts and the portal's own pictures have their own warming (warmAct, warmPortal). Only these three
+// folders: on the source page (GitHub Pages) every picture is a file, and fetching them all slowed WebKit enough that a
+// tap on a card became a long press (art/check-cards.mjs, 18.11.2026).
 function warmArt() {
   const urls = new Set();
   const read = (rules, base) => {
@@ -12117,7 +12119,7 @@ function warmArt() {
       for (const prop of rule.style) {
         if (!prop.startsWith('--')) continue;
         const m = /url\("?([^")]+)"?\)/.exec(rule.style.getPropertyValue(prop));
-        if (m && !m[1].startsWith('data:') && !/\/(acts|portal)\//.test(m[1])) urls.add(new URL(m[1], base).href);
+        if (m && /(^|\/)(things|cards|portraits)\//.test(m[1])) urls.add(new URL(m[1], base).href);
       }
     }
   };
