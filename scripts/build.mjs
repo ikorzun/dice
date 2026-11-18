@@ -3,16 +3,16 @@
 //   dist/index.html    – standalone page (open from disk or any static host)
 //   dist/artifact.html – the same page as a claude.ai artifact fragment (title/meta/style/body)
 //   dist/poki/         – the page for Poki: its SDK script first in <head> (the only thing loaded from outside the folder, and
-//                        Poki's own host serves it), three.js, the acts and the portal's pictures beside the page.
+//                        Poki's own host serves it), three.js and the pictures kept as files beside the page.
 //   dist/crazygames/   – the page for CrazyGames: its SDK v3 script first in <head> (platform.js sees window.CrazyGames),
-//                        three.js, the acts and the portal's pictures beside it. No Bridge.
+//                        three.js and the pictures kept as files beside it. No Bridge.
 //   dist/playgama/     – the page for Playgama: the Bridge script first in <head> and its config next to it. Only this
 //                        build waits for the Bridge CDN; the others never load it. Nothing else comes from outside:
 //                        three.js ships in vendor/ next to the page (Playgama 1.2.5).
 // Each module becomes its own scope; `import { a } from './x.js'` turns into destructuring
 // from that module's export object, so modules may reuse local names freely.
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs';
-import { basename, extname } from 'node:path';
+import { basename, dirname, extname } from 'node:path';
 
 const MODULES = [
   'src/engine/rng.js',
@@ -34,7 +34,7 @@ const MODULES = [
   'src/engine/recipes3.js',
   'src/engine/run3.js',
   'src/engine/shop3.js',
-  'src/ui/dice-model.js',
+  'src/ui/dice-faces.js',
   'src/ui/dice3d-math.js',
   'src/ui/dice3d.js',
   'src/ui/fire.js',
@@ -109,16 +109,23 @@ const html = readFileSync('index.html', 'utf8');
 // stand alone wherever they are opened.
 const MIME = { '.mp3': 'audio/mpeg', '.otf': 'font/otf', '.ttf': 'font/ttf', '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
 // The heroes' and keepers' acts (hero-acts.js, 26 MB) and the portal's pictures (playPortal, 2.4 MB) are too heavy to
-// inline: they stay files, loaded when needed. dist/index.html takes them from the repository's assets (GitHub Pages
-// serves both), the Playgama archive carries its own copy, and the claude.ai fragment has none (its portraits stand
-// still, its portal shows the thing alone).
-const FILE_URL = /url\("\.\.\/\.\.\/assets\/ui\/(acts|portal)\/([^"]+\.(?:avif|webp))"\)/g;
+// inline: they stay files, loaded when needed. So do the pictures past the first screen, the things, the cards and the
+// portraits (1.5 MB; owner, 18.11.2026, «Да, после слияния»): the page is about 1 MB gzipped instead of 2.5, and on a
+// slow phone network the game is ready in about 5 s instead of 12 (warmArt in app.js fetches them in the background). The
+// first screen stays inside the page: the splash, the dice, the matcaps, the small icons, the fonts and the sounds.
+// dist/index.html takes the files from the repository's assets (GitHub Pages serves both), each portal's archive carries
+// its own copy (besideFiles, copyFiles), and the claude.ai fragment inlines the pictures and has no acts (its portraits
+// stand still, its portal shows the thing alone).
+const FILE_URL = /url\("\.\.\/\.\.\/assets\/ui\/((acts|portal|things|cards|portraits)\/[^"]+\.(?:avif|webp|svg))"\)/g;
 const cssSource = readFileSync('src/ui/styles.css', 'utf8');
-const FILES = [...cssSource.matchAll(FILE_URL)].map((m) => `${m[1]}/${m[2]}`);
-const css = cssSource
-  .replace(FILE_URL, (_, dir, file) => `url("../assets/ui/${dir}/${file}")`)
-  .replace(/url\("\.\.\/\.\.\/(assets\/[^"]+)"\)/g, (_, file) => `url("data:${MIME[extname(file)]};base64,${readFileSync(file).toString('base64')}")`);
-if (css.includes('url("../../')) throw new Error('styles.css points at a file the build does not inline');
+const FILES = [...new Set([...cssSource.matchAll(FILE_URL)].map((m) => m[1]))];
+const inline = (source) => source.replace(/url\("\.\.\/\.\.\/(assets\/[^"]+)"\)/g, (_, file) => `url("data:${MIME[extname(file)]};base64,${readFileSync(file).toString('base64')}")`);
+const css = inline(cssSource.replace(FILE_URL, (_, file) => `url("../assets/ui/${file}")`));
+const fragmentCss = inline(cssSource.replace(FILE_URL, (m, file, dir) => (dir === 'acts' || dir === 'portal' ? 'none' : m)));
+if (css.includes('url("../../') || fragmentCss.includes('url("../../')) throw new Error('styles.css points at a file the build does not inline');
+// A portal's page in its own folder: the files sit beside it, at the same paths as under assets/ui/.
+const besideFiles = (page) => page.split('url("../assets/ui/').join('url("');
+const copyFiles = (dir) => FILES.forEach((file) => { mkdirSync(`${dir}/${dirname(file)}`, { recursive: true }); copyFileSync(`assets/ui/${file}`, `${dir}/${file}`); });
 const cssTag = '<link rel="stylesheet" href="src/ui/styles.css">';
 const jsTag = '<script type="module" src="src/ui/app.js"></script>';
 if (!html.includes(cssTag) || !html.includes(jsTag)) throw new Error('index.html is missing the stylesheet/script tags the build expects');
@@ -130,15 +137,14 @@ const title = html.match(/<title>[^<]*<\/title>/)[0];
 // The Google Fonts of the old looks: every glyph the game shows is in Basteleur, which is inlined, so no page loads them.
 const noFonts = (page) => page.replace(/\s*<link rel="(?:preconnect|stylesheet)" href="https:\/\/fonts\.googleapis\.com[^>]*>/g, '');
 const bodyInner = standalone.match(/<body>([\s\S]*)<\/body>/)[1].trim();
-const fragment = `${title}\n<meta name="claude:viewport-fit-sides" content="cover">\n<style>\n${css.replace(/url\("\.\.\/assets\/ui\/(?:acts|portal)\/[^"]+"\)/g, 'none')}</style>\n${bodyInner}\n`;
+const fragment = `${title}\n<meta name="claude:viewport-fit-sides" content="cover">\n<style>\n${fragmentCss}</style>\n${bodyInner}\n`;
 
 const BRIDGE = '<script src="https://bridge.playgama.com/v2/stable/playgama-bridge.js"></script>';
 const THREE_CDN = 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 const THREE_LOCAL = './vendor/three.module.min.js'; // vendor/three: three@0.160.0 from npm, MIT
 const page = noFonts(standalone);
 if (!page.includes(THREE_CDN)) throw new Error('dice3d.js no longer loads three@0.160.0: update the vendored copy');
-const playgama = page.replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n${BRIDGE}`).split(THREE_CDN).join(THREE_LOCAL)
-  .split('url("../assets/ui/acts/').join('url("acts/').split('url("../assets/ui/portal/').join('url("portal/');
+const playgama = besideFiles(page.replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n${BRIDGE}`).split(THREE_CDN).join(THREE_LOCAL));
 if (!playgama.includes(BRIDGE)) throw new Error('index.html has no charset line to put the Bridge script after');
 if (/https:\/\/(?!bridge\.playgama\.com)[^"'\s)]*\.(?:js|css|woff2?|otf|ttf|png|webp|mp3|json)\b/.test(playgama.replace(/<!--[\s\S]*?-->/g, ''))) throw new Error('the Playgama page still loads something from outside its archive');
 
@@ -146,35 +152,28 @@ const POKI_SDK = '<script src="https://game-cdn.poki.com/scripts/v2/poki-sdk.js"
 // Poki: "Remove splash screens" (requirements-quality): without its element runSplash does nothing, the board opens at once.
 const SPLASH_EL = /<div class="splash" id="splash"[\s\S]*?<\/div>\s*<\/div>\n/;
 if (!SPLASH_EL.test(page)) throw new Error('index.html has no splash element for the Poki build to drop');
-const poki = page.replace(SPLASH_EL, '').replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n${POKI_SDK}`).split(THREE_CDN).join(THREE_LOCAL)
-  .split('url("../assets/ui/acts/').join('url("acts/').split('url("../assets/ui/portal/').join('url("portal/');
+const poki = besideFiles(page.replace(SPLASH_EL, '').replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n${POKI_SDK}`).split(THREE_CDN).join(THREE_LOCAL));
 if (!poki.includes(POKI_SDK)) throw new Error('index.html has no charset line to put the Poki SDK after');
 // Poki blocks every external request but its own SDK: nothing else may point outside the folder.
 if (/https:\/\/(?!game-cdn\.poki\.com|www\.w3\.org)[^"'\s)]*\.(?:js|css|woff2?|otf|ttf|png|webp|mp3|json)\b/.test(poki.replace(/<!--[\s\S]*?-->/g, ''))) throw new Error('the Poki page still loads something from outside its folder');
 
 mkdirSync('dist/poki/vendor', { recursive: true });
-mkdirSync('dist/poki/acts', { recursive: true });
-mkdirSync('dist/poki/portal', { recursive: true });
-for (const file of FILES) copyFileSync(`assets/ui/${file}`, `dist/poki/${file}`);
+copyFiles('dist/poki');
 writeFileSync('dist/poki/index.html', poki);
 copyFileSync('vendor/three/three.module.min.js', 'dist/poki/vendor/three.module.min.js');
+
 const SDK = '<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>';
-const crazygames = page.replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n${SDK}`).split(THREE_CDN).join(THREE_LOCAL)
-  .split('url("../assets/ui/acts/').join('url("acts/').split('url("../assets/ui/portal/').join('url("portal/');
+const crazygames = besideFiles(page.replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n${SDK}`).split(THREE_CDN).join(THREE_LOCAL));
 if (!crazygames.includes(SDK)) throw new Error('index.html has no charset line to put the CrazyGames SDK after');
 if (/https:\/\/(?!sdk\.crazygames\.com)[^"'\s)]*\.(?:js|css|woff2?|otf|ttf|png|webp|mp3|json)\b/.test(crazygames.replace(/<!--[\s\S]*?-->/g, ''))) throw new Error('the CrazyGames page still loads something from outside its folder');
 
 mkdirSync('dist/crazygames/vendor', { recursive: true });
-mkdirSync('dist/crazygames/acts', { recursive: true });
-mkdirSync('dist/crazygames/portal', { recursive: true });
-for (const file of FILES) copyFileSync(`assets/ui/${file}`, `dist/crazygames/${file}`);
+copyFiles('dist/crazygames');
 writeFileSync('dist/crazygames/index.html', crazygames);
 copyFileSync('vendor/three/three.module.min.js', 'dist/crazygames/vendor/three.module.min.js');
 
 mkdirSync('dist/playgama/vendor', { recursive: true });
-mkdirSync('dist/playgama/acts', { recursive: true });
-mkdirSync('dist/playgama/portal', { recursive: true });
-for (const file of FILES) copyFileSync(`assets/ui/${file}`, `dist/playgama/${file}`);
+copyFiles('dist/playgama');
 writeFileSync('dist/index.html', page);
 writeFileSync('dist/artifact.html', fragment);
 writeFileSync('dist/playgama/index.html', playgama);

@@ -380,8 +380,20 @@ function setDice3D(on) {
 function applyRenderedFaces() {
   if (app.busy) return; // a roll owns the 3D canvas; the next call redraws
   const faces = app.dice3d && dice3dStatus() === 'ready' ? renderFaces({ colors: lookColors() }) : null;
-  // the baked faces (styles.css) show until then; keys: the value
-  if (faces) for (const [key, url] of Object.entries(faces)) els.board.style.setProperty(`--face-${key}`, `url(${url})`);
+  // the baked faces (styles.css) show until then; keys: the value. The pictures (blob: URLs) go on the board only once all
+  // of them are decoded, so a value the board has not shown yet never blinks as a die lands; if a page may not show blob:
+  // pictures, the baked faces stay. The set they replace is let go.
+  if (!faces) return;
+  const urls = Object.values(faces);
+  const imgs = urls.map((u) => { const img = new Image(); img.src = u; return img; });
+  const turn = (app.faceTurn = (app.faceTurn || 0) + 1); // a later call's set wins
+  Promise.all(imgs.map((img) => img.decode())).then(() => {
+    if (turn !== app.faceTurn) { urls.forEach((u) => URL.revokeObjectURL(u)); return; }
+    for (const [key, url] of Object.entries(faces)) els.board.style.setProperty(`--face-${key}`, `url(${url})`);
+    (app.faceUrls || []).forEach((u) => URL.revokeObjectURL(u));
+    app.faceUrls = urls;
+    app.faceImgs = imgs; // held, so the decoded pictures stay at hand
+  }, () => urls.forEach((u) => URL.revokeObjectURL(u)));
 }
 
 function lookColors() {
@@ -3676,6 +3688,35 @@ function cssUrl(prop) {
   return m ? m[1] : null;
 }
 
+// The pictures the build keeps as files beside the page (things, cards, portraits: scripts/build.mjs), fetched one after
+// another once the splash is over, so the shop, the portal or a card never waits for one. What the board shows already
+// loads by itself; the acts and the portal's own pictures have their own warming (warmAct, warmPortal).
+function warmArt() {
+  const urls = new Set();
+  const read = (rules, base) => {
+    for (const rule of rules) {
+      if (rule.cssRules) read(rule.cssRules, base);
+      if (!rule.style) continue;
+      for (const prop of rule.style) {
+        if (!prop.startsWith('--')) continue;
+        const m = /url\("?([^")]+)"?\)/.exec(rule.style.getPropertyValue(prop));
+        if (m && !m[1].startsWith('data:') && !/\/(acts|portal)\//.test(m[1])) urls.add(new URL(m[1], base).href);
+      }
+    }
+  };
+  for (const sheet of document.styleSheets) {
+    try { read(sheet.cssRules, sheet.href || location.href); } catch { /* another origin's sheet */ }
+  }
+  const next = (list) => {
+    const url = list.shift();
+    if (!url) return;
+    const img = new Image();
+    img.onload = img.onerror = () => next(list);
+    img.src = url;
+  };
+  next([...urls]);
+}
+
 // The dice wear the ivory matcap and their pressed-in pips a black metal one (owner, 02.11.2026: ivory,
 // a little less yellow); ?matcap=porcelain|toon|clay tries another body, ?matcap=none the lit material.
 function tryMatcap() {
@@ -3784,6 +3825,7 @@ function start() {
   init();
   followHostAudio(onHost);
   requestAnimationFrame(() => requestAnimationFrame(gameReady)); // the first screen is up and takes taps
+  setTimeout(warmArt, SPLASH_MS);
 }
 
 setupPlatform([STORAGE_KEY, SOUND_KEY, DICE3D_KEY, LOOK_KEY]).then(setupBoard).finally(() => {

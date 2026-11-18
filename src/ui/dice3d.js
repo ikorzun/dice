@@ -279,6 +279,14 @@ export async function rollDice3D({ board, cells, dice, colors, rng, onLanded }) 
 // Pictures of the resting die for every value, from the roll's scene and camera, so a DOM die drawn
 // with them matches the last frame of a roll: keys are the value ('3'). A held die is the same white die in a frame
 // (styles.css, Figma 1327:1724). Null until three.js is ready, and while a roll owns the canvas.
+// Each picture is a short blob: URL (the caller lets them go): as data: URLs (740 KB in all) the board's --face-N made the
+// browser read the whole strings again at every restyle of a die, 54 ms a throw at CPU 4× (18.11.2026).
+const blobUrl = (data) => {
+  const bin = atob(data.slice(data.indexOf(',') + 1));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
+};
 export function renderFaces({ colors, px = 384 }) {
   if (!kit || kit.rolling) return null;
   const { canvas, renderer, scene, camera, model, bodyMat, pipMat } = kit;
@@ -302,7 +310,7 @@ export function renderFaces({ colors, px = 384 }) {
     renderer.render(scene, camera);
     ctx.clearRect(0, 0, px, px);
     ctx.drawImage(canvas, (view - px) / 2, (view - px) / 2, px, px, 0, 0, px, px);
-    faces[`${v}`] = out.toDataURL('image/png');
+    faces[`${v}`] = blobUrl(out.toDataURL('image/png'));
   }
   pipMat.visible = true;
   return faces;

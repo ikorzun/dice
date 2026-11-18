@@ -4,7 +4,7 @@
 // its old face to its new one. World: y is up (the camera looks straight down), screen right is +x,
 // screen down is +z. Quaternions are plain { x, y, z, w }.
 
-import { MODEL_FACE_VALUES } from './dice-model.js';
+import { MODEL_FACE_VALUES } from './dice-faces.js';
 
 // Local face axes, in the order MODEL_FACE_VALUES lists them: +x, -x, +y, -y, +z, -z.
 export const FACE_AXES = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];

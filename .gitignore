@@ -3,7 +3,16 @@ dist/shots/
 .DS_Store
 dist/playgama/acts/
 dist/playgama/portal/
+dist/playgama/things/
+dist/playgama/cards/
+dist/playgama/portraits/
 dist/poki/acts/
 dist/poki/portal/
+dist/poki/things/
+dist/poki/cards/
+dist/poki/portraits/
 dist/crazygames/acts/
 dist/crazygames/portal/
+dist/crazygames/things/
+dist/crazygames/cards/
+dist/crazygames/portraits/
