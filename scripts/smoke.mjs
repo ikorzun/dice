@@ -571,6 +571,17 @@ for (const vp of viewports) {
   const told = await page.evaluate(() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect(); const t = box('#toast'); const h = box('.hud'); return { text: document.getElementById('toast').textContent, cls: document.getElementById('toast').className, top: t.top, bottom: t.bottom, hud: [h.top, h.bottom] }; });
   if (told.text !== 'PLAYS WHEN THE BOARD HAS NO CARD' || !/hint/.test(told.cls) || told.top < told.hud[0] - 12 || told.bottom > told.hud[1] + 12) note(vp, `the kept card's rule: ${JSON.stringify(told)}`);
   await page.click('#playBtn');
+  // three kept cards and the new hero unplayed: the card past three asks before the pick (MODE3-PLAN §62); KEEP puts it in
+  // the ×2's place, which sells for 2 and shows on the receipt
+  await page.waitForFunction(() => !document.getElementById('keepSheet').hidden && !window.__diceSnake.app.endPlaying, null, { timeout: 8000 }).catch(() => note(vp, 'no question for a card past the bank\'s three'));
+  await sheetAway(); // the new hero's own popup comes over it at first sight
+  await page.waitForTimeout(400);
+  const asked = await page.evaluate(() => ({ hint: document.getElementById('keepHint').textContent, keepOff: document.getElementById('keepTake').disabled, pick: !document.getElementById('upgrades').hidden, card: window.__diceSnake.state().lastEnd.extra[0] }));
+  if (asked.hint !== 'BANK FULL: TAP A CARD TO REPLACE' || !asked.keepOff || asked.pick) note(vp, `a full bank asks: ${JSON.stringify(asked)}`);
+  await page.click('#keepBank [data-place="1"]');
+  await page.click('#keepTake');
+  const keptBank = await page.evaluate(() => window.__diceSnake.state().bank.slice());
+  if (JSON.stringify(keptBank) !== JSON.stringify(['joker', asked.card, 'refund'])) note(vp, `KEEP in the ×2's place: ${JSON.stringify(keptBank)}`);
   await page.waitForFunction(() => document.querySelector('#upList .up') && !document.getElementById('levelEnd').hidden && !document.getElementById('levelEnd').classList.contains('waiting'), null, { timeout: 6000 });
   await page.waitForTimeout(2200);
   const paid = await page.evaluate(() => {
@@ -579,7 +590,7 @@ for (const vp of viewports) {
     const pick = $('upSub').getBoundingClientRect();
     return { bells: st.bells, shown: !$('endBells').hidden, text: $('endBells').textContent, act: $('endAct').textContent, rule: $('upSub').textContent, inside: pick.bottom <= document.querySelector('#upList .up').getBoundingClientRect().top + 0.5 };
   });
-  if (paid.bells < 32 || !paid.shown || !/\+\d+ BELLS/.test(paid.text) || !/CLEAR \+2/.test(paid.text)) note(vp, `a cleared level's pay: ${JSON.stringify(paid)}`);
+  if (paid.bells < 34 || !paid.shown || !/\+\d+ BELLS/.test(paid.text) || !/CLEAR \+2/.test(paid.text) || !/CARD SOLD \+2/.test(paid.text)) note(vp, `a cleared level's pay: ${JSON.stringify(paid)}`);
   if (paid.act !== 'NEXT: SHOP' || !/^KEEPER RULE: /.test(paid.rule) || !paid.inside) note(vp, `the pick before a keeper: ${JSON.stringify(paid)}`);
   await sheetAway(); // this level's cards were still turning when the threshold was set to fall
   await page.click('#upList .up');
@@ -693,6 +704,14 @@ for (const vp of viewports) {
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-16-portal.png` });
   if (last.state === 'full') await page.click('#portalPocket [data-place="0"]');
   await page.click('#portalTake');
+  // with the bank full and the keeper's own card unplayed, that card asks after the portal and before the pick (MODE3-PLAN §62)
+  if (await page.waitForSelector('#keepSheet:not([hidden])', { timeout: 2500 }).then(() => true, () => false)) {
+    await page.waitForTimeout(350);
+    const order = await page.evaluate(() => ({ portal: !document.getElementById('portal').hidden, pick: !document.getElementById('upgrades').hidden }));
+    if (order.portal || order.pick) note(vp, `the full bank's question after the portal: ${JSON.stringify(order)}`);
+    await page.click('#keepSell');
+    await page.waitForTimeout(350); // the answering tap's guard
+  }
   await page.waitForFunction(() => document.getElementById('portal').hidden && document.querySelector('#upList .up'), null, { timeout: 4000 }).catch(() => note(vp, 'the pick did not follow the portal'));
   const taken = await page.evaluate(() => { const st = window.__diceSnake.state(); return { pocket: st.pocket.map((t) => t.id), thing: st.lastEnd.portal.thing, done: st.lastEnd.portal.done, gallery: st.gallery }; });
   if (!taken.pocket.includes(taken.thing) || taken.done !== 'taken' || !taken.gallery.includes(taken.thing)) note(vp, `the portal's thing: ${JSON.stringify(taken)}`);
@@ -741,6 +760,21 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   await setState({ level: 4 });
   await page.waitForTimeout(900);
   await page.evaluate(() => { const st = window.__diceSnake.state(); st.game = { ...st.game, level: { ...st.game.level, target: 1 } }; document.getElementById('playBtn').click(); });
+  // a full bank (MODE3-PLAN §62): three kept cards and the level's own card unplayed ask before the pick, in the card's
+  // popup with the bank's places, KEEP and SELL; the smoke lets the card go
+  if (await page.waitForFunction(() => !document.getElementById('keepSheet').hidden && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 }).then(() => true, () => false)) {
+    await page.waitForTimeout(400);
+    const keepCut = await outside(page, '#keepSheet :is(h3, p, button)');
+    const keep = await page.evaluate(() => ({
+      hint: document.getElementById('keepHint').textContent, sell: document.getElementById('keepSell').textContent.trim(), pick: !document.getElementById('upgrades').hidden,
+      small: [...document.querySelectorAll('#keepSheet :is(h3, p, button)')].filter((e) => e.textContent.trim() && parseFloat(getComputedStyle(e).fontSize) < 11).map((e) => e.id),
+      low: [...document.querySelectorAll('#keepBank button, #keepTake, #keepSell')].filter((e) => { const r = e.getBoundingClientRect(); return r.width < 44 || r.height < 44; }).map((e) => e.id || 'place'),
+    }));
+    if (keepCut.length || keep.small.length || keep.low.length || keep.pick || keep.hint !== 'BANK FULL: TAP A CARD TO REPLACE' || !/^SELL \+\d+$/.test(keep.sell)) note(vp, `full bank: ${keepCut.join(' ')} ${JSON.stringify(keep)}`);
+    await page.screenshot({ path: `${shots}/fit-${vp.w}x${vp.h}-keep.png` });
+    await page.click('#keepSell');
+    await page.waitForTimeout(350); // the answering tap's guard: a tap at once presses nothing under it
+  } else note(vp, 'no question for a card past the bank\'s three');
   await page.waitForFunction(() => document.querySelector('#upList .up') && !document.getElementById('levelEnd').hidden && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
   await page.waitForTimeout(400);
   let cut = await outside(page, '#levelEnd :is(h2, p, button, li)');
@@ -780,6 +814,8 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   if (cut.length || !stage.square || !stage.inside || stage.over.length || stage.small.length) note(vp, `the portal: ${cut.join(' ')} ${JSON.stringify(stage)}`);
   await page.screenshot({ path: `${shots}/fit-${vp.w}x${vp.h}-portal.png` });
   await page.click('#portalTake');
+  // a card past the bank's three asks after the portal, before the pick (MODE3-PLAN §62)
+  await page.waitForSelector('#keepSheet:not([hidden])', { timeout: 2500 }).then(() => page.waitForTimeout(350)).then(() => page.click('#keepSell')).then(() => page.waitForTimeout(350), () => {});
   await page.waitForFunction(() => document.getElementById('portal').hidden && document.querySelector('#upList .up'), null, { timeout: 4000 }).catch(() => note(vp, 'the pick did not follow the portal'));
   await galleryAfterPick(page, vp, `${shots}/fit-${vp.w}x${vp.h}-gallery.png`);
   await ctx.close();

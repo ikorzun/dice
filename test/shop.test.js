@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { THINGS_FROM, upPrice, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood, sensibleShopping } from '../src/engine/shop3.js';
+import { THINGS_FROM, upPrice, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood, sensibleShopping, sellCard, sellPrice, keepCard } from '../src/engine/shop3.js';
 import { THINGS, THING_PRICE, CARD_THINGS, CARD_THING_PRICE, cardPool, helpsAgainst, CATALOGUE, STARTERS, shopPool } from '../src/engine/things3.js';
 import { upgradeOffer } from '../src/engine/upgrades3.js';
 import { bossOf, BOSSES, isBossLevel, FIRST_KEEPER } from '../src/engine/bosses3.js';
 import { generateRunLevel, runTarget } from '../src/engine/run3.js';
 import { handRules, createAutoGame, toggleBonus, playHand, currentHand, toggleHold, holdCap, MIN_DICE } from '../src/engine/auto.js';
-import { bestHand } from '../src/engine/hands.js';
+import { bestHand, BONUS_KINDS } from '../src/engine/hands.js';
 import { createRng } from '../src/engine/rng.js';
 
 const seq = (...f) => { let i = 0; return () => f[i++ % f.length]; };
@@ -117,13 +117,13 @@ test('buying: bells spent, a slot sold once, a full bank or pocket names what it
   assert.equal(buyGood(run, stock, 0).code, 'BANK_FULL');
   const a = buyGood(run, stock, 0, { replace: 1 });
   assert.deepEqual(a.run.bank, ['refund', 'x3_pairs', 'x2_any']);
-  assert.equal(a.run.bells, 6);
+  assert.equal(a.run.bells, 9, '10 − 4, and the joker it replaces sells for 3 (17.11.2026)');
   assert.equal(buyGood(a.run, a.stock, 0, { replace: 1 }).code, 'SOLD');
-  assert.equal(buyGood(a.run, a.stock, 2).code, 'BELLS');
   const b = buyGood(a.run, a.stock, 1);
   assert.deepEqual(b.run.ups, { pair: 1 });
   assert.equal(b.run.upsBought, 1);
-  assert.equal(b.run.bells, 0);
+  assert.equal(b.run.bells, 3);
+  assert.equal(buyGood(b.run, b.stock, 2).code, 'BELLS');
   assert.deepEqual([0, 1, 2, 7, 9].map(upPrice), [10, 12, 14, 24, 24]);
   assert.equal(buyGood({ ...run, bells: 9 }, stock, 2).code, 'POCKET_FULL');
   assert.deepEqual(buyGood({ ...run, bells: 9 }, stock, 2, { replace: 0 }).run.pocket[0], { id: 'six_bite', stars: 1 });
@@ -252,4 +252,26 @@ test('the offers carry a tag only when they have a reason', () => {
   const fit = fitWeights({ plays: [{ category: 'pair', cleared: true, level: 3 }] }, 3);
   assert.equal(fitTag('pair', fit, true), 'YOU PLAY THIS');
   assert.equal(fitTag('straight', fit, true), '');
+});
+
+test('a kept card sells for half its price, rounded down (owner, 17.11.2026: «Продажа за полцены»), and a card bought into a full bank sells the one it replaces', () => {
+  for (const kind of Object.keys(BONUS_KINDS)) assert.ok(Number.isInteger(sellPrice(kind)) && sellPrice(kind) >= 1, `${kind}: ${sellPrice(kind)}`);
+  assert.deepEqual([sellPrice('x2_any'), sellPrice('x4_any'), sellPrice('odd_punk'), sellPrice('second_wind')], [2, 4, 2, 3]); // 4, 9, 5 and 7 halved
+  const r = sellCard({ bells: 3, bank: ['x2_any', 'x4_any', 'odd_punk'] }, 1);
+  assert.deepEqual([r.ok, r.bells, r.run.bells, r.run.bank], [true, 4, 7, ['x2_any', 'odd_punk']]); // the cards after it move up
+  assert.equal(sellCard({ bells: 3, bank: ['x2_any'] }, 2).code, 'NO_CARD');
+  const stock = [{ type: 'card', id: 'second_wind', price: 7 }];
+  const full = { bells: 10, bank: ['x2_any', 'odd_punk', 'x3_pairs'], ups: {}, pocket: [] };
+  const b = buyGood(full, stock, 0, { replace: 1 });
+  assert.deepEqual([b.run.bells, b.run.bank], [10 - 7 + 2, ['x2_any', 'second_wind', 'x3_pairs']]);
+  assert.equal(buyGood({ ...full, bank: ['x2_any'] }, stock, 0).run.bells, 3, 'a free place sells nothing');
+});
+
+test('a won level\'s card that finds the bank full takes the place of the card the player picks, which sells for half, or sells itself (his 12.11 option: «выбор трёх при переполнении»)', () => {
+  const run = { bells: 5, bank: ['x2_any', 'x4_any', 'odd_punk'] };
+  const kept = keepCard(run, 'joker', 1); // the owl goes for 4
+  assert.deepEqual([kept.ok, kept.sold, kept.bells, kept.run.bells, kept.run.bank], [true, 'x4_any', 4, 9, ['x2_any', 'joker', 'odd_punk']]);
+  const gone = keepCard(run, 'joker'); // the joker goes for 3, the bank stays
+  assert.deepEqual([gone.sold, gone.bells, gone.run.bells, gone.run.bank], ['joker', 3, 8, run.bank]);
+  assert.equal(keepCard(run, 'joker', 3).code, 'NO_CARD');
 });

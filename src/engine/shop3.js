@@ -98,8 +98,33 @@ export function shopStock({ runSeed, levelIndex, run, plays = [] }) {
   return [{ type: 'thing', id, star: owned + 1, price: THING_PRICE[THINGS[id].rarity], tag }, up];
 }
 
+// What a card the bank holds is worth: a card-thing its shop price; a hero's card, dealt and no longer sold, what the shop
+// asked for it until step 4 (66656a7, MODE3-PLAN §58).
+export const HERO_PRICE = Object.freeze({ x2_any: 4, x3_straight: 6, x3_pairs: 4, x3_trips: 5, joker: 6, refund: 4, x3_kinds: 5, x3_small: 4, x4_any: 9, x3_sixes: 5 });
+export const cardPrice = (kind) => (CARD_THINGS[kind] ? CARD_THING_PRICE[CARD_THINGS[kind].rarity] : HERO_PRICE[kind]);
+// A kept card sells for half its price, rounded down (owner, 17.11.2026: «Продажа за полцены»; MODE3-PLAN §61).
+export const sellPrice = (kind) => Math.max(1, Math.floor(cardPrice(kind) / 2));
+
+// Sells the bank's card at place k: its half price in bells, and the cards after it move up. Returns { ok, run, bells }.
+export function sellCard(run, k) {
+  const kind = run.bank[k];
+  if (!kind) return { ok: false, code: 'NO_CARD', message: 'Nothing there' };
+  return { ok: true, bells: sellPrice(kind), run: { ...run, bells: run.bells + sellPrice(kind), bank: run.bank.filter((c, i) => i !== k) } };
+}
+
+// A won level's card that finds the bank full (owner, 17.11.2026, his 12.11 option «продажа за полцены по желанию и
+// выбор трёх при переполнении»; MODE3-PLAN §62): it takes the place of the bank's card at `replace`, which sells as
+// sellCard sells it, or with `replace` null sells itself. Returns { ok, run, sold, bells }.
+export function keepCard(run, kind, replace = null) {
+  const sold = replace === null ? kind : run.bank[replace];
+  if (!sold) return { ok: false, code: 'NO_CARD', message: 'Nothing there' };
+  const bank = replace === null ? run.bank : run.bank.map((c, i) => (i === replace ? kind : c));
+  return { ok: true, sold, bells: sellPrice(sold), run: { ...run, bells: run.bells + sellPrice(sold), bank } };
+}
+
 // Buys one good. run: { bells, bank, ups, upsBought, pocket, levelIndex }. A full bank or pocket names the place the good
-// replaces (the old one is gone). Returns { ok, run, stock } or { ok: false, code, message }.
+// replaces: a bank card replaced sells as sellCard sells it, a thing replaced is gone. Returns { ok, run, stock } or
+// { ok: false, code, message }.
 export function buyGood(run, stock, slot, { replace = null } = {}) {
   const good = stock[slot];
   const reject = (code, message) => ({ ok: false, code, message });
@@ -110,6 +135,7 @@ export function buyGood(run, stock, slot, { replace = null } = {}) {
   if (good.type === 'card') {
     if (run.bank.length >= BANK_SIZE && replace === null) return reject('BANK_FULL', 'Replace a bank card');
     next.bank = run.bank.length < BANK_SIZE ? [...run.bank, good.id] : run.bank.map((k, i) => (i === replace ? good.id : k));
+    if (run.bank.length >= BANK_SIZE) next.bells += sellPrice(run.bank[replace]);
   } else if (good.type === 'up') {
     next.ups = withUpgrade(run.ups, good.id);
     next.upsBought = (run.upsBought || 0) + 1;

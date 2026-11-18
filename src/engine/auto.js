@@ -27,7 +27,7 @@ export const AUTO_DEFAULT_CONFIG = Object.freeze({
 
 const reject = (code, message) => ({ ok: false, code, message });
 export const BANK = 100;    // the first banked bonus's cell number (the board's are 0–8)
-export const BANK_SIZE = 3; // places in the bank (owner, 02.11.2026); the rest burn
+export const BANK_SIZE = 3; // places in the bank (owner, 02.11.2026); past them the player keeps three (shop3.js keepCard)
 export const MIN_DICE = 6; // every layout keeps this many dice (levels3.js)
 const waiting = (b) => !b.used && !b.placed; // a banked card still above the board
 // The bank's cards play while the board holds no card (owner, 17.11.2026: «На поле одна»).
@@ -265,11 +265,11 @@ export function markHintUsed(state) {
   return { ...state, stats: bump(state, 'hintsUsed') };
 }
 
-// The bank after a won level: the banked bonuses still waiting, then the board's in board order (those that came
-// from the bank among them), three at most.
+// The cards a won level carries: the banked bonuses still waiting, then the board's in board order (those that came
+// from the bank among them). The bank keeps the first three; past them the player chooses (shop3.js keepCard).
 export function carryOver(state) {
   const board = state.cells.filter((c) => c.type === 'bonus').map((c) => c.kind);
-  return [...state.bank.filter(waiting).map((b) => b.kind), ...board].slice(0, BANK_SIZE);
+  return [...state.bank.filter(waiting).map((b) => b.kind), ...board];
 }
 
 export function snapshotGame(state) {

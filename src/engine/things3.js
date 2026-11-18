@@ -68,7 +68,7 @@ export const THING_PRICE = Object.freeze({ common: 8, uncommon: 12, rare: 18, le
 // under the same ids, the catalogue's). No stars: a second copy is a second card. From: the first door that may offer it;
 // before level 5 the shop's thing shelf holds one of them. POWER PAINT raises the other cards of its hand, and a hand holds
 // one card since 17.11.2026 («На поле одна»): no door offers it until it has a rule of its own (one bought before waits
-// in its bank, joining no hand, until the shop puts a card in its place).
+// in its bank, joining no hand, until a shop sells it or puts a card in its place).
 export const CARD_THINGS = Object.freeze({
   second_wind: Object.freeze({ file: '0021_heart', name: 'SECOND WIND', rarity: 'rare', from: 2 }),
   odd_punk: Object.freeze({ file: '0047_punkhead', name: 'ODD PUNK', rarity: 'uncommon', from: 2 }),

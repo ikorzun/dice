@@ -1061,15 +1061,20 @@ body.wide .popup-card { margin-top: 0; }
 .portal-pocket { justify-content: center; }
 .portal-pocket .stars { position: absolute; right: 6%; bottom: 4%; font: 400 max(9px, calc(10px * var(--k, 1)))/1 system-ui, sans-serif; color: rgba(255, 255, 255, .8); }
 .portal-buttons { display: flex; gap: calc(12px * var(--k, 1)); width: 100%; }
-.portal .portal-buttons > button { flex: 1 0 0; min-width: 0; height: calc(80px * var(--k, 1)); padding: 0; border-radius: calc(72px * var(--k, 1)); font-size: calc(20px * var(--k, 1)); line-height: 1; }
-.portal .portal-buttons .popup-ok { font-size: calc(24px * var(--k, 1)); }
+.portal .portal-buttons > button, .keep .portal-buttons > button { flex: 1 0 0; min-width: 0; height: calc(80px * var(--k, 1)); padding: 0; border-radius: calc(72px * var(--k, 1)); font-size: calc(20px * var(--k, 1)); line-height: 1; }
+.portal .portal-buttons .popup-ok, .keep .portal-buttons .popup-ok { font-size: calc(24px * var(--k, 1)); }
 .portal-buttons .popup-ok:disabled { opacity: .35; transform: none; }
 .portal-buttons .btn-dark b { color: var(--gold); font-weight: inherit; }
 .portal-buttons .btn-dark .bell { width: 1em; height: 1em; margin: 0 0 0 .15em; vertical-align: -.14em; }
 .portal:not(.ready) .portal-foot { pointer-events: none; } /* nothing to press until the last beat */
 .portal.waiting { background: transparent; } /* the cleared screen still shows while the pictures come in */
 .portal.waiting > * { visibility: hidden; }
-.portal[data-state="full"] .portal-hint { min-height: 2.3em; } /* two lines kept, so the stage stays still as a place is tapped */
+.portal[data-state="full"] .portal-hint, .keep .portal-hint { min-height: 2.3em; } /* two lines kept, so the stage stays still as a place is tapped */
+/* a full bank (MODE3-PLAN §62): the card's popup, centred, with the portal's full-pocket foot under its words; the bank's
+   places are the shop's */
+.popup.keep { justify-content: center; --surface: rgba(255, 255, 255, .08); --place: max(44px, calc(52px * var(--k, 1))); }
+.popup.keep .popup-card { margin-top: 0; }
+.keep .portal-buttons > button { height: max(44px, calc(80px * var(--k, 1))); } /* shrunk to a low window, still a target */
 .portal.flying .portal-thing { z-index: 2; } /* over the hands and the words on its way to the pocket */
 .portal.flying .portal-buttons, .portal.flying .portal-hint { visibility: hidden; }
 .portal.flying .portal-pocket.landing { position: absolute; left: 0; right: 0; bottom: 0; height: calc(80px * var(--k, 1)); align-items: center; }
@@ -1303,6 +1308,7 @@ body.side .overlay.gallery .gallery-close, body.side .gallery-close { grid-area:
 .shop-place .sigil { width: 72%; height: 72%; }
 .shop-place.swap { box-shadow: 0 0 0 2px var(--fg); cursor: pointer; } /* a full bank or belt: tap the one to replace (outside: a card fills its place) */
 .shop-place.swap:active { transform: scale(.96); }
+.shop-place.pick { box-shadow: 0 0 0 2px var(--fg); } /* a bank card picked to sell, ringed as a picked row */
 .shop-place.gone { box-shadow: 0 0 0 2px var(--bad); }
 .shop-place.gone > * { opacity: .4; }
 /* the next level's keeper: a note to buy by, on no surface, so it reads as words and not as a row to tap (owner,
@@ -1336,14 +1342,18 @@ body.side .overlay.gallery .gallery-close, body.side .gallery-close { grid-area:
 .price.buy:active { transform: scale(.98); }
 .sold-stamp { justify-self: center; font-style: normal; font-size: max(11px, calc(13px * var(--k, 1))); letter-spacing: .08em; color: var(--muted); }
 .shop-hint { min-height: calc(2 * 1.15 * max(13px, calc(15px * var(--k, 1)))); margin: 0; text-align: center; text-wrap: balance; }
-.overlay.shop .shop-leave { flex: none; margin-top: auto; height: max(44px, calc(56px * var(--k, 1))); border-radius: 999px; font-size: max(13px, calc(20px * var(--k, 1))); line-height: 1; } /* over body.wide .btn-dark, the board's own */
+/* LEAVE, and beside it SELL while a bank card is picked (MODE3-PLAN §61): one row, so the shop grows no taller */
+.shop-foot { flex: none; display: flex; gap: calc(12px * var(--k, 1)); margin-top: auto; }
+.overlay.shop .shop-foot > button { flex: 1 0 0; min-width: 0; height: max(44px, calc(56px * var(--k, 1))); border-radius: 999px; font-size: max(13px, calc(20px * var(--k, 1))); line-height: 1; } /* over body.wide .btn-dark, the board's own */
+.shop-sell b { color: var(--gold); font-weight: inherit; }
+.shop-sell .bell { width: 1em; height: 1em; margin: 0 0 0 .15em; vertical-align: -.14em; }
 body.wide .overlay.shop { align-items: center; }
 /* the 44 px floors (places, tiles, BUY's 13 px) do not shrink with a phone held sideways, which scales the desktop down:
    there the columns keep the room they need, which the width has to spare (the height is what binds) */
 body.wide .shop-panel { display: grid; grid-template-columns: max(calc(360px * var(--k, 1)), 300px) 1fr; align-content: start; column-gap: calc(40px * var(--k, 1)); width: max(calc(1000px * var(--k, 1)), 760px); height: auto; }
 body.wide .shop-head, body.wide .shop-held, body.wide .shop-boss, body.wide .shop-hint { grid-column: 1; }
 body.wide .shop-list { grid-column: 2; grid-row: 1 / span 5; }
-body.wide .shop-leave { grid-column: 2; }
+body.wide .shop-foot { grid-column: 2; }
 /* The best runs */
 /* The best runs, a sheet by HIG (12.11.2026): its title with CLOSE beside it, the sheet's one control, a text button;
    the runs as a plain table, grey capitals for the heads, white numbers on the rows' text edge; the player's own row on

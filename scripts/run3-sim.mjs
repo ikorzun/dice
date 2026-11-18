@@ -12,9 +12,9 @@ import { writeFileSync } from 'node:fs';
 import { createRng } from '../src/engine/rng.js';
 import { generateRunLevel, runTarget, runAim, RUN3, RUN3_VERSION } from '../src/engine/run3.js';
 import { upgradeOffer, sensiblePick, withUpgrade } from '../src/engine/upgrades3.js';
-import { doorAfter, levelBells, fitWeights, shopStock, sensibleShopping } from '../src/engine/shop3.js';
+import { doorAfter, levelBells, fitWeights, shopStock, sensibleShopping, sellCard, keepCard, cardPrice } from '../src/engine/shop3.js';
 import { playNaiveBot3, playGreedyBot3, setBonuses } from '../src/engine/bot3.js';
-import { createAutoGame, playHand, carryOver } from '../src/engine/auto.js';
+import { createAutoGame, playHand, carryOver, BANK_SIZE } from '../src/engine/auto.js';
 import { BOSSES } from '../src/engine/bosses3.js';
 import { THINGS, THING_PRICE, pocketPlaces, takeThing, portalOf } from '../src/engine/things3.js';
 
@@ -24,6 +24,12 @@ const SEED = String(args.seed ?? 'run-1');
 const CAP = 80; // a run this long counts as reaching the cap
 const SHOP = !args.noshop;
 const FRESH = !!args.freshGallery;
+// the bots at a door (17.11.2026): never sell, sell a kept card that has waited two levels (the 12.11 report's), or sell them all
+const SELL = String(args.sell ?? 'old');
+// a card past the bank's three at a won level's end (MODE3-PLAN §62): the bots keep the dearest three, POWER PAINT last (a
+// hand holds one card), and sell the other for half, as the game's KEEP and SELL do
+const worthOf = (kind) => (kind === 'power_paint' ? 0 : cardPrice(kind));
+if (!['never', 'old', 'all'].includes(SELL)) throw new Error(`--sell=never|old|all, not ${SELL}`);
 const SECONDS_PER_LEVEL = 55; // the spec's budget, 50–60 s a level with the pick and the shops, until the live game measures it
 const targets = RUN3.targets.map((t) => Math.round((t * Number(args.scale ?? 1)) / 10) * 10);
 if (args.targets) for (const pair of String(args.targets).split(',')) { const [l, t] = pair.split(':').map(Number); targets[l - 1] = t; }
@@ -79,7 +85,7 @@ for (const [name, play] of PLAYERS) {
   // the bank since «На поле одна» (17.11.2026): its cards play while the board holds no card, so a card on the board that is
   // never played keeps them waiting (`blocked`); `waits`: whole levels each kept card waited before it was played
   // `ages`: whole levels every kept card had waited at every level's start, played or not (the waits count only the played)
-  const bank = { levels: 0, cards: 0, played: 0, blocked: 0, burnt: 0, waits: [], ages: [] };
+  const bank = { levels: 0, cards: 0, played: 0, blocked: 0, over: 0, overBells: 0, swapped: 0, sold: 0, soldBells: 0, waits: [], ages: [] };
   for (let r = 0; r < RUNS; r++) {
     if (FRESH) gallery = new Set();
     const earlier = [...gallery]; // the shop offers the finds of earlier runs
@@ -112,12 +118,31 @@ for (const [name, play] of PLAYERS) {
       g.hands.forEach((h, k) => plays.push({ category: h.category, cleared: k === g.hands.length - 1, level: L }));
       const fit = fitWeights({ plays, ups: run.ups }, L);
       const weights = Object.fromEntries(Object.entries(fit).map(([c, f]) => [c, f.weight]));
-      run = { ...run, bank: carryOver(g), ups: withUpgrade(run.ups, sensiblePick(upgradeOffer(runSeed, L, SHOP ? weights : null))), bells: run.bells + levelBells(g).total };
-      const kept = [...g.bank.flatMap((b, k) => (b.used || b.placed ? [] : [born[k]])), ...g.cells.filter((c) => c.type === 'bonus').map(() => L)];
-      bank.burnt += Math.max(0, kept.length - run.bank.length);
-      born = kept.slice(0, run.bank.length);
+      const cards = carryOver(g);
+      const borns = [...g.bank.flatMap((b, k) => (b.used || b.placed ? [] : [born[k]])), ...g.cells.filter((c) => c.type === 'bonus').map(() => L)];
+      run = { ...run, bank: cards.slice(0, BANK_SIZE), ups: withUpgrade(run.ups, sensiblePick(upgradeOffer(runSeed, L, SHOP ? weights : null))), bells: run.bells + levelBells(g).total };
+      born = borns.slice(0, BANK_SIZE);
+      cards.slice(BANK_SIZE).forEach((kind, j) => {
+        const weakest = run.bank.reduce((w, c, i) => (worthOf(c) < worthOf(run.bank[w]) ? i : w), 0);
+        const replace = worthOf(kind) > worthOf(run.bank[weakest]) ? weakest : null;
+        const r = keepCard(run, kind, replace);
+        run = r.run;
+        if (replace !== null) { born[replace] = borns[BANK_SIZE + j]; bank.swapped++; }
+        bank.over++;
+        bank.overBells += r.bells;
+      });
       if (SHOP && level.boss) run = takePortal(run, runSeed, L, gallery); // before the pick in the game; the bots' pick does not look at it
       if (SHOP && doorAfter(L)) {
+        // a kept card sells for half its price (17.11.2026, MODE3-PLAN §61): the bots sell as --sell says, before they buy
+        for (let k = run.bank.length - 1; k >= 0; k--) {
+          if (SELL === 'all' || (SELL === 'old' && L - born[k] >= 2)) {
+            const r = sellCard(run, k);
+            run = r.run;
+            born.splice(k, 1);
+            bank.sold++;
+            bank.soldBells += r.bells;
+          }
+        }
         const before = run.bells;
         const shelf = run.bank;
         const stock = shopStock({ runSeed, levelIndex: L, run: { ...run, levelIndex: L + 1, gallery: earlier }, plays });
@@ -139,7 +164,7 @@ for (const [name, play] of PLAYERS) {
 const q = (sorted, p) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
 const reach = (sorted, n) => sorted.filter((x) => x >= n).length / sorted.length;
 out('# Auto Hand — the run (a missed target ends it)');
-out(`seed ${SEED} · ${RUNS} runs per player${FRESH ? ' · every run on a fresh device' : ' · one device a player'} · ${RUN3_VERSION} · aim ${JSON.stringify(Object.fromEntries(['aimFirst', 'aimStart', 'aimFade', 'aimFloor', 'near'].map((k) => [k, curve[k]])))} · ${new Date().toISOString()}`);
+out(`seed ${SEED} · ${RUNS} runs per player${FRESH ? ' · every run on a fresh device' : ' · one device a player'} · bots sell ${SELL} · ${RUN3_VERSION} · aim ${JSON.stringify(Object.fromEntries(['aimFirst', 'aimStart', 'aimFade', 'aimFloor', 'near'].map((k) => [k, curve[k]])))} · ${new Date().toISOString()}`);
 out();
 out(`Targets: ${[1, 2, 3, 5, 10, 15, 20, 25, 30, 40, 50, 60].map((l) => `L${l} ${runTarget(l, curve)}`).join(' · ')}.`);
 out();
@@ -173,15 +198,15 @@ for (const [name, r] of Object.entries(results)) {
 out();
 out('## The bank (one card on the board, 17.11.2026)');
 out();
-out('Kept cards play from the row while the board holds no card, one a hand. "Blocked": levels begun with kept cards whose card on the board was never played, so the bank stayed shut. "Lasts": kept cards at a start ÷ played a level, the levels a card stays in the bank. "Age": whole levels every kept card had already waited at every level\'s start, played later or not. "Waited": whole levels a kept card spent in the bank before the level it was played on (the played ones only).');
+out('Kept cards play from the row while the board holds no card, one a hand. "Blocked": levels begun with kept cards whose card on the board was never played, so the bank stayed shut. "Lasts": kept cards at a start ÷ the cards that leave a level (played, sold, or replaced by a card past three), the levels a card stays in the bank. "Past three": cards a won level carried past the bank\'s three, each a choice that sells one card for half (MODE3-PLAN §62). "Sold": at the doors, by --sell. "Age": whole levels every kept card had already waited at every level\'s start, played later or not. "Waited": whole levels a kept card spent in the bank before the level it was played on (the played ones only).');
 out();
-out('| Player | Levels with kept cards | Kept cards at a start | Played a level | Lasts, levels | Age, mean | Age 3+ | Blocked levels | Waited, mean | Waited 3+ | Burnt a run |');
-out('|---|---|---|---|---|---|---|---|---|---|---|');
+out('| Player | Levels with kept cards | Kept cards at a start | Played a level | Lasts, levels | Age, mean | Age 3+ | Blocked levels | Waited, mean | Waited 3+ | Past three a run | Their bells a run | Sold a run | Sale bells a run |');
+out('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
 const mean = (xs) => xs.reduce((s, x) => s + x, 0) / Math.max(1, xs.length);
 for (const [name, r] of Object.entries(results)) {
   const b = r.bank;
   const w = b.waits;
-  out(`| ${name} | ${b.levels} | ${(b.cards / Math.max(1, b.levels)).toFixed(2)} | ${(b.played / Math.max(1, b.levels)).toFixed(2)} | ${b.played ? (b.cards / b.played).toFixed(1) : '—'} | ${mean(b.ages).toFixed(2)} | ${pct(b.ages.filter((x) => x >= 3).length / Math.max(1, b.ages.length))} | ${pct(b.blocked / Math.max(1, b.levels))} | ${mean(w).toFixed(2)} | ${pct(w.filter((x) => x >= 3).length / Math.max(1, w.length))} | ${(b.burnt / RUNS).toFixed(2)} |`);
+  out(`| ${name} | ${b.levels} | ${(b.cards / Math.max(1, b.levels)).toFixed(2)} | ${(b.played / Math.max(1, b.levels)).toFixed(2)} | ${b.played + b.sold + b.swapped ? (b.cards / (b.played + b.sold + b.swapped)).toFixed(1) : '—'} | ${mean(b.ages).toFixed(2)} | ${pct(b.ages.filter((x) => x >= 3).length / Math.max(1, b.ages.length))} | ${pct(b.blocked / Math.max(1, b.levels))} | ${mean(w).toFixed(2)} | ${pct(w.filter((x) => x >= 3).length / Math.max(1, w.length))} | ${(b.over / RUNS).toFixed(2)} | ${(b.overBells / RUNS).toFixed(1)} | ${(b.sold / RUNS).toFixed(2)} | ${(b.soldBells / RUNS).toFixed(1)} |`);
 }
 out();
 out('## Layouts the strong player met most (levels 2 on)');

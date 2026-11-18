@@ -1076,15 +1076,20 @@ body.wide .popup-card { margin-top: 0; }
 .portal-pocket { justify-content: center; }
 .portal-pocket .stars { position: absolute; right: 6%; bottom: 4%; font: 400 max(9px, calc(10px * var(--k, 1)))/1 system-ui, sans-serif; color: rgba(255, 255, 255, .8); }
 .portal-buttons { display: flex; gap: calc(12px * var(--k, 1)); width: 100%; }
-.portal .portal-buttons > button { flex: 1 0 0; min-width: 0; height: calc(80px * var(--k, 1)); padding: 0; border-radius: calc(72px * var(--k, 1)); font-size: calc(20px * var(--k, 1)); line-height: 1; }
-.portal .portal-buttons .popup-ok { font-size: calc(24px * var(--k, 1)); }
+.portal .portal-buttons > button, .keep .portal-buttons > button { flex: 1 0 0; min-width: 0; height: calc(80px * var(--k, 1)); padding: 0; border-radius: calc(72px * var(--k, 1)); font-size: calc(20px * var(--k, 1)); line-height: 1; }
+.portal .portal-buttons .popup-ok, .keep .portal-buttons .popup-ok { font-size: calc(24px * var(--k, 1)); }
 .portal-buttons .popup-ok:disabled { opacity: .35; transform: none; }
 .portal-buttons .btn-dark b { color: var(--gold); font-weight: inherit; }
 .portal-buttons .btn-dark .bell { width: 1em; height: 1em; margin: 0 0 0 .15em; vertical-align: -.14em; }
 .portal:not(.ready) .portal-foot { pointer-events: none; } /* nothing to press until the last beat */
 .portal.waiting { background: transparent; } /* the cleared screen still shows while the pictures come in */
 .portal.waiting > * { visibility: hidden; }
-.portal[data-state="full"] .portal-hint { min-height: 2.3em; } /* two lines kept, so the stage stays still as a place is tapped */
+.portal[data-state="full"] .portal-hint, .keep .portal-hint { min-height: 2.3em; } /* two lines kept, so the stage stays still as a place is tapped */
+/* a full bank (MODE3-PLAN §62): the card's popup, centred, with the portal's full-pocket foot under its words; the bank's
+   places are the shop's */
+.popup.keep { justify-content: center; --surface: rgba(255, 255, 255, .08); --place: max(44px, calc(52px * var(--k, 1))); }
+.popup.keep .popup-card { margin-top: 0; }
+.keep .portal-buttons > button { height: max(44px, calc(80px * var(--k, 1))); } /* shrunk to a low window, still a target */
 .portal.flying .portal-thing { z-index: 2; } /* over the hands and the words on its way to the pocket */
 .portal.flying .portal-buttons, .portal.flying .portal-hint { visibility: hidden; }
 .portal.flying .portal-pocket.landing { position: absolute; left: 0; right: 0; bottom: 0; height: calc(80px * var(--k, 1)); align-items: center; }
@@ -1318,6 +1323,7 @@ body.side .overlay.gallery .gallery-close, body.side .gallery-close { grid-area:
 .shop-place .sigil { width: 72%; height: 72%; }
 .shop-place.swap { box-shadow: 0 0 0 2px var(--fg); cursor: pointer; } /* a full bank or belt: tap the one to replace (outside: a card fills its place) */
 .shop-place.swap:active { transform: scale(.96); }
+.shop-place.pick { box-shadow: 0 0 0 2px var(--fg); } /* a bank card picked to sell, ringed as a picked row */
 .shop-place.gone { box-shadow: 0 0 0 2px var(--bad); }
 .shop-place.gone > * { opacity: .4; }
 /* the next level's keeper: a note to buy by, on no surface, so it reads as words and not as a row to tap (owner,
@@ -1351,14 +1357,18 @@ body.side .overlay.gallery .gallery-close, body.side .gallery-close { grid-area:
 .price.buy:active { transform: scale(.98); }
 .sold-stamp { justify-self: center; font-style: normal; font-size: max(11px, calc(13px * var(--k, 1))); letter-spacing: .08em; color: var(--muted); }
 .shop-hint { min-height: calc(2 * 1.15 * max(13px, calc(15px * var(--k, 1)))); margin: 0; text-align: center; text-wrap: balance; }
-.overlay.shop .shop-leave { flex: none; margin-top: auto; height: max(44px, calc(56px * var(--k, 1))); border-radius: 999px; font-size: max(13px, calc(20px * var(--k, 1))); line-height: 1; } /* over body.wide .btn-dark, the board's own */
+/* LEAVE, and beside it SELL while a bank card is picked (MODE3-PLAN §61): one row, so the shop grows no taller */
+.shop-foot { flex: none; display: flex; gap: calc(12px * var(--k, 1)); margin-top: auto; }
+.overlay.shop .shop-foot > button { flex: 1 0 0; min-width: 0; height: max(44px, calc(56px * var(--k, 1))); border-radius: 999px; font-size: max(13px, calc(20px * var(--k, 1))); line-height: 1; } /* over body.wide .btn-dark, the board's own */
+.shop-sell b { color: var(--gold); font-weight: inherit; }
+.shop-sell .bell { width: 1em; height: 1em; margin: 0 0 0 .15em; vertical-align: -.14em; }
 body.wide .overlay.shop { align-items: center; }
 /* the 44 px floors (places, tiles, BUY's 13 px) do not shrink with a phone held sideways, which scales the desktop down:
    there the columns keep the room they need, which the width has to spare (the height is what binds) */
 body.wide .shop-panel { display: grid; grid-template-columns: max(calc(360px * var(--k, 1)), 300px) 1fr; align-content: start; column-gap: calc(40px * var(--k, 1)); width: max(calc(1000px * var(--k, 1)), 760px); height: auto; }
 body.wide .shop-head, body.wide .shop-held, body.wide .shop-boss, body.wide .shop-hint { grid-column: 1; }
 body.wide .shop-list { grid-column: 2; grid-row: 1 / span 5; }
-body.wide .shop-leave { grid-column: 2; }
+body.wide .shop-foot { grid-column: 2; }
 /* The best runs */
 /* The best runs, a sheet by HIG (12.11.2026): its title with CLOSE beside it, the sheet's one control, a text button;
    the runs as a plain table, grey capitals for the heads, white numbers on the rows' text edge; the player's own row on
@@ -1638,7 +1648,10 @@ body.wide #handStat .label { font-size: calc(13px * var(--k, 1)); } /* SMALL STR
     <div class="shop-boss" id="shopBoss"></div>
     <ul class="shop-list" id="shopList"></ul>
     <p class="shop-hint" id="shopHint"></p>
-    <button class="btn-dark shop-leave" id="shopLeave" type="button">LEAVE</button>
+    <div class="shop-foot">
+      <button class="btn-dark shop-sell" id="shopSell" type="button" hidden>SELL <b>+0</b><i class="bell"></i></button>
+      <button class="btn-dark shop-leave" id="shopLeave" type="button">LEAVE</button>
+    </div>
   </div>
 </section>
 
@@ -1701,6 +1714,29 @@ body.wide #handStat .label { font-size: calc(13px * var(--k, 1)); } /* SMALL STR
       <p id="thingSheetRule"></p>
     </div>
     <button class="popup-ok" id="thingSheetOk" type="button">CLOSE</button>
+  </div>
+</section>
+
+<!-- a won level's card that finds the bank full (owner, 17.11.2026: his 12.11 option «продажа за полцены по желанию и
+     выбор трёх при переполнении»; MODE3-PLAN §62): the card's popup over the cleared screen, before its pick, with the
+     portal's full-pocket foot. The bank place tapped is the one the card replaces, and it sells for half; KEEP takes the
+     card in, SELL lets the card itself go for half its price. It stands before the new card's own popup in the page, so
+     a first sight of the card shows that popup over this one -->
+<section class="popup keep" id="keepSheet" hidden>
+  <div class="popup-card" role="dialog" aria-labelledby="keepName">
+    <div class="popup-hero" id="keepTile"></div>
+    <div class="popup-text">
+      <h3 id="keepName"></h3>
+      <p id="keepWhat"></p>
+    </div>
+    <div class="portal-foot">
+      <p class="portal-hint" id="keepHint"></p>
+      <div class="shop-places portal-pocket" id="keepBank"></div>
+      <div class="portal-buttons">
+        <button class="popup-ok" id="keepTake" type="button">KEEP</button>
+        <button class="btn-dark" id="keepSell" type="button">SELL <b>+0</b><i class="bell"></i></button>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -3355,7 +3391,7 @@ const THING_PRICE = Object.freeze({ common: 8, uncommon: 12, rare: 18, legendary
 // under the same ids, the catalogue's). No stars: a second copy is a second card. From: the first door that may offer it;
 // before level 5 the shop's thing shelf holds one of them. POWER PAINT raises the other cards of its hand, and a hand holds
 // one card since 17.11.2026 («На поле одна»): no door offers it until it has a rule of its own (one bought before waits
-// in its bank, joining no hand, until the shop puts a card in its place).
+// in its bank, joining no hand, until a shop sells it or puts a card in its place).
 const CARD_THINGS = Object.freeze({
   second_wind: Object.freeze({ file: '0021_heart', name: 'SECOND WIND', rarity: 'rare', from: 2 }),
   odd_punk: Object.freeze({ file: '0047_punkhead', name: 'ODD PUNK', rarity: 'uncommon', from: 2 }),
@@ -3635,7 +3671,7 @@ const AUTO_DEFAULT_CONFIG = Object.freeze({
 
 const reject = (code, message) => ({ ok: false, code, message });
 const BANK = 100;    // the first banked bonus's cell number (the board's are 0–8)
-const BANK_SIZE = 3; // places in the bank (owner, 02.11.2026); the rest burn
+const BANK_SIZE = 3; // places in the bank (owner, 02.11.2026); past them the player keeps three (shop3.js keepCard)
 const MIN_DICE = 6; // every layout keeps this many dice (levels3.js)
 const waiting = (b) => !b.used && !b.placed; // a banked card still above the board
 // The bank's cards play while the board holds no card (owner, 17.11.2026: «На поле одна»).
@@ -3873,11 +3909,11 @@ function markHintUsed(state) {
   return { ...state, stats: bump(state, 'hintsUsed') };
 }
 
-// The bank after a won level: the banked bonuses still waiting, then the board's in board order (those that came
-// from the bank among them), three at most.
+// The cards a won level carries: the banked bonuses still waiting, then the board's in board order (those that came
+// from the bank among them). The bank keeps the first three; past them the player chooses (shop3.js keepCard).
 function carryOver(state) {
   const board = state.cells.filter((c) => c.type === 'bonus').map((c) => c.kind);
-  return [...state.bank.filter(waiting).map((b) => b.kind), ...board].slice(0, BANK_SIZE);
+  return [...state.bank.filter(waiting).map((b) => b.kind), ...board];
 }
 
 function snapshotGame(state) {
@@ -4465,8 +4501,33 @@ function shopStock({ runSeed, levelIndex, run, plays = [] }) {
   return [{ type: 'thing', id, star: owned + 1, price: THING_PRICE[THINGS[id].rarity], tag }, up];
 }
 
+// What a card the bank holds is worth: a card-thing its shop price; a hero's card, dealt and no longer sold, what the shop
+// asked for it until step 4 (66656a7, MODE3-PLAN §58).
+const HERO_PRICE = Object.freeze({ x2_any: 4, x3_straight: 6, x3_pairs: 4, x3_trips: 5, joker: 6, refund: 4, x3_kinds: 5, x3_small: 4, x4_any: 9, x3_sixes: 5 });
+const cardPrice = (kind) => (CARD_THINGS[kind] ? CARD_THING_PRICE[CARD_THINGS[kind].rarity] : HERO_PRICE[kind]);
+// A kept card sells for half its price, rounded down (owner, 17.11.2026: «Продажа за полцены»; MODE3-PLAN §61).
+const sellPrice = (kind) => Math.max(1, Math.floor(cardPrice(kind) / 2));
+
+// Sells the bank's card at place k: its half price in bells, and the cards after it move up. Returns { ok, run, bells }.
+function sellCard(run, k) {
+  const kind = run.bank[k];
+  if (!kind) return { ok: false, code: 'NO_CARD', message: 'Nothing there' };
+  return { ok: true, bells: sellPrice(kind), run: { ...run, bells: run.bells + sellPrice(kind), bank: run.bank.filter((c, i) => i !== k) } };
+}
+
+// A won level's card that finds the bank full (owner, 17.11.2026, his 12.11 option «продажа за полцены по желанию и
+// выбор трёх при переполнении»; MODE3-PLAN §62): it takes the place of the bank's card at `replace`, which sells as
+// sellCard sells it, or with `replace` null sells itself. Returns { ok, run, sold, bells }.
+function keepCard(run, kind, replace = null) {
+  const sold = replace === null ? kind : run.bank[replace];
+  if (!sold) return { ok: false, code: 'NO_CARD', message: 'Nothing there' };
+  const bank = replace === null ? run.bank : run.bank.map((c, i) => (i === replace ? kind : c));
+  return { ok: true, sold, bells: sellPrice(sold), run: { ...run, bells: run.bells + sellPrice(sold), bank } };
+}
+
 // Buys one good. run: { bells, bank, ups, upsBought, pocket, levelIndex }. A full bank or pocket names the place the good
-// replaces (the old one is gone). Returns { ok, run, stock } or { ok: false, code, message }.
+// replaces: a bank card replaced sells as sellCard sells it, a thing replaced is gone. Returns { ok, run, stock } or
+// { ok: false, code, message }.
 function buyGood(run, stock, slot, { replace = null } = {}) {
   const good = stock[slot];
   const reject = (code, message) => ({ ok: false, code, message });
@@ -4477,6 +4538,7 @@ function buyGood(run, stock, slot, { replace = null } = {}) {
   if (good.type === 'card') {
     if (run.bank.length >= BANK_SIZE && replace === null) return reject('BANK_FULL', 'Replace a bank card');
     next.bank = run.bank.length < BANK_SIZE ? [...run.bank, good.id] : run.bank.map((k, i) => (i === replace ? good.id : k));
+    if (run.bank.length >= BANK_SIZE) next.bells += sellPrice(run.bank[replace]);
   } else if (good.type === 'up') {
     next.ups = withUpgrade(run.ups, good.id);
     next.upsBought = (run.upsBought || 0) + 1;
@@ -4502,7 +4564,7 @@ function sensibleShopping(run, stock, order = ['thing', 'up', 'card']) {
   return now;
 }
 
-return { THINGS_FROM, CARD_SHARE, upPrice, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, buyGood, sensibleShopping };
+return { THINGS_FROM, CARD_SHARE, upPrice, doorAfter, bossNext, levelBells, fitWeights, fitTag, shopStock, HERO_PRICE, cardPrice, sellPrice, sellCard, keepCard, buyGood, sensibleShopping };
 })();
 // ---- src/ui/dice-model.js ----
 const __mod_dice_model = (() => {
@@ -5699,8 +5761,8 @@ const bossRule = (runSeed, level) => (isBossLevel(level + 1) ? `KEEPER RULE: ${B
 
 // A level's pay (levelBells in shop3.js), each amount with what earned it: «HANDS LEFT +4» alone read as four hands.
 const left = (n, name) => `${n} ${name}${n > 1 ? 'S' : ''} LEFT`;
-const bellsPaid = (paid) => [['CLEAR', paid.clear], [left(paid.hand / 2, 'HAND'), paid.hand], [left(paid.reroll, 'REROLL'), paid.reroll], ['KEEPER', paid.boss], ...(paid.things || []).map((t) => [THINGS[t.id].name, t.n]), ['PORTAL', paid.portal]]
-  .filter(([, n]) => n).map(([name, n]) => `${name} +${n}`); // each thing that paid, by its name; a thing left in the portal
+const bellsPaid = (paid) => [['CLEAR', paid.clear], [left(paid.hand / 2, 'HAND'), paid.hand], [left(paid.reroll, 'REROLL'), paid.reroll], ['KEEPER', paid.boss], ...(paid.things || []).map((t) => [THINGS[t.id].name, t.n]), ['PORTAL', paid.portal], ['CARD SOLD', paid.sold]]
+  .filter(([, n]) => n).map(([name, n]) => `${name} +${n}`); // each thing that paid, by its name; a thing left in the portal; a card past the bank's three (MODE3-PLAN §62)
 const BELLS_RULE = ['CLEAR +2', 'EACH HAND LEFT +2', 'EACH REROLL LEFT +1'];
 
 return { nextUp, afterClear, bossRule, bellsPaid, BELLS_RULE };
@@ -8234,7 +8296,7 @@ const { generateLevel, nextTier, DIFFICULTY_RULE_TEXT, GENERATOR_VERSION } = __m
 const { generatePokerLevel, GENERATOR5_VERSION } = __mod_levels5;
 const { generateRunLevel, RUN3_VERSION } = __mod_run3;
 const { upgradeOffer, withUpgrade } = __mod_upgrades3;
-const { doorAfter, bossNext, levelBells, fitWeights, shopStock, buyGood } = __mod_shop3;
+const { doorAfter, bossNext, levelBells, fitWeights, shopStock, buyGood, sellCard, sellPrice, keepCard } = __mod_shop3;
 const { THINGS, CARD_THINGS, MAX_STARS, pocketPlaces, ruleOf, starsOf, takeThing, cleanPocket, helpsAgainst, portalOf, CATALOGUE, cleanGallery } = __mod_things3;
 const { BOSSES, bossOf } = __mod_bosses3;
 const { loadDice3D, rollDice3D, renderFaces, dice3dStatus, useMatcap } = __mod_dice3d;
@@ -8487,7 +8549,7 @@ const MODES = {
         'Reach the target and the level ends at once; a level has three hands at most. Miss it and the run is over. There is no last level: each asks for more.',
         'A cleared level pays bells: 2, plus 2 for each hand and 1 for each reroll left unused. A shop opens after the second and fourth level of each act: one thing and one +1. Things work by themselves for the run, three at most, four after level 15, five after 35; the same thing again gains a star.',
         'Every fifth level is a keeper with one rule, named in the shop before it. Beat him for 3 more bells, a golden one for 8.',
-        'Bonuses you did not play on a won level are kept for the next level of the run (three at most, the rest burn). They wait above the board and play from there while the board holds no bonus die, one a hand: tap one to switch it on.',
+        'Bonuses you did not play on a won level are kept for the next level of the run, three at most: past three you choose which to keep, and the one you let go sells for half its price. They wait above the board and play from there while the board holds no bonus die, one a hand: tap one to switch it on.',
       ],
       scoreTitle: 'SCORING · THE HAND IS THE DICE OF THE COMBINATION',
       scoreRows: () => {
@@ -8768,8 +8830,10 @@ function finishLevel(board) {
   const mode = M();
   const won = g.phase === 'won';
   if (won && mode.id !== 'auto') sfx('win'); // only a real win is celebrated (digest §1, rule 27); Auto Hand's rings at the break (playWin)
-  if (won && mode.id === 'auto') st.bank = autoCarryOver(g); // the unplayed bonuses wait for the next level
+  const cards = won && mode.id === 'auto' ? autoCarryOver(g) : null; // the unplayed bonuses wait for the next level
+  if (cards) st.bank = cards.slice(0, BANK_SIZE);
   if (mode.id === 'auto') tallyRun(st, g, won, board);
+  if (cards && cards.length > BANK_SIZE) st.lastEnd = { ...st.lastEnd, extra: cards.slice(BANK_SIZE) }; // past three the player chooses (showKeep)
   const now = Date.now();
   const summary = {
     mode: mode.id, levelIndex: g.level.levelIndex, seed: g.level.seed, tier: g.level.tier, target: g.level.target, score: g.score, won, attempt: g.attempt,
@@ -8894,12 +8958,13 @@ function showLevelEnd() {
   const fit = mode.id === 'auto' ? fitWeights({ plays: st.plays, ups: st.ups }, g.level.levelIndex) : null; // questionnaire В9
   const offer = mode.id === 'auto' && won ? upgradeOffer(st.runSeed, g.level.levelIndex, Object.fromEntries(Object.entries(fit).map(([c, f]) => [c, f.weight]))) : [];
   const portal = cleared ? portalPending(st) : null; // the pick comes after it, so it can answer the new thing
-  $('upgrades').hidden = !offer.length || !!portal;
-  $('nextBtn').hidden = offer.length > 0 || !!portal;
+  const keep = cleared && !portal ? keepPending(st) : null; // a card past the bank's three asks after the portal, before the pick
+  $('upgrades').hidden = !offer.length || !!portal || !!keep;
+  $('nextBtn').hidden = offer.length > 0 || !!portal || !!keep;
   // a cleared level goes on through its upgrade (owner, 03.11.2026: RETRY confused); a missed one ends the run
   $('retryBtn').hidden = won || mode.id === 'auto';
   $('runsBtn').hidden = !over;
-  $('upList').innerHTML = portal ? '' : offer.map((cat) => {
+  $('upList').innerHTML = portal || keep ? '' : offer.map((cat) => {
     const m = AUTO_MULT[cat] + (st.ups[cat] || 0);
     // the shop's row (HIG, 12.11.2026): the combination's dice, its name, the raise as the value
     return `<button class="up" type="button" data-cat="${cat}"><span class="art-tile">${comboDice(cat)}</span><b>${sentence(CATEGORY5_LABELS[cat])}</b><em>×${m} → ×${m + 1}</em></button>`;
@@ -8910,6 +8975,7 @@ function showLevelEnd() {
   // Auto Hand opens the summary at once: the level's last hand plays its moment over the board as the summary rises
   app.endTimer = setTimeout(() => { if (app.modeId === forMode) { $('levelEnd').hidden = false; fitOverlay($('levelEnd')); } }, mode.id === 'auto' ? 0 : T.endDelay);
   if (portal && !app.endPlaying && $('portal').hidden) playPortal(true); // a reload: its last beat, at once
+  else if (keep && !app.endPlaying && $('keepSheet').hidden) showKeep(); // a reload, or the portal gone
 }
 
 // A played hand's sum, multiplier and bonus as the count shows them: 24 × 6 ×2.
@@ -9005,6 +9071,7 @@ function switchMode(id, { silent = false } = {}) {
   $('levelEnd').hidden = true;
   stopPortal();
   $('portal').hidden = true;
+  $('keepSheet').hidden = true;
   $('gallery').hidden = true;
   $('help').hidden = true;
   const st = S();
@@ -9300,7 +9367,7 @@ function fitBoard() {
 function fitOverlay(el) {
   if (!el || el.hidden) return;
   el.style.removeProperty('--k');
-  const panel = el.querySelector(':scope > .panel, :scope > .shop-panel');
+  const panel = el.querySelector(':scope > .panel, :scope > .shop-panel, :scope > .popup-card');
   if (!panel) return;
   const k = parseFloat(document.documentElement.style.getPropertyValue('--k')) || 1;
   const cs = getComputedStyle(el);
@@ -9309,10 +9376,10 @@ function fitOverlay(el) {
   const w = panel.offsetWidth;
   const h = Math.max(panel.offsetHeight, panel.scrollHeight);
   if (!w || !h) return;
-  const ratio = Math.min(roomW / w, roomH / h, 1.5);
+  const ratio = Math.min(roomW / w, roomH / h, panel.classList.contains('popup-card') ? 1 : 1.5); // a popup keeps its mockup's size, only shrinks
   if (ratio < 0.99 || ratio > 1.04) el.style.setProperty('--k', (k * ratio).toFixed(4));
 }
-const fitOverlays = () => { fitOverlay($('levelEnd')); fitOverlay($('shop')); };
+const fitOverlays = () => { fitOverlay($('levelEnd')); fitOverlay($('shop')); fitOverlay($('keepSheet')); };
 
 // While the first hand is three dice long in Snake 4+4, mark which fourth dice keep a legal second hand.
 function computeSafeNext() {
@@ -9519,6 +9586,7 @@ function openShop() {
     persist(true);
   }
   app.shopPick = null;
+  app.shopSell = null; // the bank's place picked to sell (MODE3-PLAN §61)
   app.shopNote = '';
   clearTimeout(app.endTimer);
   $('levelEnd').hidden = true;
@@ -9535,6 +9603,8 @@ function placeNeeded(st, good) {
   return null;
 }
 
+const cardName = (kind) => (CARD_THINGS[kind] ? CARD_THINGS[kind].name : `${BONUS_KINDS[kind].symbol} ${BONUS_KINDS[kind].label}`);
+
 function goodHtml(st, good, i) {
   const pick = app.shopPick && app.shopPick.slot === i;
   const short = good.price - st.bells;
@@ -9544,7 +9614,7 @@ function goodHtml(st, good, i) {
     : good.type === 'thing' ? sigil(good.id)
       : comboDice(good.id);
   const m = good.type === 'up' ? AUTO_MULT[good.id] + (st.ups[good.id] || 0) : 0;
-  const name = sentence(good.type === 'card' ? (CARD_THINGS[good.id] ? CARD_THINGS[good.id].name : `${BONUS_KINDS[good.id].symbol} ${BONUS_KINDS[good.id].label}`) : good.type === 'thing' ? THINGS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`) + (good.type === 'thing' && good.star > 1 ? ` ${'★'.repeat(good.star)}` : '');
+  const name = sentence(good.type === 'card' ? cardName(good.id) : good.type === 'thing' ? THINGS[good.id].name : `+1 ${CATEGORY5_LABELS[good.id]}`) + (good.type === 'thing' && good.star > 1 ? ` ${'★'.repeat(good.star)}` : '');
   const rule = good.type === 'card' ? BONUS_WHAT[good.id].toUpperCase().replace('.', '') : good.type === 'thing' ? ruleOf(good.id, good.star) : `×${m} → ×${m + 1} FOR THIS RUN`;
   const price = good.sold ? '' : ready ? `BUY • ${good.price}` : `<i class="bell"></i>${good.price}`;
   // what it is and what it does; why it is offered is said no more (owner, 12.11.2026: «Зачеркнутое убери»)
@@ -9559,8 +9629,12 @@ function renderShop() {
   $('shopBells').textContent = String(st.bells);
   $('shopBank').innerHTML = Array.from({ length: BANK_SIZE }, (_, k) => {
     const kind = st.bank[k];
-    return `<button type="button" class="shop-place${place === 'bank' ? ' swap' : ''}${pick && pick.replace === k && place === 'bank' ? ' gone' : ''}" data-bank="${k}"${place === 'bank' ? '' : ' tabindex="-1"'}>${kind ? guideTile(kind, false) : ''}</button>`;
+    const sells = kind && !place; // picked, a kept card sells (MODE3-PLAN §61); while a purchase asks what it replaces, it answers that
+    return `<button type="button" class="shop-place${place === 'bank' ? ' swap' : ''}${pick && pick.replace === k && place === 'bank' ? ' gone' : ''}${sells && app.shopSell === k ? ' pick' : ''}" data-bank="${k}"${place === 'bank' || sells ? '' : ' tabindex="-1"'}${kind ? ` aria-label="${cardName(kind)}, sells for ${sellPrice(kind)} bells"` : ''}>${kind ? guideTile(kind, false) : ''}</button>`;
   }).join('');
+  const selling = !place && app.shopSell !== null ? st.bank[app.shopSell] : null;
+  $('shopSell').hidden = !selling;
+  if (selling) $('shopSell').innerHTML = `SELL <b>+${sellPrice(selling)}</b><i class="bell"></i>`;
   $('shopCharms').innerHTML = Array.from({ length: pocketPlaces(level + 1) }, (_, k) => {
     const t = st.pocket[k];
     return `<button type="button" class="shop-place small${place === 'thing' ? ' swap' : ''}${pick && pick.replace === k && place === 'thing' ? ' gone' : ''}" data-thing-place="${k}"${place === 'thing' ? '' : ' tabindex="-1"'}>${t ? sigil(t.id) + stars(t.stars) : ''}</button>`;
@@ -9571,8 +9645,10 @@ function renderShop() {
   // выглядит как блоки ниже, но нельзя нажать»)
   $('shopBoss').innerHTML = bossId ? `<i class="boss-face" style="--boss: var(--boss-${bossId})"></i><span><small>NEXT LEVEL</small><b>${titled(BOSSES[bossId].name)}</b><em>${BOSSES[bossId].rule}</em></span>` : '';
   $('shopList').innerHTML = stock.map((g, i) => goodHtml(st, g, i)).join('');
-  // one line, for the moment it matters: how to buy (once), what to replace, what a tapped thing does
-  $('shopHint').textContent = app.shopNote || (place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'THING'}` : st.tips.firstBuy ? '' : 'TAP AN OFFER, THEN TAP BUY');
+  // one line, for the moment it matters: how to buy (once), what to replace and what the replaced card sells for, what a
+  // tapped thing does
+  const replaced = place === 'bank' && pick.replace !== null ? st.bank[pick.replace] : null;
+  $('shopHint').textContent = app.shopNote || (place && pick.replace === null ? `REPLACE A ${place === 'bank' ? 'BANK CARD' : 'THING'}` : replaced ? `${cardName(replaced)} SELLS FOR ${sellPrice(replaced)}` : st.tips.firstBuy ? '' : 'TAP AN OFFER, THEN TAP BUY');
   if (!$('shop').hidden) fitOverlay($('shop')); // a note or a sold stamp can change its height
 }
 
@@ -9589,9 +9665,15 @@ function shopTap(e) {
     if (place === (bank ? 'bank' : 'thing')) app.shopPick = { ...pick, replace: Number(bank ? bank.dataset.bank : thing.dataset.thingPlace) };
     const owned = thing && st.pocket[Number(thing.dataset.thingPlace)];
     if (owned) app.shopNote = `${THINGS[owned.id].name}: ${ruleOf(owned.id, owned.stars)}`;
-    const banked = bank && !place && st.bank[Number(bank.dataset.bank)]; // a banked card answers a tap as a thing does
-    if (banked) app.shopNote = `${BONUS_KINDS[banked].label}: ${BONUS_WHAT[banked].replace(/\.$/, '')}`;
+    const k = bank ? Number(bank.dataset.bank) : -1;
+    const banked = bank && !place && st.bank[k]; // a banked card answers a tap as a thing does, and is picked to sell
+    if (banked) {
+      app.shopNote = `${BONUS_KINDS[banked].label}: ${BONUS_WHAT[banked].replace(/\.$/, '')}`;
+      app.shopPick = null;
+    }
+    app.shopSell = banked && app.shopSell !== k ? k : null; // a second tap lets it go
   } else if (row) {
+    app.shopSell = null;
     const slot = Number(row.dataset.slot);
     const good = st.shop.stock[slot];
     if (!good.sold && good.price > st.bells) app.shopNote = `NEED ${good.price - st.bells} MORE`;
@@ -9599,8 +9681,28 @@ function shopTap(e) {
     const ready = pick && pick.slot === slot && (!placeNeeded(st, good) || pick.replace !== null);
     if (ready && e.target.closest('.price')) { buy(slot); return; }
     if (!pick || pick.slot !== slot) app.shopPick = { slot, replace: null };
-  } else app.shopPick = null;
+  } else {
+    app.shopPick = null;
+    app.shopSell = null;
+  }
   renderShop();
+}
+
+// Sells the picked bank card for half its price (owner, 17.11.2026: «Продажа за полцены»; MODE3-PLAN §61).
+function sell() {
+  const st = S();
+  const kind = st.bank[app.shopSell];
+  const r = sellCard(runOf(st), app.shopSell);
+  if (!r.ok) return;
+  logEvent('shop_sell', { kind, bells: r.bells, total: r.run.bells });
+  Object.assign(st, { bells: r.run.bells, bank: r.run.bank });
+  app.shopSell = null;
+  app.shopNote = `${cardName(kind)} SOLD FOR ${r.bells}`;
+  haptic(10);
+  sfx('refund', { vol: 0.8 });
+  sfx('bird', { at: 0.14, vol: 0.8 }); // the shop's bird, as for a purchase
+  renderShop();
+  persist(true);
 }
 
 function buy(slot) {
@@ -9876,7 +9978,7 @@ function closePortal() {
     $('portalThing').style.visibility = '';
     app.portalPick = null;
     showLevelEnd();
-    risePick();
+    if ($('keepSheet').hidden) risePick();
   };
   if (reduceMotion) { done(); return; }
   el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: PORTAL.leave, easing: 'ease-out', fill: 'forwards' }).onfinish = done;
@@ -9892,6 +9994,73 @@ function risePick() {
     if (!reduceMotion) setTimeout(() => ringNote(k + 3, 0.25), 120 + 60 * k); // the upgrades land softly, as after the win
   });
   rise($('endAct'), 300, 0);
+}
+
+// ---------- a full bank (owner, 17.11.2026: his 12.11 option «продажа за полцены по желанию и выбор трёх при переполнении»; MODE3-PLAN §62) ----------
+// A won level carries every card it did not play (carryOver) and the bank keeps three; one more waits in lastEnd.extra
+// and the cleared screen asks about it after its portal and before its pick, in the card's popup with the portal's
+// full-pocket foot: tap the bank card it replaces and KEEP it, and the one replaced sells for half; or SELL the card
+// itself for half (keepCard). A reload asks again; more than one (a save from before «На поле одна») ask one by one.
+function keepPending(st = S()) {
+  const end = M().id === 'auto' && st.game && st.game.phase === 'won' && st.lastEnd && st.lastEnd.seed === st.game.level.seed ? st.lastEnd : null;
+  return end && Array.isArray(end.extra) && BONUS_KINDS[end.extra[0]] ? end.extra[0] : null; // a save's unknown card asks nothing
+}
+
+function showKeep() {
+  const kind = keepPending();
+  if (!kind) return;
+  app.keepPick = null;
+  sheetCard(kind, $('keepTile'), $('keepName'), $('keepWhat'));
+  renderKeep();
+  $('keepSheet').hidden = false;
+  fitOverlay($('keepSheet'));
+  document.fonts.ready.then(() => fitOverlay($('keepSheet'))); // the light cut may come late and set the rule taller
+}
+
+function renderKeep() {
+  const st = S();
+  const kind = keepPending(st);
+  if (!kind) return;
+  const pick = app.keepPick;
+  $('keepBank').innerHTML = st.bank.map((c, k) => `<button type="button" class="shop-place swap${pick === k ? ' gone' : ''}" data-place="${k}" aria-label="${cardName(c)}, sells for ${sellPrice(c)} bells">${guideTile(c, false)}</button>`).join('');
+  const gone = pick === null ? null : st.bank[pick];
+  $('keepHint').textContent = gone ? `${cardName(gone)} SELLS FOR ${sellPrice(gone)}` : 'BANK FULL: TAP A CARD TO REPLACE';
+  $('keepTake').disabled = pick === null;
+  $('keepSell').innerHTML = `SELL <b>+${sellPrice(kind)}</b><i class="bell"></i>`;
+}
+
+const keepBlocked = () => $('keepSheet').hidden || performance.now() < (app.skipUntil || 0); // the tap that skipped the moment presses nothing
+
+function keepPlace(e) {
+  const b = e.target.closest('[data-place]');
+  if (!b || keepBlocked()) return;
+  const k = Number(b.dataset.place);
+  app.keepPick = app.keepPick === k ? null : k; // a second tap keeps it
+  renderKeep();
+}
+
+// KEEP (replace: the place picked) or SELL (null): the bank, the bells, the receipt's line and the mark in one go, so a
+// reload neither asks again nor pays twice; then the next card past three, or the pick.
+function settleKeep(replace) {
+  if (keepBlocked()) return;
+  const st = S();
+  const kind = keepPending(st);
+  if (!kind) return;
+  const r = keepCard(runOf(st), kind, replace);
+  if (!r.ok) return;
+  const paid = st.lastEnd.bells || { total: 0 };
+  Object.assign(st, { bank: r.run.bank, bells: r.run.bells });
+  st.lastEnd = { ...st.lastEnd, extra: st.lastEnd.extra.slice(1), bells: { ...paid, sold: (paid.sold || 0) + r.bells, total: paid.total + r.bells } };
+  logEvent('bank_keep', { level: st.game.level.levelIndex, card: kind, sold: r.sold, bells: r.bells });
+  persist(true);
+  haptic(10);
+  sfx('refund', { vol: 0.8 });
+  sfx('bird', { at: 0.14, vol: 0.8 }); // the shop's bird: bells came in
+  app.keepPick = null;
+  app.skipUntil = performance.now() + 300; // the tap that answered presses nothing under it: an upgrade or the next card's question
+  $('keepSheet').hidden = true;
+  showLevelEnd();
+  if ($('keepSheet').hidden) risePick();
 }
 
 // ---------- the gallery (portals spec, step 3b; MODE3-PLAN §56) ----------
@@ -10518,16 +10687,20 @@ const BONUS_WHAT = {
 
 // A card's popup with its hero, its name and what it does (owner, 01.11.2026; Figma 1340:923, 11.11.2026: the hero's card
 // in its acting look, still, the name in sentence case, the line in lower case with no full stop).
+function sheetCard(kind, tile, name, line) {
+  tile.innerHTML = guideTile(kind, false);
+  tile.firstElementChild.classList.add('acting');
+  const label = CARD_THINGS[kind] ? CARD_THINGS[kind].name : BONUS_KINDS[kind].label; // a card-thing by its name
+  const what = BONUS_WHAT[kind];
+  name.textContent = label[0] + label.slice(1).toLowerCase();
+  line.textContent = what[0].toLowerCase() + what.slice(1).replace(/\.$/, '');
+}
+
 function showBonusSheet(kind) {
   S().tips[`sheet:${kind}`] = true;
   app.sheetKind = kind;
   app.sheetAt = performance.now(); // the finger that opened it lifts over the backdrop: that is not a close
-  $('bonusSheetTile').innerHTML = guideTile(kind, false);
-  $('bonusSheetTile').firstElementChild.classList.add('acting'); // the hero acts on the board once the popup closes
-  const label = CARD_THINGS[kind] ? CARD_THINGS[kind].name : BONUS_KINDS[kind].label; // a card-thing by its name
-  const what = BONUS_WHAT[kind];
-  $('bonusSheetName').textContent = label[0] + label.slice(1).toLowerCase();
-  $('bonusSheetWhat').textContent = what[0].toLowerCase() + what.slice(1).replace(/\.$/, '');
+  sheetCard(kind, $('bonusSheetTile'), $('bonusSheetName'), $('bonusSheetWhat')); // the hero acts on the board once the popup closes
   $('bonusSheet').hidden = false;
   coachRender();
   persist();
@@ -11069,6 +11242,7 @@ function playWin(hand, g0) {
     app.endPlaying = false;
     app.busy = false;
     if (portalPending()) playPortal(); // a beaten keeper's portal, after the bells and before the pick
+    else showKeep(); // a card past the bank's three, before the pick
     if (app.sheetQueue.length && $('bonusSheet').hidden) showBonusSheet(app.sheetQueue.shift()); // a sheet that waited
   }
 }
@@ -11658,7 +11832,11 @@ function bind() {
   $('portalTake').addEventListener('click', portalTake);
   $('portalLeave').addEventListener('click', portalLeave);
   $('portalPocket').addEventListener('click', portalPlace);
+  $('keepBank').addEventListener('click', keepPlace);
+  $('keepTake').addEventListener('click', () => { if (app.keepPick !== null) settleKeep(app.keepPick); }); // KEEP only with a place picked
+  $('keepSell').addEventListener('click', () => settleKeep(null));
   $('shopLeave').addEventListener('click', (e) => { e.stopPropagation(); leaveShop(); });
+  $('shopSell').addEventListener('click', (e) => { e.stopPropagation(); sell(); });
   // a press holds the card up and its click sends it away: gone sooner, the click would land on the button under it
   const leaving = () => $('bossCard').classList.contains('leaving'); // once it goes, a press holds it no more: a quick second tap would bring it back
   for (const el of [$('bossCard'), $('bossCover')]) { // a tap on it or anywhere on its cover sends it away

@@ -338,14 +338,14 @@ test('the bank (owner, 02.11.2026; «На поле одна», 17.11.2026): a ke
   assert.deepEqual(back.bank, r.state.bank);
 });
 
-test('a won level carries the unplayed bonuses: the bank still waiting first, then the board in order, three at most', () => {
+test('a won level carries every unplayed bonus: the bank still waiting first, then the board in order (the bank keeps three, the player chooses past them)', () => {
   const lv = level([D, D, D, D, D, B('x3_pairs'), D, B('joker'), B('x2_any')], [6, 6, 6, 6, 1, null, 2, null, null], 10, { bank: ['x3_trips', 'refund'] });
   let g = createAutoGame(lv);
   g = toggleBonus(g, 8).state; // the ×2 joins the four of a kind and is used, before any reroll
   const r = playHand(g, seq([3]));
   assert.equal(r.state.phase, 'won');
   assert.equal(r.state.cells[8].type, 'die'); // a new die takes the ×2's cell
-  assert.deepEqual(carryOver(r.state), ['x3_trips', 'refund', 'x3_pairs']); // the joker is fourth: it burns
+  assert.deepEqual(carryOver(r.state), ['x3_trips', 'refund', 'x3_pairs', 'joker']); // the joker is fourth: it waits for the player's choice (keepCard)
 });
 
 test('a game saved before «На поле одна» keeps the card that came in on its first reroll: it plays on the board, the bank waits while it lies there, and none counts twice', () => {

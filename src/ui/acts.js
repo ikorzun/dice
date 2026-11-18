@@ -27,6 +27,6 @@ export const bossRule = (runSeed, level) => (isBossLevel(level + 1) ? `KEEPER RU
 
 // A level's pay (levelBells in shop3.js), each amount with what earned it: «HANDS LEFT +4» alone read as four hands.
 const left = (n, name) => `${n} ${name}${n > 1 ? 'S' : ''} LEFT`;
-export const bellsPaid = (paid) => [['CLEAR', paid.clear], [left(paid.hand / 2, 'HAND'), paid.hand], [left(paid.reroll, 'REROLL'), paid.reroll], ['KEEPER', paid.boss], ...(paid.things || []).map((t) => [THINGS[t.id].name, t.n]), ['PORTAL', paid.portal]]
-  .filter(([, n]) => n).map(([name, n]) => `${name} +${n}`); // each thing that paid, by its name; a thing left in the portal
+export const bellsPaid = (paid) => [['CLEAR', paid.clear], [left(paid.hand / 2, 'HAND'), paid.hand], [left(paid.reroll, 'REROLL'), paid.reroll], ['KEEPER', paid.boss], ...(paid.things || []).map((t) => [THINGS[t.id].name, t.n]), ['PORTAL', paid.portal], ['CARD SOLD', paid.sold]]
+  .filter(([, n]) => n).map(([name, n]) => `${name} +${n}`); // each thing that paid, by its name; a thing left in the portal; a card past the bank's three (MODE3-PLAN §62)
 export const BELLS_RULE = ['CLEAR +2', 'EACH HAND LEFT +2', 'EACH REROLL LEFT +1'];

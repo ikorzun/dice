@@ -139,7 +139,10 @@
     <div class="shop-boss" id="shopBoss"></div>
     <ul class="shop-list" id="shopList"></ul>
     <p class="shop-hint" id="shopHint"></p>
-    <button class="btn-dark shop-leave" id="shopLeave" type="button">LEAVE</button>
+    <div class="shop-foot">
+      <button class="btn-dark shop-sell" id="shopSell" type="button" hidden>SELL <b>+0</b><i class="bell"></i></button>
+      <button class="btn-dark shop-leave" id="shopLeave" type="button">LEAVE</button>
+    </div>
   </div>
 </section>
 
@@ -202,6 +205,29 @@
       <p id="thingSheetRule"></p>
     </div>
     <button class="popup-ok" id="thingSheetOk" type="button">CLOSE</button>
+  </div>
+</section>
+
+<!-- a won level's card that finds the bank full (owner, 17.11.2026: his 12.11 option «продажа за полцены по желанию и
+     выбор трёх при переполнении»; MODE3-PLAN §62): the card's popup over the cleared screen, before its pick, with the
+     portal's full-pocket foot. The bank place tapped is the one the card replaces, and it sells for half; KEEP takes the
+     card in, SELL lets the card itself go for half its price. It stands before the new card's own popup in the page, so
+     a first sight of the card shows that popup over this one -->
+<section class="popup keep" id="keepSheet" hidden>
+  <div class="popup-card" role="dialog" aria-labelledby="keepName">
+    <div class="popup-hero" id="keepTile"></div>
+    <div class="popup-text">
+      <h3 id="keepName"></h3>
+      <p id="keepWhat"></p>
+    </div>
+    <div class="portal-foot">
+      <p class="portal-hint" id="keepHint"></p>
+      <div class="shop-places portal-pocket" id="keepBank"></div>
+      <div class="portal-buttons">
+        <button class="popup-ok" id="keepTake" type="button">KEEP</button>
+        <button class="btn-dark" id="keepSell" type="button">SELL <b>+0</b><i class="bell"></i></button>
+      </div>
+    </div>
   </div>
 </section>
 
