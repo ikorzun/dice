@@ -4,6 +4,8 @@
 //   dist/artifact.html – the same page as a claude.ai artifact fragment (title/meta/style/body)
 //   dist/poki/         – the page for Poki: its SDK script first in <head> (the only thing loaded from outside the folder, and
 //                        Poki's own host serves it), three.js, the acts and the portal's pictures beside the page.
+//   dist/crazygames/   – the page for CrazyGames: its SDK v3 script first in <head> (platform.js sees window.CrazyGames),
+//                        three.js, the acts and the portal's pictures beside it. No Bridge.
 //   dist/playgama/     – the page for Playgama: the Bridge script first in <head> and its config next to it. Only this
 //                        build waits for the Bridge CDN; the others never load it. Nothing else comes from outside:
 //                        three.js ships in vendor/ next to the page (Playgama 1.2.5).
@@ -156,6 +158,18 @@ mkdirSync('dist/poki/portal', { recursive: true });
 for (const file of FILES) copyFileSync(`assets/ui/${file}`, `dist/poki/${file}`);
 writeFileSync('dist/poki/index.html', poki);
 copyFileSync('vendor/three/three.module.min.js', 'dist/poki/vendor/three.module.min.js');
+const SDK = '<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>';
+const crazygames = page.replace('<meta charset="utf-8">', () => `<meta charset="utf-8">\n${SDK}`).split(THREE_CDN).join(THREE_LOCAL)
+  .split('url("../assets/ui/acts/').join('url("acts/').split('url("../assets/ui/portal/').join('url("portal/');
+if (!crazygames.includes(SDK)) throw new Error('index.html has no charset line to put the CrazyGames SDK after');
+if (/https:\/\/(?!sdk\.crazygames\.com)[^"'\s)]*\.(?:js|css|woff2?|otf|ttf|png|webp|mp3|json)\b/.test(crazygames.replace(/<!--[\s\S]*?-->/g, ''))) throw new Error('the CrazyGames page still loads something from outside its folder');
+
+mkdirSync('dist/crazygames/vendor', { recursive: true });
+mkdirSync('dist/crazygames/acts', { recursive: true });
+mkdirSync('dist/crazygames/portal', { recursive: true });
+for (const file of FILES) copyFileSync(`assets/ui/${file}`, `dist/crazygames/${file}`);
+writeFileSync('dist/crazygames/index.html', crazygames);
+copyFileSync('vendor/three/three.module.min.js', 'dist/crazygames/vendor/three.module.min.js');
 
 mkdirSync('dist/playgama/vendor', { recursive: true });
 mkdirSync('dist/playgama/acts', { recursive: true });

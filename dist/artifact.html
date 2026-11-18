@@ -5801,6 +5801,7 @@ const __mod_platform = (() => {
 // an interstitial at every level change (the Bridge decides whether one shows). Everywhere else the browser keeps the
 // saves in localStorage at once, as before, and the calls below do nothing.
 
+let crazy = null; // CrazyGames: window.CrazyGames.SDK once its init() has answered (build with the SDK script in <head>)
 let bridge = null;
 let poki = null; // Poki's SDK (the build whose page loads poki-sdk.js): its saves stay in localStorage, it only brings ads and play states
 let hosted = false; // the page loaded the Bridge: never fall back to the browser's storage (Playgama 3.2.1)
@@ -5815,6 +5816,7 @@ const within = (promise, ms) => Promise.race([promise, new Promise((_, no) => { 
 // time, plays on with the browser's storage (the game never waits on a platform for long).
 async function setupPlatform(keys) {
   if (window.PokiSDK && !window.bridge) return setupPoki();
+  if (window.CrazyGames && window.CrazyGames.SDK) return setupCrazy();
   const b = window.bridge;
   if (!b) return false;
   hosted = true;
@@ -5870,20 +5872,86 @@ function pokiStop() {
   pokiCall('gameplayStop');
 }
 
-const onPlatform = () => !!bridge || !!poki;
+// CrazyGames (HTML5 SDK v3): init() first, then the saves through the data module (the same calls as localStorage: the
+// SDK keeps them in the account for a signed-in player and in localStorage for a guest), loadingStart/Stop around the
+// first frame, gameplayStart/Stop around a level, a midgame ad between levels, happytime for a record or a keeper beaten,
+// silence while an ad plays or the site's muteAudio is on. Off CrazyGames' domains (environment 'disabled') every SDK call
+// throws: the game then plays as in a plain browser.
+const ad = { pending: false, playing: false, timer: 0 };
+let playing = false; // the game wants gameplayStart; the SDK hears it only while no ad has the screen
+let heard = false;
+let muteAudio = false;
+let hostApply = null;
+
+const sdkCall = (fn) => { try { return fn(); } catch { return undefined; } };
+
+async function setupCrazy() {
+  const sdk = window.CrazyGames.SDK;
+  try {
+    await within(sdk.init(), 15000);
+    if (sdk.environment === 'disabled') throw new Error('not on CrazyGames');
+  } catch {
+    return false;
+  }
+  crazy = sdk;
+  sdkCall(() => sdk.game.loadingStart());
+  muteAudio = !!sdkCall(() => sdk.game.settings.muteAudio);
+  sdkCall(() => sdk.game.addSettingsChangeListener((settings) => { muteAudio = !!settings.muteAudio; syncHost(); }));
+  document.documentElement.lang = 'en'; // English is required; the game speaks nothing else
+  return true;
+}
+
+const syncHost = () => { if (hostApply) hostApply(muteAudio || ad.playing, ad.pending || ad.playing); };
+
+function syncGameplay() {
+  const want = playing && !ad.pending && !ad.playing;
+  if (want === heard) return;
+  heard = want;
+  sdkCall(() => (want ? crazy.game.gameplayStart() : crazy.game.gameplayStop()));
+}
+
+function adEnds() {
+  clearTimeout(ad.timer);
+  ad.pending = false;
+  ad.playing = false;
+  syncGameplay();
+  syncHost();
+}
+
+function midgame() {
+  if (ad.pending || ad.playing) return;
+  ad.pending = true; // the game waits from the request, and is silent only once the ad plays
+  syncGameplay();
+  syncHost();
+  ad.timer = setTimeout(adEnds, 15000); // an ad that never starts must not hold the game
+  try {
+    crazy.ad.requestAd('midgame', {
+      adStarted: () => { clearTimeout(ad.timer); ad.pending = false; ad.playing = true; syncHost(); },
+      adFinished: adEnds,
+      adError: adEnds,
+    });
+  } catch { adEnds(); }
+}
+
+const onPlatform = () => !!bridge || !!poki || !!crazy;
 const platformBridge = () => bridge;
 const platformLanguage = () => platformLang;
 
+// CrazyGames' data module answers like localStorage; if it is switched off for the game, localStorage keeps the saves.
+const store = () => (crazy && crazy.data) || localStorage;
+
 function load(key) {
   if (hosted) return cache.has(key) ? cache.get(key) : null;
-  try { return localStorage.getItem(key); } catch { return null; }
+  try { return store().getItem(key); } catch { try { return localStorage.getItem(key); } catch { return null; } }
 }
 
 // `now`: progress that matters (Playgama's storage takes few, meaningful writes); otherwise the value waits in memory
 // for the next such moment, the page being hidden, or the platform pausing the game.
 function save(key, value, { now = true } = {}) {
   if (!hosted) {
-    try { localStorage.setItem(key, value); } catch { /* storage unavailable: the game still works for this session */ }
+    try { store().setItem(key, value); } catch {
+      try { localStorage.setItem(key, value); } catch { /* storage unavailable: the game still works for this session */ }
+    }
     return;
   }
   if (cache.get(key) !== value) {
@@ -5904,6 +5972,7 @@ function flushSaves() {
 // minimised window has the screen (the game's own timers wait then).
 function followHostAudio(apply) {
   pk.apply = apply;
+  if (crazy) { hostApply = apply; syncHost(); return; }
   if (!bridge) return;
   let audio = bridge.platform.isAudioEnabled !== false;
   let paused = false;
@@ -5917,6 +5986,7 @@ function followHostAudio(apply) {
 
 function gameReady() {
   if (poki) pokiCall('gameLoadingFinished');
+  if (crazy) sdkCall(() => crazy.game.loadingStop());
   if (bridge) Promise.resolve(bridge.platform.sendMessage('game_ready')).catch(() => {});
 }
 
@@ -5925,12 +5995,14 @@ function tellLevel(message, level) {
   if (poki) {
     if (message === 'level_started') { pk.wanted = true; pokiStart(); } else { pk.wanted = false; pokiStop(); }
   }
+  if (crazy) { playing = message === 'level_started'; syncGameplay(); return; }
   if (bridge) { try { Promise.resolve(bridge.platform.sendMessage(message, { level: String(level) })).catch(() => {}); } catch { /* not relayed here */ } }
 }
 
 // A moment worth counting: a built-in message (player_got_achievement) or one of the game's own for the Bridge's
 // analytics (shop_opened, boss_defeated, run_over).
 function tell(message) {
+  if (crazy) { if (message === 'player_got_achievement' || message === 'boss_defeated') sdkCall(() => crazy.game.happytime()); return; }
   if (!bridge) return;
   try {
     const sent = message === 'player_got_achievement' ? bridge.platform.sendMessage(message) : bridge.platform.sendCustomMessage(message);
@@ -5950,6 +6022,7 @@ function interstitial() {
     Promise.resolve(ask).then(done, done);
     return;
   }
+  if (crazy) { midgame(); return; }
   if (bridge && bridge.advertisement && bridge.advertisement.isInterstitialSupported) {
     try { bridge.advertisement.showInterstitial(); } catch { /* the game goes on without it */ }
   }

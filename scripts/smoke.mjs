@@ -902,6 +902,72 @@ for (const vp of [{ w: 844, h: 390 }, { w: 667, h: 375 }, { w: 600, h: 600 }, { 
   await ctx.close();
 }
 
+// The CrazyGames build against a stand-in SDK v3: init() first, saves through the data module and never the Bridge, loading and
+// gameplay events around a level, a midgame ad at the level change that silences the game only once it plays, an
+// adError that lets the game go on, happytime for a record, and silence on the site's muteAudio.
+for (const vp of [{ w: 402, h: 874 }, { w: 874, h: 402 }, { w: 1280, h: 800 }]) {
+  const ctx = await browser.newContext({ viewport: { width: vp.w, height: vp.h } });
+  await ctx.route('https://sdk.crazygames.com/**', (r) => r.abort());
+  await ctx.addInitScript(() => {
+    const calls = [];
+    window.__cg = calls;
+    const listeners = [];
+    const data = new Map();
+    window.__cgAd = 'finish';
+    window.CrazyGames = { SDK: {
+      environment: 'crazygames',
+      init: () => new Promise((r) => setTimeout(() => { calls.push('init'); r(); }, 150)),
+      data: { getItem: (k) => (data.has(k) ? data.get(k) : null), setItem: (k, v) => { calls.push(`data ${k}`); data.set(k, v); }, removeItem: () => {}, clear: () => {} },
+      game: {
+        settings: { muteAudio: false },
+        addSettingsChangeListener: (f) => listeners.push(f),
+        loadingStart: () => calls.push('loadingStart'), loadingStop: () => calls.push('loadingStop'),
+        gameplayStart: () => calls.push('gameplayStart'), gameplayStop: () => calls.push('gameplayStop'), happytime: () => calls.push('happytime'),
+      },
+      ad: { requestAd: (type, cb) => {
+        calls.push(`ad ${type}`);
+        if (window.__cgAd === 'error') { setTimeout(() => cb.adError({ code: 'unfilled', message: '' }), 50); return; }
+        setTimeout(() => { calls.push('adStarted'); cb.adStarted(); }, 100);
+        setTimeout(() => { calls.push('adFinished'); cb.adFinished(); }, 400);
+      } },
+    } };
+    window.__cgMute = (on) => { window.CrazyGames.SDK.game.settings.muteAudio = on; listeners.forEach((f) => f({ muteAudio: on })); };
+    const set = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (k, v) { calls.push(`localStorage ${k}`); return set.call(this, k, v); };
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const sus = AC.prototype.suspend;
+    AC.prototype.suspend = function () { calls.push('audio off'); return sus.call(this); };
+  });
+  const page = await ctx.newPage();
+  page.on('pageerror', (e) => note(vp, `crazygames pageerror ${e.message}`));
+  await page.goto(pathToFileURL(resolve('dist/crazygames/index.html')).href);
+  await page.waitForFunction(() => window.__diceSnake, null, { timeout: 10000 });
+  await unsplash(page);
+  const calls = () => page.evaluate(() => window.__cg.splice(0));
+  const start = await calls();
+  if (start[0] !== 'init' || start[1] !== 'loadingStart' || !start.includes('loadingStop') || !start.includes('gameplayStart')) note(vp, `crazygames start: ${start.join(', ')}`);
+  if (start.some((c) => c.startsWith('localStorage'))) note(vp, 'crazygames wrote to localStorage at the start');
+  await page.waitForFunction(() => !document.getElementById('bonusSheet').hidden, null, { timeout: 6000 });
+  await gotIt(page);
+  await calls();
+  await page.evaluate(() => { const st = window.__diceSnake.state(); st.game = { ...st.game, level: { ...st.game.level, target: 1 } }; document.getElementById('playBtn').click(); });
+  await page.waitForFunction(() => document.querySelector('#upList .up') && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });
+  await page.evaluate(() => document.querySelector('#upList .up').click());
+  await page.waitForFunction(() => document.getElementById('levelEnd').hidden, null, { timeout: 3000 });
+  await page.waitForTimeout(700);
+  const next = await calls();
+  const at = (c) => next.indexOf(c);
+  if (!next.includes('ad midgame') || at('adStarted') < at('ad midgame') || at('adFinished') < at('adStarted') || !next.includes('gameplayStop') || next.lastIndexOf('gameplayStart') < at('adFinished')) note(vp, `crazygames level change: ${next.join(', ')}`);
+  if (!next.some((c) => c.startsWith('data '))) note(vp, 'crazygames did not save through the data module');
+  if (next.some((c) => c.startsWith('localStorage'))) note(vp, 'crazygames wrote to localStorage');
+  const held = await page.evaluate(() => window.__diceSnake.app.hostHeld);
+  if (held) note(vp, 'crazygames: the game is still held after the ad');
+  await page.evaluate(() => { window.__cgAd = 'error'; });
+  await page.evaluate(() => window.__cgMute(true));
+  if (!(await calls()).includes('audio off')) note(vp, 'crazygames kept its sound when the site muted it');
+  await ctx.close();
+}
+
 // The Poki build against a stand-in SDK (developers.poki.com/guide/sdk-html5 and /requirements-quality): init first,
 // gameLoadingFinished once the first screen is up, gameplayStart on the first input and never twice in a row, gameplayStop at
 // a level's end, a commercialBreak at the tap that leaves the receipt (silent under the ad, no event during it), nothing
