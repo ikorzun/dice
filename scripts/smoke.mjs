@@ -308,11 +308,12 @@ for (const vp of viewports) {
   await page.screenshot({ path: `${shots}/${vp.w}x${vp.h}-4-bonus-on.png` });
   // a hand with a bonus: the bonus screen (blurred board, skeleton, ×2 sticker, SKIP)
   await page.click('#playBtn');
-  // four of a kind, five of a kind and the straight burn first (owner, 01.11.2026): only the hand's dice
+  // four of a kind, five of a kind and the straight burn first (owner, 01.11.2026): only the hand's dice, never the
+  // joker's card (owner, 18.11.2026)
   await page.waitForTimeout(120);
   const burning = await page.$$eval('#board > .cell.on-fire', (els) => els.map((e) => Number(e.dataset.index)).sort());
   const strong = ['four_kind', 'five_kind', 'straight'].includes(a.hand.hand.category);
-  const shouldBurn = strong ? [...a.hand.cells, ...(a.hand.hand.jokerCells || [])].sort() : [];
+  const shouldBurn = strong ? [...a.hand.cells].sort() : [];
   if (burning.join() !== shouldBurn.join()) note(vp, `fire on [${burning}] for a ${a.hand.hand.category} on [${shouldBurn}]`);
   const fireLayer = await page.evaluate(() => { const c = document.querySelector('.fire-layer'); return c ? getComputedStyle(c).display : 'none'; });
   if (strong && fireLayer !== 'block') note(vp, `the shader fire is not drawn (canvas ${fireLayer})`);
@@ -931,14 +932,15 @@ for (const vp of [{ w: 390, h: 844 }, { w: 1280, h: 800 }, { w: 844, h: 390 }]) 
   await page.waitForTimeout(1200);
   // a played card stays as it lies and takes its acting state, the hero over the whole card (owner, 11.11.2026: «Смещать
   // карту не нужно, она остается статикой, меняется только анимация в ней при розыгрыше»; «Персонаж на всю карту, а для
-  // этого есть ее отдельное состояние»): no lift, no tilt, no name, the portrait's square 152 of the card's 108
+  // этого есть ее отдельное состояние»): no lift, no tilt, no name, the portrait's square 152 of the card's 108; it takes
+  // that state once its holographic stock has run over it (0.6 s, owner, 18.11.2026), so the look is read 0.42 s after that
   const still = await page.evaluate(() => new Promise((resolve) => {
     const cells = document.querySelectorAll('#board > .cell');
     const rect = (i) => { const r = cells[i].getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map((v) => v.toFixed(1)).join(); };
     const look = (i) => { const c = cells[i]; const art = c.querySelector('.art'); return c.classList.contains('acting') && getComputedStyle(c).transform === 'none' && getComputedStyle(c.querySelector('.tag')).visibility === 'hidden' && Math.abs(art.offsetHeight / c.clientHeight - 152 / 108) < 0.02; };
     const before = [rect(6), rect(7)];
     document.getElementById('playBtn').click();
-    setTimeout(() => resolve({ moved: [rect(6), rect(7)].filter((r, k) => r !== before[k]), look: [look(6), look(7)], hand: window.__diceSnake.state().game.hands.at(-1)?.bonuses }), 420);
+    setTimeout(() => resolve({ moved: [rect(6), rect(7)].filter((r, k) => r !== before[k]), look: [look(6), look(7)], hand: window.__diceSnake.state().game.hands.at(-1)?.bonuses }), 600 + 420);
   }));
   if (still.moved.length || !still.look.every(Boolean) || String(still.hand) !== 'x2_any,x3_sixes') note(vp, `the winning cards: ${JSON.stringify(still)}`);
   await page.waitForFunction(() => document.querySelector('#upList .up') && !window.__diceSnake.app.endPlaying, null, { timeout: 12000 });

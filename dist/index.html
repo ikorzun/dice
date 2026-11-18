@@ -551,20 +551,41 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.bonus .art { display: block; left: 3.7%; top: -14.81%; width: 92.59%; height: 92.59%; background: var(--peek) center bottom / contain no-repeat; } /* 100 px at 5, -15 */
 /* The cards' holographic stock (app.js HOLO; owner, 13.11.2026, after a Balatro polychrome video): the rainbow twirl of
    scripts/holo.py over the card's own colour and arch, under its hero and words, in the blend that keeps the card's light
-   and takes the twirl's hue, a third of the way (--holo, the one number to change). It turns on the card's moments
-   (--holo-turn, set by app.js) and rests still between them. Not on a bank's or the shop's small card, nor in the acting
-   look, which is the card's flat colour. */
+   and takes the twirl's hue, a third of the way at most (.34 in holoRun). Not on the card at rest: it runs over a board
+   card's face once at the card's moments, before its hero acts (.holo-run, set by app.js holoRun; owner, 18.11.2026:
+   «голография у карты не постоянно. а пробегает либо перед анимацией, либо после»; it lay on every card and turned at
+   those moments before): it comes, sweeps across the face turning, and goes, in 0.6 s. Its opacity changes on the twirl
+   itself: on its box it would cut the twirl's blend off from the card under it. Not on a bank's or the shop's small card,
+   nor in the acting look, which is the card's flat colour. */
 .cell .holo { position: absolute; display: none; pointer-events: none; }
 body.holo .cell.bonus .holo { display: block; left: 0; top: 0; width: 100%; height: 100%; border-radius: inherit; overflow: hidden; }
-body.holo .cell.bonus .holo::before { content: ""; position: absolute; inset: -42%; background: var(--holo-twirl) center / 100% 100% no-repeat; mix-blend-mode: color; opacity: var(--holo, .34); transform: rotate(var(--holo-turn, 0deg)); transition: transform 520ms cubic-bezier(.2, .7, .2, 1); }
+body.holo .cell.bonus .holo::before { content: ""; position: absolute; inset: -42%; background: var(--holo-twirl) center / 100% 100% no-repeat; mix-blend-mode: color; opacity: 0; }
+body.holo .cell.bonus.holo-run .holo::before { animation: holoRun 600ms cubic-bezier(.35, .1, .35, 1) both; }
+@keyframes holoRun {
+  0% { opacity: 0; transform: translate(-24%, -24%) rotate(-50deg); }
+  30%, 62% { opacity: .34; }
+  100% { opacity: 0; transform: translate(24%, 24%) rotate(50deg); }
+}
 body.holo #bank .cell.bonus .holo, body.holo #shopBank .cell.bonus .holo, body.holo .cell.bonus.acting .holo { display: none; }
 /* While its hero acts (Figma 1339:2155 Card-animation; owner, 10.11.2026: «убираем весь текст и внутреннюю рамку,
    увеличиваем героя»): no name, no multiplier, no arch, no border, every corner 24, the hero's own colour over the whole
-   card; the portrait's square 152 px, rising 42 px over the card's top, cut to 107 by 151 px with its bottom corners
-   rounded 22, so the card's sides and bottom crop the bust. */
-.cell.bonus.acting { background: var(--card) border-box; border-color: transparent; border-radius: 21.82%; box-shadow: none; }
+   card; the portrait's square 152 px, rising 43 px over the card's top, cut exactly at the card's own sides, bottom and
+   bottom corners, so the card crops the bust with no rim of its colour round it (owner, 18.11.2026: «в картах изображение
+   и анимация обрезается и есть зазоры»: the cut was 107 px of 108 inside a 1 px border, its corners 22 to the card's 24).
+   No border meanwhile, so the numbers count from the card's edge; the cut's insets and corners are the card's edges and
+   corners as shares of the square (20.74, 20 and 0.74 of 140.74; 21.82 of 140.74). The card's colour is laid inside the
+   same cut, under the portrait (::before, the card's own box in the square; the portrait ::after), and the card paints
+   none: the card's colour and the cut's edge, each smoothed on its own, let the colour through as a hairline, and where a
+   card stood off the pixel grid (the popup's, centred) Chromium laid the colour 1.5 screen pixels off the cut. */
+.cell.bonus.acting { background: none; border-width: 0; border-radius: 21.82%; box-shadow: none; }
 .cell.bonus.acting .arch, .cell.bonus.acting .tag, .cell.bonus.acting .x2 { visibility: hidden; }
-.cell.bonus.acting .art { left: -20.74%; top: -40%; width: 140.74%; height: 140.74%; clip-path: inset(0 14.47% .66% 15.13% round 0 0 calc(22px * var(--kb, 1)) calc(22px * var(--kb, 1))); } /* 152 px at -21, -42 */
+.cell.bonus.acting .art { left: -20.74%; top: -40%; width: 140.74%; height: 140.74%; background: none; clip-path: inset(0 14.211% .526% 14.736% round 0 0 15.504% 15.504%); } /* 152 px at -22, -43 */
+.cell.bonus.acting .art::before, .cell.bonus.acting .art::after { content: ""; position: absolute; }
+.cell.bonus.acting .art::before { left: 14.736%; top: 28.422%; width: 71.054%; height: 71.054%; border-radius: 21.82%; background: var(--card); }
+.cell.bonus.acting .art::after { inset: 0; background: var(--peek) center bottom / contain no-repeat; }
+.cell.bonus.acting .art.hero-act::after { display: none; } /* the act's picture over the colour instead */
+#bank .cell.bonus.acting .art { clip-path: inset(0 14.211% .526% 14.736% round 0 0 17.763% 17.763%); } /* the small card's corners: 25 of 140.74 */
+#bank .cell.bonus.acting .art::before { border-radius: 25%; }
 /* A hero's act on its card (hero-acts.js): the act's picture is the portrait's square, laid over it while the portrait
    hides under it, and cut like it in every look */
 .cell.bonus .art.hero-act, .boss-face.hero-act { background-image: none; }
@@ -1036,10 +1057,12 @@ body.wide .controls .cnt::before { content: '×'; }
 .popup-card { flex: none; margin-top: calc(219px * var(--k, 1)); width: calc(320px * var(--k, 1)); display: flex; flex-direction: column; align-items: center; gap: calc(20px * var(--k, 1)); animation: bossIn 160ms cubic-bezier(.2, .8, .3, 1) both; }
 body.wide .popup { justify-content: center; }
 body.wide .popup-card { margin-top: 0; }
-.popup-hero .cell.bonus { display: block; flex: none; width: calc(160px * var(--k, 1)); aspect-ratio: 1; border: 0; --kb: calc(var(--k, 1) * 160 / 110); } /* the art's corners: 22 of 110 */
-/* the art square 221.09 at −31.14, −61.39 of the 160 card (Figma 1340:1006); the acting look's own numbers count from inside
-   a 1 px border, which a browser rounds to whole screen pixels, so this card has none (it is see-through when acting anyway) */
-.popup-hero .cell.bonus.acting .art { left: -19.46%; top: -38.37%; width: 138.18%; height: 138.18%; }
+.popup-hero .cell.bonus { display: block; flex: none; width: calc(160px * var(--k, 1)); aspect-ratio: 1; border: 0; --kb: calc(var(--k, 1) * 160 / 110); }
+/* the art square 221.09 at −31.14, −59.9 of the 160 card (Figma 1340:1006 has −61.39, where the square stops 0.3 px short
+   of the card's bottom and its last row of pixels blends with the card's colour): lowered to pass the bottom by 0.74 % as
+   on the board, and cut at the card's own sides, bottom and corners like the board's (21.82 of 138.18) */
+.popup-hero .cell.bonus.acting .art { left: -19.46%; top: -37.44%; width: 138.18%; height: 138.18%; clip-path: inset(0 13.548% .536% 14.083% round 0 0 15.791% 15.791%); }
+.popup-hero .cell.bonus.acting .art::before { left: 14.083%; top: 27.095%; width: 72.369%; height: 72.369%; } /* the card's box in this square */
 .thing-hero .sigil { width: calc(160px * var(--k, 1)); height: calc(160px * var(--k, 1)); } /* a thing's sheet: its picture as large as a card */
 .popup-text h3 .stars { font: 400 .7em/1 system-ui, sans-serif; color: rgba(255, 255, 255, .8); letter-spacing: .05em; vertical-align: .15em; }
 .popup-text { display: flex; flex-direction: column; gap: calc(10px * var(--k, 1)); width: 100%; text-align: center; }
@@ -10377,11 +10400,13 @@ function renderBank() {
 
 // A strong hand burns as soon as the player holds it (owner, 01.11.2026): the held dice of a four of a
 // kind, five of a kind or straight; the fire moves to the played hand on PLAY and dies with a reroll.
+// Only dice burn: the joker's card in the hand does not (owner, 18.11.2026: «при розыгрыше не нужна горящая
+// обводка у карты»), held or played, so the fire never leaves the card at PLAY.
 function renderHeldFire() {
   const g = S().game;
   if (M().id !== 'auto' || app.busy) return;
   const h = g && g.phase === 'playing' ? autoHeldHand(g) : null;
-  const cells = h && FIRE_HANDS.has(h.category) ? [...h.cells, ...h.jokerCells] : [];
+  const cells = h && FIRE_HANDS.has(h.category) ? h.cells : [];
   const now = app.fire ? app.fire.burning() : [];
   if (cells.slice().sort().join() === now.slice().sort().join()) return;
   if (!cells.length) { app.fire.out(); return; }
@@ -10488,7 +10513,6 @@ function showReveal(hand, { remaining = Infinity } = {}) {
   const staged = auto && hand.multiplier > 1 && !reduceMotion;
   const rung = ringHand(hand);
   pulseThings(hand.things); // the things that changed its count light up where they lie
-  for (const i of [...(hand.bonusCells || []), ...(hand.jokerCells || [])]) if (i < BANK) holoTurn(els.cells[i], 120); // played: the stock flares
   if (!reduceMotion) rung.forEach((i, k) => els.cells[i].animate([{ transform: 'none' }, { transform: 'scale(1.06)', offset: 0.35 }, { transform: 'none' }], { duration: 160, delay: k * RING_STEP * 1000, composite: 'add' })); // each die answers its note
   if (hand.multiplier > 1 && !staged) sfx('mult'); // a staged bonus sounds when it hits
   const fire = auto && remaining > 0 && hand.total >= remaining;
@@ -10546,10 +10570,14 @@ function armBonus(source, cell) {
   if (M().id === 'auto') { // switched on, its hero acts once; switched off, it stops (owner, 11.11.2026)
     const card = cell >= BANK ? st.game.bank[cell - BANK] : st.game.cells[cell];
     const off = cell >= BANK ? card.off : st.game.off[cell];
-    if (cell < BANK) holoTurn(els.cells[cell], off ? -50 : 60);
-    else st.game.bank.forEach((b, k) => { if (b.off && BANK + k !== cell) stopAct(cardArt(BANK + k)); }); // one at a time: the one it took over from rests
+    if (cell >= BANK) st.game.bank.forEach((b, k) => { if (b.off && BANK + k !== cell) stopAct(cardArt(BANK + k)); }); // one at a time: the one it took over from rests
     if (off) stopAct(cardArt(cell));
-    else if (actingKind(cardArt(cell)) !== card.kind) heroAct(cell, card.kind, { wait: 1000 });
+    else if (actingKind(cardArt(cell)) !== card.kind) {
+      // a board card's stock runs over it first (holoRun), and its hero acts after it if it is still on and nothing played
+      const act = () => heroAct(cell, card.kind, { wait: 1000 });
+      const still = () => { const g = S().game; if (!app.busy && g && g.cells[cell].kind === card.kind && !g.off[cell]) act(); };
+      if (!(cell < BANK && holoRun(els.cells[cell], still))) act();
+    }
   }
 }
 
@@ -10569,31 +10597,32 @@ const DEAL_NEXT_MS = 2000;  // each next card this long after the one before (ow
 
 // Turns a card over (after `delay` ms): it shrinks to an edge on its back and opens on its face.
 // The cards' holographic stock (owner, 13.11.2026: a Balatro polychrome video, «Изучи, сделай такой эффект на картах»):
-// the video's shader twirls the card's UV and shifts the hue by it, and ties the twirl's turn to the card's tilt. Ours is
-// a rainbow twirl (scripts/holo.py) laid over the card's own colour under its hero and words (styles.css .holo), turned
-// on a card's moments (dealt, switched, played) and by a desktop's pointer over it, still in between: no motion of its
-// own (owner, 03.11.2026: constant motion distracts), none under «reduce motion». HOLO: false takes it all away.
+// the video's shader twirls the card's UV and shifts the hue by it. Ours is a rainbow twirl (scripts/holo.py) over the
+// card's own colour under its hero and words (styles.css .holo). It is not on the card at rest: it runs over a board
+// card's face once at the card's moments, its face turned up, switched on, played, and its hero acts after it, never
+// during it (owner, 18.11.2026: «голография у карты не постоянно. а пробегает либо перед анимацией, либо после»; it lay
+// on every card and turned at those moments before). None under «reduce motion». HOLO: false takes it all away.
 const HOLO = true;
-const finePointer = typeof window.matchMedia === 'function' && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-function holoTurn(cell, deg) {
-  if (!HOLO || reduceMotion || !cell) return;
-  cell.holoBase = (cell.holoBase || 0) + deg;
-  cell.style.setProperty('--holo-turn', `${cell.holoBase}deg`);
+const HOLO_RUN_MS = 600; // a pass (styles.css holoRun)
+const FLIP_HALF_MS = 210; // a card's face shows halfway through its 420 ms turn
+// runs the stock over a card's face once and calls `then` (its hero's act) when it has run; a new run drops the old one's
+// `then`. Returns how long it runs (0: none ran, and `then` is not called)
+function holoRun(cell, then) {
+  if (!HOLO || reduceMotion || !cell) return 0;
+  cell.classList.remove('holo-run');
+  void cell.offsetWidth;
+  cell.classList.add('holo-run');
+  clearTimeout(cell.holoTimer);
+  cell.holoTimer = setTimeout(() => { cell.classList.remove('holo-run'); if (then) then(); }, HOLO_RUN_MS);
+  return HOLO_RUN_MS;
 }
-// a desktop's pointer leans the twirl of the card under it, as the video's tilt does, and lets it go when it leaves
-function holoLean(e) {
-  if (!HOLO || reduceMotion || !finePointer) return;
-  const card = e.type === 'pointermove' ? e.target.closest('#board .cell.bonus') : null;
-  if (app.holoCard && app.holoCard !== card) app.holoCard.style.setProperty('--holo-turn', `${app.holoCard.holoBase || 0}deg`);
-  app.holoCard = card;
-  if (!card) return;
-  const r = card.getBoundingClientRect();
-  const lean = ((e.clientX - r.left) / r.width - 0.5) * 60 + ((e.clientY - r.top) / r.height - 0.5) * 30;
-  card.style.setProperty('--holo-turn', `${(card.holoBase || 0) + lean}deg`);
-}
+// the stock runs over the board cards a played hand used; the time it ends (playedActs and playWin wait for it)
+const holoRunHand = (hand) => performance.now() + Math.max(0, ...[...(hand.bonusCells || []), ...(hand.jokerCells || [])].filter((i) => i < BANK).map((i) => holoRun(els.cells[i])));
 
-function flipCard(cell, delay = 0) {
-  holoTurn(cell, 90); // turned over, its stock catches the light
+// `then`: its hero's act, once the stock has run over its face (or 420 ms on, with no stock)
+function flipCard(cell, delay = 0, then = null) {
+  if (HOLO && !reduceMotion) setTimeout(() => holoRun(cell, then), delay + FLIP_HALF_MS); // its face shows, and the stock runs over it
+  else if (then) setTimeout(then, delay + 420);
   if (reduceMotion) return;
   cell.style.setProperty('--flip-delay', `${delay}ms`);
   cell.classList.remove('flip');
@@ -10635,12 +10664,12 @@ function turnCard(i, { sheet = true } = {}) {
   const first = !cardSeen(c.kind);
   st.tips[`seen:${c.kind}`] = true;
   renderCell(i);
-  flipCard(cell);
-  sfx('flip');
-  // its hero acts once it is face up; a new kind's sheet dims the board, so that card acts when its sheet is closed
+  // its hero acts once it is face up and its stock has run over it (switched on meanwhile, it acts after that run); a
+  // new kind's sheet dims the board, so that card acts when its sheet is closed
   const act = () => { if (!actingKind(cardArt(i))) heroAct(i, c.kind, { wait: 5000 }); };
+  flipCard(cell, 0, first && sheet ? null : act);
+  sfx('flip');
   if (first && sheet) app.sheetActs.set(c.kind, act);
-  else setTimeout(act, 420);
   if (!first) return;
   logEvent('card', { kind: c.kind, cell: i });
   persist();
@@ -10836,10 +10865,12 @@ async function attemptBank(path, source) {
   clearPath();
   haptic(hand.points >= 10 ? [14, 40, 18] : 12);
   // A strong hand catches fire first (the combination), then the count follows; dice that burn already (held) count
-  // at once, and so does the hand that clears the level (GPT's review, 04.11.2026: PLAY must never look ignored)
-  const burning = mode.id === 'auto' && FIRE_HANDS.has(hand.category) ? [...hand.cells, ...(hand.jokerCells || [])] : [];
+  // at once, and so does the hand that clears the level (GPT's review, 04.11.2026: PLAY must never look ignored);
+  // the dice only, never the joker's card (renderHeldFire)
+  const burning = mode.id === 'auto' && FIRE_HANDS.has(hand.category) ? hand.cells : [];
   const cleared = mode.id === 'auto' && st.game.phase === 'won';
   if (mode.id === 'auto' && st.game.phase === 'lost') { playLoss(hand, g); return; } // the run's end lights nothing
+  const passEnd = mode.id === 'auto' ? holoRunHand(hand) : 0; // the played cards' stock runs first, the heroes after it
   if (burning.length) {
     const lit = !!app.fire && burning.every((i) => app.fire.burning().includes(i));
     app.fire = app.fire || createFire(els.board);
@@ -10850,7 +10881,7 @@ async function attemptBank(path, source) {
       if (!stillCurrent(st, modeId)) { app.fire.out(); app.busy = false; return; }
     }
   }
-  if (cleared) { playWin(hand, g); return; }
+  if (cleared) { playWin(hand, g, passEnd); return; }
   // A hand with a bonus is counted on the board like any other: the combination, then the bonus's hit
   // (owner, 03.11.2026: no full-screen bonus screen)
   showReveal(hand, { remaining: g.level.target - g.score });
@@ -10876,6 +10907,10 @@ async function attemptBank(path, source) {
   }
   renderPath();
   setPreview(`${hand.label} +${hand.total}`, 'good');
+  if (passEnd > performance.now()) { // the played card's stock runs over it before its hero acts or it makes way
+    await wait(passEnd - performance.now());
+    if (!stillCurrent(st, modeId)) { app.busy = false; return; }
+  }
   const actors = mode.id === 'auto' ? await playedActs(hand) : []; // the cards it used make way only once their heroes have acted
   popped.forEach((i) => els.cells[i].classList.add('bank-pop'));
   faded.forEach((i) => els.cells[i].classList.add('burn'));
@@ -11048,10 +11083,11 @@ function playedActs(hand) {
   return Promise.all(acts).then(() => { removeEventListener('pointerdown', skip, true); return cards; });
 }
 
-function playWin(hand, g0) {
+function playWin(hand, g0, passEnd = 0) {
   const st = S();
   const g = st.game;
   const t0 = performance.now();
+  const lead = Math.max(0, passEnd - t0); // the cards' stock runs over them first, and their heroes act after it (holoRun)
   const anims = [];
   const timers = [];
   const extras = []; // the moment's own elements: the black, a flying sticker, the overshoot at the line
@@ -11098,9 +11134,9 @@ function playWin(hand, g0) {
   // board stays until the last hero has finished, the black and the cleared screen come `lag` ms later; a tap still
   // skips to the pick («Ждать конца»)
   const order = used.filter((i) => cardEl(i)).sort((a, b) => a - b);
-  const hold = reduceMotion ? 0 : Math.max(0, ...order.map((i, k) => (actMs(kindOf(i)) ? WIN.step * k + actMs(kindOf(i)) : 0)));
+  const hold = reduceMotion ? 0 : Math.max(0, ...order.map((i, k) => (actMs(kindOf(i)) ? lead + WIN.step * k + actMs(kindOf(i)) : 0)));
   const lag = Math.max(0, hold - (WIN.snap + 60));
-  order.forEach((i, k) => at(WIN.step * k, () => {
+  order.forEach((i, k) => at(lead + WIN.step * k, () => {
     if (reduceMotion) return;
     actingCard(cardEl(i));
     moved.push(cardEl(i));
@@ -11133,7 +11169,8 @@ function playWin(hand, g0) {
     chip.className = 'win-chip';
     chip.innerHTML = sticker.innerHTML;
     // the bare multiplier is in its hero's dark ink (Figma 1339:2155): in flight over the black it rides on its card's colour
-    Object.assign(chip.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, background: getComputedStyle(cardEl(i)).backgroundColor, color: cs.color, fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight, letterSpacing: cs.letterSpacing });
+    // (--card: an acting card paints its colour inside its picture's cut, not as its own background)
+    Object.assign(chip.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, background: getComputedStyle(cardEl(i)).getPropertyValue('--card').trim(), color: cs.color, fontFamily: cs.fontFamily, fontSize: cs.fontSize, fontWeight: cs.fontWeight, letterSpacing: cs.letterSpacing });
     document.body.appendChild(chip);
     extras.push(chip);
     sticker.style.visibility = 'hidden'; // the sticker leaves its card for the count
@@ -11785,8 +11822,6 @@ function bind() {
   const board = els.board;
   board.addEventListener('pointerdown', onPointerDown);
   board.addEventListener('pointermove', onPointerMove);
-  board.addEventListener('pointermove', holoLean);
-  board.addEventListener('pointerleave', holoLean);
   document.body.classList.toggle('holo', HOLO);
   board.addEventListener('pointerup', onPointerUp);
   board.addEventListener('pointercancel', onPointerCancel);

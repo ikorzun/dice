@@ -537,20 +537,41 @@ body[data-look="modern"] .board::before { content: none; } /* no frame, and the 
 .cell.bonus .art { display: block; left: 3.7%; top: -14.81%; width: 92.59%; height: 92.59%; background: var(--peek) center bottom / contain no-repeat; } /* 100 px at 5, -15 */
 /* The cards' holographic stock (app.js HOLO; owner, 13.11.2026, after a Balatro polychrome video): the rainbow twirl of
    scripts/holo.py over the card's own colour and arch, under its hero and words, in the blend that keeps the card's light
-   and takes the twirl's hue, a third of the way (--holo, the one number to change). It turns on the card's moments
-   (--holo-turn, set by app.js) and rests still between them. Not on a bank's or the shop's small card, nor in the acting
-   look, which is the card's flat colour. */
+   and takes the twirl's hue, a third of the way at most (.34 in holoRun). Not on the card at rest: it runs over a board
+   card's face once at the card's moments, before its hero acts (.holo-run, set by app.js holoRun; owner, 18.11.2026:
+   «голография у карты не постоянно. а пробегает либо перед анимацией, либо после»; it lay on every card and turned at
+   those moments before): it comes, sweeps across the face turning, and goes, in 0.6 s. Its opacity changes on the twirl
+   itself: on its box it would cut the twirl's blend off from the card under it. Not on a bank's or the shop's small card,
+   nor in the acting look, which is the card's flat colour. */
 .cell .holo { position: absolute; display: none; pointer-events: none; }
 body.holo .cell.bonus .holo { display: block; left: 0; top: 0; width: 100%; height: 100%; border-radius: inherit; overflow: hidden; }
-body.holo .cell.bonus .holo::before { content: ""; position: absolute; inset: -42%; background: var(--holo-twirl) center / 100% 100% no-repeat; mix-blend-mode: color; opacity: var(--holo, .34); transform: rotate(var(--holo-turn, 0deg)); transition: transform 520ms cubic-bezier(.2, .7, .2, 1); }
+body.holo .cell.bonus .holo::before { content: ""; position: absolute; inset: -42%; background: var(--holo-twirl) center / 100% 100% no-repeat; mix-blend-mode: color; opacity: 0; }
+body.holo .cell.bonus.holo-run .holo::before { animation: holoRun 600ms cubic-bezier(.35, .1, .35, 1) both; }
+@keyframes holoRun {
+  0% { opacity: 0; transform: translate(-24%, -24%) rotate(-50deg); }
+  30%, 62% { opacity: .34; }
+  100% { opacity: 0; transform: translate(24%, 24%) rotate(50deg); }
+}
 body.holo #bank .cell.bonus .holo, body.holo #shopBank .cell.bonus .holo, body.holo .cell.bonus.acting .holo { display: none; }
 /* While its hero acts (Figma 1339:2155 Card-animation; owner, 10.11.2026: «убираем весь текст и внутреннюю рамку,
    увеличиваем героя»): no name, no multiplier, no arch, no border, every corner 24, the hero's own colour over the whole
-   card; the portrait's square 152 px, rising 42 px over the card's top, cut to 107 by 151 px with its bottom corners
-   rounded 22, so the card's sides and bottom crop the bust. */
-.cell.bonus.acting { background: var(--card) border-box; border-color: transparent; border-radius: 21.82%; box-shadow: none; }
+   card; the portrait's square 152 px, rising 43 px over the card's top, cut exactly at the card's own sides, bottom and
+   bottom corners, so the card crops the bust with no rim of its colour round it (owner, 18.11.2026: «в картах изображение
+   и анимация обрезается и есть зазоры»: the cut was 107 px of 108 inside a 1 px border, its corners 22 to the card's 24).
+   No border meanwhile, so the numbers count from the card's edge; the cut's insets and corners are the card's edges and
+   corners as shares of the square (20.74, 20 and 0.74 of 140.74; 21.82 of 140.74). The card's colour is laid inside the
+   same cut, under the portrait (::before, the card's own box in the square; the portrait ::after), and the card paints
+   none: the card's colour and the cut's edge, each smoothed on its own, let the colour through as a hairline, and where a
+   card stood off the pixel grid (the popup's, centred) Chromium laid the colour 1.5 screen pixels off the cut. */
+.cell.bonus.acting { background: none; border-width: 0; border-radius: 21.82%; box-shadow: none; }
 .cell.bonus.acting .arch, .cell.bonus.acting .tag, .cell.bonus.acting .x2 { visibility: hidden; }
-.cell.bonus.acting .art { left: -20.74%; top: -40%; width: 140.74%; height: 140.74%; clip-path: inset(0 14.47% .66% 15.13% round 0 0 calc(22px * var(--kb, 1)) calc(22px * var(--kb, 1))); } /* 152 px at -21, -42 */
+.cell.bonus.acting .art { left: -20.74%; top: -40%; width: 140.74%; height: 140.74%; background: none; clip-path: inset(0 14.211% .526% 14.736% round 0 0 15.504% 15.504%); } /* 152 px at -22, -43 */
+.cell.bonus.acting .art::before, .cell.bonus.acting .art::after { content: ""; position: absolute; }
+.cell.bonus.acting .art::before { left: 14.736%; top: 28.422%; width: 71.054%; height: 71.054%; border-radius: 21.82%; background: var(--card); }
+.cell.bonus.acting .art::after { inset: 0; background: var(--peek) center bottom / contain no-repeat; }
+.cell.bonus.acting .art.hero-act::after { display: none; } /* the act's picture over the colour instead */
+#bank .cell.bonus.acting .art { clip-path: inset(0 14.211% .526% 14.736% round 0 0 17.763% 17.763%); } /* the small card's corners: 25 of 140.74 */
+#bank .cell.bonus.acting .art::before { border-radius: 25%; }
 /* A hero's act on its card (hero-acts.js): the act's picture is the portrait's square, laid over it while the portrait
    hides under it, and cut like it in every look */
 .cell.bonus .art.hero-act, .boss-face.hero-act { background-image: none; }
@@ -1022,10 +1043,12 @@ body.wide .controls .cnt::before { content: '×'; }
 .popup-card { flex: none; margin-top: calc(219px * var(--k, 1)); width: calc(320px * var(--k, 1)); display: flex; flex-direction: column; align-items: center; gap: calc(20px * var(--k, 1)); animation: bossIn 160ms cubic-bezier(.2, .8, .3, 1) both; }
 body.wide .popup { justify-content: center; }
 body.wide .popup-card { margin-top: 0; }
-.popup-hero .cell.bonus { display: block; flex: none; width: calc(160px * var(--k, 1)); aspect-ratio: 1; border: 0; --kb: calc(var(--k, 1) * 160 / 110); } /* the art's corners: 22 of 110 */
-/* the art square 221.09 at −31.14, −61.39 of the 160 card (Figma 1340:1006); the acting look's own numbers count from inside
-   a 1 px border, which a browser rounds to whole screen pixels, so this card has none (it is see-through when acting anyway) */
-.popup-hero .cell.bonus.acting .art { left: -19.46%; top: -38.37%; width: 138.18%; height: 138.18%; }
+.popup-hero .cell.bonus { display: block; flex: none; width: calc(160px * var(--k, 1)); aspect-ratio: 1; border: 0; --kb: calc(var(--k, 1) * 160 / 110); }
+/* the art square 221.09 at −31.14, −59.9 of the 160 card (Figma 1340:1006 has −61.39, where the square stops 0.3 px short
+   of the card's bottom and its last row of pixels blends with the card's colour): lowered to pass the bottom by 0.74 % as
+   on the board, and cut at the card's own sides, bottom and corners like the board's (21.82 of 138.18) */
+.popup-hero .cell.bonus.acting .art { left: -19.46%; top: -37.44%; width: 138.18%; height: 138.18%; clip-path: inset(0 13.548% .536% 14.083% round 0 0 15.791% 15.791%); }
+.popup-hero .cell.bonus.acting .art::before { left: 14.083%; top: 27.095%; width: 72.369%; height: 72.369%; } /* the card's box in this square */
 .thing-hero .sigil { width: calc(160px * var(--k, 1)); height: calc(160px * var(--k, 1)); } /* a thing's sheet: its picture as large as a card */
 .popup-text h3 .stars { font: 400 .7em/1 system-ui, sans-serif; color: rgba(255, 255, 255, .8); letter-spacing: .05em; vertical-align: .15em; }
 .popup-text { display: flex; flex-direction: column; gap: calc(10px * var(--k, 1)); width: 100%; text-align: center; }
