@@ -8,6 +8,7 @@
 let bridge = null;
 let hosted = false; // the page loaded the Bridge: never fall back to the browser's storage (Playgama 3.2.1)
 let readOnly = false; // the saves could not be read: writing now would put a fresh game over the player's run
+let platformLang = null; // the language the platform reports (ISO 639-1), read once after initialize()
 const cache = new Map();
 const dirty = new Set();
 
@@ -35,7 +36,9 @@ export async function setupPlatform(keys) {
   } catch {
     readOnly = true; // the game starts fresh but keeps its hands off the player's saves
   }
-  // the language comes from the platform only (Playgama 3.4.2); the game speaks English, its default and fallback
+  // the language comes from the platform only (Playgama 3.4.2, required step 3): read once; the game speaks English
+  // only, its default and fallback, so every other language starts in English until a translation exists
+  try { platformLang = String(b.platform.language || 'en').slice(0, 2).toLowerCase(); } catch { platformLang = 'en'; }
   document.documentElement.lang = 'en';
   const save = () => flushSaves();
   document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
@@ -45,6 +48,7 @@ export async function setupPlatform(keys) {
 
 export const onPlatform = () => !!bridge;
 export const platformBridge = () => bridge;
+export const platformLanguage = () => platformLang;
 
 export function load(key) {
   if (hosted) return cache.has(key) ? cache.get(key) : null;

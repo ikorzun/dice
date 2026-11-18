@@ -291,6 +291,7 @@ body {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none; /* a long press opens no iOS menu or magnifier (Playgama 1.4.5) */
 }
 [hidden] { display: none !important; }
 button { font-family: inherit; cursor: pointer; }
