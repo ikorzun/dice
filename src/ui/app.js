@@ -3702,7 +3702,7 @@ function warmArt() {
       for (const prop of rule.style) {
         if (!prop.startsWith('--')) continue;
         const m = /url\("?([^")]+)"?\)/.exec(rule.style.getPropertyValue(prop));
-        if (m && /(^|\/)(things|cards|portraits)\//.test(m[1])) urls.add(new URL(m[1], base).href);
+        if (m && !m[1].startsWith('data:') && /(^|\/)(things|cards|portraits)\//.test(m[1])) urls.add(new URL(m[1], base).href);
       }
     }
   };

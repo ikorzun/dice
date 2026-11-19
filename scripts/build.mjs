@@ -115,8 +115,10 @@ const MIME = { '.mp3': 'audio/mpeg', '.otf': 'font/otf', '.ttf': 'font/ttf', '.p
 // first screen stays inside the page: the splash, the dice, the matcaps, the small icons, the fonts and the sounds.
 // dist/index.html takes the files from the repository's assets (GitHub Pages serves both), each portal's archive carries
 // its own copy (besideFiles, copyFiles), and the claude.ai fragment inlines the pictures and has no acts (its portraits
-// stand still, its portal shows the thing alone).
-const FILE_URL = /url\("\.\.\/\.\.\/assets\/ui\/((acts|portal|things|cards|portraits)\/[^"]+\.(?:avif|webp|svg))"\)/g;
+// stand still, its portal shows the thing alone). The Knight's card (its back, arch and portrait, 36 KB) stays inside the
+// page: it is the first screen's card in every run (UNLOCK_LEVEL 1), and the Poki page, which has no splash, showed it
+// a quarter of a second before its pictures on a slow network (owner, 19.11.2026: «Да, вшей»).
+const FILE_URL = /url\("\.\.\/\.\.\/assets\/ui\/((?!cards\/(?:back|arch)-knight\.|portraits\/knight\.)(acts|portal|things|cards|portraits)\/[^"]+\.(?:avif|webp|svg))"\)/g;
 const cssSource = readFileSync('src/ui/styles.css', 'utf8');
 const FILES = [...new Set([...cssSource.matchAll(FILE_URL)].map((m) => m[1]))];
 const inline = (source) => source.replace(/url\("\.\.\/\.\.\/(assets\/[^"]+)"\)/g, (_, file) => `url("data:${MIME[extname(file)]};base64,${readFileSync(file).toString('base64')}")`);
